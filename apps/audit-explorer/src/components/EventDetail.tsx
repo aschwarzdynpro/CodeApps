@@ -1,8 +1,18 @@
-import type { AuditEvent } from '../types/audit'
+import type { AttributeChange, AuditEvent } from '../types/audit'
 import { OperationBadge } from './OperationBadge'
 import { formatDateTime } from '../utils/format'
 
-export function EventDetail({ event }: { event: AuditEvent }) {
+interface EventDetailProps {
+  event: AuditEvent
+  changes: AttributeChange[]
+  loadingChanges: boolean
+}
+
+export function EventDetail({
+  event,
+  changes,
+  loadingChanges,
+}: EventDetailProps) {
   return (
     <section className="card detail">
       <div className="detail-top">
@@ -33,6 +43,10 @@ export function EventDetail({ event }: { event: AuditEvent }) {
         <div className="note">Record was deleted — no column-level changes.</div>
       ) : event.operation === 'Access' ? (
         <div className="note">Access event — record was read, not modified.</div>
+      ) : loadingChanges ? (
+        <div className="note">Loading field changes…</div>
+      ) : changes.length === 0 ? (
+        <div className="note">No column-level changes recorded.</div>
       ) : (
         <div className="changes">
           <div className="changes-head">
@@ -40,7 +54,7 @@ export function EventDetail({ event }: { event: AuditEvent }) {
             <span>Old value</span>
             <span>New value</span>
           </div>
-          {event.changes.map((c) => (
+          {changes.map((c) => (
             <div className="change-row" key={c.attribute}>
               <span className="change-attr">{c.attribute}</span>
               <span className="change-old">{c.oldValue || '—'}</span>

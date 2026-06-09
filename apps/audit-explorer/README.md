@@ -34,12 +34,22 @@ src/
 ├── App.tsx               # dashboard shell + drill-down view state
 ├── types/audit.ts        # audit domain model
 ├── services/
-│   ├── auditService.ts     # service interface + mock implementation
-│   └── mockData.ts         # seeded, deterministic sample audit log
+│   ├── auditService.ts          # AuditService interface + exported singleton
+│   ├── dataverseAuditService.ts # real impl (audit table + RetrieveAuditDetails)
+│   ├── mockAuditService.ts      # fallback impl over the sample log
+│   └── mockData.ts              # seeded, deterministic sample audit log
 ├── hooks/useAudit.ts     # data loading
 ├── components/           # KpiCards, Timeline, BarChart, EventList, EventDetail…
 └── utils/format.ts       # dates, operation colors, aggregation helpers
 ```
+
+### Data layer
+
+The UI depends only on the `AuditService` interface (`list()` for the
+aggregates/list, `getChanges()` for the lazy field-level diff). The exported
+singleton is the **Dataverse** implementation, which **auto-falls back to mock
+data** whenever the generated data source isn't present — so local dev just
+works, and going live never touches the UI.
 
 ## Run locally
 
@@ -53,20 +63,38 @@ and serves the generated sample log in `src/services/mockData.ts`.
 
 ## Connect to the Dataverse audit data
 
-1. Install the CLI: `npm install -g @microsoft/power-apps`
-2. Initialize: `power-apps init --display-name "Audit Explorer" --environment-id <ENV-ID>`
-3. Replace the mock `auditService` with a real implementation that:
-   - queries the **Audit** table for the dashboard aggregates, and
-   - calls **`RetrieveRecordChangeHistory`** / **`RetrieveAuditDetails`** to
-     resolve the attribute-level old/new values for the detail view.
+Prerequisites: an environment with **code apps enabled**, **auditing turned on**
+for the org and the tables/columns you care about, a **Power Apps Premium**
+license, and **PAC CLI ≥ 1.46**.
 
-   The UI and hooks only depend on the `AuditService` interface, so they stay
-   unchanged. See the Dataverse auditing developer docs:
-   <https://learn.microsoft.com/en-us/power-apps/developer/data-platform/auditing/overview>
-4. Build & publish:
-   ```bash
-   npm run build
-   power-apps push
-   ```
+```bash
+npm install -g @microsoft/power-apps
 
-See [`../../docs/SETUP.md`](../../docs/SETUP.md) for the full workflow.
+# 1. Authenticate + register the app in your environment
+pac auth create --environment <ENV-ID>
+power-apps init --display-name "Audit Explorer" --environment-id <ENV-ID>
+
+# 2. Add the audit table → generates src/generated/services/AuditService.ts
+pac code add-data-source -a dataverse -t audit
+
+# 3. (For the diff) add the RetrieveAuditDetails function
+power-apps find-dataverse-api      # then add-dataverse-api for the match
+
+# 4. Test against real data, then publish
+npm run dev                        # open the "Local Play" URL
+npm run build
+power-apps push
+```
+
+Then finish the wiring in `src/services/dataverseAuditService.ts`:
+
+- In `loadAuditTable()`, swap the dynamic import for the generated static import
+  (`import { AuditService } from '../generated/services/AuditService'`) for full
+  type safety.
+- In `getChanges()`, map the `RetrieveAuditDetails` response (its `OldValue` /
+  `NewValue` attribute collections) into `AttributeChange[]`.
+
+The dashboard, hooks and components stay unchanged. Dataverse auditing docs:
+<https://learn.microsoft.com/en-us/power-apps/developer/data-platform/auditing/overview>
+
+See [`../../docs/SETUP.md`](../../docs/SETUP.md) for the general workflow.

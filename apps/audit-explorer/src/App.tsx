@@ -9,7 +9,8 @@ import { BarChart } from './components/BarChart'
 import { EventList } from './components/EventList'
 import { EventDetail } from './components/EventDetail'
 import { Breadcrumb } from './components/Breadcrumb'
-import type { AuditOperation } from './types/audit'
+import { auditService } from './services/auditService'
+import type { AttributeChange, AuditOperation } from './types/audit'
 import { countBy, withinRange } from './utils/format'
 
 type View =
@@ -22,6 +23,8 @@ function App() {
 
   const [view, setView] = useState<View>({ level: 'overview' })
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [changes, setChanges] = useState<AttributeChange[]>([])
+  const [changesLoading, setChangesLoading] = useState(false)
 
   // Global filters — persist as you drill in and out.
   const [rangeDays, setRangeDays] = useState<number>(30)
@@ -64,13 +67,39 @@ function App() {
 
   const selectedEvent = events.find((e) => e.id === selectedId) ?? null
 
+  // Fetches the field-level diff lazily when an event is opened. Runs in event
+  // handlers (not effects), so Delete/Access skip the call entirely.
+  const selectEvent = (id: string) => {
+    setSelectedId(id)
+    const ev = events.find((e) => e.id === id)
+    if (!ev) return
+    if (ev.operation === 'Delete' || ev.operation === 'Access') {
+      setChanges([])
+      setChangesLoading(false)
+      return
+    }
+    setChangesLoading(true)
+    auditService
+      .getChanges(id)
+      .then((c) => setChanges(c))
+      .catch(() => setChanges(ev.changes))
+      .finally(() => setChangesLoading(false))
+  }
+
+  const clearSelection = () => {
+    setSelectedId(null)
+    setChanges([])
+    setChangesLoading(false)
+  }
+
   const goOverview = () => {
     setView({ level: 'overview' })
-    setSelectedId(null)
+    clearSelection()
   }
   const openList = (by: 'table' | 'user', value: string, eventId?: string) => {
     setView({ level: 'list', by, value })
-    setSelectedId(eventId ?? null)
+    if (eventId) selectEvent(eventId)
+    else clearSelection()
   }
 
   return (
@@ -146,11 +175,15 @@ function App() {
             <EventList
               events={listEvents}
               activeId={selectedId}
-              onOpen={setSelectedId}
+              onOpen={selectEvent}
               showTable={view.by === 'user'}
             />
             {selectedEvent ? (
-              <EventDetail event={selectedEvent} />
+              <EventDetail
+                event={selectedEvent}
+                changes={changes}
+                loadingChanges={changesLoading}
+              />
             ) : (
               <aside className="card detail detail--empty">
                 Select an event to see the field-level changes.

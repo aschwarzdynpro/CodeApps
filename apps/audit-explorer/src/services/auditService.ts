@@ -1,24 +1,24 @@
-import type { AuditEvent } from '../types/audit'
-import { mockAuditEvents } from './mockData'
+import type { AttributeChange, AuditEvent } from '../types/audit'
+import { dataverseAuditService } from './dataverseAuditService'
 
 /**
- * Service contract for reading audit data. The mock implementation serves
- * generated sample events; a real implementation would query the Dataverse
- * `audit` table and call `RetrieveRecordChangeHistory` / `RetrieveAuditDetails`
- * behind the same interface, so the dashboard and hooks stay unchanged.
+ * Service contract for reading audit data.
+ *
+ * - `list()` powers the dashboard aggregates and the event list (from the
+ *   Dataverse `audit` table).
+ * - `getChanges()` resolves the field-level old/new diff for one event
+ *   (from `RetrieveAuditDetails`), loaded lazily when an event is opened.
+ *
+ * The exported singleton is the Dataverse-backed implementation, which falls
+ * back to mock data automatically when no environment/data source is wired up.
+ * The dashboard and hooks only depend on this interface, so going live never
+ * touches the UI.
  */
 export interface AuditService {
   /** Returns audit events, newest first. */
   list(): Promise<AuditEvent[]>
+  /** Returns the attribute-level changes for a single audit record. */
+  getChanges(auditId: string): Promise<AttributeChange[]>
 }
 
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-class MockAuditService implements AuditService {
-  async list(): Promise<AuditEvent[]> {
-    await delay(400)
-    return mockAuditEvents.map((e) => ({ ...e }))
-  }
-}
-
-export const auditService: AuditService = new MockAuditService()
+export const auditService: AuditService = dataverseAuditService
