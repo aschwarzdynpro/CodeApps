@@ -40,3 +40,11 @@ export interface AuditEvent {
   /** Column-level changes (empty for Delete / Access). */
   changes: AttributeChange[]
 }
+
+/** A Dataverse table that has auditing enabled. */
+export interface AuditedTable {
+  /** Logical name, e.g. "account". */
+  logicalName: string
+  /** Friendly display name, e.g. "Account". */
+  displayName: string
+}

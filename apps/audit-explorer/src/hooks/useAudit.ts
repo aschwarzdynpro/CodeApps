@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { auditService } from '../services/auditService'
-import type { AuditEvent } from '../types/audit'
+import type { AuditEvent, AuditedTable } from '../types/audit'
 
 interface UseAuditResult {
   events: AuditEvent[]
+  auditedTables: AuditedTable[]
   loading: boolean
   error: string | null
   reload: () => void
@@ -11,6 +12,7 @@ interface UseAuditResult {
 
 export function useAudit(): UseAuditResult {
   const [events, setEvents] = useState<AuditEvent[]>([])
+  const [auditedTables, setAuditedTables] = useState<AuditedTable[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -18,7 +20,12 @@ export function useAudit(): UseAuditResult {
     setLoading(true)
     setError(null)
     try {
-      setEvents(await auditService.list())
+      const [events, tables] = await Promise.all([
+        auditService.list(),
+        auditService.listAuditedTables(),
+      ])
+      setEvents(events)
+      setAuditedTables(tables)
     } catch {
       setError('Could not load audit data.')
     } finally {
@@ -32,5 +39,5 @@ export function useAudit(): UseAuditResult {
     void load()
   }, [load])
 
-  return { events, loading, error, reload: () => void load() }
+  return { events, auditedTables, loading, error, reload: () => void load() }
 }

@@ -1,4 +1,4 @@
-import type { AttributeChange, AuditEvent } from '../types/audit'
+import type { AttributeChange, AuditEvent, AuditedTable } from '../types/audit'
 import { dataverseAuditService } from './dataverseAuditService'
 
 /**
@@ -19,6 +19,8 @@ export interface AuditService {
   list(): Promise<AuditEvent[]>
   /** Returns the attribute-level changes for a single audit record. */
   getChanges(auditId: string): Promise<AttributeChange[]>
+  /** Returns all Dataverse tables that currently have auditing enabled. */
+  listAuditedTables(): Promise<AuditedTable[]>
 }
 
 export const auditService: AuditService = dataverseAuditService

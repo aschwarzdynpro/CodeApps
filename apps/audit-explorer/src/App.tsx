@@ -9,6 +9,7 @@ import { BarChart } from './components/BarChart'
 import { EventList } from './components/EventList'
 import { EventDetail } from './components/EventDetail'
 import { Breadcrumb } from './components/Breadcrumb'
+import { AuditedTablesList } from './components/AuditedTablesList'
 import { auditService } from './services/auditService'
 import type { AttributeChange, AuditOperation } from './types/audit'
 import { countBy, withinRange } from './utils/format'
@@ -19,7 +20,7 @@ type View =
 
 function App() {
   const { mode } = usePower()
-  const { events, loading, error } = useAudit()
+  const { events, auditedTables, loading, error } = useAudit()
 
   const [view, setView] = useState<View>({ level: 'overview' })
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -30,8 +31,12 @@ function App() {
   const [rangeDays, setRangeDays] = useState<number>(30)
   const [operation, setOperation] = useState<AuditOperation | 'All'>('All')
   const [search, setSearch] = useState('')
+  // Table slicer (logical name) — set from the audited-tables list.
+  const [tableFilter, setTableFilter] = useState<string | null>(null)
 
-  const filtered = useMemo(() => {
+  // Filtered by date / operation / search, but NOT the table slicer — so the
+  // audited-tables list can still show every table's count.
+  const baseFiltered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return events
       .filter((e) => withinRange(e, rangeDays))
@@ -44,6 +49,28 @@ function App() {
           e.user.name.toLowerCase().includes(q),
       )
   }, [events, rangeDays, operation, search])
+
+  // The set every tile/chart uses — base filters plus the table slicer.
+  const filtered = useMemo(
+    () =>
+      tableFilter
+        ? baseFiltered.filter((e) => e.tableLogicalName === tableFilter)
+        : baseFiltered,
+    [baseFiltered, tableFilter],
+  )
+
+  // Per-table event counts for the slicer (ignores the slicer itself).
+  const tableCounts = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const e of baseFiltered)
+      c[e.tableLogicalName] = (c[e.tableLogicalName] ?? 0) + 1
+    return c
+  }, [baseFiltered])
+
+  const activeTableName = tableFilter
+    ? (auditedTables.find((t) => t.logicalName === tableFilter)?.displayName ??
+      tableFilter)
+    : null
 
   const tableData = useMemo(
     () => countBy(filtered, (e) => e.tableName),
@@ -102,6 +129,9 @@ function App() {
     else clearSelection()
   }
 
+  const toggleTableFilter = (logicalName: string) =>
+    setTableFilter((prev) => (prev === logicalName ? null : logicalName))
+
   return (
     <div className="app">
       <header className="app-header">
@@ -135,31 +165,57 @@ function App() {
               setOperation((prev) => (prev === op ? 'All' : op))
             }
           />
-          <Timeline events={filtered} />
-          <div className="chart-grid">
-            <BarChart
-              title="Events by table"
-              data={tableData}
-              onSelect={(t) => openList('table', t)}
+
+          {activeTableName && (
+            <div className="filter-banner">
+              <span>
+                Dashboard filtered to <strong>{activeTableName}</strong>
+              </span>
+              <button
+                className="filter-banner-clear"
+                onClick={() => setTableFilter(null)}
+              >
+                Clear ✕
+              </button>
+            </div>
+          )}
+
+          <div className="overview-body">
+            <AuditedTablesList
+              tables={auditedTables}
+              counts={tableCounts}
+              activeTable={tableFilter}
+              onSelect={toggleTableFilter}
+              onClear={() => setTableFilter(null)}
             />
-            <BarChart
-              title="Most active users"
-              data={userData}
-              color="#8a5cf6"
-              onSelect={(u) => openList('user', u)}
-            />
+            <div className="overview-main">
+              <Timeline events={filtered} />
+              <div className="chart-grid">
+                <BarChart
+                  title="Events by table"
+                  data={tableData}
+                  onSelect={(t) => openList('table', t)}
+                />
+                <BarChart
+                  title="Most active users"
+                  data={userData}
+                  color="#8a5cf6"
+                  onSelect={(u) => openList('user', u)}
+                />
+              </div>
+              <section className="card">
+                <h3 className="card-title">Recent activity</h3>
+                <EventList
+                  events={filtered.slice(0, 8)}
+                  activeId={null}
+                  onOpen={(id) => {
+                    const ev = events.find((e) => e.id === id)
+                    if (ev) openList('table', ev.tableName, id)
+                  }}
+                />
+              </section>
+            </div>
           </div>
-          <section className="card">
-            <h3 className="card-title">Recent activity</h3>
-            <EventList
-              events={filtered.slice(0, 8)}
-              activeId={null}
-              onOpen={(id) => {
-                const ev = events.find((e) => e.id === id)
-                if (ev) openList('table', ev.tableName, id)
-              }}
-            />
-          </section>
         </>
       )}
 

@@ -2,6 +2,7 @@ import type {
   AttributeChange,
   AuditEvent,
   AuditOperation,
+  AuditedTable,
 } from '../types/audit'
 import { mockAuditService } from './mockAuditService'
 
@@ -134,6 +135,26 @@ export class DataverseAuditService {
     //   const detail = await AuditDetailsService.retrieveAuditDetails(auditId)
     //   return mapAuditDetail(detail)
     return mockAuditService.getChanges(auditId)
+  }
+
+  /**
+   * List every table with auditing enabled, read from table metadata.
+   *
+   * Wire this to a metadata query against `EntityDefinitions`, filtering on
+   * `IsAuditEnabled`, e.g. (OData):
+   *
+   *   GET /api/data/v9.2/EntityDefinitions
+   *     ?$select=LogicalName,DisplayName
+   *     &$filter=IsAuditEnabled/Value eq true
+   *
+   * In a code app this metadata is reachable via the Power Apps client library
+   * (see the "Get table metadata" how-to). Map each definition to
+   * { logicalName, displayName }. Until wired up, the mock list is returned.
+   */
+  async listAuditedTables(): Promise<AuditedTable[]> {
+    // TODO: query EntityDefinitions where IsAuditEnabled/Value eq true and map
+    // LogicalName + DisplayName.UserLocalizedLabel.Label into AuditedTable.
+    return mockAuditService.listAuditedTables()
   }
 }
 

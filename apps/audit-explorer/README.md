@@ -12,6 +12,9 @@ Built on the official Power Apps Vite template (React 19 + TypeScript + Vite +
 - **Overview dashboard** — KPIs (total / Create / Update / Delete, active users,
   tables touched), a stacked **activity timeline** by day, and bar charts for
   *events by table* and *most active users*
+- **Audited-tables slicer** — a list of every table that has auditing enabled
+  (a superset of the tables with activity); click one to **filter all tiles and
+  charts** to that table, click again or *Clear* to reset
 - **Drill-down**: Overview → click a table/user → list of audit events → click
   an event → **field-level diff** (old value → new value), with a breadcrumb
   to walk back up
@@ -45,11 +48,16 @@ src/
 
 ### Data layer
 
-The UI depends only on the `AuditService` interface (`list()` for the
-aggregates/list, `getChanges()` for the lazy field-level diff). The exported
-singleton is the **Dataverse** implementation, which **auto-falls back to mock
-data** whenever the generated data source isn't present — so local dev just
-works, and going live never touches the UI.
+The UI depends only on the `AuditService` interface:
+
+- `list()` — events for the aggregates and the event list (from the `audit` table)
+- `getChanges()` — the lazy field-level diff (from `RetrieveAuditDetails`)
+- `listAuditedTables()` — tables with auditing enabled, for the slicer (from
+  table metadata: `EntityDefinitions` filtered on `IsAuditEnabled`)
+
+The exported singleton is the **Dataverse** implementation, which **auto-falls
+back to mock data** whenever the generated data source isn't present — so local
+dev just works, and going live never touches the UI.
 
 ## Run locally
 
@@ -93,6 +101,9 @@ Then finish the wiring in `src/services/dataverseAuditService.ts`:
   type safety.
 - In `getChanges()`, map the `RetrieveAuditDetails` response (its `OldValue` /
   `NewValue` attribute collections) into `AttributeChange[]`.
+- In `listAuditedTables()`, query `EntityDefinitions` where
+  `IsAuditEnabled/Value eq true` and map `LogicalName` + `DisplayName` into
+  `AuditedTable[]`.
 
 The dashboard, hooks and components stay unchanged. Dataverse auditing docs:
 <https://learn.microsoft.com/en-us/power-apps/developer/data-platform/auditing/overview>
