@@ -20,19 +20,21 @@ type View =
 
 function App() {
   const { mode } = usePower()
-  const { events, auditedTables, loading, error } = useAudit()
 
-  const [view, setView] = useState<View>({ level: 'overview' })
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [changes, setChanges] = useState<AttributeChange[]>([])
-  const [changesLoading, setChangesLoading] = useState(false)
-
-  // Global filters — persist as you drill in and out.
+  // Global filters — persist as you drill in and out. rangeDays drives the
+  // server-side query in useAudit, so it lives above the data hook.
   const [rangeDays, setRangeDays] = useState<number>(30)
   const [operation, setOperation] = useState<AuditOperation | 'All'>('All')
   const [search, setSearch] = useState('')
   // Table slicer (logical name) — set from the audited-tables list.
   const [tableFilter, setTableFilter] = useState<string | null>(null)
+
+  const { events, auditedTables, loading, error } = useAudit(rangeDays)
+
+  const [view, setView] = useState<View>({ level: 'overview' })
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [changes, setChanges] = useState<AttributeChange[]>([])
+  const [changesLoading, setChangesLoading] = useState(false)
 
   // Filtered by date / operation / search, but NOT the table slicer — so the
   // audited-tables list can still show every table's count.

@@ -1,4 +1,5 @@
 import type { AttributeChange, AuditEvent, AuditedTable } from '../types/audit'
+import type { AuditListOptions } from './auditService'
 import { mockAuditEvents } from './mockData'
 
 /**
@@ -24,9 +25,16 @@ const MOCK_AUDITED_TABLES: AuditedTable[] = [
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 export class MockAuditService {
-  async list(): Promise<AuditEvent[]> {
+  async list(options?: AuditListOptions): Promise<AuditEvent[]> {
     await delay(400)
-    return mockAuditEvents.map((e) => ({ ...e }))
+    const sinceDays = options?.sinceDays
+    const cutoff =
+      sinceDays !== undefined && Number.isFinite(sinceDays)
+        ? Date.now() - sinceDays * 86_400_000
+        : undefined
+    return mockAuditEvents
+      .filter((e) => cutoff === undefined || new Date(e.createdOn).getTime() >= cutoff)
+      .map((e) => ({ ...e }))
   }
 
   async getChanges(auditId: string): Promise<AttributeChange[]> {

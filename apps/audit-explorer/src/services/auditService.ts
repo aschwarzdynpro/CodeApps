@@ -14,9 +14,18 @@ import { dataverseAuditService } from './dataverseAuditService'
  * The dashboard and hooks only depend on this interface, so going live never
  * touches the UI.
  */
+export interface AuditListOptions {
+  /**
+   * Only return events created within the last N days. Applied server-side
+   * (OData `createdon ge <cutoff>`) so the date range survives the page cap.
+   * Omit (or pass Infinity) for the full log.
+   */
+  sinceDays?: number
+}
+
 export interface AuditService {
   /** Returns audit events, newest first. */
-  list(): Promise<AuditEvent[]>
+  list(options?: AuditListOptions): Promise<AuditEvent[]>
   /** Returns the attribute-level changes for a single audit record. */
   getChanges(auditId: string): Promise<AttributeChange[]>
   /** Returns all Dataverse tables that currently have auditing enabled. */

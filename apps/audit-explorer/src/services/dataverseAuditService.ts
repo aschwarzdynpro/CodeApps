@@ -4,6 +4,7 @@ import type {
   AuditOperation,
   AuditedTable,
 } from '../types/audit'
+import type { AuditListOptions } from './auditService'
 import { mockAuditService } from './mockAuditService'
 import { powerModeReady } from '../PowerProvider'
 import { AuditsService } from '../generated/services/AuditsService'
@@ -137,27 +138,43 @@ function mapAuditDetail(detail: AttributeAuditDetail | undefined): AttributeChan
 }
 
 export class DataverseAuditService {
-  async list(): Promise<AuditEvent[]> {
+  async list(options?: AuditListOptions): Promise<AuditEvent[]> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockAuditService.list()
+    if (mode !== 'power-platform') return mockAuditService.list(options)
     try {
-      // 5000 = one Dataverse page. The previous 500 cap meant a busy
-      // environment filled the whole result set with the current week,
-      // leaving the 7/30/all range filter with nothing to distinguish.
+      const sinceDays = options?.sinceDays
+      // Push the date range into the query — with the page cap below, a busy
+      // environment otherwise returns 5000 rows of the same week regardless
+      // of the selected range.
+      const filter =
+        sinceDays !== undefined && Number.isFinite(sinceDays)
+          ? `createdon ge ${new Date(Date.now() - sinceDays * 86_400_000).toISOString()}`
+          : undefined
       const result = await AuditsService.getAll({
         select: SELECT_FIELDS,
         orderBy: ['createdon desc'],
         top: 5000,
+        ...(filter ? { filter } : {}),
       })
       if (!result.success || !result.data) {
         console.warn('[audit] list() falling back to mock — result:', result)
-        return mockAuditService.list()
+        return mockAuditService.list(options)
       }
-      console.info('[audit] list() got', result.data.length, 'rows from Dataverse')
+      console.info(
+        '[audit] list() got',
+        result.data.length,
+        'rows from Dataverse',
+        filter ? `(filter: ${filter})` : '(no filter)',
+      )
+      if (result.data.length === 5000) {
+        console.warn(
+          '[audit] list() hit the 5000-row page cap — oldest events in range are truncated',
+        )
+      }
       return result.data.map(toAuditEvent)
     } catch (err) {
       console.warn('[audit] list() threw, falling back to mock:', err)
-      return mockAuditService.list()
+      return mockAuditService.list(options)
     }
   }
 
