@@ -42,6 +42,17 @@ Alle anderen unmanaged Solutions der Umgebung erscheinen unter „Other".
 - **Merge**: Deployment Solution als Ziel wählen, Feature-/Bug-Solutions
   ankreuzen, Komponenten-Plan prüfen (Konflikte markiert, Duplikate werden
   übersprungen) und mergen (`AddSolutionComponent` je Komponente).
+- **Compare (ALM)**: Solution wählen → Cloud Flows, Workflows, Business
+  Rules, Plugin Steps und Scripts werden über **DEV / UAT / PROD**
+  verglichen (Status, modifiedon, managed/unmanaged). Abweichungen sind
+  markiert und filterbar: *Missing*, *Status drift*, *Unmanaged in target*.
+  Cross-Env-Zugriff über den Microsoft-Dataverse-Konnektor
+  (`ListRecordsWithOrganization`, läuft mit den Rechten des angemeldeten
+  Benutzers in der jeweiligen Umgebung). Umgebungen sind aktuell hart in
+  `config.ts` hinterlegt (`ENVIRONMENTS`) — geplante Ausbaustufe ist eine
+  Steuertabelle. Hinweis: `modifiedon` wird bewusst nicht als Drift-Signal
+  gewertet (Solution-Import überschreibt es); Inhalts-Hashes
+  (clientdata/xaml/content) sind die nächste Ausbaustufe.
 
 ## Architektur
 

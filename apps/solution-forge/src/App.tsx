@@ -8,6 +8,7 @@ import { SolutionList } from './components/SolutionList'
 import { SolutionDetail } from './components/SolutionDetail'
 import { CreateSolutionDialog } from './components/CreateSolutionDialog'
 import { MergeWorkbench } from './components/MergeWorkbench'
+import { CompareWorkbench } from './components/CompareWorkbench'
 import { makerSolutionUrl } from './config'
 import type {
   SolutionComponentInfo,
@@ -15,7 +16,7 @@ import type {
   WorkingSolution,
 } from './types/solution'
 
-type Tab = 'workbench' | 'merge'
+type Tab = 'workbench' | 'merge' | 'compare'
 
 function App() {
   const { mode, environmentId } = usePower()
@@ -254,6 +255,12 @@ function App() {
         >
           Merge
         </button>
+        <button
+          className={`tab ${tab === 'compare' ? 'tab--active' : ''}`}
+          onClick={() => setTab('compare')}
+        >
+          Compare
+        </button>
       </nav>
 
       {loading && <div className="state">Loading solutions…</div>}
@@ -326,6 +333,13 @@ function App() {
 
       {!loading && !error && tab === 'merge' && (
         <MergeWorkbench solutions={allSolutions} onMerged={handleMerged} />
+      )}
+
+      {!loading && !error && tab === 'compare' && (
+        <CompareWorkbench
+          solutions={allSolutions}
+          initialSolutionId={selectedId}
+        />
       )}
 
       {showCreate && (

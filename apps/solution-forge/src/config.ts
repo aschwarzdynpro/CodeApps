@@ -9,9 +9,39 @@
  *   VITE_ADO_PROJECT=MyProject           # project containing the work items
  */
 
+import type { EnvironmentDef } from './types/comparison'
+
 // Project defaults — not secrets; env vars override them at build time.
 // (.env files are gitignored repo-wide, so the defaults live here.)
 const DEFAULT_ENVIRONMENT_ID = '84280d0b-d994-ed52-9789-116d9b73384f'
+
+/**
+ * Environments for the ALM comparison. Hardcoded for now; the planned
+ * upgrade is a Dataverse control table (e.g. sst_environmentconfig) read at
+ * startup, with these values as fallback. The connector's GetOrganizations()
+ * can validate the URLs against what the signed-in user can actually reach.
+ */
+export const ENVIRONMENTS: EnvironmentDef[] = [
+  {
+    key: 'dev',
+    label: 'DEV · NAAF-2',
+    url: 'https://operations-d365-schulz-naaf-2.crm4.dynamics.com',
+    environmentId: '84280d0b-d994-ed52-9789-116d9b73384f',
+    isCurrent: true,
+  },
+  {
+    key: 'uat',
+    label: 'UAT',
+    url: 'https://operations-d365-schulz-uat-1-1.crm4.dynamics.com',
+    environmentId: '2eaa34de-dcf1-e949-86d9-82d9fd748045',
+  },
+  {
+    key: 'prod',
+    label: 'PROD',
+    url: 'https://operations-d365-schulz-prod.crm4.dynamics.com',
+    environmentId: '0cb8d3e7-faf3-eb34-a648-e3e309c3164d',
+  },
+]
 const DEFAULT_ADO_ORG_URL = 'https://dev.azure.com/SchulzD365'
 const DEFAULT_ADO_PROJECT = 'D365UO'
 
