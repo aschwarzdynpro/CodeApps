@@ -57,6 +57,11 @@ export interface SolutionComponentInfo {
   typeName: string
   /** Best-effort display name of the component (logical name / GUID fallback). */
   displayName: string
+  /**
+   * rootcomponentbehavior for table components: 0 = include subcomponents,
+   * 1 = do not include, 2 = shell only. Undefined for non-table components.
+   */
+  rootBehavior?: number
 }
 
 export interface CreateWorkingSolutionInput {

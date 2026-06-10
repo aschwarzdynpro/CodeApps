@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // src/generated is emitted by the Power Apps generators (pac code
+  // add-data-source / add-dataverse-api) and not held to our lint rules.
+  globalIgnores(['dist', 'src/generated']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

@@ -75,24 +75,20 @@ pac code add-data-source -a dataverse -t publisher
 pac code add-data-source -a dataverse -t solutioncomponent
 ```
 
-Danach in `src/services/dataverseSolutionService.ts` die dynamischen
-`loadService(...)`-Aufrufe durch **statische Imports** der generierten
-Services ersetzen (analog `audit-explorer/src/services/dataverseAuditService.ts`)
-und die Mapper an die generierten Property-Namen anpassen — die dynamischen
-Specifier werden im Produktions-Bundle nicht aufgelöst und dienen nur dazu,
-dass die App vor dem Generieren baubar bleibt.
+`src/services/dataverseSolutionService.ts` importiert die generierten
+Services **statisch** und setzt voraus, dass alle vier Generatoren gelaufen
+sind — ohne `src/generated/` schlägt der Build fehl. Die Mapper sind an die
+generierten Modelle (`SolutionsModel`, `SolutioncomponentsModel`,
+`PublishersModel`) gebunden; nach einem erneuten Generieren mit anderen
+Shapes die SELECT-Listen und Mapper dort nachziehen.
 
 ### Merge support
 
-Für den Merge die Dataverse-Action **AddSolutionComponent** einbinden:
-
-```bash
-power-apps find-dataverse-api          # AddSolutionComponent suchen
-power-apps add-dataverse-api …         # erzeugt src/generated/services/AddSolutionComponentService.ts
-```
-
-Bis dahin meldet der Merge-Tab im Power-Platform-Modus einen klaren
-Hinweis; im Mock-Modus ist der komplette Ablauf demonstrierbar.
+Der Merge nutzt die Dataverse-Action **AddSolutionComponent**
+(`power-apps add-dataverse-api`, bereits eingebunden). Das
+`rootcomponentbehavior` der Quelle wird übernommen: Tabellen, die nur als
+Shell bzw. ohne Subkomponenten in der Feature-Solution stecken, landen
+genauso im Deployment-Ziel.
 
 ### Azure-DevOps-Links
 
