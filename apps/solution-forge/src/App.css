@@ -592,7 +592,7 @@
 .merge-pane select {
   width: 100%;
 }
-.merge-sources-title {
+.merge-target-title {
   margin-top: 18px;
 }
 .merge-source-list {

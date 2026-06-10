@@ -116,26 +116,7 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
   return (
     <div className="merge-layout">
       <div className="card merge-pane">
-        <h3 className="card-title">1 · Target deployment solution</h3>
-        {targets.length === 0 ? (
-          <div className="state">
-            No deployment solution yet — create one via “New Working Solution”
-            with type <strong>Deployment</strong>.
-          </div>
-        ) : (
-          <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
-            <option value="">Select target…</option>
-            {targets.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.title} ({t.uniqueName})
-              </option>
-            ))}
-          </select>
-        )}
-
-        <h3 className="card-title merge-sources-title">
-          2 · Working solutions to merge
-        </h3>
+        <h3 className="card-title">1 · Working solutions to merge</h3>
         {sources.length === 0 && (
           <div className="state">No feature / bug solutions available.</div>
         )}
@@ -155,6 +136,25 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
             </li>
           ))}
         </ul>
+
+        <h3 className="card-title merge-target-title">
+          2 · Target deployment solution
+        </h3>
+        {targets.length === 0 ? (
+          <div className="state">
+            No deployment solution yet — create one via “New Working Solution”
+            with type <strong>Deployment</strong>.
+          </div>
+        ) : (
+          <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
+            <option value="">Select target…</option>
+            {targets.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.title} ({t.uniqueName})
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="card merge-pane">
