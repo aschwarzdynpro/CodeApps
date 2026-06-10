@@ -112,26 +112,51 @@ function formatAuditValue(value: unknown): string {
   return String(value)
 }
 
-function isAttributeKey(key: string): boolean {
-  // Skip OData annotations (`@odata.type`, `attr@OData.Community...`) and the
-  // implicit type discriminator. The remaining keys are attribute logical names.
-  return !key.startsWith('@') && !key.includes('@odata.')
+const FORMATTED_VALUE_RE = /@odata\.community\.display\.v1\.formattedvalue$/i
+
+/**
+ * Split a RetrieveAuditDetails entity payload into raw attribute values and
+ * their formatted-value annotations. Lookups carry only a GUID in
+ * `_x_value`; the display name (primary field of the target row) arrives as
+ * `_x_value@OData.Community.Display.V1.FormattedValue` — same for option-set
+ * labels and localized dates. All other annotation keys are dropped.
+ */
+function splitDetailEntity(entity: Record<string, unknown> | undefined): {
+  values: Record<string, unknown>
+  formatted: Record<string, string>
+} {
+  const values: Record<string, unknown> = {}
+  const formatted: Record<string, string> = {}
+  for (const [key, val] of Object.entries(entity ?? {})) {
+    if (FORMATTED_VALUE_RE.test(key)) {
+      formatted[key.replace(FORMATTED_VALUE_RE, '')] = String(val ?? '')
+    } else if (!key.includes('@')) {
+      values[key] = val
+    }
+  }
+  return { values, formatted }
+}
+
+/** `_bookingstatus_value` → `bookingstatus`; other keys pass through. */
+function attributeLabel(key: string): string {
+  const lookup = key.match(/^_(.+)_value$/)
+  return lookup ? lookup[1] : key
 }
 
 function mapAuditDetail(detail: AttributeAuditDetail | undefined): AttributeChange[] {
   if (!detail) return []
-  const oldVals = detail.OldValue ?? {}
-  const newVals = detail.NewValue ?? {}
+  const oldSide = splitDetailEntity(detail.OldValue)
+  const newSide = splitDetailEntity(detail.NewValue)
   const keys = new Set<string>([
-    ...Object.keys(oldVals).filter(isAttributeKey),
-    ...Object.keys(newVals).filter(isAttributeKey),
+    ...Object.keys(oldSide.values),
+    ...Object.keys(newSide.values),
   ])
   const changes: AttributeChange[] = []
   for (const key of keys) {
     changes.push({
-      attribute: key,
-      oldValue: formatAuditValue(oldVals[key]),
-      newValue: formatAuditValue(newVals[key]),
+      attribute: attributeLabel(key),
+      oldValue: oldSide.formatted[key] ?? formatAuditValue(oldSide.values[key]),
+      newValue: newSide.formatted[key] ?? formatAuditValue(newSide.values[key]),
     })
   }
   return changes
@@ -225,6 +250,9 @@ export class DataverseAuditService {
         return mockAuditService.getChanges(auditId)
       }
       const response = result.data as RetrieveAuditDetailsResponse
+      // Diagnostic: shows whether the runtime delivers FormattedValue
+      // annotations for lookups/option sets in the detail payload.
+      console.debug('[audit] raw AuditDetail:', response.AuditDetail)
       return mapAuditDetail(response.AuditDetail)
     } catch (err) {
       console.warn('[audit] getChanges() threw, falling back to mock:', err)
