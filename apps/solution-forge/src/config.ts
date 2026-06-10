@@ -9,11 +9,19 @@
  *   VITE_ADO_PROJECT=MyProject           # project containing the work items
  */
 
-export const FALLBACK_ENVIRONMENT_ID: string =
-  import.meta.env.VITE_ENVIRONMENT_ID ?? ''
+// Project defaults — not secrets; env vars override them at build time.
+// (.env files are gitignored repo-wide, so the defaults live here.)
+const DEFAULT_ENVIRONMENT_ID = '84280d0b-d994-ed52-9789-116d9b73384f'
+const DEFAULT_ADO_ORG_URL = 'https://dev.azure.com/SchulzD365'
+const DEFAULT_ADO_PROJECT = 'D365UO'
 
-const ADO_ORG_URL: string = import.meta.env.VITE_ADO_ORG_URL ?? ''
-const ADO_PROJECT: string = import.meta.env.VITE_ADO_PROJECT ?? ''
+export const FALLBACK_ENVIRONMENT_ID: string =
+  import.meta.env.VITE_ENVIRONMENT_ID ?? DEFAULT_ENVIRONMENT_ID
+
+const ADO_ORG_URL: string =
+  import.meta.env.VITE_ADO_ORG_URL ?? DEFAULT_ADO_ORG_URL
+const ADO_PROJECT: string =
+  import.meta.env.VITE_ADO_PROJECT ?? DEFAULT_ADO_PROJECT
 
 /** Organisation ("account") name for connector calls — the last path
  *  segment of the org URL, e.g. "SchulzD365". Empty when unconfigured. */
