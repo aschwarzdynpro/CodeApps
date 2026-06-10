@@ -1,5 +1,9 @@
 import { useState } from 'react'
-import type { SolutionComponentInfo, WorkingSolution } from '../types/solution'
+import type {
+  SolutionComponentInfo,
+  WorkItemInfo,
+  WorkingSolution,
+} from '../types/solution'
 import { devOpsWorkItemUrl, makerSolutionUrl } from '../config'
 import { formatDateTime, groupBy } from '../utils/format'
 import { KindBadge } from './KindBadge'
@@ -10,10 +14,24 @@ interface Props {
   components: SolutionComponentInfo[]
   loadingComponents: boolean
   onRefreshComponents: () => void
+  /** Resolved work item for solution.devOpsId, or null when unavailable. */
+  workItem: WorkItemInfo | null
+  workItemLoading: boolean
 }
 
 /** Groups with at most this many components start expanded. */
 const AUTO_EXPAND_LIMIT = 8
+
+/** Visual bucket for a work item state across common process templates. */
+function stateBucket(state: string): string {
+  const s = state.toLowerCase()
+  if (['new', 'to do', 'proposed', 'approved'].includes(s)) return 'new'
+  if (['active', 'in progress', 'doing', 'committed'].includes(s)) return 'active'
+  if (['resolved'].includes(s)) return 'resolved'
+  if (['closed', 'done', 'completed'].includes(s)) return 'closed'
+  if (['removed'].includes(s)) return 'removed'
+  return 'other'
+}
 
 export function SolutionDetail({
   solution,
@@ -21,8 +39,10 @@ export function SolutionDetail({
   components,
   loadingComponents,
   onRefreshComponents,
+  workItem,
+  workItemLoading,
 }: Props) {
-  const adoUrl = devOpsWorkItemUrl(solution.devOpsId)
+  const adoUrl = workItem?.url ?? devOpsWorkItemUrl(solution.devOpsId)
   const grouped = [...groupBy(components, (c) => c.typeName).entries()].sort(
     (a, b) => a[0].localeCompare(b[0]),
   )
@@ -62,20 +82,57 @@ export function SolutionDetail({
         >
           Open in Maker Portal ↗
         </a>
-        {solution.devOpsId &&
-          (adoUrl ? (
-            <a className="btn" href={adoUrl} target="_blank" rel="noreferrer">
-              Azure DevOps #{solution.devOpsId} ↗
-            </a>
-          ) : (
-            <span
-              className="btn btn--disabled"
-              title="Set VITE_ADO_ORG_URL and VITE_ADO_PROJECT in .env.local to enable work item links."
-            >
+      </div>
+
+      {solution.devOpsId && (
+        <div className="devops-card">
+          <div className="devops-card-header">
+            <span className="devops-card-title">
               Azure DevOps #{solution.devOpsId}
             </span>
-          ))}
-      </div>
+            {adoUrl ? (
+              <a
+                className="btn btn--small"
+                href={adoUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open ↗
+              </a>
+            ) : (
+              <span
+                className="btn btn--small btn--disabled"
+                title="Set VITE_ADO_ORG_URL and VITE_ADO_PROJECT in .env.local to enable work item links."
+              >
+                Open
+              </span>
+            )}
+          </div>
+          {workItemLoading && (
+            <div className="devops-card-body muted">Loading work item…</div>
+          )}
+          {!workItemLoading && workItem && (
+            <div className="devops-card-body">
+              <span className={`wi-state wi-state--${stateBucket(workItem.state)}`}>
+                {workItem.state}
+              </span>
+              <span className="wi-title" title={workItem.title}>
+                <span className="wi-type muted">{workItem.type}</span>{' '}
+                {workItem.title}
+              </span>
+              <span className="wi-assignee">
+                {workItem.assignedTo ?? 'Unassigned'}
+              </span>
+            </div>
+          )}
+          {!workItemLoading && !workItem && (
+            <div className="devops-card-body muted">
+              Work item details unavailable — connect Azure DevOps (see
+              README) or check the number.
+            </div>
+          )}
+        </div>
+      )}
 
       <dl className="detail-meta">
         <div>

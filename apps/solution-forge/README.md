@@ -111,10 +111,30 @@ Der Merge nutzt die Dataverse-Action **AddSolutionComponent**
 Shell bzw. ohne Subkomponenten in der Feature-Solution stecken, landen
 genauso im Deployment-Ziel.
 
-### Azure-DevOps-Links
+### Azure DevOps anbinden
 
-Work-Item-Links brauchen die Organisation/Projekt-Konfiguration in
-`.env.local`:
+Die Detail-Ansicht zeigt pro Solution ein Work-Item-Panel (Status,
+Assignee, Absprung). Die Nummer kommt aus dem Unique Name
+(`feature_4711`), einem rein numerischen Unique Name oder dem Titel
+(„Assembly App V2 | 11941").
+
+Anbindung über den offiziellen **Azure-DevOps-Konnektor**:
+
+1. In [make.powerapps.com](https://make.powerapps.com) → Connections →
+   **New connection** → *Azure DevOps* → mit dem DevOps-Konto anmelden.
+2. `pac connection list` → Connection-ID notieren.
+3. ```bash
+   pac code add-data-source -a shared_visualstudioteamservices -c <connection-id>
+   ```
+   (vorher das `AddSolutionComponent`-Schema beiseite legen, siehe
+   „Achtung beim Nachgenerieren").
+4. In `dataverseSolutionService.getWorkItem()` den Stub durch den
+   generierten `GetWorkItemDetails`-Aufruf ersetzen (Organisation,
+   Projekt, ID) und `System.State` / `System.AssignedTo` / `System.Title`
+   mappen.
+
+Work-Item-**Links** brauchen zusätzlich die Organisation/Projekt-
+Konfiguration in `.env.local` (zur Build-Zeit eingebacken):
 
 ```
 VITE_ADO_ORG_URL=https://dev.azure.com/<org>
@@ -124,9 +144,8 @@ VITE_ENVIRONMENT_ID=<env-id>   # Fallback für Maker-Links außerhalb des Hosts
 
 ## Roadmap (Denkrichtung)
 
-- **Azure-DevOps-Integration**: Work-Item-Status und Titel direkt am
-  Solution-Eintrag anzeigen (Custom Connector / Graph der ADO REST API),
-  Anlage einer Working Solution direkt aus einem zugewiesenen Work Item.
+- **DevOps weiterdenken**: Anlage einer Working Solution direkt aus einem
+  zugewiesenen Work Item, Status-Chips in der Solution-Liste.
 - **Release-Zug**: Versions-Bump und Export der Deployment Solution nach
   dem Merge, Status-Tracking pro Sprint.
 

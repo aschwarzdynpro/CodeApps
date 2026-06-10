@@ -390,6 +390,80 @@
   flex-wrap: wrap;
   margin: 12px 0;
 }
+/* Azure DevOps work item card */
+.devops-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 12px 0;
+  background: #f8f9fd;
+}
+.devops-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.devops-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a56db;
+}
+.devops-card-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+.wi-state {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.wi-state--new {
+  background: #e8f0fe;
+  color: #1a56db;
+}
+.wi-state--active {
+  background: #fdf6e7;
+  color: #b7791f;
+}
+.wi-state--resolved {
+  background: #efe9fd;
+  color: #6f42c1;
+}
+.wi-state--closed {
+  background: #e7f4ee;
+  color: #1a8754;
+}
+.wi-state--removed,
+.wi-state--other {
+  background: #f1f3f5;
+  color: var(--muted);
+}
+.wi-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wi-type {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.wi-assignee {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .detail-meta {
   display: grid;
   grid-template-columns: 1fr 1fr;

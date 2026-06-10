@@ -3,6 +3,7 @@ import type {
   MergeResult,
   PublisherInfo,
   SolutionComponentInfo,
+  WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
 import { dataverseSolutionService } from './dataverseSolutionService'
@@ -36,6 +37,11 @@ export interface SolutionService {
   ): Promise<WorkingSolution>
   /** Components contained in one solution. */
   listComponents(solutionId: string): Promise<SolutionComponentInfo[]>
+  /**
+   * Azure DevOps work item summary for a solution's number. Returns null
+   * when the item doesn't exist or the DevOps connector isn't wired yet.
+   */
+  getWorkItem(devOpsId: string): Promise<WorkItemInfo | null>
   /**
    * Adds every component of the source solutions to the target deployment
    * solution. Already-present components are skipped, not duplicated.

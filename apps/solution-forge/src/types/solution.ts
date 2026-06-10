@@ -68,6 +68,20 @@ export interface SolutionComponentInfo {
   rootBehavior?: number
 }
 
+/** Azure DevOps work item summary shown next to a working solution. */
+export interface WorkItemInfo {
+  id: string
+  /** Work item type, e.g. "Bug", "Product Backlog Item", "Feature". */
+  type: string
+  title: string
+  /** State, e.g. "New", "Active", "Resolved", "Closed". */
+  state: string
+  /** Display name of the assignee, or null when unassigned. */
+  assignedTo: string | null
+  /** Browser link to the work item, when resolvable. */
+  url: string | null
+}
+
 export interface CreateWorkingSolutionInput {
   /** Becomes the solution friendlyname. */
   title: string

@@ -38,3 +38,19 @@ export function classifyUniqueName(uniqueName: string): {
   if (match[1] === 'deploy') return { kind: 'deployment', devOpsId: null }
   return { kind: match[1] as SolutionKind, devOpsId: match[2] }
 }
+
+/**
+ * Best-effort work item id for solutions outside the feature_/bug_
+ * convention. Pre-existing solutions often carry the number elsewhere —
+ * "Assembly App V2 | 11941" in the title, or a purely numeric unique name.
+ */
+export function extractDevOpsId(
+  uniqueName: string,
+  title: string,
+): string | null {
+  const fromConvention = classifyUniqueName(uniqueName).devOpsId
+  if (fromConvention && /^\d+$/.test(fromConvention)) return fromConvention
+  if (/^\d{3,}$/.test(uniqueName)) return uniqueName
+  const fromTitle = /[|#]\s*(\d{3,})\s*$/.exec(title.trim())
+  return fromTitle ? fromTitle[1] : null
+}

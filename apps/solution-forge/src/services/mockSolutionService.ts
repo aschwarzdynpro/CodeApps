@@ -3,6 +3,7 @@ import type {
   MergeResult,
   PublisherInfo,
   SolutionComponentInfo,
+  WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
 import { buildUniqueName } from '../utils/naming'
@@ -23,6 +24,40 @@ import {
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 let mockIdCounter = 100
+
+/** Sample work items matching the seeded solutions' DevOps ids. */
+const MOCK_WORK_ITEMS: Record<string, Omit<WorkItemInfo, 'id' | 'url'>> = {
+  '4711': {
+    type: 'Feature',
+    title: 'Customer onboarding wizard',
+    state: 'Active',
+    assignedTo: 'Marie Curie',
+  },
+  '4720': {
+    type: 'Feature',
+    title: 'Service-level dashboards',
+    state: 'New',
+    assignedTo: 'Niels Bohr',
+  },
+  '4732': {
+    type: 'Bug',
+    title: 'Duplicate detection fires twice on quote lines',
+    state: 'Active',
+    assignedTo: 'Lise Meitner',
+  },
+  '4699': {
+    type: 'Bug',
+    title: 'Wrong currency on opportunity rollup',
+    state: 'Resolved',
+    assignedTo: 'Max Planck',
+  },
+  '4655': {
+    type: 'Feature',
+    title: 'Partner portal access requests',
+    state: 'Closed',
+    assignedTo: null,
+  },
+}
 
 export class MockSolutionService {
   private solutions: WorkingSolution[] = mockSolutions.map((s) => ({ ...s }))
@@ -78,6 +113,13 @@ export class MockSolutionService {
   async listComponents(solutionId: string): Promise<SolutionComponentInfo[]> {
     await delay(300)
     return (this.components.get(solutionId) ?? []).map((c) => ({ ...c }))
+  }
+
+  async getWorkItem(devOpsId: string): Promise<WorkItemInfo | null> {
+    await delay(350)
+    const item = MOCK_WORK_ITEMS[devOpsId]
+    if (!item) return null
+    return { ...item, id: devOpsId, url: null }
   }
 
   async mergeIntoDeployment(

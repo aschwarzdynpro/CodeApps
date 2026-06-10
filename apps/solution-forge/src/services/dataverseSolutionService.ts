@@ -3,12 +3,17 @@ import type {
   MergeResult,
   PublisherInfo,
   SolutionComponentInfo,
+  WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
 import type { SolutionService } from './solutionService'
 import { mockSolutionService } from './mockSolutionService'
 import { powerModeReady } from '../PowerProvider'
-import { buildUniqueName, classifyUniqueName } from '../utils/naming'
+import {
+  buildUniqueName,
+  classifyUniqueName,
+  extractDevOpsId,
+} from '../utils/naming'
 import { shortGuid } from '../utils/format'
 import { SolutionsService } from '../generated/services/SolutionsService'
 import { PublishersService } from '../generated/services/PublishersService'
@@ -115,12 +120,17 @@ function toWorkingSolution(raw: Solutions): WorkingSolution {
   // Annotations aren't part of the generated model, so widen for access.
   const row = raw as Solutions & Record<string, unknown>
   const uniqueName = raw.uniquename
-  const { kind, devOpsId } = classifyUniqueName(uniqueName)
+  const title = raw.friendlyname || uniqueName
+  const { kind } = classifyUniqueName(uniqueName)
+  // Falls back to numbers carried in the title ("Assembly App V2 | 11941")
+  // or a numeric unique name, so pre-convention solutions also link to
+  // their DevOps work item.
+  const devOpsId = extractDevOpsId(uniqueName, title)
   const publisherId = raw._publisherid_value ?? ''
   return {
     id: raw.solutionid,
     uniqueName,
-    title: raw.friendlyname || uniqueName,
+    title,
     description: raw.description ?? '',
     kind,
     devOpsId,
@@ -376,6 +386,27 @@ export class DataverseSolutionService implements SolutionService {
       console.warn('[solutions] listComponents() threw, falling back to mock:', err)
       return mockSolutionService.listComponents(solutionId)
     }
+  }
+
+  /**
+   * TODO(devops): wire to the Azure DevOps connector once a connection
+   * exists in the environment:
+   *
+   *   1. make.powerapps.com → Connections → New → Azure DevOps (OAuth)
+   *   2. pac connection list                      → note the connection id
+   *   3. pac code add-data-source -a shared_visualstudioteamservices -c <id>
+   *      (move .power/schemas/dataverse/AddSolutionComponent.Schema.json
+   *       aside first — see README "Achtung beim Nachgenerieren")
+   *   4. Replace this stub with a call to the generated operation
+   *      (GetWorkItemDetails: organization, project, id) and map
+   *      System.State / System.AssignedTo / System.Title.
+   *
+   * Until then the UI hides the DevOps panel (null = not available).
+   */
+  async getWorkItem(devOpsId: string): Promise<WorkItemInfo | null> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return mockSolutionService.getWorkItem(devOpsId)
+    return null
   }
 
   async mergeIntoDeployment(

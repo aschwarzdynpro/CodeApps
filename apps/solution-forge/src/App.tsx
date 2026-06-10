@@ -9,7 +9,11 @@ import { SolutionDetail } from './components/SolutionDetail'
 import { CreateSolutionDialog } from './components/CreateSolutionDialog'
 import { MergeWorkbench } from './components/MergeWorkbench'
 import { makerSolutionUrl } from './config'
-import type { SolutionComponentInfo, WorkingSolution } from './types/solution'
+import type {
+  SolutionComponentInfo,
+  WorkItemInfo,
+  WorkingSolution,
+} from './types/solution'
 
 type Tab = 'workbench' | 'merge'
 
@@ -28,6 +32,13 @@ function App() {
   const [componentCache, setComponentCache] = useState<
     Map<string, SolutionComponentInfo[]>
   >(new Map())
+
+  // Azure DevOps work items, cached per id. An entry of null means "looked
+  // up, nothing available" (item missing or connector not wired).
+  const [workItems, setWorkItems] = useState<Map<string, WorkItemInfo | null>>(
+    new Map(),
+  )
+  const [workItemLoading, setWorkItemLoading] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [justCreated, setJustCreated] = useState<WorkingSolution | null>(null)
   // Locally created solutions show up immediately, even before reload() lands.
@@ -159,10 +170,24 @@ function App() {
     }
   }
 
+  const loadWorkItem = (devOpsId: string) => {
+    if (workItems.has(devOpsId)) return
+    setWorkItemLoading(true)
+    solutionService
+      .getWorkItem(devOpsId)
+      .then((wi) => setWorkItems((prev) => new Map(prev).set(devOpsId, wi)))
+      .catch(() =>
+        setWorkItems((prev) => new Map(prev).set(devOpsId, null)),
+      )
+      .finally(() => setWorkItemLoading(false))
+  }
+
   const openSolution = (id: string) => {
     setSelectedId(id)
     setJustCreated(null)
     loadComponents(id)
+    const devOpsId = allSolutions.find((s) => s.id === id)?.devOpsId
+    if (devOpsId) loadWorkItem(devOpsId)
   }
 
   const handleCreated = (solution: WorkingSolution) => {
@@ -279,6 +304,16 @@ function App() {
                 components={components}
                 loadingComponents={componentsLoading}
                 onRefreshComponents={() => loadComponents(selected.id, true)}
+                workItem={
+                  selected.devOpsId
+                    ? (workItems.get(selected.devOpsId) ?? null)
+                    : null
+                }
+                workItemLoading={
+                  workItemLoading &&
+                  !!selected.devOpsId &&
+                  !workItems.has(selected.devOpsId)
+                }
               />
             ) : (
               <aside className="card detail detail--empty">
