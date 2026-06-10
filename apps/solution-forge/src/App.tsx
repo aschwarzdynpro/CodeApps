@@ -23,6 +23,11 @@ function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [components, setComponents] = useState<SolutionComponentInfo[]>([])
   const [componentsLoading, setComponentsLoading] = useState(false)
+  // Components loaded once per solution and reused on re-selection; only the
+  // Refresh button (and a merge into a target) forces a reload.
+  const [componentCache, setComponentCache] = useState<
+    Map<string, SolutionComponentInfo[]>
+  >(new Map())
   const [showCreate, setShowCreate] = useState(false)
   const [justCreated, setJustCreated] = useState<WorkingSolution | null>(null)
   // Locally created solutions show up immediately, even before reload() lands.
@@ -85,11 +90,27 @@ function App() {
 
   // Loads the component list lazily when a solution is opened — runs in
   // event handlers (not effects), mirroring audit-explorer's drill-down.
-  const loadComponents = (solutionId: string) => {
+  // Cached per solution; `force` (Refresh button) bypasses the cache.
+  const loadComponents = (solutionId: string, force = false) => {
+    if (!force) {
+      const cached = componentCache.get(solutionId)
+      if (cached) {
+        setComponents(cached)
+        setComponentsLoading(false)
+        return
+      }
+    }
     setComponentsLoading(true)
     solutionService
       .listComponents(solutionId)
-      .then((c) => setComponents(c))
+      .then((c) => {
+        setComponents(c)
+        setComponentCache((prev) => new Map(prev).set(solutionId, c))
+        // Keep the search index in sync when it exists.
+        setComponentIndex((prev) =>
+          prev ? new Map(prev).set(solutionId, c) : prev,
+        )
+      })
       .catch(() => setComponents([]))
       .finally(() => setComponentsLoading(false))
   }
@@ -117,6 +138,13 @@ function App() {
       )
     }
     setComponentIndex(index)
+    // The index just fetched everything fresh — seed the per-solution cache
+    // so opening a solution afterwards costs no extra query.
+    setComponentCache((prev) => {
+      const next = new Map(prev)
+      for (const [id, comps] of index) next.set(id, comps)
+      return next
+    })
     setIndexProgress(null)
   }
 
@@ -143,6 +171,24 @@ function App() {
     setJustCreated(solution)
     setSelectedId(solution.id)
     setComponents([])
+    reload()
+  }
+
+  // After a merge the target solution gained components — drop its cached
+  // list so the next open (or an open detail view) refetches.
+  const handleMerged = (targetSolutionId: string) => {
+    setComponentCache((prev) => {
+      const next = new Map(prev)
+      next.delete(targetSolutionId)
+      return next
+    })
+    setComponentIndex((prev) => {
+      if (!prev) return prev
+      const next = new Map(prev)
+      next.delete(targetSolutionId)
+      return next
+    })
+    if (selectedId === targetSolutionId) loadComponents(targetSolutionId, true)
     reload()
   }
 
@@ -232,7 +278,7 @@ function App() {
                 environmentId={environmentId}
                 components={components}
                 loadingComponents={componentsLoading}
-                onRefreshComponents={() => loadComponents(selected.id)}
+                onRefreshComponents={() => loadComponents(selected.id, true)}
               />
             ) : (
               <aside className="card detail detail--empty">
@@ -244,7 +290,7 @@ function App() {
       )}
 
       {!loading && !error && tab === 'merge' && (
-        <MergeWorkbench solutions={allSolutions} onMerged={reload} />
+        <MergeWorkbench solutions={allSolutions} onMerged={handleMerged} />
       )}
 
       {showCreate && (

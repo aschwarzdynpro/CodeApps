@@ -10,8 +10,9 @@ import { KindBadge } from './KindBadge'
 
 interface Props {
   solutions: WorkingSolution[]
-  /** Called after a successful merge so the workbench list can reload. */
-  onMerged: () => void
+  /** Called with the target's id after a successful merge so the workbench
+   *  can reload and invalidate the target's cached component list. */
+  onMerged: (targetSolutionId: string) => void
 }
 
 /**
@@ -104,7 +105,7 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
         (done, total) => setProgress([done, total]),
       )
       setResult(res)
-      onMerged()
+      onMerged(target.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
