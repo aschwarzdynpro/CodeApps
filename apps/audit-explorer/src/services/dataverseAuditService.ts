@@ -106,10 +106,37 @@ interface RetrieveAuditDetailsResponse {
   AuditDetail?: AttributeAuditDetail
 }
 
+const GUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
+
+/**
+ * Best-effort display of a raw audit detail value. The SDK's custom-API
+ * executor sends no `Prefer: odata.include-annotations` header (unlike
+ * retrieveMultiple), so the RetrieveAuditDetails payload carries neither
+ * lookup display names nor formatted dates — for lookups only the target
+ * GUID is available. Until that's fixed upstream (or replaced by a
+ * server-side custom API that resolves names), GUIDs are shortened and ISO
+ * timestamps localized.
+ */
 function formatAuditValue(value: unknown): string {
   if (value === null || value === undefined) return ''
   if (typeof value === 'object') return JSON.stringify(value)
-  return String(value)
+  const s = String(value)
+  if (GUID_RE.test(s)) return `${s.slice(0, 8)}…${s.slice(-4)}`
+  if (ISO_DATETIME_RE.test(s)) {
+    const d = new Date(s)
+    if (!Number.isNaN(d.getTime())) {
+      return new Intl.DateTimeFormat('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(d)
+    }
+  }
+  return s
 }
 
 const FORMATTED_VALUE_RE = /@odata\.community\.display\.v1\.formattedvalue$/i
