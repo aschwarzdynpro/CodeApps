@@ -43,31 +43,49 @@ function initialsFrom(name: string): string {
   return letters.toUpperCase() || '??'
 }
 
+/**
+ * Only real Web API columns may appear in `$select`. The `...name` properties
+ * in the generated model (objecttypecodename, useridname, objectidname) are
+ * SDK-side virtual attributes — selecting them yields 0x80060888 "Could not
+ * find a property named ... on type Microsoft.Dynamics.CRM.audit". Their
+ * display values arrive as OData formatted-value annotations instead.
+ */
 const SELECT_FIELDS = [
   'auditid',
   'createdon',
   'operation',
   'objecttypecode',
-  'objecttypecodename',
   '_objectid_value',
-  'objectidname',
   '_userid_value',
-  'useridname',
 ]
 
-function toAuditEvent(row: Audits): AuditEvent {
+/** OData annotation suffix carrying option-set / lookup display labels. */
+const FV = '@OData.Community.Display.V1.FormattedValue'
+
+/** Read the formatted-value annotation for a column, if present. */
+function formatted(row: Record<string, unknown>, column: string): string | undefined {
+  const value = row[`${column}${FV}`]
+  return typeof value === 'string' && value !== '' ? value : undefined
+}
+
+function toAuditEvent(raw: Audits): AuditEvent {
+  // Annotations aren't part of the generated model, so widen for access.
+  const row = raw as Audits & Record<string, unknown>
   const opCode =
-    typeof row.operation === 'number' ? row.operation : Number(row.operation)
-  const userName = row.useridname ?? 'Unknown'
-  const logical = row.objecttypecode ?? ''
+    typeof raw.operation === 'number' ? raw.operation : Number(raw.operation)
+  const userName =
+    formatted(row, '_userid_value') ?? raw.useridname ?? 'Unknown'
+  const logical = raw.objecttypecode ?? ''
   return {
-    id: row.auditid,
-    createdOn: row.createdon,
+    id: raw.auditid,
+    createdOn: raw.createdon,
     operation: OPERATION_BY_CODE[opCode] ?? 'Update',
-    tableName: row.objecttypecodename ?? logical,
+    tableName:
+      formatted(row, 'objecttypecode') ?? raw.objecttypecodename ?? logical,
     tableLogicalName: logical,
-    recordId: row._objectid_value ?? '',
-    recordName: row.objectidname ?? '',
+    recordId: raw._objectid_value ?? '',
+    recordName:
+      formatted(row, '_objectid_value') ?? raw.objectidname ?? '',
     user: { name: userName, initials: initialsFrom(userName) },
     changes: [],
   }
@@ -128,9 +146,14 @@ export class DataverseAuditService {
         orderBy: ['createdon desc'],
         top: 500,
       })
-      if (!result.success || !result.data) return mockAuditService.list()
+      if (!result.success || !result.data) {
+        console.warn('[audit] list() falling back to mock — result:', result)
+        return mockAuditService.list()
+      }
+      console.info('[audit] list() got', result.data.length, 'rows from Dataverse')
       return result.data.map(toAuditEvent)
-    } catch {
+    } catch (err) {
+      console.warn('[audit] list() threw, falling back to mock:', err)
       return mockAuditService.list()
     }
   }
@@ -142,11 +165,16 @@ export class DataverseAuditService {
       const result =
         await RetrieveAuditDetailsService.RetrieveAuditDetails(auditId)
       if (!result.success || !result.data) {
+        console.warn(
+          '[audit] getChanges() falling back to mock — result:',
+          result,
+        )
         return mockAuditService.getChanges(auditId)
       }
       const response = result.data as RetrieveAuditDetailsResponse
       return mapAuditDetail(response.AuditDetail)
-    } catch {
+    } catch (err) {
+      console.warn('[audit] getChanges() threw, falling back to mock:', err)
       return mockAuditService.getChanges(auditId)
     }
   }
@@ -166,25 +194,34 @@ export class DataverseAuditService {
     if (mode !== 'power-platform') return mockAuditService.listAuditedTables()
     try {
       const result = await AuditsService.getAll({
-        select: ['objecttypecode', 'objecttypecodename'],
+        select: ['objecttypecode'],
         top: 5000,
       })
       if (!result.success || !result.data) {
+        console.warn(
+          '[audit] listAuditedTables() falling back to mock — result:',
+          result,
+        )
         return mockAuditService.listAuditedTables()
       }
       const seen = new Map<string, AuditedTable>()
-      for (const row of result.data) {
-        const logical = row.objecttypecode
+      for (const raw of result.data) {
+        const row = raw as Audits & Record<string, unknown>
+        const logical = raw.objecttypecode
         if (!logical || seen.has(logical)) continue
         seen.set(logical, {
           logicalName: logical,
-          displayName: row.objecttypecodename ?? logical,
+          displayName: formatted(row, 'objecttypecode') ?? logical,
         })
       }
       return [...seen.values()].sort((a, b) =>
         a.displayName.localeCompare(b.displayName),
       )
-    } catch {
+    } catch (err) {
+      console.warn(
+        '[audit] listAuditedTables() threw, falling back to mock:',
+        err,
+      )
       return mockAuditService.listAuditedTables()
     }
   }
