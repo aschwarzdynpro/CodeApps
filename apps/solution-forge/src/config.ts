@@ -15,6 +15,13 @@ export const FALLBACK_ENVIRONMENT_ID: string =
 const ADO_ORG_URL: string = import.meta.env.VITE_ADO_ORG_URL ?? ''
 const ADO_PROJECT: string = import.meta.env.VITE_ADO_PROJECT ?? ''
 
+/** Organisation ("account") name for connector calls — the last path
+ *  segment of the org URL, e.g. "SchulzD365". Empty when unconfigured. */
+export const ADO_ACCOUNT: string =
+  ADO_ORG_URL.replace(/\/+$/, '').split('/').pop() ?? ''
+/** Project name for connector calls, e.g. "D365UO". */
+export const ADO_PROJECT_NAME: string = ADO_PROJECT
+
 /** Maker-portal deep link to one solution (objects list), or the solutions
  *  area when no environment id is known. */
 export function makerSolutionUrl(

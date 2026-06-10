@@ -15,12 +15,14 @@ import {
   extractDevOpsId,
 } from '../utils/naming'
 import { shortGuid } from '../utils/format'
+import { ADO_ACCOUNT, ADO_PROJECT_NAME, devOpsWorkItemUrl } from '../config'
 import { SolutionsService } from '../generated/services/SolutionsService'
 import { PublishersService } from '../generated/services/PublishersService'
 import { SolutioncomponentsService } from '../generated/services/SolutioncomponentsService'
 import { Msdyn_solutioncomponentsummariesService } from '../generated/services/Msdyn_solutioncomponentsummariesService'
 import type { Msdyn_solutioncomponentsummaries } from '../generated/models/Msdyn_solutioncomponentsummariesModel'
 import { AddSolutionComponentService } from '../generated/services/AddSolutionComponentService'
+import { AzureDevOpsService } from '../generated/services/AzureDevOpsService'
 import type { Solutions, SolutionsBase } from '../generated/models/SolutionsModel'
 import type { Solutioncomponents } from '../generated/models/SolutioncomponentsModel'
 import type { Publishers } from '../generated/models/PublishersModel'
@@ -389,24 +391,45 @@ export class DataverseSolutionService implements SolutionService {
   }
 
   /**
-   * TODO(devops): wire to the Azure DevOps connector once a connection
-   * exists in the environment:
-   *
-   *   1. make.powerapps.com → Connections → New → Azure DevOps (OAuth)
-   *   2. pac connection list                      → note the connection id
-   *   3. pac code add-data-source -a shared_visualstudioteamservices -c <id>
-   *      (move .power/schemas/dataverse/AddSolutionComponent.Schema.json
-   *       aside first — see README "Achtung beim Nachgenerieren")
-   *   4. Replace this stub with a call to the generated operation
-   *      (GetWorkItemDetails: organization, project, id) and map
-   *      System.State / System.AssignedTo / System.Title.
-   *
-   * Until then the UI hides the DevOps panel (null = not available).
+   * Work item summary via the Azure DevOps connector
+   * (`pac code add-data-source -a shared_visualstudioteamservices -c <id>`).
+   * `ListWorkItems` is used instead of `GetWorkItemDetails` because the
+   * latter requires the work item type, which we don't know up front.
+   * Org ("account") and project come from VITE_ADO_ORG_URL / VITE_ADO_PROJECT.
    */
   async getWorkItem(devOpsId: string): Promise<WorkItemInfo | null> {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockSolutionService.getWorkItem(devOpsId)
-    return null
+    if (!ADO_ACCOUNT || !ADO_PROJECT_NAME) {
+      console.info('[devops] VITE_ADO_ORG_URL / VITE_ADO_PROJECT not set')
+      return null
+    }
+    try {
+      const result = await AzureDevOpsService.ListWorkItems(
+        ADO_ACCOUNT,
+        ADO_PROJECT_NAME,
+        devOpsId,
+      )
+      if (!result.success || !result.data) {
+        console.warn('[devops] ListWorkItems failed — result:', result)
+        return null
+      }
+      const item = result.data.value?.find(
+        (wi) => String(wi.System_Id ?? '') === devOpsId,
+      )
+      if (!item) return null
+      return {
+        id: devOpsId,
+        type: item.System_WorkItemType ?? 'Work Item',
+        title: item.System_Title ?? '',
+        state: item.System_State ?? 'Unknown',
+        assignedTo: item.System_AssignedTo || null,
+        url: devOpsWorkItemUrl(devOpsId),
+      }
+    } catch (err) {
+      console.warn('[devops] getWorkItem() threw:', err)
+      return null
+    }
   }
 
   async mergeIntoDeployment(

@@ -118,7 +118,11 @@ Assignee, Absprung). Die Nummer kommt aus dem Unique Name
 (`feature_4711`), einem rein numerischen Unique Name oder dem Titel
 („Assembly App V2 | 11941").
 
-Anbindung über den offiziellen **Azure-DevOps-Konnektor**:
+Angebunden über den offiziellen **Azure-DevOps-Konnektor** (bereits
+verdrahtet): `dataverseSolutionService.getWorkItem()` ruft die generierte
+Operation `ListWorkItems` auf und mappt `System_State` /
+`System_AssignedTo` / `System_Title`. Einrichtung in einer neuen
+Umgebung:
 
 1. In [make.powerapps.com](https://make.powerapps.com) → Connections →
    **New connection** → *Azure DevOps* → mit dem DevOps-Konto anmelden.
@@ -128,19 +132,19 @@ Anbindung über den offiziellen **Azure-DevOps-Konnektor**:
    ```
    (vorher das `AddSolutionComponent`-Schema beiseite legen, siehe
    „Achtung beim Nachgenerieren").
-4. In `dataverseSolutionService.getWorkItem()` den Stub durch den
-   generierten `GetWorkItemDetails`-Aufruf ersetzen (Organisation,
-   Projekt, ID) und `System.State` / `System.AssignedTo` / `System.Title`
-   mappen.
 
-Work-Item-**Links** brauchen zusätzlich die Organisation/Projekt-
-Konfiguration in `.env.local` (zur Build-Zeit eingebacken):
+Organisation/Projekt stehen in [`.env`](.env) (zur Build-Zeit
+eingebacken, lokal via `.env.local` überschreibbar):
 
 ```
-VITE_ADO_ORG_URL=https://dev.azure.com/<org>
-VITE_ADO_PROJECT=<projekt>
+VITE_ADO_ORG_URL=https://dev.azure.com/SchulzD365
+VITE_ADO_PROJECT=D365UO
 VITE_ENVIRONMENT_ID=<env-id>   # Fallback für Maker-Links außerhalb des Hosts
 ```
+
+Andere Benutzer der App werden beim ersten Start aufgefordert, ihre
+eigene Azure-DevOps-Verbindung zu bestätigen (Standard-Verhalten von
+Konnektor-Connections in Code Apps).
 
 ## Roadmap (Denkrichtung)
 
