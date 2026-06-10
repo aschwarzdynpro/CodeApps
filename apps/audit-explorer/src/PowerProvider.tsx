@@ -32,6 +32,19 @@ const PowerContext = createContext<PowerContextValue>({
 // eslint-disable-next-line react-refresh/only-export-components
 export const usePower = () => useContext(PowerContext)
 
+/**
+ * Promise that resolves to the active mode once the provider has finished
+ * probing the SDK. Service-layer code awaits this before touching the
+ * generated Dataverse client — calling `AuditsService.getAll(...)` without
+ * a real Power Platform host stalls inside an SDK connection lookup rather
+ * than throwing, so a plain try/catch wouldn't recover.
+ */
+let resolveMode: (mode: PowerMode) => void = () => {}
+// eslint-disable-next-line react-refresh/only-export-components
+export const powerModeReady = new Promise<PowerMode>((resolve) => {
+  resolveMode = resolve
+})
+
 export function PowerProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PowerContextValue>({
     ready: false,
@@ -42,6 +55,7 @@ export function PowerProvider({ children }: { children: ReactNode }) {
     let cancelled = false
 
     const init = async () => {
+      let mode: PowerMode = 'local-mock'
       try {
         // Resolved dynamically so the local build doesn't hard-depend on the
         // generated SDK entry point. `power-apps init` provides the real one.
@@ -51,13 +65,14 @@ export function PowerProvider({ children }: { children: ReactNode }) {
         )
         if (mod?.initialize) {
           await mod.initialize()
-          if (!cancelled) setState({ ready: true, mode: 'power-platform' })
-          return
+          mode = 'power-platform'
         }
       } catch {
         // Not running inside Power Platform — use local mock data.
       }
-      if (!cancelled) setState({ ready: true, mode: 'local-mock' })
+      // Resolve regardless of cancellation so any pending service calls unblock.
+      resolveMode(mode)
+      if (!cancelled) setState({ ready: true, mode })
     }
 
     void init()
