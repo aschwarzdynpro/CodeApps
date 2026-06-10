@@ -25,7 +25,12 @@ Alle anderen unmanaged Solutions der Umgebung erscheinen unter „Other".
 ## Features
 
 - **Workbench**: Liste aller Working Solutions mit Typ-Filter (Feature /
-  Bug / Deployment), Suche über Titel, Unique Name und ADO-ID.
+  Bug / Deployment), Suche über Titel, Unique Name und ADO-ID. Mit dem
+  Schalter **incl. components** durchsucht die Suche zusätzlich die
+  Komponenten-Anzeigenamen aller Solutions („welche Solutions enthalten
+  ‚SST | Monteur'?") — dafür wird beim Aktivieren einmalig ein
+  Komponenten-Index aufgebaut; Treffer werden als Chips an der Solution
+  angezeigt.
 - **Anlegen**: Dialog mit Typ, ADO-ID, Titel, Beschreibung, Publisher und
   Live-Preview des Unique Name inkl. Duplikat-Prüfung. Die Solution wird
   real in Dataverse erzeugt und ist sofort im Maker-Portal sichtbar.

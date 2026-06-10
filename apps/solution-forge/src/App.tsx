@@ -28,6 +28,17 @@ function App() {
   // Locally created solutions show up immediately, even before reload() lands.
   const [created, setCreated] = useState<WorkingSolution[]>([])
 
+  // Component search: an on-demand index of every solution's components,
+  // built once when the "incl. components" toggle is switched on.
+  const [searchInComponents, setSearchInComponents] = useState(false)
+  const [componentIndex, setComponentIndex] = useState<Map<
+    string,
+    SolutionComponentInfo[]
+  > | null>(null)
+  const [indexProgress, setIndexProgress] = useState<[number, number] | null>(
+    null,
+  )
+
   const allSolutions = useMemo(() => {
     const known = new Set(solutions.map((s) => s.id))
     return [...created.filter((s) => !known.has(s.id)), ...solutions]
@@ -39,6 +50,23 @@ function App() {
     return c
   }, [allSolutions])
 
+  // Per-solution components matching the search term — only active when the
+  // toggle is on and the index has been built.
+  const componentMatches = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const matches = new Map<string, SolutionComponentInfo[]>()
+    if (!q || !searchInComponents || !componentIndex) return matches
+    for (const [solutionId, comps] of componentIndex) {
+      const hits = comps.filter(
+        (c) =>
+          c.displayName.toLowerCase().includes(q) ||
+          (c.schemaName ?? '').toLowerCase().includes(q),
+      )
+      if (hits.length) matches.set(solutionId, hits)
+    }
+    return matches
+  }, [search, searchInComponents, componentIndex])
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return allSolutions
@@ -48,9 +76,10 @@ function App() {
           !q ||
           s.title.toLowerCase().includes(q) ||
           s.uniqueName.toLowerCase().includes(q) ||
-          (s.devOpsId ?? '').includes(q),
+          (s.devOpsId ?? '').includes(q) ||
+          componentMatches.has(s.id),
       )
-  }, [allSolutions, kindFilter, search])
+  }, [allSolutions, kindFilter, search, componentMatches])
 
   const selected = allSolutions.find((s) => s.id === selectedId) ?? null
 
@@ -63,6 +92,43 @@ function App() {
       .then((c) => setComponents(c))
       .catch(() => setComponents([]))
       .finally(() => setComponentsLoading(false))
+  }
+
+  /**
+   * Load every solution's components into the search index, a few solutions
+   * at a time. Runs once per toggle activation; results are kept until the
+   * toggle is switched off (turning it back on re-indexes fresh data).
+   */
+  const buildComponentIndex = async (targets: WorkingSolution[]) => {
+    setIndexProgress([0, targets.length])
+    const index = new Map<string, SolutionComponentInfo[]>()
+    let done = 0
+    const CHUNK = 4
+    for (let i = 0; i < targets.length; i += CHUNK) {
+      await Promise.all(
+        targets.slice(i, i + CHUNK).map(async (s) => {
+          try {
+            index.set(s.id, await solutionService.listComponents(s.id))
+          } catch {
+            index.set(s.id, [])
+          }
+          setIndexProgress([++done, targets.length])
+        }),
+      )
+    }
+    setComponentIndex(index)
+    setIndexProgress(null)
+  }
+
+  const toggleComponentSearch = (enabled: boolean) => {
+    setSearchInComponents(enabled)
+    if (enabled) {
+      setComponentIndex(null)
+      void buildComponentIndex(allSolutions)
+    } else {
+      setComponentIndex(null)
+      setIndexProgress(null)
+    }
   }
 
   const openSolution = (id: string) => {
@@ -147,6 +213,9 @@ function App() {
             search={search}
             onSearchChange={setSearch}
             counts={counts}
+            searchInComponents={searchInComponents}
+            onSearchInComponentsChange={toggleComponentSearch}
+            indexProgress={indexProgress}
           />
 
           <div className="layout">
@@ -154,6 +223,7 @@ function App() {
               solutions={filtered}
               activeId={selectedId}
               onOpen={openSolution}
+              componentMatches={componentMatches}
             />
             {selected ? (
               <SolutionDetail

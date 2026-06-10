@@ -16,6 +16,11 @@ interface Props {
   search: string
   onSearchChange: (value: string) => void
   counts: Partial<Record<KindFilter, number>>
+  /** Whether the search also matches component display names. */
+  searchInComponents: boolean
+  onSearchInComponentsChange: (enabled: boolean) => void
+  /** [done, total] while the component index is being built. */
+  indexProgress: [number, number] | null
 }
 
 export function SolutionFilterBar({
@@ -24,6 +29,9 @@ export function SolutionFilterBar({
   search,
   onSearchChange,
   counts,
+  searchInComponents,
+  onSearchInComponentsChange,
+  indexProgress,
 }: Props) {
   return (
     <div className="filter-bar">
@@ -45,13 +53,35 @@ export function SolutionFilterBar({
           )
         })}
       </div>
-      <input
-        className="search"
-        type="search"
-        placeholder="Search title, unique name, ADO id…"
-        value={search}
-        onChange={(e) => onSearchChange(e.target.value)}
-      />
+      <div className="search-group">
+        <input
+          className="search"
+          type="search"
+          placeholder={
+            searchInComponents
+              ? 'Search incl. component names…'
+              : 'Search title, unique name, ADO id…'
+          }
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+        />
+        <label
+          className="search-scope"
+          title="Also match component display names (builds a one-time index across all solutions)."
+        >
+          <input
+            type="checkbox"
+            checked={searchInComponents}
+            onChange={(e) => onSearchInComponentsChange(e.target.checked)}
+          />
+          incl. components
+          {indexProgress && (
+            <span className="search-scope-progress">
+              indexing {indexProgress[0]}/{indexProgress[1]}…
+            </span>
+          )}
+        </label>
+      </div>
     </div>
   )
 }
