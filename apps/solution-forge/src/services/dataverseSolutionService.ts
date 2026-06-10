@@ -285,13 +285,16 @@ export class DataverseSolutionService implements SolutionService {
     // The generated Base type also lists server-managed columns
     // (sourcecontrolsyncstatus, enabledforsourcecontrolintegration) as
     // required — Dataverse rejects writes to them, so send the minimal
-    // create payload and cast.
+    // create payload and cast. The bind key must be the EDM navigation
+    // property `publisherid` (lowercase); the generated model's
+    // "PublisherId@odata.bind" spelling is rejected with 0x80048d19
+    // "undeclared property 'PublisherId'".
     const record = {
       uniquename: uniqueName,
       friendlyname: input.title,
       description: input.description,
       version: '1.0.0.0',
-      'PublisherId@odata.bind': `/publishers(${input.publisherId})`,
+      'publisherid@odata.bind': `/publishers(${input.publisherId})`,
     } as unknown as Omit<SolutionsBase, 'solutionid'>
     const result = await SolutionsService.create(record)
     if (!result.success || !result.data) {
