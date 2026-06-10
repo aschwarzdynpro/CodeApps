@@ -113,7 +113,9 @@ const STEP_SPEC: TableSpec = {
 }
 
 const WEB_RESOURCE_SPEC: TableSpec = {
-  entitySet: 'webresources',
+  // Note: the web resource entity set is the irregular "webresourceset" —
+  // "webresources" does not exist and fails the whole query.
+  entitySet: 'webresourceset',
   idField: 'webresourceid',
   select: ['webresourceid', 'name', 'modifiedon', 'ismanaged'],
   toState: (row) => ({
@@ -152,7 +154,11 @@ export class DataverseComparisonService implements ComparisonService {
           `[compare] ${spec.entitySet} query failed for ${orgUrl}:`,
           result,
         )
-        throw new Error(`Query against ${spec.entitySet} failed`)
+        const detail = (result as { error?: { message?: string } }).error
+          ?.message
+        throw new Error(
+          `${spec.entitySet} query failed${detail ? ` — ${detail}` : ''}`,
+        )
       }
       const rows = (result.data as { value?: Row[] } | undefined)?.value ?? []
       for (const row of rows) {
@@ -208,28 +214,31 @@ export class DataverseComparisonService implements ComparisonService {
       }
     }
 
-    // 2. Snapshot every environment (uniform connector path).
+    // 2. Snapshot every environment (uniform connector path). A failing
+    //    table degrades only its own cells (null = unknown), not the
+    //    whole environment.
     const snapshots = new Map<EnvKey, EnvSnapshot>()
     const envErrors: Partial<Record<EnvKey, string>> = {}
     for (const env of ENVIRONMENTS) {
       onProgress?.(`${env.label} · querying…`)
       const orgUrl = env.url.replace(/\/+$/, '')
-      try {
-        const snapshot: EnvSnapshot = new Map()
-        await Promise.all(
-          [...idsBySpec.entries()].map(async ([spec, ids]) => {
+      const snapshot: EnvSnapshot = new Map()
+      const failures: string[] = []
+      await Promise.all(
+        [...idsBySpec.entries()].map(async ([spec, ids]) => {
+          try {
             snapshot.set(
               spec,
               ids.length ? await this.queryByIds(orgUrl, spec, ids) : new Map(),
             )
-          }),
-        )
-        snapshots.set(env.key, snapshot)
-      } catch (err) {
-        console.warn(`[compare] environment ${env.key} failed:`, err)
-        envErrors[env.key] =
-          err instanceof Error ? err.message : 'Environment query failed'
-      }
+          } catch (err) {
+            console.warn(`[compare] ${env.key}/${spec.entitySet} failed:`, err)
+            failures.push(err instanceof Error ? err.message : spec.entitySet)
+          }
+        }),
+      )
+      snapshots.set(env.key, snapshot)
+      if (failures.length) envErrors[env.key] = failures.join(' · ')
     }
 
     // 3. Build rows from the DEV membership; the DEV snapshot provides
@@ -244,11 +253,12 @@ export class DataverseComparisonService implements ComparisonService {
           prod: null,
         }
         for (const env of ENVIRONMENTS) {
-          const snapshot = snapshots.get(env.key)
-          if (!snapshot) continue // env errored — stays null
-          states[env.key] = snapshot.get(spec)?.get(objectId) ?? {
-            present: false,
-          }
+          // Table failed for this env → cell stays null ("?"), which is
+          // distinct from a present-but-empty result ("Missing").
+          const specMap = snapshots.get(env.key)?.get(spec)
+          states[env.key] = specMap
+            ? (specMap.get(objectId) ?? { present: false })
+            : null
         }
 
         const dev = states.dev

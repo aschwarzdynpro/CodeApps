@@ -103,8 +103,15 @@ export function CompareWorkbench({ solutions, initialSolutionId }: Props) {
     return counts
   }, [result])
 
+  // "In sync" requires a verdict from every environment — rows with
+  // unknown cells (failed queries) don't count.
   const inSyncCount = useMemo(
-    () => (result?.rows ?? []).filter((r) => r.deviations.length === 0).length,
+    () =>
+      (result?.rows ?? []).filter(
+        (r) =>
+          r.deviations.length === 0 &&
+          ENVIRONMENTS.every((env) => r.byEnv[env.key] !== null),
+      ).length,
     [result],
   )
 
@@ -171,7 +178,7 @@ export function CompareWorkbench({ solutions, initialSolutionId }: Props) {
           {Object.entries(result.envErrors).map(([key, message]) => (
             <div key={key} className="state state--error">
               {ENVIRONMENTS.find((e) => e.key === key)?.label}: {message} —
-              cells for this environment show “?”.
+              affected cells show “?”.
             </div>
           ))}
 
