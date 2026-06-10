@@ -9,7 +9,6 @@ export const OPERATION_COLORS: Record<AuditOperation, string> = {
   Access: '#8a8f99',
 }
 
-const NOW = new Date('2026-06-09T17:00:00')
 
 export function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat('en-GB', {
@@ -29,8 +28,8 @@ export function formatDate(iso: string): string {
 }
 
 export function relativeTime(iso: string): string {
-  const diff = NOW.getTime() - new Date(iso).getTime()
-  const mins = Math.round(diff / 60000)
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.max(0, Math.round(diff / 60000))
   if (mins < 60) return `${mins}m ago`
   const hrs = Math.round(mins / 60)
   if (hrs < 24) return `${hrs}h ago`
@@ -66,6 +65,6 @@ export const DATE_RANGES = [
 
 export function withinRange(event: AuditEvent, days: number): boolean {
   if (days === Infinity) return true
-  const diff = NOW.getTime() - new Date(event.createdOn).getTime()
+  const diff = Date.now() - new Date(event.createdOn).getTime()
   return diff <= days * 86_400_000
 }

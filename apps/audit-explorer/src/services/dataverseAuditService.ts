@@ -141,10 +141,13 @@ export class DataverseAuditService {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockAuditService.list()
     try {
+      // 5000 = one Dataverse page. The previous 500 cap meant a busy
+      // environment filled the whole result set with the current week,
+      // leaving the 7/30/all range filter with nothing to distinguish.
       const result = await AuditsService.getAll({
         select: SELECT_FIELDS,
         orderBy: ['createdon desc'],
-        top: 500,
+        top: 5000,
       })
       if (!result.success || !result.data) {
         console.warn('[audit] list() falling back to mock — result:', result)
