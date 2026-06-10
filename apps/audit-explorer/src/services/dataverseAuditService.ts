@@ -139,10 +139,11 @@ function mapAuditDetail(detail: AttributeAuditDetail | undefined): AttributeChan
 
 /**
  * Hard ceiling on how many audit rows the dashboard loads per query. The
- * connector runtime serves ~500 rows per page regardless of `top`, so
- * anything beyond one page must be collected via `skipToken` paging.
+ * connector runtime serves ~500 rows per page regardless of `top`, so every
+ * 500 rows of cap cost one sequential round trip (skipToken paging) —
+ * 25,000 means up to 50 requests on a large log. Raise with care.
  */
-const ROW_CAP = 5000
+const ROW_CAP = 25_000
 
 export class DataverseAuditService {
   /**
