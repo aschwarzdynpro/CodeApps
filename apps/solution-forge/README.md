@@ -159,6 +159,9 @@ Konnektor-Connections in Code Apps).
 
 ## Roadmap (Denkrichtung)
 
+- **Service-Principal-Auth** für beide Konnektoren — konkreter
+  Umsetzungsplan in [`TODO.md`](TODO.md).
+
 - **DevOps weiterdenken**: Anlage einer Working Solution direkt aus einem
   zugewiesenen Work Item, Status-Chips in der Solution-Liste.
 - **Release-Zug**: Versions-Bump und Export der Deployment Solution nach
