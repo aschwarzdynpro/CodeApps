@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Power Apps code-app artifacts — env-specific or generated.
+# Re-create with `power-apps init` + `pac code add-data-source` (see README).
+power.config.json
+src/generated/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

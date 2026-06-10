@@ -61,13 +61,23 @@ dev just works, and going live never touches the UI.
 
 ## Run locally
 
+The service layer statically imports the generated Dataverse client, so the
+generated artifacts must exist before the first build. Run the connection
+steps below **once**, then:
+
 ```bash
 npm install
 npm run dev
 ```
 
-Without `power-apps init`, the app runs in **local-mock** mode (badge top-right)
-and serves the generated sample log in `src/services/mockData.ts`.
+`power.config.json`, `.power/` and `src/generated/` are env-specific or
+generated and **not committed** — each contributor re-creates them with the
+commands below.
+
+The Power Apps SDK runtime hosts the app at the "Local Play" URL once
+`power-apps init` has registered it. At runtime, any error reaching Dataverse
+(missing client, no auth) silently falls back to the seeded mock log in
+`src/services/mockData.ts`, so the dashboard stays usable.
 
 ## Connect to the Dataverse audit data
 
@@ -82,28 +92,33 @@ npm install -g @microsoft/power-apps
 pac auth create --environment <ENV-ID>
 power-apps init --display-name "Audit Explorer" --environment-id <ENV-ID>
 
-# 2. Add the audit table → generates src/generated/services/AuditService.ts
+# 2. Add the audit table → generates src/generated/services/AuditsService.ts
 pac code add-data-source -a dataverse -t audit
 
-# 3. (For the diff) add the RetrieveAuditDetails function
-power-apps find-dataverse-api      # then add-dataverse-api for the match
+# 3. For the field-level diff, add the RetrieveAuditDetails function
+power-apps add-dataverse-api --api-name RetrieveAuditDetails
+# (use `power-apps find-dataverse-api --search RetrieveAuditDetails` if unsure)
 
 # 4. Test against real data, then publish
+npm install
 npm run dev                        # open the "Local Play" URL
 npm run build
 power-apps push
 ```
 
-Then finish the wiring in `src/services/dataverseAuditService.ts`:
+The service layer in `src/services/dataverseAuditService.ts` is already
+wired against the generated `AuditsService` and `RetrieveAuditDetailsService`
+classes:
 
-- In `loadAuditTable()`, swap the dynamic import for the generated static import
-  (`import { AuditService } from '../generated/services/AuditService'`) for full
-  type safety.
-- In `getChanges()`, map the `RetrieveAuditDetails` response (its `OldValue` /
-  `NewValue` attribute collections) into `AttributeChange[]`.
-- In `listAuditedTables()`, query `EntityDefinitions` where
-  `IsAuditEnabled/Value eq true` and map `LogicalName` + `DisplayName` into
-  `AuditedTable[]`.
+- `list()` calls `AuditsService.getAll(...)` with a tight `$select` and maps
+  rows into `AuditEvent`.
+- `getChanges()` calls `RetrieveAuditDetailsService.RetrieveAuditDetails(id)`
+  and flattens the `AttributeAuditDetail`'s `OldValue` / `NewValue` into
+  `AttributeChange[]`.
+- `listAuditedTables()` derives the slicer list from the distinct tables seen
+  in the log. The code app data client has no direct `EntityDefinitions`
+  access, so tables that are audited but quiet won't appear until they have
+  at least one event.
 
 The dashboard, hooks and components stay unchanged. Dataverse auditing docs:
 <https://learn.microsoft.com/en-us/power-apps/developer/data-platform/auditing/overview>
