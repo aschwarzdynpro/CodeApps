@@ -5,16 +5,16 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { getContext } from '@microsoft/power-apps/app'
 
 /**
- * PowerProvider initializes the Power Apps SDK so the app can read the
- * Dataverse Audit table and call audit messages (RetrieveRecordChangeHistory,
- * RetrieveAuditDetails) at runtime.
+ * PowerProvider detects whether the app is running inside a Power Apps host
+ * (Studio / Player iframe) or standalone (plain Vite on localhost).
  *
- * NOTE: Running `power-apps init` wires up the real initialization and a
- * generated `power.config.json`. Until then (plain local `npm run dev`) this
- * provider falls back to "local-mock" mode so the dashboard stays runnable on
- * the sample data in src/services.
+ * Detection: `getContext()` uses an internal PostMessage bridge to the parent
+ * iframe. Inside the host the parent replies with the app context; standalone
+ * the call hangs forever, so we race it against a short timeout and treat the
+ * timeout as `local-mock`.
  */
 
 export type PowerMode = 'power-platform' | 'local-mock'
@@ -57,18 +57,19 @@ export function PowerProvider({ children }: { children: ReactNode }) {
     const init = async () => {
       let mode: PowerMode = 'local-mock'
       try {
-        // Resolved dynamically so the local build doesn't hard-depend on the
-        // generated SDK entry point. `power-apps init` provides the real one.
-        const specifier = '@microsoft/power-apps'
-        const mod: { initialize?: () => Promise<void> } = await import(
-          /* @vite-ignore */ specifier
-        )
-        if (mod?.initialize) {
-          await mod.initialize()
-          mode = 'power-platform'
-        }
+        // Inside a Power Apps host, getContext() resolves quickly via the
+        // PostMessage bridge to the parent iframe. Standalone there is no
+        // parent listener, so the call hangs — cap it with a 1.5s race.
+        const ctx = await Promise.race<
+          | { app?: { appId?: string } }
+          | null
+        >([
+          getContext(),
+          new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
+        ])
+        if (ctx?.app?.appId) mode = 'power-platform'
       } catch {
-        // Not running inside Power Platform — use local mock data.
+        // Bridge threw — treat as standalone, use mock.
       }
       // Resolve regardless of cancellation so any pending service calls unblock.
       resolveMode(mode)
