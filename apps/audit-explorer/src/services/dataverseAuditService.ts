@@ -137,41 +137,73 @@ function mapAuditDetail(detail: AttributeAuditDetail | undefined): AttributeChan
   return changes
 }
 
+/**
+ * Hard ceiling on how many audit rows the dashboard loads per query. The
+ * connector runtime serves ~500 rows per page regardless of `top`, so
+ * anything beyond one page must be collected via `skipToken` paging.
+ */
+const ROW_CAP = 5000
+
 export class DataverseAuditService {
+  /**
+   * Fetch audit rows page by page until the result set is exhausted or
+   * ROW_CAP is reached. Returns null when the first page already fails
+   * (callers fall back to mock); later page failures return what we have.
+   */
+  private async fetchAuditRows(getAllOptions: {
+    select: string[]
+    orderBy?: string[]
+    filter?: string
+  }): Promise<Audits[] | null> {
+    const rows: Audits[] = []
+    let skipToken: string | undefined
+    do {
+      const result = await AuditsService.getAll({
+        ...getAllOptions,
+        ...(skipToken ? { skipToken } : {}),
+      })
+      if (!result.success || !result.data) {
+        console.warn('[audit] page fetch failed — result:', result)
+        return rows.length ? rows : null
+      }
+      rows.push(...result.data)
+      skipToken = result.skipToken
+    } while (skipToken && rows.length < ROW_CAP)
+    if (skipToken) {
+      console.warn(
+        `[audit] stopped paging at the ${ROW_CAP}-row cap — oldest events in range are truncated`,
+      )
+    }
+    return rows
+  }
+
   async list(options?: AuditListOptions): Promise<AuditEvent[]> {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockAuditService.list(options)
     try {
       const sinceDays = options?.sinceDays
-      // Push the date range into the query — with the page cap below, a busy
-      // environment otherwise returns 5000 rows of the same week regardless
-      // of the selected range.
+      // Push the date range into the query — newest-first paging otherwise
+      // returns the same most-recent slice regardless of the selected range.
       const filter =
         sinceDays !== undefined && Number.isFinite(sinceDays)
           ? `createdon ge ${new Date(Date.now() - sinceDays * 86_400_000).toISOString()}`
           : undefined
-      const result = await AuditsService.getAll({
+      const rows = await this.fetchAuditRows({
         select: SELECT_FIELDS,
         orderBy: ['createdon desc'],
-        top: 5000,
         ...(filter ? { filter } : {}),
       })
-      if (!result.success || !result.data) {
-        console.warn('[audit] list() falling back to mock — result:', result)
+      if (!rows) {
+        console.warn('[audit] list() falling back to mock')
         return mockAuditService.list(options)
       }
       console.info(
         '[audit] list() got',
-        result.data.length,
+        rows.length,
         'rows from Dataverse',
         filter ? `(filter: ${filter})` : '(no filter)',
       )
-      if (result.data.length === 5000) {
-        console.warn(
-          '[audit] list() hit the 5000-row page cap — oldest events in range are truncated',
-        )
-      }
-      return result.data.map(toAuditEvent)
+      return rows.map(toAuditEvent)
     } catch (err) {
       console.warn('[audit] list() threw, falling back to mock:', err)
       return mockAuditService.list(options)
@@ -213,19 +245,15 @@ export class DataverseAuditService {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockAuditService.listAuditedTables()
     try {
-      const result = await AuditsService.getAll({
+      const rows = await this.fetchAuditRows({
         select: ['objecttypecode'],
-        top: 5000,
       })
-      if (!result.success || !result.data) {
-        console.warn(
-          '[audit] listAuditedTables() falling back to mock — result:',
-          result,
-        )
+      if (!rows) {
+        console.warn('[audit] listAuditedTables() falling back to mock')
         return mockAuditService.listAuditedTables()
       }
       const seen = new Map<string, AuditedTable>()
-      for (const raw of result.data) {
+      for (const raw of rows) {
         const row = raw as Audits & Record<string, unknown>
         const logical = raw.objecttypecode
         if (!logical || seen.has(logical)) continue
