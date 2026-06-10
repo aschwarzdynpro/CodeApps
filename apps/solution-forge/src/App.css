@@ -369,12 +369,53 @@
   gap: 8px;
 }
 .component-group {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+.component-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 6px;
+  font-size: 12px;
+  text-align: left;
+}
+.component-group-toggle:hover {
+  background: var(--bg);
+}
+.component-group-chevron {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--muted);
+  transition: transform 0.12s ease;
+}
+.component-group-chevron--open {
+  transform: rotate(90deg);
 }
 .component-group-title {
-  font-size: 12px;
   font-weight: 700;
-  margin: 0 0 6px;
+}
+.component-list {
+  margin-top: 4px;
+}
+.component-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.component-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.component-parent {
+  font-size: 11px;
+  white-space: nowrap;
 }
 .component-list {
   list-style: none;

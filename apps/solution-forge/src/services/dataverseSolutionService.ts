@@ -13,6 +13,8 @@ import { shortGuid } from '../utils/format'
 import { SolutionsService } from '../generated/services/SolutionsService'
 import { PublishersService } from '../generated/services/PublishersService'
 import { SolutioncomponentsService } from '../generated/services/SolutioncomponentsService'
+import { Msdyn_solutioncomponentsummariesService } from '../generated/services/Msdyn_solutioncomponentsummariesService'
+import type { Msdyn_solutioncomponentsummaries } from '../generated/models/Msdyn_solutioncomponentsummariesModel'
 import { AddSolutionComponentService } from '../generated/services/AddSolutionComponentService'
 import type { Solutions, SolutionsBase } from '../generated/models/SolutionsModel'
 import type { Solutioncomponents } from '../generated/models/SolutioncomponentsModel'
@@ -37,6 +39,7 @@ import type { IOperationResult } from '@microsoft/power-apps/data'
  *   pac code add-data-source -a dataverse -t solution
  *   pac code add-data-source -a dataverse -t publisher
  *   pac code add-data-source -a dataverse -t solutioncomponent
+ *   pac code add-data-source -a dataverse -t msdyn_solutioncomponentsummary
  *   power-apps add-dataverse-api  (AddSolutionComponent)
  *
  * If those generators are re-run with different shapes, update the SELECT
@@ -134,6 +137,39 @@ function toWorkingSolution(raw: Solutions): WorkingSolution {
           prefix: raw.publisheridprefix ?? '',
         }
       : null,
+  }
+}
+
+/**
+ * Map one row of the `msdyn_solutioncomponentsummary` virtual table — the
+ * same source the maker portal uses for the solution objects list, so it
+ * carries resolved display names. Subcomponent rows (columns, forms, …)
+ * additionally name their owning table in msdyn_primaryentityname.
+ */
+function summaryToComponentInfo(
+  raw: Msdyn_solutioncomponentsummaries,
+  behaviorByObjectId: Map<string, number>,
+): SolutionComponentInfo {
+  const typeCode = Number(raw.msdyn_componenttype ?? 0)
+  const typeName =
+    raw.msdyn_componenttypename ??
+    COMPONENT_TYPE_LABELS[typeCode] ??
+    `Type ${typeCode}`
+  const objectId = raw.msdyn_objectid ?? ''
+  const displayName =
+    raw.msdyn_displayname || raw.msdyn_name || `${typeName} ${shortGuid(objectId)}`
+  const rootBehavior = behaviorByObjectId.get(objectId)
+  return {
+    id: raw.msdyn_solutioncomponentsummaryid,
+    objectId,
+    typeCode,
+    typeName,
+    displayName,
+    ...(raw.msdyn_schemaname ? { schemaName: raw.msdyn_schemaname } : {}),
+    ...(raw.msdyn_primaryentityname
+      ? { parentTable: raw.msdyn_primaryentityname }
+      : {}),
+    ...(rootBehavior !== undefined ? { rootBehavior } : {}),
   }
 }
 
@@ -268,31 +304,71 @@ export class DataverseSolutionService implements SolutionService {
     return toWorkingSolution(result.data)
   }
 
+  /** Raw `solutioncomponent` rows — root components plus their behaviors. */
+  private async fetchRawComponents(
+    solutionId: string,
+  ): Promise<Solutioncomponents[] | null> {
+    return fetchAll(
+      (o) => SolutioncomponentsService.getAll(o),
+      {
+        select: [
+          'solutioncomponentid',
+          'componenttype',
+          'objectid',
+          'rootcomponentbehavior',
+        ],
+        filter: `_solutionid_value eq ${solutionId}`,
+      },
+    )
+  }
+
   async listComponents(solutionId: string): Promise<SolutionComponentInfo[]> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
       return mockSolutionService.listComponents(solutionId)
     try {
-      const rows = await fetchAll(
-        (o) => SolutioncomponentsService.getAll(o),
-        {
-          select: [
-            'solutioncomponentid',
-            'componenttype',
-            'objectid',
-            'rootcomponentbehavior',
-          ],
-          filter: `_solutionid_value eq ${solutionId}`,
-        },
+      // The summary virtual table resolves display names (it's what the
+      // maker portal renders); the raw table supplies rootcomponentbehavior,
+      // which the merge needs. Join the two on objectid.
+      const [summaryRows, rawRows] = await Promise.all([
+        fetchAll(
+          (o) => Msdyn_solutioncomponentsummariesService.getAll(o),
+          {
+            select: [
+              'msdyn_solutioncomponentsummaryid',
+              'msdyn_objectid',
+              'msdyn_componenttype',
+              'msdyn_componenttypename',
+              'msdyn_displayname',
+              'msdyn_name',
+              'msdyn_schemaname',
+              'msdyn_primaryentityname',
+            ],
+            filter: `msdyn_solutionid eq '${solutionId}'`,
+          },
+        ).catch((err) => {
+          console.warn('[solutions] summary query threw:', err)
+          return null
+        }),
+        this.fetchRawComponents(solutionId),
+      ])
+
+      const behaviorByObjectId = new Map<string, number>()
+      for (const row of rawRows ?? []) {
+        if (row.objectid && row.rootcomponentbehavior !== undefined)
+          behaviorByObjectId.set(row.objectid, Number(row.rootcomponentbehavior))
+      }
+
+      const mapped = summaryRows?.length
+        ? summaryRows.map((r) => summaryToComponentInfo(r, behaviorByObjectId))
+        : (rawRows ?? []).map(toComponentInfo)
+      if (!summaryRows?.length && !rawRows)
+        return mockSolutionService.listComponents(solutionId)
+      return mapped.sort(
+        (a, b) =>
+          a.typeName.localeCompare(b.typeName) ||
+          a.displayName.localeCompare(b.displayName),
       )
-      if (!rows) return mockSolutionService.listComponents(solutionId)
-      return rows
-        .map(toComponentInfo)
-        .sort(
-          (a, b) =>
-            a.typeName.localeCompare(b.typeName) ||
-            a.displayName.localeCompare(b.displayName),
-        )
     } catch (err) {
       console.warn('[solutions] listComponents() threw, falling back to mock:', err)
       return mockSolutionService.listComponents(solutionId)

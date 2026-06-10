@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { SolutionComponentInfo, WorkingSolution } from '../types/solution'
 import { devOpsWorkItemUrl, makerSolutionUrl } from '../config'
 import { formatDateTime, groupBy } from '../utils/format'
@@ -11,6 +12,9 @@ interface Props {
   onRefreshComponents: () => void
 }
 
+/** Groups with at most this many components start expanded. */
+const AUTO_EXPAND_LIMIT = 8
+
 export function SolutionDetail({
   solution,
   environmentId,
@@ -22,6 +26,18 @@ export function SolutionDetail({
   const grouped = [...groupBy(components, (c) => c.typeName).entries()].sort(
     (a, b) => a[0].localeCompare(b[0]),
   )
+
+  // User toggles per type group; groups without an override fall back to the
+  // size-based default. The parent remounts this component per solution
+  // (key={solution.id}), so state resets when another solution is opened.
+  const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>({})
+  const isExpanded = (typeName: string, count: number) =>
+    groupOverrides[typeName] ?? count <= AUTO_EXPAND_LIMIT
+  const toggleGroup = (typeName: string, count: number) =>
+    setGroupOverrides((prev) => ({
+      ...prev,
+      [typeName]: !isExpanded(typeName, count),
+    }))
 
   return (
     <aside className="card detail">
@@ -99,20 +115,42 @@ export function SolutionDetail({
       )}
 
       {!loadingComponents &&
-        grouped.map(([typeName, items]) => (
-          <section key={typeName} className="component-group">
-            <h4 className="component-group-title">
-              {typeName} <span className="muted">({items.length})</span>
-            </h4>
-            <ul className="component-list">
-              {items.map((c) => (
-                <li key={c.id} title={c.objectId}>
-                  {c.displayName}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+        grouped.map(([typeName, items]) => {
+          const expanded = isExpanded(typeName, items.length)
+          return (
+            <section key={typeName} className="component-group">
+              <button
+                className="component-group-toggle"
+                onClick={() => toggleGroup(typeName, items.length)}
+                aria-expanded={expanded}
+              >
+                <span
+                  className={`component-group-chevron ${
+                    expanded ? 'component-group-chevron--open' : ''
+                  }`}
+                >
+                  ▸
+                </span>
+                <span className="component-group-title">{typeName}</span>
+                <span className="muted">({items.length})</span>
+              </button>
+              {expanded && (
+                <ul className="component-list">
+                  {items.map((c) => (
+                    <li key={c.id} title={c.schemaName ?? c.objectId}>
+                      <span className="component-name">{c.displayName}</span>
+                      {c.parentTable && (
+                        <span className="component-parent muted">
+                          {c.parentTable}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )
+        })}
     </aside>
   )
 }

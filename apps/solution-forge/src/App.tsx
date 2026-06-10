@@ -157,6 +157,7 @@ function App() {
             />
             {selected ? (
               <SolutionDetail
+                key={selected.id}
                 solution={selected}
                 environmentId={environmentId}
                 components={components}

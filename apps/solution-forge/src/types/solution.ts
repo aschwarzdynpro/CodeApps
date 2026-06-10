@@ -57,6 +57,10 @@ export interface SolutionComponentInfo {
   typeName: string
   /** Best-effort display name of the component (logical name / GUID fallback). */
   displayName: string
+  /** Schema name (e.g. "dyn_OnboardingCase"), when the summary view provides it. */
+  schemaName?: string
+  /** Owning table for child components like columns or forms. */
+  parentTable?: string
   /**
    * rootcomponentbehavior for table components: 0 = include subcomponents,
    * 1 = do not include, 2 = shell only. Undefined for non-table components.

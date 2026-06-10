@@ -29,9 +29,11 @@ Alle anderen unmanaged Solutions der Umgebung erscheinen unter „Other".
 - **Anlegen**: Dialog mit Typ, ADO-ID, Titel, Beschreibung, Publisher und
   Live-Preview des Unique Name inkl. Duplikat-Prüfung. Die Solution wird
   real in Dataverse erzeugt und ist sofort im Maker-Portal sichtbar.
-- **Detail**: Metadaten, Komponenten der Solution gruppiert nach Typ,
-  Deep-Link **Open in Maker Portal** (Environment-ID kommt zur Laufzeit aus
-  dem Host-Kontext) sowie ein Azure-DevOps-Link zum Work Item.
+- **Detail**: Metadaten, Komponenten der Solution gruppiert nach Typ in
+  aufklappbaren Gruppen (Anzeigenamen via `msdyn_solutioncomponentsummary`,
+  derselben Quelle wie im Maker-Portal), Deep-Link **Open in Maker Portal**
+  (Environment-ID kommt zur Laufzeit aus dem Host-Kontext) sowie ein
+  Azure-DevOps-Link zum Work Item.
 - **Merge**: Deployment Solution als Ziel wählen, Feature-/Bug-Solutions
   ankreuzen, Komponenten-Plan prüfen (Konflikte markiert, Duplikate werden
   übersprungen) und mergen (`AddSolutionComponent` je Komponente).
@@ -46,7 +48,10 @@ Die UI hängt nur am Interface `SolutionService` in
 - `listPublishers()` – Publisher-Auswahl für den Anlage-Dialog
 - `createWorkingSolution()` – legt die Solution in Dataverse an
   (`publisherid@odata.bind`)
-- `listComponents(solutionId)` – Zeilen der Tabelle `solutioncomponent`
+- `listComponents(solutionId)` – Anzeigenamen aus der virtuellen Tabelle
+  `msdyn_solutioncomponentsummary`, gejoint mit `solutioncomponent` für das
+  `rootcomponentbehavior` (Fallback auf die Roh-Tabelle, falls die Summary
+  nichts liefert)
 - `mergeIntoDeployment(target, sources)` – `AddSolutionComponent` pro
   Komponente, bereits vorhandene Objekte werden übersprungen
 
@@ -73,7 +78,18 @@ power-apps init --display-name "Solution Forge" --environment-id <ENV-ID>
 pac code add-data-source -a dataverse -t solution
 pac code add-data-source -a dataverse -t publisher
 pac code add-data-source -a dataverse -t solutioncomponent
+pac code add-data-source -a dataverse -t msdyn_solutioncomponentsummary
 ```
+
+> **Achtung beim Nachgenerieren:** Sobald die Action
+> `AddSolutionComponent` eingebunden ist, schlägt jedes weitere
+> `pac code add-data-source` fehl („The JSON does not represent a valid
+> data source") — die CLI kann das Action-Schema beim Reprocessing nicht
+> lesen. Workaround: `.power/schemas/dataverse/AddSolutionComponent.Schema.json`
+> temporär wegbewegen, Data Source hinzufügen, Datei zurücklegen und den
+> `addsolutioncomponent`-Block in
+> `.power/schemas/appschemas/dataSourcesInfo.ts` wieder einfügen (die
+> Generierung wirft ihn sonst raus und der Merge bricht zur Laufzeit).
 
 `src/services/dataverseSolutionService.ts` importiert die generierten
 Services **statisch** und setzt voraus, dass alle vier Generatoren gelaufen
@@ -106,9 +122,6 @@ VITE_ENVIRONMENT_ID=<env-id>   # Fallback für Maker-Links außerhalb des Hosts
 - **Azure-DevOps-Integration**: Work-Item-Status und Titel direkt am
   Solution-Eintrag anzeigen (Custom Connector / Graph der ADO REST API),
   Anlage einer Working Solution direkt aus einem zugewiesenen Work Item.
-- **Komponenten-Anzeigenamen**: Auflösung über
-  `msdyn_solutioncomponentsummary` (die Quelle des Maker-Portals) statt
-  Typ + Objekt-GUID.
 - **Release-Zug**: Versions-Bump und Export der Deployment Solution nach
   dem Merge, Status-Tracking pro Sprint.
 
