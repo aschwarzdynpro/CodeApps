@@ -78,15 +78,31 @@ export function SolutionDetail({
       )}
 
       <div className="detail-actions">
-        <a
-          className="btn btn--primary"
-          href={makerSolutionUrl(environmentId, solution.id)}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open in Maker Portal ↗
-        </a>
+        {solution.solutionMissing ? (
+          <span
+            className="btn btn--primary btn--disabled"
+            title="No Dataverse solution matches this record's unique solution name."
+          >
+            Open in Maker Portal
+          </span>
+        ) : (
+          <a
+            className="btn btn--primary"
+            href={makerSolutionUrl(environmentId, solution.id)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open in Maker Portal ↗
+          </a>
+        )}
       </div>
+
+      {solution.solutionMissing && (
+        <div className="state state--error">
+          The linked solution (<code>{solution.uniqueName || '—'}</code>) was
+          not found in this environment — it may have been deleted or renamed.
+        </div>
+      )}
 
       {DEVOPS_PANEL_ENABLED && solution.devOpsId && (
         <div className="devops-card">
@@ -141,12 +157,24 @@ export function SolutionDetail({
       <dl className="detail-meta">
         <div>
           <dt>Version</dt>
-          <dd>{solution.version}</dd>
+          <dd>{solution.version || '—'}</dd>
         </div>
         <div>
           <dt>Publisher</dt>
           <dd>{solution.publisher?.friendlyName || '—'}</dd>
         </div>
+        {solution.owner && (
+          <div>
+            <dt>Owner</dt>
+            <dd>{solution.owner}</dd>
+          </div>
+        )}
+        {solution.deploymentStatus && (
+          <div>
+            <dt>Deployment status</dt>
+            <dd>{solution.deploymentStatus}</dd>
+          </div>
+        )}
         <div>
           <dt>Created</dt>
           <dd>{formatDateTime(solution.createdOn)}</dd>
@@ -157,25 +185,32 @@ export function SolutionDetail({
         </div>
       </dl>
 
-      <div className="detail-components-header">
-        <h3 className="card-title">
-          Components{!loadingComponents && ` (${components.length})`}
-        </h3>
-        <button className="btn btn--small" onClick={onRefreshComponents}>
-          Refresh
-        </button>
-      </div>
-
-      {loadingComponents && <div className="state">Loading components…</div>}
-
-      {!loadingComponents && components.length === 0 && (
-        <div className="state">
-          No components yet — add tables, forms or flows to this solution in
-          the maker portal and refresh.
+      {!solution.solutionMissing && (
+        <div className="detail-components-header">
+          <h3 className="card-title">
+            Components{!loadingComponents && ` (${components.length})`}
+          </h3>
+          <button className="btn btn--small" onClick={onRefreshComponents}>
+            Refresh
+          </button>
         </div>
       )}
 
-      {!loadingComponents &&
+      {!solution.solutionMissing && loadingComponents && (
+        <div className="state">Loading components…</div>
+      )}
+
+      {!solution.solutionMissing &&
+        !loadingComponents &&
+        components.length === 0 && (
+          <div className="state">
+            No components yet — add tables, forms or flows to this solution in
+            the maker portal and refresh.
+          </div>
+        )}
+
+      {!solution.solutionMissing &&
+        !loadingComponents &&
         grouped.map(([typeName, items]) => {
           const expanded = isExpanded(typeName, items.length)
           return (

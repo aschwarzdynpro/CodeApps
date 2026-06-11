@@ -3,6 +3,7 @@ import type {
   MergeResult,
   PublisherInfo,
   SolutionComponentInfo,
+  SolutionKind,
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
@@ -15,13 +16,19 @@ import {
   extractDevOpsId,
 } from '../utils/naming'
 import { shortGuid } from '../utils/format'
-import { DEVOPS_PANEL_ENABLED } from '../config'
+import { DEVOPS_PANEL_ENABLED, makerSolutionUrl } from '../config'
 import { SolutionsService } from '../generated/services/SolutionsService'
 import { PublishersService } from '../generated/services/PublishersService'
 import { SolutioncomponentsService } from '../generated/services/SolutioncomponentsService'
 import { Msdyn_solutioncomponentsummariesService } from '../generated/services/Msdyn_solutioncomponentsummariesService'
 import type { Msdyn_solutioncomponentsummaries } from '../generated/models/Msdyn_solutioncomponentsummariesModel'
 import { AddSolutionComponentService } from '../generated/services/AddSolutionComponentService'
+import { Ssid_workingsolutionsService } from '../generated/services/Ssid_workingsolutionsService'
+import type {
+  Ssid_workingsolutions,
+  Ssid_workingsolutionsBase,
+} from '../generated/models/Ssid_workingsolutionsModel'
+import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
 import type { Solutions, SolutionsBase } from '../generated/models/SolutionsModel'
 import type { Solutioncomponents } from '../generated/models/SolutioncomponentsModel'
 import type { Publishers } from '../generated/models/PublishersModel'
@@ -105,6 +112,36 @@ const COMPONENT_TYPE_LABELS: Record<number, string> = {
  * SDK-side virtual attributes — selecting them yields 0x80060888. Their
  * display values arrive as OData formatted-value annotations instead.
  */
+/**
+ * ssid_workingsolution presentation layer: sst_type_opt choice values ↔
+ * SolutionKind (the internal key for Release stays 'deployment').
+ */
+const KIND_BY_TYPE_OPT: Record<number, SolutionKind> = {
+  867520000: 'feature',
+  867520001: 'bug',
+  867520002: 'deployment',
+}
+const TYPE_OPT_BY_KIND: Record<CreateWorkingSolutionInput['kind'], number> = {
+  feature: 867520000,
+  bug: 867520001,
+  deployment: 867520002,
+}
+/** ssid_deploymentstatus: initial value and the "merged" log state. */
+const DEPLOYMENT_STATUS_NONE = 500870000
+const DEPLOYMENT_STATUS_MERGED = 867520001
+
+const WORKING_ROW_SELECT = [
+  'ssid_workingsolutionid',
+  'ssid_name',
+  'ssid_devopsid',
+  'ssid_uniquesolutionname',
+  'sst_type_opt',
+  'ssid_deploymentstatus',
+  '_ownerid_value',
+  'createdon',
+  'modifiedon',
+]
+
 const SOLUTION_SELECT = [
   'solutionid',
   'uniquename',
@@ -232,24 +269,88 @@ async function fetchAll<T>(
 }
 
 export class DataverseSolutionService implements SolutionService {
+  /** Active rows of the ssid_workingsolution presentation table. */
+  private async fetchWorkingRows(): Promise<Ssid_workingsolutions[]> {
+    const rows = await fetchAll(
+      (o) => Ssid_workingsolutionsService.getAll(o),
+      {
+        select: WORKING_ROW_SELECT,
+        filter: 'statecode eq 0',
+      },
+    )
+    return rows ?? []
+  }
+
+  /**
+   * The workbench list: ssid_workingsolution rows (curated layer — title,
+   * DevOps id, type, owner, deployment status) enriched with the linked
+   * real solution (version, publisher, dates), joined on
+   * ssid_uniquesolutionname. Real unmanaged solutions without a row keep
+   * showing up, classified by the unique-name convention (mostly "Other").
+   */
   async listSolutions(): Promise<WorkingSolution[]> {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockSolutionService.listSolutions()
     try {
-      const rows = await fetchAll(
-        (o) => SolutionsService.getAll(o),
-        {
+      const [rows, workingRows] = await Promise.all([
+        fetchAll((o) => SolutionsService.getAll(o), {
           select: SOLUTION_SELECT,
           // Working solutions are always unmanaged; isvisible drops the
           // hidden system containers (Active, Basic, …).
           filter: 'ismanaged eq false and isvisible eq true',
           orderBy: ['modifiedon desc'],
-        },
-      )
+        }),
+        this.fetchWorkingRows().catch((err) => {
+          console.warn('[solutions] working-solution rows failed:', err)
+          return [] as Ssid_workingsolutions[]
+        }),
+      ])
       if (!rows) return mockSolutionService.listSolutions()
-      return rows
+      const solutions = rows
         .map(toWorkingSolution)
         .filter((s) => s.uniqueName.toLowerCase() !== 'default')
+      const byUniqueName = new Map(
+        solutions.map((s) => [s.uniqueName.toLowerCase(), s]),
+      )
+
+      const result: WorkingSolution[] = []
+      const linkedSolutionIds = new Set<string>()
+      for (const raw of workingRows) {
+        const row = raw as Ssid_workingsolutions & Record<string, unknown>
+        const uniqueName = raw.ssid_uniquesolutionname ?? ''
+        const solution = uniqueName
+          ? byUniqueName.get(uniqueName.toLowerCase())
+          : undefined
+        if (solution) linkedSolutionIds.add(solution.id)
+        const kind =
+          KIND_BY_TYPE_OPT[Number(raw.sst_type_opt ?? -1)] ??
+          solution?.kind ??
+          classifyUniqueName(uniqueName).kind
+        result.push({
+          id: solution?.id ?? `missing-${raw.ssid_workingsolutionid}`,
+          recordId: raw.ssid_workingsolutionid,
+          uniqueName: solution?.uniqueName ?? uniqueName,
+          title: raw.ssid_name || (solution?.title ?? uniqueName),
+          description: solution?.description ?? '',
+          kind,
+          devOpsId: raw.ssid_devopsid || solution?.devOpsId || null,
+          version: solution?.version ?? '',
+          isManaged: solution?.isManaged ?? false,
+          createdOn: solution?.createdOn ?? raw.createdon ?? '',
+          modifiedOn: solution?.modifiedOn ?? raw.modifiedon ?? '',
+          publisher: solution?.publisher ?? null,
+          owner: formatted(row, '_ownerid_value') ?? raw.owneridname,
+          deploymentStatus:
+            formatted(row, 'ssid_deploymentstatus') ??
+            raw.ssid_deploymentstatusname,
+          ...(solution ? {} : { solutionMissing: true as const }),
+        })
+      }
+      // Solutions that have no presentation row yet.
+      for (const solution of solutions) {
+        if (!linkedSolutionIds.has(solution.id)) result.push(solution)
+      }
+      return result.sort((a, b) => b.modifiedOn.localeCompare(a.modifiedOn))
     } catch (err) {
       console.warn('[solutions] listSolutions() threw, falling back to mock:', err)
       return mockSolutionService.listSolutions()
@@ -286,6 +387,36 @@ export class DataverseSolutionService implements SolutionService {
     }
   }
 
+  /**
+   * The ssid_workingsolution table requires a ssid_WorkbenchSetting lookup;
+   * resolve the first available settings row via the Dataverse connector
+   * (no dedicated typed data source needed for a single id).
+   */
+  private async defaultWorkbenchSettingId(): Promise<string | null> {
+    try {
+      const result = await MicrosoftDataverseService.ListRecords(
+        'ssid_workbenchsettings',
+        undefined,
+        undefined,
+        undefined,
+        'ssid_workbenchsettingid',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        1,
+      )
+      const rows =
+        (result.data as { value?: Record<string, unknown>[] } | undefined)
+          ?.value ?? []
+      const id = rows[0]?.ssid_workbenchsettingid
+      return typeof id === 'string' && id ? id : null
+    } catch (err) {
+      console.warn('[solutions] workbench setting lookup failed:', err)
+      return null
+    }
+  }
+
   async createWorkingSolution(
     input: CreateWorkingSolutionInput,
   ): Promise<WorkingSolution> {
@@ -315,7 +446,41 @@ export class DataverseSolutionService implements SolutionService {
           'or the publisher is invalid.',
       )
     }
-    return toWorkingSolution(result.data)
+    const solution = toWorkingSolution(result.data)
+
+    // Presentation layer: the ssid_workingsolution row carrying title,
+    // DevOps id, type and the link back to the real solution.
+    const workbenchSettingId = await this.defaultWorkbenchSettingId()
+    const rowRecord = {
+      ssid_name: input.title,
+      ssid_devopsid: input.devOpsId,
+      ssid_uniquesolutionname: uniqueName,
+      ssid_solutionlink: makerSolutionUrl(null, solution.id),
+      sst_type_opt: TYPE_OPT_BY_KIND[input.kind],
+      ssid_deploymentstatus: DEPLOYMENT_STATUS_NONE,
+      ...(workbenchSettingId
+        ? {
+            'ssid_WorkbenchSetting@odata.bind': `/ssid_workbenchsettings(${workbenchSettingId})`,
+          }
+        : {}),
+    } as unknown as Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+    const rowResult = await Ssid_workingsolutionsService.create(rowRecord)
+    if (!rowResult.success) {
+      console.warn('[solutions] working-solution row create failed:', rowResult)
+      throw new Error(
+        `The solution "${uniqueName}" was created, but saving the working-solution ` +
+          'record failed — it will appear under "Other" until the record exists.',
+      )
+    }
+    return {
+      ...solution,
+      recordId: rowResult.data?.ssid_workingsolutionid,
+      title: input.title,
+      description: input.description,
+      kind: input.kind,
+      devOpsId: input.devOpsId,
+      deploymentStatus: 'None',
+    }
   }
 
   /** Raw `solutioncomponent` rows — root components plus their behaviors. */
@@ -474,6 +639,30 @@ export class DataverseSolutionService implements SolutionService {
         }
       }
       onProgress?.(++done, queue.length)
+    }
+
+    // Log the merge on the source rows' presentation records — the table
+    // carries dedicated fields for exactly this.
+    if (result.added > 0 || result.skipped > 0) {
+      const mergedAt = new Date().toISOString()
+      for (const source of solutions) {
+        if (!sourceSolutionIds.includes(source.id) || !source.recordId) continue
+        try {
+          await Ssid_workingsolutionsService.update(
+            source.recordId,
+            {
+              sst_mergeintodeploymentsolution: true,
+              sst_lastmergeintodeploymentsolution: mergedAt,
+              ssid_deploymentstatus: DEPLOYMENT_STATUS_MERGED,
+            } as unknown as Partial<
+              Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+            >,
+          )
+        } catch (err) {
+          // Logging must not fail the merge itself.
+          console.warn('[solutions] merge log update failed:', err)
+        }
+      }
     }
     return result
   }

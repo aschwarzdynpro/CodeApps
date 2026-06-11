@@ -1,14 +1,16 @@
 /**
  * Domain model for managing Dataverse solutions during feature / bug
- * development. A "working solution" is a plain unmanaged Dataverse solution
- * whose unique name encodes its purpose:
+ * development.
  *
- *   feature_<ADO-id>   – development container for one Azure DevOps feature
- *   bug_<ADO-id>       – development container for one Azure DevOps bug
- *   deploy_<name>      – deployment solution that working solutions merge into
+ * A "working solution" is a row of the custom table `ssid_workingsolution`
+ * (the curated presentation layer: title, dedicated DevOps id, type, owner,
+ * deployment status) linked via `ssid_uniquesolutionname` to the real
+ * unmanaged Dataverse solution that carries the components.
  *
- * Everything else in the environment is classified as `other` and hidden from
- * the workbench by default.
+ * The classification (`SolutionKind`) comes from the row's `sst_type_opt`
+ * choice (Feature / Bug / Release — internal key `deployment`). Solutions
+ * without a working-solution row fall back to the unique-name convention
+ * (feature_<id> / bug_<id> / deploy_<name>) and are otherwise `other`.
  */
 
 export type SolutionKind = 'feature' | 'bug' | 'deployment' | 'other'
@@ -25,8 +27,20 @@ export interface PublisherInfo {
 }
 
 export interface WorkingSolution {
-  /** solutionid */
+  /**
+   * solutionid of the real solution. For working-solution rows whose linked
+   * solution can't be resolved this is a synthetic key — check
+   * {@link solutionMissing} before using it against Dataverse.
+   */
   id: string
+  /** ssid_workingsolutionid of the presentation row, when one exists. */
+  recordId?: string
+  /** Owner of the working-solution row (owneridname). */
+  owner?: string
+  /** Formatted ssid_deploymentstatus label, e.g. "Deployment completed". */
+  deploymentStatus?: string
+  /** True when the row's ssid_uniquesolutionname matches no real solution. */
+  solutionMissing?: boolean
   /** uniquename, e.g. "feature_4711" */
   uniqueName: string
   /** friendlyname — the title entered by the developer. */

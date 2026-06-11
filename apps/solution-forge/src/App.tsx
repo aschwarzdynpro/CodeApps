@@ -132,7 +132,8 @@ function App() {
    * at a time. Runs once per toggle activation; results are kept until the
    * toggle is switched off (turning it back on re-indexes fresh data).
    */
-  const buildComponentIndex = async (targets: WorkingSolution[]) => {
+  const buildComponentIndex = async (allTargets: WorkingSolution[]) => {
+    const targets = allTargets.filter((s) => !s.solutionMissing)
     setIndexProgress([0, targets.length])
     const index = new Map<string, SolutionComponentInfo[]>()
     let done = 0
@@ -186,9 +187,16 @@ function App() {
   const openSolution = (id: string) => {
     setSelectedId(id)
     setJustCreated(null)
-    loadComponents(id)
-    const devOpsId = allSolutions.find((s) => s.id === id)?.devOpsId
-    if (DEVOPS_PANEL_ENABLED && devOpsId) loadWorkItem(devOpsId)
+    const solution = allSolutions.find((s) => s.id === id)
+    if (solution?.solutionMissing) {
+      // No real solution behind this record — nothing to fetch.
+      setComponents([])
+      setComponentsLoading(false)
+    } else {
+      loadComponents(id)
+    }
+    if (DEVOPS_PANEL_ENABLED && solution?.devOpsId)
+      loadWorkItem(solution.devOpsId)
   }
 
   const handleCreated = (solution: WorkingSolution) => {

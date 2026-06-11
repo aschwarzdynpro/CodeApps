@@ -6,7 +6,7 @@ const CHIPS: { value: KindFilter; label: string }[] = [
   { value: 'All', label: 'All' },
   { value: 'feature', label: 'Features' },
   { value: 'bug', label: 'Bugs' },
-  { value: 'deployment', label: 'Deployments' },
+  { value: 'deployment', label: 'Releases' },
   { value: 'other', label: 'Other' },
 ]
 

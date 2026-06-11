@@ -97,13 +97,16 @@ export class MockSolutionService {
       title: input.title,
       description: input.description,
       kind: input.kind,
-      devOpsId: input.kind === 'deployment' ? null : input.devOpsId,
+      devOpsId: input.devOpsId,
       version: '1.0.0.0',
       isManaged: false,
       createdOn: now,
       modifiedOn: now,
       publisher:
         mockPublishers.find((p) => p.id === input.publisherId) ?? null,
+      recordId: `ws-${mockIdCounter}`,
+      owner: 'You (mock)',
+      deploymentStatus: 'None',
     }
     this.solutions.unshift(created)
     this.components.set(created.id, [])
@@ -152,6 +155,12 @@ export class MockSolutionService {
     }
     this.components.set(target.id, targetComponents)
     target.modifiedOn = new Date().toISOString()
+    // Mirror the real implementation's merge logging on the source rows.
+    for (const source of this.solutions) {
+      if (sourceSolutionIds.includes(source.id) && source.recordId) {
+        source.deploymentStatus = 'Merged into Deployment Solution'
+      }
+    }
     return result
   }
 }

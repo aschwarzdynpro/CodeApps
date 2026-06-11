@@ -43,6 +43,9 @@ export const mockSolutions: WorkingSolution[] = [
     createdOn: daysAgo(12),
     modifiedOn: daysAgo(0, 3),
     publisher: mockPublishers[0],
+    recordId: 'ws-0001',
+    owner: 'Marie Curie',
+    deploymentStatus: 'None',
   },
   {
     id: 'a0000000-0000-4000-9000-000000000002',
@@ -70,6 +73,9 @@ export const mockSolutions: WorkingSolution[] = [
     createdOn: daysAgo(3),
     modifiedOn: daysAgo(0, 26),
     publisher: mockPublishers[0],
+    recordId: 'ws-0003',
+    owner: 'Lise Meitner',
+    deploymentStatus: 'None',
   },
   {
     id: 'a0000000-0000-4000-9000-000000000004',
@@ -97,6 +103,9 @@ export const mockSolutions: WorkingSolution[] = [
     createdOn: daysAgo(14),
     modifiedOn: daysAgo(2),
     publisher: mockPublishers[0],
+    recordId: 'ws-0005',
+    owner: 'Niels Bohr',
+    deploymentStatus: 'To be deployed',
   },
   {
     id: 'a0000000-0000-4000-9000-000000000006',

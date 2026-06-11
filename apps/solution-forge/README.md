@@ -6,21 +6,27 @@ einsehen und Feature-/Bug-Solutions in eine Deployment Solution mergen.
 
 ## Konzept
 
-Eine **Working Solution** ist eine normale unmanaged Dataverse-Solution,
-deren Unique Name die Konvention der App trägt:
+Eine **Working Solution** besteht aus zwei Teilen:
 
-| Typ | Unique Name | Beispiel |
-| --- | --- | --- |
-| Feature | `feature_<ADO-ID>` | `feature_4711` |
-| Bug | `bug_<ADO-ID>` | `bug_4732` |
-| Deployment | `deploy_<name>` | `deploy_sprint_12` |
+1. **Darstellungs-Schicht**: ein Datensatz der Tabelle
+   `ssid_workingsolution` mit Titel (`ssid_name`), dediziertem
+   DevOps-ID-Feld (`ssid_devopsid`), Typ (`sst_type_opt`: Feature / Bug /
+   Release), Owner, Deployment-Status (`ssid_deploymentstatus`) und
+   Merge-Log-Feldern (`sst_mergeintodeploymentsolution`,
+   `sst_lastmergeintodeploymentsolution`).
+2. **Echte Solution**: die unmanaged Dataverse-Solution mit den
+   Komponenten, verlinkt über `ssid_uniquesolutionname`.
 
-- **Titel** → `friendlyname` (Anzeigename der Solution)
-- **Azure DevOps ID** → Teil des `uniquename` (der Typ-Präfix liefert den
-  von Dataverse geforderten führenden Buchstaben)
-- **Beschreibung** → `description`
+Beim Anlegen erzeugt die App beides; der Unique Name folgt weiterhin der
+Konvention (`feature_<id>` / `bug_<id>` / `deploy_<name>`). Unmanaged
+Solutions **ohne** Darstellungs-Datensatz erscheinen weiterhin in der
+Liste (Klassifizierung über die Namenskonvention, sonst „Other").
+Findet sich zur Row keine echte Solution, wird das im Detail markiert
+(Komponenten/Merge/Compare sind dann deaktiviert).
 
-Alle anderen unmanaged Solutions der Umgebung erscheinen unter „Other".
+Nach einem Merge setzt die App auf den Quell-Datensätzen automatisch
+`sst_mergeintodeploymentsolution`, den Zeitstempel und den
+Deployment-Status „Merged into Deployment Solution".
 
 ## Features
 

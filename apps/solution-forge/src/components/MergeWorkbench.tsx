@@ -21,9 +21,12 @@ interface Props {
  * markers when several sources carry the same object), then execute.
  */
 export function MergeWorkbench({ solutions, onMerged }: Props) {
-  const targets = solutions.filter((s) => s.kind === 'deployment')
+  // Rows without a resolvable real solution can't contribute components.
+  const targets = solutions.filter(
+    (s) => s.kind === 'deployment' && !s.solutionMissing,
+  )
   const sources = solutions.filter(
-    (s) => s.kind === 'feature' || s.kind === 'bug',
+    (s) => (s.kind === 'feature' || s.kind === 'bug') && !s.solutionMissing,
   )
 
   const [targetId, setTargetId] = useState<string>('')

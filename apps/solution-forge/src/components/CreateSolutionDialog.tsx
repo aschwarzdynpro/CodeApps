@@ -11,7 +11,7 @@ type Kind = CreateWorkingSolutionInput['kind']
 const KIND_OPTIONS: { value: Kind; label: string; hint: string }[] = [
   { value: 'feature', label: 'Feature', hint: 'feature_<ADO id>' },
   { value: 'bug', label: 'Bug', hint: 'bug_<ADO id>' },
-  { value: 'deployment', label: 'Deployment', hint: 'deploy_<name>' },
+  { value: 'deployment', label: 'Release', hint: 'deploy_<name>' },
 ]
 
 interface Props {

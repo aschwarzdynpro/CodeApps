@@ -3,7 +3,9 @@ import type { SolutionKind } from '../types/solution'
 const LABELS: Record<SolutionKind, string> = {
   feature: 'Feature',
   bug: 'Bug',
-  deployment: 'Deployment',
+  // Internal key kept as 'deployment'; the business wording is "Release"
+  // (sst_type_opt choice on ssid_workingsolution).
+  deployment: 'Release',
   other: 'Other',
 }
 

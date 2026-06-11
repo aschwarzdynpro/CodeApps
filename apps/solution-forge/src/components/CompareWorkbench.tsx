@@ -34,7 +34,12 @@ const KIND_ORDER: AlmComponentKind[] = [
  * Deviations (missing, status drift, unmanaged in target) are highlighted
  * and filterable.
  */
-export function CompareWorkbench({ solutions, initialSolutionId }: Props) {
+export function CompareWorkbench({
+  solutions: allSolutions,
+  initialSolutionId,
+}: Props) {
+  // Rows without a resolvable real solution have no components to compare.
+  const solutions = allSolutions.filter((s) => !s.solutionMissing)
   const [solutionId, setSolutionId] = useState<string>(initialSolutionId ?? '')
   const [result, setResult] = useState<ComparisonResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -87,8 +92,10 @@ export function CompareWorkbench({ solutions, initialSolutionId }: Props) {
   useEffect(() => {
     // Async kick-off drives loading/result state as it resolves (same
     // pattern as useSolutions' initial load).
+    if (!initialSolutionId || !solutions.some((s) => s.id === initialSolutionId))
+      return
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (initialSolutionId) run(initialSolutionId)
+    run(initialSolutionId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
