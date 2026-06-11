@@ -353,9 +353,14 @@
   }
 }
 
-/* Solution list */
+/* Solution list — capped at the viewport, scrolls inside (the detail
+   pane is sticky the same way). */
 .solution-list {
   padding: 6px;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
 }
 .solution-list--empty {
   padding: 24px;
@@ -481,6 +486,11 @@
   gap: 10px;
   padding: 8px 12px 4px;
   border-top: 1px solid var(--border);
+  /* Keep the current group's number visible while its rows scroll. */
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
 }
 .wi-group:first-child .wi-group-header {
   border-top: none;
