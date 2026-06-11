@@ -353,13 +353,13 @@
   }
 }
 
-/* Solution list — capped at the viewport, scrolls inside (the detail
-   pane is sticky the same way). */
+/* Solution list — like the merge pane: capped at the remaining page
+   height, scrolls inside. The offset covers header, tabs, filter and
+   collision bars. */
 .solution-list {
   padding: 6px;
-  position: sticky;
-  top: 16px;
-  max-height: calc(100vh - 32px);
+  max-height: calc(100vh - 300px);
+  min-height: 240px;
   overflow-y: auto;
 }
 .solution-list--empty {
@@ -513,10 +513,11 @@
   padding: 1px 8px;
 }
 
-/* Detail */
+/* Detail — same viewport cap as the list; long component lists scroll
+   inside the card. */
 .detail {
-  position: sticky;
-  top: 16px;
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
 }
 .detail--empty {
   color: var(--muted);
