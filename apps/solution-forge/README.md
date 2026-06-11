@@ -101,11 +101,13 @@ pac code add-data-source -a dataverse -t msdyn_solutioncomponentsummary
 > `AddSolutionComponent` eingebunden ist, schlägt jedes weitere
 > `pac code add-data-source` fehl („The JSON does not represent a valid
 > data source") — die CLI kann das Action-Schema beim Reprocessing nicht
-> lesen. Workaround: `.power/schemas/dataverse/AddSolutionComponent.Schema.json`
-> temporär wegbewegen, Data Source hinzufügen, Datei zurücklegen und den
-> `addsolutioncomponent`-Block in
-> `.power/schemas/appschemas/dataSourcesInfo.ts` wieder einfügen (die
-> Generierung wirft ihn sonst raus und der Merge bricht zur Laufzeit).
+> lesen. Deshalb **immer über das Wrapper-Skript gehen**, das den
+> Workaround (Schema beiseite legen + `addsolutioncomponent`-Block in
+> `dataSourcesInfo.ts` wiederherstellen) automatisch erledigt:
+>
+> ```powershell
+> ./scripts/add-data-source.ps1 -a dataverse -t <tabelle>
+> ```
 
 `src/services/dataverseSolutionService.ts` importiert die generierten
 Services **statisch** und setzt voraus, dass alle vier Generatoren gelaufen
