@@ -1,4 +1,8 @@
-import type { SolutionComponentInfo, WorkingSolution } from '../types/solution'
+import type {
+  ComponentCollision,
+  SolutionComponentInfo,
+  WorkingSolution,
+} from '../types/solution'
 import { formatRelative } from '../utils/format'
 import { KindBadge } from './KindBadge'
 
@@ -8,6 +12,8 @@ interface Props {
   onOpen: (id: string) => void
   /** Components that matched the active search, keyed by solution id. */
   componentMatches?: Map<string, SolutionComponentInfo[]>
+  /** Collision-radar result, keyed by solution id (null = not scanned). */
+  collisions?: Map<string, ComponentCollision[]> | null
 }
 
 const MAX_SHOWN_MATCHES = 2
@@ -17,6 +23,7 @@ export function SolutionList({
   activeId,
   onOpen,
   componentMatches,
+  collisions,
 }: Props) {
   // Several working-solution records pointing at the same real solution is
   // a data smell worth surfacing (e.g. duplicate tracking rows).
@@ -61,6 +68,14 @@ export function SolutionList({
                     title="Multiple working-solution records link to this solution — consider cleaning up."
                   >
                     duplicate link
+                  </span>
+                )}
+                {(collisions?.get(s.id)?.length ?? 0) > 0 && (
+                  <span
+                    className="coll-chip"
+                    title="This solution shares components with other open working solutions — see the detail pane."
+                  >
+                    ⚠ {collisions!.get(s.id)!.length} shared
                   </span>
                 )}
               </span>

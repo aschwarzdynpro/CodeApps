@@ -184,8 +184,11 @@ export const mockComponentsBySolutionId: Record<string, SolutionComponentInfo[]>
  */
 {
   const f4711 = mockComponentsBySolutionId['a0000000-0000-4000-9000-000000000001']
+  const f4720 = mockComponentsBySolutionId['a0000000-0000-4000-9000-000000000002']
   const d12 = mockComponentsBySolutionId['a0000000-0000-4000-9000-000000000005']
   d12[0].objectId = f4711[0].objectId // dyn_onboardingcase
   d12[1].objectId = f4711[3].objectId // main form
   d12[2].objectId = f4711[5].objectId // approval flow
+  // Collision-radar demo: both features carry the approval flow.
+  f4720.push({ ...f4711[5], id: 'c-f4720-5' })
 }

@@ -233,6 +233,67 @@
   flex-wrap: wrap;
 }
 
+/* Collision radar */
+.collision-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.collision-summary {
+  font-size: 13px;
+}
+.collision-summary--warn {
+  color: #b7791f;
+  font-weight: 600;
+}
+.coll-chip {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #b7791f;
+  background: #fdf6e7;
+  border: 1px solid #f0c987;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 8px;
+  vertical-align: 1px;
+}
+.collision-card {
+  border: 1px solid #f0c987;
+  background: #fdf6e7;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 0 0 16px;
+}
+.collision-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #b7791f;
+  margin: 0 0 10px;
+}
+.collision-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.collision-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.collision-others {
+  font-size: 12px;
+}
+
 /* Kind badges */
 .kind-badge {
   display: inline-block;

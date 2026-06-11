@@ -30,6 +30,11 @@ Deployment-Status „Merged into Deployment Solution".
 
 ## Features
 
+- **Kollisions-Radar**: „Scan collisions" lädt die Komponenten aller
+  getrackten Working Solutions (ohne Releases) und markiert Komponenten,
+  die in **mehr als einer** offenen Working Solution stecken — wer zuletzt
+  deployt, überschreibt. Betroffene Solutions bekommen einen ⚠-Chip; die
+  Detail-Ansicht listet die geteilten Komponenten und mit wem.
 - **Workbench**: Liste aller Working Solutions mit Typ-Filter (Feature /
   Bug / Deployment), Suche über Titel, Unique Name und ADO-ID. Mit dem
   Schalter **incl. components** durchsucht die Suche zusätzlich die

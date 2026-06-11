@@ -106,6 +106,16 @@ export interface CreateWorkingSolutionInput {
   publisherId: string
 }
 
+/**
+ * Collision radar: one component that is contained in more than one open
+ * working solution — whoever deploys last overwrites the others.
+ */
+export interface ComponentCollision {
+  component: SolutionComponentInfo
+  /** The other working solutions containing the same component. */
+  otherSolutions: { id: string; title: string }[]
+}
+
 /** Plan row for the merge workbench: one component and where it comes from. */
 export interface MergePlanItem {
   component: SolutionComponentInfo

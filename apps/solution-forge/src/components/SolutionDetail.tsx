@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type {
+  ComponentCollision,
   SolutionComponentInfo,
   WorkItemInfo,
   WorkingSolution,
@@ -21,6 +22,8 @@ interface Props {
   /** Resolved work item for solution.devOpsId, or null when unavailable. */
   workItem: WorkItemInfo | null
   workItemLoading: boolean
+  /** Collision-radar findings for this solution (null = not scanned). */
+  collisions?: ComponentCollision[] | null
 }
 
 /** Groups with at most this many components start expanded. */
@@ -45,6 +48,7 @@ export function SolutionDetail({
   onRefreshComponents,
   workItem,
   workItemLoading,
+  collisions,
 }: Props) {
   const adoUrl = workItem?.url ?? devOpsWorkItemUrl(solution.devOpsId)
   const grouped = [...groupBy(components, (c) => c.typeName).entries()].sort(
@@ -184,6 +188,27 @@ export function SolutionDetail({
           <dd>{formatDateTime(solution.modifiedOn)}</dd>
         </div>
       </dl>
+
+      {!!collisions?.length && (
+        <section className="collision-card">
+          <h3 className="collision-card-title">
+            ⚠ Shared with other working solutions ({collisions.length})
+          </h3>
+          <ul className="collision-list">
+            {collisions.map((c) => (
+              <li key={c.component.objectId} title={c.component.objectId}>
+                <span className="collision-component">
+                  <span className="merge-plan-type">{c.component.typeName}</span>{' '}
+                  {c.component.displayName}
+                </span>
+                <span className="collision-others muted">
+                  also in: {c.otherSolutions.map((o) => o.title).join(', ')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {!solution.solutionMissing && (
         <div className="detail-components-header">

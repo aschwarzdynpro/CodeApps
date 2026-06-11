@@ -11,6 +11,7 @@ import { MergeWorkbench } from './components/MergeWorkbench'
 import { CompareWorkbench } from './components/CompareWorkbench'
 import { DEVOPS_PANEL_ENABLED, makerSolutionUrl } from './config'
 import type {
+  ComponentCollision,
   SolutionComponentInfo,
   WorkItemInfo,
   WorkingSolution,
@@ -33,6 +34,16 @@ function App() {
   const [componentCache, setComponentCache] = useState<
     Map<string, SolutionComponentInfo[]>
   >(new Map())
+
+  // Collision radar: per solution id, the components it shares with other
+  // open working solutions. null = not scanned yet.
+  const [collisions, setCollisions] = useState<Map<
+    string,
+    ComponentCollision[]
+  > | null>(null)
+  const [collisionProgress, setCollisionProgress] = useState<
+    [number, number] | null
+  >(null)
 
   // Azure DevOps work items, cached per id. An entry of null means "looked
   // up, nothing available" (item missing or connector not wired).
@@ -160,6 +171,88 @@ function App() {
     })
     setIndexProgress(null)
   }
+
+  /**
+   * Collision radar: load the components of every tracked, non-release
+   * working solution (component cache is reused and seeded), then flag
+   * every component that appears in more than one of them.
+   */
+  const scanCollisions = async () => {
+    // Tracked working set only — releases collect merges by design and
+    // duplicate-link rows must not count as two solutions.
+    const targets = allSolutions.filter(
+      (s, index) =>
+        s.recordId &&
+        !s.solutionMissing &&
+        s.kind !== 'deployment' &&
+        allSolutions.findIndex((o) => o.id === s.id) === index,
+    )
+    setCollisionProgress([0, targets.length])
+    const local = new Map<string, SolutionComponentInfo[]>()
+    let done = 0
+    const CHUNK = 4
+    for (let i = 0; i < targets.length; i += CHUNK) {
+      await Promise.all(
+        targets.slice(i, i + CHUNK).map(async (s) => {
+          const cached = componentCache.get(s.id)
+          if (cached) {
+            local.set(s.id, cached)
+          } else {
+            try {
+              local.set(s.id, await solutionService.listComponents(s.id))
+            } catch {
+              local.set(s.id, [])
+            }
+          }
+          setCollisionProgress([++done, targets.length])
+        }),
+      )
+    }
+    // Seed the shared cache with everything fetched fresh.
+    setComponentCache((prev) => {
+      const next = new Map(prev)
+      for (const [id, comps] of local) if (!next.has(id)) next.set(id, comps)
+      return next
+    })
+
+    const byObject = new Map<
+      string,
+      { component: SolutionComponentInfo; members: { id: string; title: string }[] }
+    >()
+    for (const s of targets) {
+      for (const component of local.get(s.id) ?? []) {
+        const entry = byObject.get(component.objectId)
+        if (entry) entry.members.push({ id: s.id, title: s.title })
+        else
+          byObject.set(component.objectId, {
+            component,
+            members: [{ id: s.id, title: s.title }],
+          })
+      }
+    }
+    const map = new Map<string, ComponentCollision[]>()
+    for (const { component, members } of byObject.values()) {
+      if (members.length < 2) continue
+      for (const member of members) {
+        const list = map.get(member.id) ?? []
+        list.push({
+          component,
+          otherSolutions: members.filter((o) => o.id !== member.id),
+        })
+        map.set(member.id, list)
+      }
+    }
+    setCollisions(map)
+    setCollisionProgress(null)
+  }
+
+  const collisionStats = useMemo(() => {
+    if (!collisions) return null
+    const objectIds = new Set<string>()
+    for (const list of collisions.values())
+      for (const c of list) objectIds.add(c.component.objectId)
+    return { components: objectIds.size, solutions: collisions.size }
+  }, [collisions])
 
   const toggleComponentSearch = (enabled: boolean) => {
     setSearchInComponents(enabled)
@@ -304,12 +397,42 @@ function App() {
             indexProgress={indexProgress}
           />
 
+          <div className="collision-bar">
+            <button
+              className="btn btn--small"
+              onClick={() => void scanCollisions()}
+              disabled={!!collisionProgress}
+            >
+              {collisionProgress
+                ? `Scanning… ${collisionProgress[0]}/${collisionProgress[1]}`
+                : collisions
+                  ? '⚠ Re-scan collisions'
+                  : '⚠ Scan collisions'}
+            </button>
+            {collisionStats &&
+              !collisionProgress &&
+              (collisionStats.components > 0 ? (
+                <span className="collision-summary collision-summary--warn">
+                  {collisionStats.components} component
+                  {collisionStats.components === 1 ? '' : 's'} contained in
+                  more than one working solution ({collisionStats.solutions}{' '}
+                  solutions affected)
+                </span>
+              ) : (
+                <span className="collision-summary muted">
+                  No component collisions across the tracked working
+                  solutions.
+                </span>
+              ))}
+          </div>
+
           <div className="layout">
             <SolutionList
               solutions={filtered}
               activeId={selectedId}
               onOpen={openSolution}
               componentMatches={componentMatches}
+              collisions={collisions}
             />
             {selected ? (
               <SolutionDetail
@@ -319,6 +442,7 @@ function App() {
                 components={components}
                 loadingComponents={componentsLoading}
                 onRefreshComponents={() => loadComponents(selected.id, true)}
+                collisions={collisions?.get(selected.id) ?? null}
                 workItem={
                   selected.devOpsId
                     ? (workItems.get(selected.devOpsId) ?? null)
