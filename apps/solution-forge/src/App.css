@@ -863,8 +863,45 @@
 .merge-pane select {
   width: 100%;
 }
-.merge-target-title {
-  margin-top: 18px;
+/* Source pane: capped at the viewport, list scrolls inside. */
+.merge-sources-pane {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 210px);
+}
+.merge-source-search {
+  max-width: none;
+  width: 100%;
+  margin-bottom: 10px;
+}
+.merge-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.merge-selected-chip {
+  font-size: 11px;
+  font-weight: 600;
+  background: #eef0fb;
+  border: 1px solid #c7cbf2;
+  color: var(--brand);
+  border-radius: 999px;
+  padding: 2px 9px;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.merge-selected-chip:hover {
+  background: #fdf2f3;
+  border-color: #f1aeb5;
+  color: #b02a37;
+}
+.merge-source-list--scroll {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 .merge-source-list {
   list-style: none;
