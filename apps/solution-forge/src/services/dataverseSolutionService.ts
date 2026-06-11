@@ -4,6 +4,7 @@ import type {
   PublisherInfo,
   SolutionComponentInfo,
   SolutionKind,
+  TrackSolutionInput,
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
@@ -464,12 +465,43 @@ export class DataverseSolutionService implements SolutionService {
 
     // Presentation layer: the ssid_workingsolution row carrying title,
     // DevOps id, type and the link back to the real solution.
+    let recordId: string | undefined
+    try {
+      recordId = await this.createPresentationRow({
+        solutionId: solution.id,
+        uniqueName,
+        title: input.title,
+        devOpsId: input.devOpsId,
+        kind: input.kind,
+      })
+    } catch (err) {
+      console.warn('[solutions] working-solution row create failed:', err)
+      throw new Error(
+        `The solution "${uniqueName}" was created, but saving the working-solution ` +
+          'record failed — it will appear under "Other" until the record exists.',
+      )
+    }
+    return {
+      ...solution,
+      recordId,
+      title: input.title,
+      description: input.description,
+      kind: input.kind,
+      devOpsId: input.devOpsId,
+      deploymentStatus: 'None',
+    }
+  }
+
+  /** Create the ssid_workingsolution row for a solution. */
+  private async createPresentationRow(
+    input: TrackSolutionInput,
+  ): Promise<string | undefined> {
     const workbenchSettingId = await this.defaultWorkbenchSettingId()
     const rowRecord = {
       ssid_name: input.title,
       ssid_devopsid: input.devOpsId,
-      ssid_uniquesolutionname: uniqueName,
-      ssid_solutionlink: makerSolutionUrl(null, solution.id),
+      ssid_uniquesolutionname: input.uniqueName,
+      ssid_solutionlink: makerSolutionUrl(null, input.solutionId),
       sst_type_opt: TYPE_OPT_BY_KIND[input.kind],
       ssid_deploymentstatus: DEPLOYMENT_STATUS_NONE,
       ...(workbenchSettingId
@@ -481,20 +513,16 @@ export class DataverseSolutionService implements SolutionService {
     const rowResult = await Ssid_workingsolutionsService.create(rowRecord)
     if (!rowResult.success) {
       console.warn('[solutions] working-solution row create failed:', rowResult)
-      throw new Error(
-        `The solution "${uniqueName}" was created, but saving the working-solution ` +
-          'record failed — it will appear under "Other" until the record exists.',
-      )
+      throw new Error('Saving the working-solution record failed.')
     }
-    return {
-      ...solution,
-      recordId: rowResult.data?.ssid_workingsolutionid,
-      title: input.title,
-      description: input.description,
-      kind: input.kind,
-      devOpsId: input.devOpsId,
-      deploymentStatus: 'None',
-    }
+    return rowResult.data?.ssid_workingsolutionid
+  }
+
+  /** Attach a presentation record to an already existing solution. */
+  async trackSolution(input: TrackSolutionInput): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return mockSolutionService.trackSolution(input)
+    await this.createPresentationRow(input)
   }
 
   /** Raw `solutioncomponent` rows — root components plus their behaviors. */

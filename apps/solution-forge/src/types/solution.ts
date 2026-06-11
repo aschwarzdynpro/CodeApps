@@ -106,6 +106,16 @@ export interface CreateWorkingSolutionInput {
   publisherId: string
 }
 
+/** Attach a working-solution record to an already existing solution. */
+export interface TrackSolutionInput {
+  /** solutionid of the real solution to track. */
+  solutionId: string
+  uniqueName: string
+  title: string
+  devOpsId: string
+  kind: Extract<SolutionKind, 'feature' | 'bug' | 'deployment'>
+}
+
 /**
  * Collision radar: one component that is contained in more than one open
  * working solution — whoever deploys last overwrites the others.

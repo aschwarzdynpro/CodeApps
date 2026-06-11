@@ -13,6 +13,7 @@ import { DEVOPS_PANEL_ENABLED, makerSolutionUrl } from './config'
 import type {
   ComponentCollision,
   SolutionComponentInfo,
+  TrackSolutionInput,
   WorkItemInfo,
   WorkingSolution,
 } from './types/solution'
@@ -301,6 +302,13 @@ function App() {
     reload()
   }
 
+  // Attach a working-solution record to an untracked solution, then
+  // reload so the entry shows up with its WS chip, owner and type.
+  const handleTrack = async (input: TrackSolutionInput) => {
+    await solutionService.trackSolution(input)
+    reload()
+  }
+
   // After a merge the target solution gained components — drop its cached
   // list so the next open (or an open detail view) refetches.
   const handleMerged = (targetSolutionId: string) => {
@@ -443,6 +451,7 @@ function App() {
                 loadingComponents={componentsLoading}
                 onRefreshComponents={() => loadComponents(selected.id, true)}
                 collisions={collisions?.get(selected.id) ?? null}
+                onTrack={handleTrack}
                 workItem={
                   selected.devOpsId
                     ? (workItems.get(selected.devOpsId) ?? null)

@@ -21,12 +21,16 @@ interface Props {
  * markers when several sources carry the same object), then execute.
  */
 export function MergeWorkbench({ solutions, onMerged }: Props) {
-  // Rows without a resolvable real solution can't contribute components.
+  // Merge is restricted to tracked solutions (working-solution record
+  // present) whose real solution exists.
   const targets = solutions.filter(
-    (s) => s.kind === 'deployment' && !s.solutionMissing,
+    (s) => s.kind === 'deployment' && !s.solutionMissing && s.recordId,
   )
   const sources = solutions.filter(
-    (s) => (s.kind === 'feature' || s.kind === 'bug') && !s.solutionMissing,
+    (s) =>
+      (s.kind === 'feature' || s.kind === 'bug') &&
+      !s.solutionMissing &&
+      s.recordId,
   )
 
   const [targetId, setTargetId] = useState<string>('')
@@ -161,7 +165,11 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
           </div>
         )}
         {sources.length === 0 && (
-          <div className="state">No feature / bug solutions available.</div>
+          <div className="state">
+            No tracked feature / bug solutions available — only solutions
+            with a working-solution record can be merged (create one in the
+            Workbench detail pane).
+          </div>
         )}
         {sources.length > 0 && filteredSources.length === 0 && (
           <div className="state">No solution matches “{sourceSearch}”.</div>

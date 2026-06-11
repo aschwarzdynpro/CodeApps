@@ -3,6 +3,7 @@ import type {
   MergeResult,
   PublisherInfo,
   SolutionComponentInfo,
+  TrackSolutionInput,
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
@@ -35,6 +36,11 @@ export interface SolutionService {
   createWorkingSolution(
     input: CreateWorkingSolutionInput,
   ): Promise<WorkingSolution>
+  /**
+   * Creates only the ssid_workingsolution presentation record for an
+   * already existing solution ("nacherfassen").
+   */
+  trackSolution(input: TrackSolutionInput): Promise<void>
   /** Components contained in one solution. */
   listComponents(solutionId: string): Promise<SolutionComponentInfo[]>
   /**

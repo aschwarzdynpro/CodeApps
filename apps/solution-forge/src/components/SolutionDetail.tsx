@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type {
   ComponentCollision,
   SolutionComponentInfo,
+  TrackSolutionInput,
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
@@ -24,10 +25,105 @@ interface Props {
   workItemLoading: boolean
   /** Collision-radar findings for this solution (null = not scanned). */
   collisions?: ComponentCollision[] | null
+  /** Creates the working-solution record for an untracked solution. */
+  onTrack: (input: TrackSolutionInput) => Promise<void>
 }
 
 /** Groups with at most this many components start expanded. */
 const AUTO_EXPAND_LIMIT = 8
+
+const TRACK_KIND_OPTIONS: { value: TrackSolutionInput['kind']; label: string }[] = [
+  { value: 'feature', label: 'Feature' },
+  { value: 'bug', label: 'Bug' },
+  { value: 'deployment', label: 'Release' },
+]
+
+/**
+ * Inline form to attach a ssid_workingsolution record to an untracked
+ * solution ("nacherfassen"). Prefilled from what the solution already
+ * reveals (title, detected DevOps number, classified kind).
+ */
+function TrackPanel({
+  solution,
+  onTrack,
+}: {
+  solution: WorkingSolution
+  onTrack: (input: TrackSolutionInput) => Promise<void>
+}) {
+  const [kind, setKind] = useState<TrackSolutionInput['kind']>(
+    solution.kind === 'bug' || solution.kind === 'deployment'
+      ? solution.kind
+      : 'feature',
+  )
+  const [title, setTitle] = useState(solution.title)
+  const [devOpsId, setDevOpsId] = useState(solution.devOpsId ?? '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const canSubmit = !busy && title.trim() !== '' && devOpsId.trim() !== ''
+
+  const submit = async () => {
+    if (!canSubmit) return
+    setBusy(true)
+    setError(null)
+    try {
+      await onTrack({
+        solutionId: solution.id,
+        uniqueName: solution.uniqueName,
+        title: title.trim(),
+        devOpsId: devOpsId.trim(),
+        kind,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="track-panel">
+      <h3 className="track-panel-title">No working-solution record yet</h3>
+      <p className="muted track-panel-hint">
+        Create one to track type, owner, deployment status and merges for
+        this solution.
+      </p>
+      <div className="form-row">
+        <span className="form-label">Type</span>
+        <div className="chips">
+          {TRACK_KIND_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              className={`chip ${kind === opt.value ? 'chip--active' : ''}`}
+              onClick={() => setKind(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <label className="form-row">
+        <span className="form-label">Title</span>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} />
+      </label>
+      <label className="form-row">
+        <span className="form-label">Azure DevOps ID</span>
+        <input
+          value={devOpsId}
+          onChange={(e) => setDevOpsId(e.target.value)}
+          placeholder="4711"
+        />
+      </label>
+      {error && <div className="state state--error">{error}</div>}
+      <button
+        className="btn btn--primary"
+        disabled={!canSubmit}
+        onClick={() => void submit()}
+      >
+        {busy ? 'Creating…' : 'Create working-solution record'}
+      </button>
+    </section>
+  )
+}
 
 /** Visual bucket for a work item state across common process templates. */
 function stateBucket(state: string): string {
@@ -49,6 +145,7 @@ export function SolutionDetail({
   workItem,
   workItemLoading,
   collisions,
+  onTrack,
 }: Props) {
   const adoUrl = workItem?.url ?? devOpsWorkItemUrl(solution.devOpsId)
   const grouped = [...groupBy(components, (c) => c.typeName).entries()].sort(
@@ -106,6 +203,10 @@ export function SolutionDetail({
           The linked solution (<code>{solution.uniqueName || '—'}</code>) was
           not found in this environment — it may have been deleted or renamed.
         </div>
+      )}
+
+      {!solution.recordId && !solution.solutionMissing && (
+        <TrackPanel solution={solution} onTrack={onTrack} />
       )}
 
       {DEVOPS_PANEL_ENABLED && solution.devOpsId && (

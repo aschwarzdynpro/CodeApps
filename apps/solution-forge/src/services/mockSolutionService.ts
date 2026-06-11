@@ -3,6 +3,7 @@ import type {
   MergeResult,
   PublisherInfo,
   SolutionComponentInfo,
+  TrackSolutionInput,
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
@@ -116,6 +117,18 @@ export class MockSolutionService {
   async listComponents(solutionId: string): Promise<SolutionComponentInfo[]> {
     await delay(300)
     return (this.components.get(solutionId) ?? []).map((c) => ({ ...c }))
+  }
+
+  async trackSolution(input: TrackSolutionInput): Promise<void> {
+    await delay(400)
+    const solution = this.solutions.find((s) => s.id === input.solutionId)
+    if (!solution) throw new Error('Unknown solution.')
+    solution.recordId = `ws-${++mockIdCounter}`
+    solution.title = input.title
+    solution.devOpsId = input.devOpsId
+    solution.kind = input.kind
+    solution.owner = 'You (mock)'
+    solution.deploymentStatus = 'None'
   }
 
   async getWorkItem(devOpsId: string): Promise<WorkItemInfo | null> {

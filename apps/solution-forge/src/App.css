@@ -294,6 +294,24 @@
   font-size: 12px;
 }
 
+/* Track panel (attach a working-solution record) */
+.track-panel {
+  border: 1px dashed var(--border);
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 0 0 16px;
+}
+.track-panel-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+.track-panel-hint {
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
 /* Kind badges */
 .kind-badge {
   display: inline-block;
