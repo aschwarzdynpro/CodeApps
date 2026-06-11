@@ -332,7 +332,7 @@ function App() {
     <div className="app">
       <header className="app-header">
         <div>
-          <h1>Solution Forge</h1>
+          <h1>Solution Administration Console</h1>
           <p className="subtitle">
             Working solutions for feature &amp; bug development — create,
             inspect, merge.

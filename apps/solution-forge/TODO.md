@@ -32,7 +32,7 @@ authentication" mit Tenant / Client ID / Client Secret).
 ## Checkliste
 
 ### 1. App Registration (Tenant `24686796-cf09-4d11-ac19-9ab3819f3491`)
-- [ ] App Registration „SolutionForge-Service" anlegen
+- [ ] App Registration „SolutionAdminConsole-Service" anlegen
       (scriptbar: `az login --use-device-code` + `az ad app create`)
 - [ ] Client Secret oder besser Zertifikat erzeugen; Rotation einplanen
 - [ ] Keine API-Permissions nötig — Zugriff kommt über Mitgliedschaft in
@@ -50,7 +50,7 @@ authentication" mit Tenant / Client ID / Client Secret).
       (scriptbar: `pac admin create-service-principal` oder Admin Center →
       Users + permissions → Application users)
 - [ ] Rolle: DEV/UAT initial System Customizer ok; für PROD Custom-Rolle
-      „Solution Forge Reader" (nur Read auf `workflow`,
+      „Solution Administration Console Reader" (nur Read auf `workflow`,
       `sdkmessageprocessingstep`, `webresource`, `solution`,
       `solutioncomponent`)
 - [ ] Neue Dataverse-Connection mit „Connect with service principal"

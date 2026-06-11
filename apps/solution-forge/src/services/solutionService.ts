@@ -10,7 +10,7 @@ import type {
 import { dataverseSolutionService } from './dataverseSolutionService'
 
 /**
- * Service contract for the Solution Forge workbench.
+ * Service contract for the Solution Administration Console workbench.
  *
  * - `listSolutions()` powers the workbench list (unmanaged solutions from the
  *   Dataverse `solution` table, classified by the unique-name convention).

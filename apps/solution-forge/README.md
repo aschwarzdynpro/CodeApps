@@ -1,4 +1,4 @@
-# Solution Forge
+# Solution Administration Console
 
 Power Apps **Code App** zum Verwalten von Dataverse-Solutions während der
 Feature- und Bug-Entwicklung: Working Solutions anlegen, Komponenten
@@ -100,7 +100,7 @@ npm run dev      # http://localhost:3000 — läuft standalone mit Mock-Daten
 
 ```bash
 pac auth create --environment <ENV-ID>
-power-apps init --display-name "Solution Forge" --environment-id <ENV-ID>
+power-apps init --display-name "Solution Administration Console" --environment-id <ENV-ID>
 
 pac code add-data-source -a dataverse -t solution
 pac code add-data-source -a dataverse -t publisher
