@@ -38,8 +38,14 @@ export function CompareWorkbench({
   solutions: allSolutions,
   initialSolutionId,
 }: Props) {
-  // Rows without a resolvable real solution have no components to compare.
-  const solutions = allSolutions.filter((s) => !s.solutionMissing)
+  // Rows without a resolvable real solution have no components to compare,
+  // and several working-solution records pointing at the same solution
+  // collapse to one entry — the comparison works on the solution itself.
+  const solutions = allSolutions.filter(
+    (s, index) =>
+      !s.solutionMissing &&
+      allSolutions.findIndex((o) => o.id === s.id) === index,
+  )
   const [solutionId, setSolutionId] = useState<string>(initialSolutionId ?? '')
   const [result, setResult] = useState<ComparisonResult | null>(null)
   const [loading, setLoading] = useState(false)
