@@ -13,7 +13,7 @@ import type { EnvironmentDef } from './types/comparison'
 
 // Project defaults — not secrets; env vars override them at build time.
 // (.env files are gitignored repo-wide, so the defaults live here.)
-const DEFAULT_ENVIRONMENT_ID = '84280d0b-d994-ed52-9789-116d9b73384f'
+const DEFAULT_ENVIRONMENT_ID = '431783f6-367c-eb49-984b-4e70e4c0424d'
 
 /**
  * Environments for the ALM comparison. Hardcoded for now; the planned
@@ -24,9 +24,9 @@ const DEFAULT_ENVIRONMENT_ID = '84280d0b-d994-ed52-9789-116d9b73384f'
 export const ENVIRONMENTS: EnvironmentDef[] = [
   {
     key: 'dev',
-    label: 'DEV · NAAF-2',
-    url: 'https://operations-d365-schulz-naaf-2.crm4.dynamics.com',
-    environmentId: '84280d0b-d994-ed52-9789-116d9b73384f',
+    label: 'INT-11 · current',
+    url: 'https://operations-d365-schulz-int-11.crm4.dynamics.com',
+    environmentId: '431783f6-367c-eb49-984b-4e70e4c0424d',
     isCurrent: true,
   },
   {
