@@ -471,6 +471,38 @@
   color: var(--muted);
 }
 
+/* Work-item grouping */
+.wi-group {
+  margin-bottom: 6px;
+}
+.wi-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px 4px;
+  border-top: 1px solid var(--border);
+}
+.wi-group:first-child .wi-group-header {
+  border-top: none;
+}
+.wi-group-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #1a56db;
+}
+.wi-group-count {
+  font-size: 11px;
+  color: var(--muted);
+}
+.wi-group-count--multi {
+  color: #b7791f;
+  font-weight: 700;
+  background: #fdf6e7;
+  border: 1px solid #f0c987;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
 /* Detail */
 .detail {
   position: sticky;

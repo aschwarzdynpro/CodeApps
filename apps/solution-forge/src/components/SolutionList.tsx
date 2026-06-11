@@ -14,9 +14,14 @@ interface Props {
   componentMatches?: Map<string, SolutionComponentInfo[]>
   /** Collision-radar result, keyed by solution id (null = not scanned). */
   collisions?: Map<string, ComponentCollision[]> | null
+  /** Group entries sharing the same Azure DevOps work item number. */
+  groupByWorkItem?: boolean
 }
 
 const MAX_SHOWN_MATCHES = 2
+
+/** Key for entries without a work item number when grouping. */
+const NO_WORK_ITEM = ''
 
 export function SolutionList({
   solutions,
@@ -24,6 +29,7 @@ export function SolutionList({
   onOpen,
   componentMatches,
   collisions,
+  groupByWorkItem,
 }: Props) {
   // Several working-solution records pointing at the same real solution is
   // a data smell worth surfacing (e.g. duplicate tracking rows).
@@ -32,6 +38,7 @@ export function SolutionList({
     if (s.recordId && !s.solutionMissing)
       linkCounts.set(s.id, (linkCounts.get(s.id) ?? 0) + 1)
   }
+
   if (solutions.length === 0) {
     return (
       <div className="card solution-list solution-list--empty">
@@ -39,73 +46,113 @@ export function SolutionList({
       </div>
     )
   }
-  return (
-    <div className="card solution-list">
-      {solutions.map((s) => {
-        const hits = componentMatches?.get(s.id) ?? []
-        const duplicateLink = (linkCounts.get(s.id) ?? 0) > 1
-        return (
-          <button
-            key={s.recordId ?? s.id}
-            className={`solution-row ${s.id === activeId ? 'solution-row--active' : ''}`}
-            onClick={() => onOpen(s.id)}
-          >
-            <KindBadge kind={s.kind} />
-            <span className="solution-row-main">
-              <span className="solution-row-title">
-                {s.title}
-                {s.recordId && (
-                  <span
-                    className="ws-chip"
-                    title="Tracked working solution (ssid_workingsolution record)"
-                  >
-                    WS
-                  </span>
-                )}
-                {duplicateLink && (
-                  <span
-                    className="dup-chip"
-                    title="Multiple working-solution records link to this solution — consider cleaning up."
-                  >
-                    duplicate link
-                  </span>
-                )}
-                {(collisions?.get(s.id)?.length ?? 0) > 0 && (
-                  <span
-                    className="coll-chip"
-                    title="This solution shares components with other open working solutions — see the detail pane."
-                  >
-                    ⚠ {collisions!.get(s.id)!.length} shared
-                  </span>
-                )}
+
+  const renderRow = (s: WorkingSolution) => {
+    const hits = componentMatches?.get(s.id) ?? []
+    const duplicateLink = (linkCounts.get(s.id) ?? 0) > 1
+    return (
+      <button
+        key={s.recordId ?? s.id}
+        className={`solution-row ${s.id === activeId ? 'solution-row--active' : ''}`}
+        onClick={() => onOpen(s.id)}
+      >
+        <KindBadge kind={s.kind} />
+        <span className="solution-row-main">
+          <span className="solution-row-title">
+            {s.title}
+            {s.recordId && (
+              <span
+                className="ws-chip"
+                title="Tracked working solution (ssid_workingsolution record)"
+              >
+                WS
               </span>
-              <span className="solution-row-meta">
-                <code>{s.uniqueName}</code>
-                {s.devOpsId && <span className="ado-chip">#{s.devOpsId}</span>}
-                {s.version && <span>v{s.version}</span>}
-                {s.owner && (
-                  <span className="solution-row-owner">👤 {s.owner}</span>
-                )}
+            )}
+            {duplicateLink && (
+              <span
+                className="dup-chip"
+                title="Multiple working-solution records link to this solution — consider cleaning up."
+              >
+                duplicate link
               </span>
-              {hits.length > 0 && (
-                <span className="solution-row-hits">
-                  {hits.slice(0, MAX_SHOWN_MATCHES).map((c) => (
-                    <span key={c.id} className="hit-chip" title={c.typeName}>
-                      {c.displayName}
-                    </span>
-                  ))}
-                  {hits.length > MAX_SHOWN_MATCHES && (
-                    <span className="hit-more">
-                      +{hits.length - MAX_SHOWN_MATCHES} more
-                    </span>
-                  )}
+            )}
+            {(collisions?.get(s.id)?.length ?? 0) > 0 && (
+              <span
+                className="coll-chip"
+                title="This solution shares components with other open working solutions — see the detail pane."
+              >
+                ⚠ {collisions!.get(s.id)!.length} shared
+              </span>
+            )}
+          </span>
+          <span className="solution-row-meta">
+            <code>{s.uniqueName}</code>
+            {s.devOpsId && <span className="ado-chip">#{s.devOpsId}</span>}
+            {s.version && <span>v{s.version}</span>}
+            {s.owner && <span className="solution-row-owner">👤 {s.owner}</span>}
+          </span>
+          {hits.length > 0 && (
+            <span className="solution-row-hits">
+              {hits.slice(0, MAX_SHOWN_MATCHES).map((c) => (
+                <span key={c.id} className="hit-chip" title={c.typeName}>
+                  {c.displayName}
+                </span>
+              ))}
+              {hits.length > MAX_SHOWN_MATCHES && (
+                <span className="hit-more">
+                  +{hits.length - MAX_SHOWN_MATCHES} more
                 </span>
               )}
             </span>
-            <span className="solution-row-when">{formatRelative(s.modifiedOn)}</span>
-          </button>
-        )
-      })}
+          )}
+        </span>
+        <span className="solution-row-when">{formatRelative(s.modifiedOn)}</span>
+      </button>
+    )
+  }
+
+  if (!groupByWorkItem) {
+    return <div className="card solution-list">{solutions.map(renderRow)}</div>
+  }
+
+  // Group by work item number, preserving the incoming sort: each group is
+  // anchored where its most recent solution appears.
+  const groups = new Map<string, WorkingSolution[]>()
+  for (const s of solutions) {
+    const key = s.devOpsId ?? NO_WORK_ITEM
+    const bucket = groups.get(key)
+    if (bucket) bucket.push(s)
+    else groups.set(key, [s])
+  }
+  // Entries without a number always go last.
+  const ordered = [...groups.entries()].sort((a, b) =>
+    a[0] === NO_WORK_ITEM ? 1 : b[0] === NO_WORK_ITEM ? -1 : 0,
+  )
+
+  return (
+    <div className="card solution-list">
+      {ordered.map(([key, members]) => (
+        <section key={key || 'none'} className="wi-group">
+          <div className="wi-group-header">
+            <span className="wi-group-title">
+              {key ? `#${key}` : 'Without work item'}
+            </span>
+            <span
+              className={`wi-group-count ${
+                members.length > 1 ? 'wi-group-count--multi' : ''
+              }`}
+              title={
+                members.length > 1
+                  ? 'Several solutions share this work item number.'
+                  : undefined
+              }
+            >
+              {members.length} solution{members.length === 1 ? '' : 's'}
+            </span>
+          </div>
+          {members.map(renderRow)}
+        </section>
+      ))}
     </div>
   )
 }

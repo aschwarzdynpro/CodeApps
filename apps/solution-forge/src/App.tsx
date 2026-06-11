@@ -27,6 +27,7 @@ function App() {
   const [tab, setTab] = useState<Tab>('workbench')
   const [kindFilter, setKindFilter] = useState<KindFilter>('All')
   const [search, setSearch] = useState('')
+  const [groupByWorkItem, setGroupByWorkItem] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [components, setComponents] = useState<SolutionComponentInfo[]>([])
   const [componentsLoading, setComponentsLoading] = useState(false)
@@ -403,6 +404,8 @@ function App() {
             searchInComponents={searchInComponents}
             onSearchInComponentsChange={toggleComponentSearch}
             indexProgress={indexProgress}
+            groupByWorkItem={groupByWorkItem}
+            onGroupByWorkItemChange={setGroupByWorkItem}
           />
 
           <div className="collision-bar">
@@ -441,6 +444,7 @@ function App() {
               onOpen={openSolution}
               componentMatches={componentMatches}
               collisions={collisions}
+              groupByWorkItem={groupByWorkItem}
             />
             {selected ? (
               <SolutionDetail
