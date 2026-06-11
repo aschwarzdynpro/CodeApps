@@ -1,5 +1,26 @@
 # TODO: Auth auf Service Principal umstellen (DevOps + Dataverse)
 
+> **Zwischenstand 2026-06-11:** App läuft auf INT-11 (Solution
+> `WorkbenchSchulz`). Dataverse ist bereits auf SP umgestellt
+> (`sst_CRDataverse` → „App-Reg D365-CE nonProd"). Das **DevOps-Panel ist
+> temporär deaktiviert** (`DEVOPS_PANEL_ENABLED = false` in `src/config.ts`)
+> und der DevOps-Konnektor aus der App entfernt (kein Connection-Prompt),
+> bis der SP Zugang zur DevOps-Org hat. Grund: OAuth-Connections mit
+> `aschwarz@hso.com` scheitern an TF400813 — Token wird im HSO-Heimat-Tenant
+> ausgestellt, die Org hängt am Schulz-Tenant (Gast-Mitgliedschaft hilft
+> nicht).
+>
+> **Reaktivierung, sobald der SP in der DevOps-Org ist:**
+> 1. SP-Connection „Azure DevOps / Service principal authentication" auf
+>    INT-11 anlegen, `sst_CRDevOps` darauf umstellen
+> 2. `pac code add-data-source -a shared_visualstudioteamservices
+>    -cr sst_CRDevOps -s 67315e76-c155-ed11-bba2-0022489de585
+>    -env https://operations-d365-schulz-int-11.crm4.dynamics.com`
+>    (AddSolutionComponent-Schema-Workaround beachten!)
+> 3. In `dataverseSolutionService.getWorkItem()` den AzureDevOpsService-
+>    Aufruf wiederherstellen (Anleitung im Methoden-Kommentar)
+> 4. `DEVOPS_PANEL_ENABLED = true`, Build, `power-apps push`
+
 Geplanter Umbau für einen späteren Lauf: beide Konnektor-Connections der
 App auf **eine gemeinsame App Registration** stellen, damit Work-Item-Panel
 und Compare für alle Benutzer ohne eigene Rechte/Consents laufen.

@@ -15,14 +15,13 @@ import {
   extractDevOpsId,
 } from '../utils/naming'
 import { shortGuid } from '../utils/format'
-import { ADO_ACCOUNT, ADO_PROJECT_NAME, devOpsWorkItemUrl } from '../config'
+import { DEVOPS_PANEL_ENABLED } from '../config'
 import { SolutionsService } from '../generated/services/SolutionsService'
 import { PublishersService } from '../generated/services/PublishersService'
 import { SolutioncomponentsService } from '../generated/services/SolutioncomponentsService'
 import { Msdyn_solutioncomponentsummariesService } from '../generated/services/Msdyn_solutioncomponentsummariesService'
 import type { Msdyn_solutioncomponentsummaries } from '../generated/models/Msdyn_solutioncomponentsummariesModel'
 import { AddSolutionComponentService } from '../generated/services/AddSolutionComponentService'
-import { AzureDevOpsService } from '../generated/services/AzureDevOpsService'
 import type { Solutions, SolutionsBase } from '../generated/models/SolutionsModel'
 import type { Solutioncomponents } from '../generated/models/SolutioncomponentsModel'
 import type { Publishers } from '../generated/models/PublishersModel'
@@ -391,45 +390,25 @@ export class DataverseSolutionService implements SolutionService {
   }
 
   /**
-   * Work item summary via the Azure DevOps connector
-   * (`pac code add-data-source -a shared_visualstudioteamservices -c <id>`).
-   * `ListWorkItems` is used instead of `GetWorkItemDetails` because the
-   * latter requires the work item type, which we don't know up front.
-   * Org ("account") and project come from VITE_ADO_ORG_URL / VITE_ADO_PROJECT.
+   * Work item summary via the Azure DevOps connector. TEMPORARILY
+   * DISABLED (DEVOPS_PANEL_ENABLED = false) while the service-principal
+   * access to the DevOps org is being set up — the connector data source
+   * has been removed from the app so users get no connection prompt.
+   *
+   * To restore (see TODO.md):
+   *   pac code add-data-source -a shared_visualstudioteamservices
+   *     -cr sst_CRDevOps -s <WorkbenchSchulz-id> -env <INT-11-url>
+   * then re-import AzureDevOpsService and map ListWorkItems(ADO_ACCOUNT,
+   * ADO_PROJECT_NAME, devOpsId): System_WorkItemType / System_Title /
+   * System_State / System_AssignedTo → WorkItemInfo, with
+   * devOpsWorkItemUrl(devOpsId) as the link.
    */
   async getWorkItem(devOpsId: string): Promise<WorkItemInfo | null> {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockSolutionService.getWorkItem(devOpsId)
-    if (!ADO_ACCOUNT || !ADO_PROJECT_NAME) {
-      console.info('[devops] VITE_ADO_ORG_URL / VITE_ADO_PROJECT not set')
-      return null
-    }
-    try {
-      const result = await AzureDevOpsService.ListWorkItems(
-        ADO_ACCOUNT,
-        ADO_PROJECT_NAME,
-        devOpsId,
-      )
-      if (!result.success || !result.data) {
-        console.warn('[devops] ListWorkItems failed — result:', result)
-        return null
-      }
-      const item = result.data.value?.find(
-        (wi) => String(wi.System_Id ?? '') === devOpsId,
-      )
-      if (!item) return null
-      return {
-        id: devOpsId,
-        type: item.System_WorkItemType ?? 'Work Item',
-        title: item.System_Title ?? '',
-        state: item.System_State ?? 'Unknown',
-        assignedTo: item.System_AssignedTo || null,
-        url: devOpsWorkItemUrl(devOpsId),
-      }
-    } catch (err) {
-      console.warn('[devops] getWorkItem() threw:', err)
-      return null
-    }
+    if (!DEVOPS_PANEL_ENABLED) return null
+    console.info('[devops] connector not wired — DEVOPS_PANEL_ENABLED without data source')
+    return null
   }
 
   async mergeIntoDeployment(

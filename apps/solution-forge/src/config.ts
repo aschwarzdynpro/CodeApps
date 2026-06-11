@@ -60,6 +60,18 @@ export const ADO_ACCOUNT: string =
 /** Project name for connector calls, e.g. "D365UO". */
 export const ADO_PROJECT_NAME: string = ADO_PROJECT
 
+/**
+ * TEMPORARY: the Azure DevOps work item panel is disabled until the
+ * service-principal access to dev.azure.com/SchulzD365 is sorted out
+ * (see TODO.md "Auth auf Service Principal umstellen"). While false, the
+ * panel is hidden, no work items are fetched, and the DevOps connector is
+ * removed from the app so users get no connection prompt at startup.
+ * Re-enable: re-add the connector data source (-cr sst_CRDevOps), restore
+ * the AzureDevOpsService call in dataverseSolutionService.getWorkItem(),
+ * then flip this to true.
+ */
+export const DEVOPS_PANEL_ENABLED = false
+
 /** Maker-portal deep link to one solution (objects list), or the solutions
  *  area when no environment id is known. */
 export function makerSolutionUrl(

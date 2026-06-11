@@ -9,7 +9,7 @@ import { SolutionDetail } from './components/SolutionDetail'
 import { CreateSolutionDialog } from './components/CreateSolutionDialog'
 import { MergeWorkbench } from './components/MergeWorkbench'
 import { CompareWorkbench } from './components/CompareWorkbench'
-import { makerSolutionUrl } from './config'
+import { DEVOPS_PANEL_ENABLED, makerSolutionUrl } from './config'
 import type {
   SolutionComponentInfo,
   WorkItemInfo,
@@ -188,7 +188,7 @@ function App() {
     setJustCreated(null)
     loadComponents(id)
     const devOpsId = allSolutions.find((s) => s.id === id)?.devOpsId
-    if (devOpsId) loadWorkItem(devOpsId)
+    if (DEVOPS_PANEL_ENABLED && devOpsId) loadWorkItem(devOpsId)
   }
 
   const handleCreated = (solution: WorkingSolution) => {

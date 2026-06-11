@@ -4,7 +4,11 @@ import type {
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
-import { devOpsWorkItemUrl, makerSolutionUrl } from '../config'
+import {
+  DEVOPS_PANEL_ENABLED,
+  devOpsWorkItemUrl,
+  makerSolutionUrl,
+} from '../config'
 import { formatDateTime, groupBy } from '../utils/format'
 import { KindBadge } from './KindBadge'
 
@@ -84,7 +88,7 @@ export function SolutionDetail({
         </a>
       </div>
 
-      {solution.devOpsId && (
+      {DEVOPS_PANEL_ENABLED && solution.devOpsId && (
         <div className="devops-card">
           <div className="devops-card-header">
             <span className="devops-card-title">
