@@ -136,11 +136,24 @@ const WORKING_ROW_SELECT = [
   'ssid_devopsid',
   'ssid_uniquesolutionname',
   'sst_type_opt',
+  'sst_devopsworkitemtype',
   'ssid_deploymentstatus',
   '_ownerid_value',
   'createdon',
   'modifiedon',
 ]
+
+/**
+ * Legacy rows predate the sst_type_opt field — fall back to the synced
+ * DevOps work item type ("Bug", "Feature", "Product Backlog Item", …).
+ */
+function kindFromWorkItemType(workItemType?: string): SolutionKind | undefined {
+  const t = (workItemType ?? '').toLowerCase()
+  if (!t) return undefined
+  if (t.includes('bug')) return 'bug'
+  if (t.includes('feature') || t.includes('backlog')) return 'feature'
+  return undefined
+}
 
 const SOLUTION_SELECT = [
   'solutionid',
@@ -324,6 +337,7 @@ export class DataverseSolutionService implements SolutionService {
         if (solution) linkedSolutionIds.add(solution.id)
         const kind =
           KIND_BY_TYPE_OPT[Number(raw.sst_type_opt ?? -1)] ??
+          kindFromWorkItemType(raw.sst_devopsworkitemtype) ??
           solution?.kind ??
           classifyUniqueName(uniqueName).kind
         result.push({
