@@ -164,7 +164,10 @@ function TrackPanel({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const canSubmit = !busy && title.trim() !== '' && devOpsId.trim() !== ''
+  // Releases carry no work item id — the field is hidden and not required.
+  const needsDevOpsId = kind !== 'deployment'
+  const canSubmit =
+    !busy && title.trim() !== '' && (!needsDevOpsId || devOpsId.trim() !== '')
 
   const submit = async () => {
     if (!canSubmit) return
@@ -175,7 +178,7 @@ function TrackPanel({
         solutionId: solution.id,
         uniqueName: solution.uniqueName,
         title: title.trim(),
-        devOpsId: devOpsId.trim(),
+        devOpsId: needsDevOpsId ? devOpsId.trim() : '',
         kind,
       })
     } catch (err) {
@@ -209,14 +212,16 @@ function TrackPanel({
         <span className="form-label">Title</span>
         <input value={title} onChange={(e) => setTitle(e.target.value)} />
       </label>
-      <label className="form-row">
-        <span className="form-label">Azure DevOps ID</span>
-        <input
-          value={devOpsId}
-          onChange={(e) => setDevOpsId(e.target.value)}
-          placeholder="4711"
-        />
-      </label>
+      {needsDevOpsId && (
+        <label className="form-row">
+          <span className="form-label">Azure DevOps ID</span>
+          <input
+            value={devOpsId}
+            onChange={(e) => setDevOpsId(e.target.value)}
+            placeholder="4711"
+          />
+        </label>
+      )}
       {error && <div className="state state--error">{error}</div>}
       <button
         className="btn btn--primary"

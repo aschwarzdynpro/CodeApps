@@ -200,8 +200,9 @@ function toWorkingSolution(raw: Solutions): WorkingSolution {
   const { kind } = classifyUniqueName(uniqueName)
   // Falls back to numbers carried in the title ("Assembly App V2 | 11941")
   // or a numeric unique name, so pre-convention solutions also link to
-  // their DevOps work item.
-  const devOpsId = extractDevOpsId(uniqueName, title)
+  // their DevOps work item. Releases never carry a work item id.
+  const devOpsId =
+    kind === 'deployment' ? null : extractDevOpsId(uniqueName, title)
   const publisherId = raw._publisherid_value ?? ''
   return {
     id: raw.solutionid,
@@ -374,7 +375,12 @@ export class DataverseSolutionService implements SolutionService {
           title: raw.ssid_name || (solution?.title ?? uniqueName),
           description: solution?.description ?? '',
           kind,
-          devOpsId: raw.ssid_devopsid || solution?.devOpsId || null,
+          // Releases carry no work item id — hide placeholder values
+          // like "N/A" that satisfy the required column.
+          devOpsId:
+            kind === 'deployment'
+              ? null
+              : raw.ssid_devopsid || solution?.devOpsId || null,
           version: solution?.version ?? '',
           isManaged: solution?.isManaged ?? false,
           createdOn: solution?.createdOn ?? raw.createdon ?? '',
@@ -521,7 +527,7 @@ export class DataverseSolutionService implements SolutionService {
       title: input.title,
       description: input.description,
       kind: input.kind,
-      devOpsId: input.devOpsId,
+      devOpsId: input.kind === 'deployment' ? null : input.devOpsId,
       deploymentStatus: 'None',
     }
   }
@@ -533,7 +539,12 @@ export class DataverseSolutionService implements SolutionService {
     const workbenchSettingId = await this.defaultWorkbenchSettingId()
     const rowRecord = {
       ssid_name: input.title,
-      ssid_devopsid: input.devOpsId,
+      // ssid_devopsid is required by the table; releases store the
+      // conventional "N/A" placeholder (never shown in the UI).
+      ssid_devopsid:
+        input.kind === 'deployment'
+          ? input.devOpsId.trim() || 'N/A'
+          : input.devOpsId,
       ssid_uniquesolutionname: input.uniqueName,
       ssid_solutionlink: makerSolutionUrl(null, input.solutionId),
       sst_type_opt: TYPE_OPT_BY_KIND[input.kind],

@@ -98,7 +98,7 @@ export class MockSolutionService {
       title: input.title,
       description: input.description,
       kind: input.kind,
-      devOpsId: input.devOpsId,
+      devOpsId: input.kind === 'deployment' ? null : input.devOpsId,
       version: '1.0.0.0',
       isManaged: false,
       createdOn: now,
@@ -165,7 +165,8 @@ export class MockSolutionService {
     if (!solution) throw new Error('Unknown solution.')
     solution.recordId = `ws-${++mockIdCounter}`
     solution.title = input.title
-    solution.devOpsId = input.devOpsId
+    solution.devOpsId =
+      input.kind === 'deployment' ? null : input.devOpsId
     solution.kind = input.kind
     solution.owner = 'Marie Curie'
     solution.ownerId = 'u-0001'
