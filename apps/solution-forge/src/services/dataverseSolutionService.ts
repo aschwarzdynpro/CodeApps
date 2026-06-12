@@ -17,7 +17,12 @@ import {
   extractDevOpsId,
 } from '../utils/naming'
 import { shortGuid } from '../utils/format'
-import { DEVOPS_PANEL_ENABLED, makerSolutionUrl } from '../config'
+import { DEVOPS_PANEL_ENABLED, ENVIRONMENTS, makerSolutionUrl } from '../config'
+import { RetrieveMissingDependenciesService } from './retrieveMissingDependenciesService'
+import type {
+  DependencyCheckResult,
+  DependencyItem,
+} from '../types/dependency'
 import { SolutionsService } from '../generated/services/SolutionsService'
 import { PublishersService } from '../generated/services/PublishersService'
 import { SolutioncomponentsService } from '../generated/services/SolutioncomponentsService'
@@ -61,6 +66,16 @@ import type { IOperationResult } from '@microsoft/power-apps/data'
  * If those generators are re-run with different shapes, update the SELECT
  * lists and the mappers below.
  */
+
+type Row = Record<string, unknown>
+
+const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+
+function chunksOf<T>(items: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  return out
+}
 
 /** OData annotation suffix carrying option-set / lookup display labels. */
 const FV = '@OData.Community.Display.V1.FormattedValue'
@@ -179,6 +194,57 @@ function prettifyTypeName(name: string): string {
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
     .replace(/\bSdk\b/g, 'SDK')
     .trim()
+}
+
+/**
+ * Component types whose existence can be verified via a plain table query
+ * (entity set + id column + display column). Metadata-level dependencies
+ * (tables, columns, choices, relationships, …) can't be checked from the
+ * app and stay "unknown".
+ */
+const DEPENDENCY_SPECS: Record<
+  number,
+  { entitySet: string; idField: string; nameField: string }
+> = {
+  20: { entitySet: 'roles', idField: 'roleid', nameField: 'name' },
+  26: { entitySet: 'savedqueries', idField: 'savedqueryid', nameField: 'name' },
+  29: { entitySet: 'workflows', idField: 'workflowid', nameField: 'name' },
+  31: { entitySet: 'reports', idField: 'reportid', nameField: 'name' },
+  59: {
+    entitySet: 'savedqueryvisualizations',
+    idField: 'savedqueryvisualizationid',
+    nameField: 'name',
+  },
+  60: { entitySet: 'systemforms', idField: 'formid', nameField: 'name' },
+  61: { entitySet: 'webresourceset', idField: 'webresourceid', nameField: 'name' },
+  70: {
+    entitySet: 'fieldsecurityprofiles',
+    idField: 'fieldsecurityprofileid',
+    nameField: 'name',
+  },
+  80: { entitySet: 'appmodules', idField: 'appmoduleid', nameField: 'name' },
+  91: {
+    entitySet: 'pluginassemblies',
+    idField: 'pluginassemblyid',
+    nameField: 'name',
+  },
+  92: {
+    entitySet: 'sdkmessageprocessingsteps',
+    idField: 'sdkmessageprocessingstepid',
+    nameField: 'name',
+  },
+  95: { entitySet: 'serviceendpoints', idField: 'serviceendpointid', nameField: 'name' },
+  300: { entitySet: 'canvasapps', idField: 'canvasappid', nameField: 'name' },
+  372: {
+    entitySet: 'connectionreferences',
+    idField: 'connectionreferenceid',
+    nameField: 'connectionreferencedisplayname',
+  },
+  380: {
+    entitySet: 'environmentvariabledefinitions',
+    idField: 'environmentvariabledefinitionid',
+    nameField: 'schemaname',
+  },
 }
 
 const SOLUTION_SELECT = [
@@ -707,6 +773,207 @@ export class DataverseSolutionService implements SolutionService {
       console.warn('[solutions] current user lookup failed:', err)
     }
     return { id: null, name: fallbackName }
+  }
+
+  /**
+   * Names/existence for a set of component ids in one table — current
+   * environment when orgUrl is null, otherwise the given target org via
+   * the Dataverse connector.
+   */
+  private async lookupComponents(
+    orgUrl: string | null,
+    spec: { entitySet: string; idField: string; nameField: string },
+    ids: string[],
+  ): Promise<Map<string, string>> {
+    const found = new Map<string, string>()
+    for (const chunk of chunksOf(ids, 20)) {
+      const filter = chunk.map((id) => `${spec.idField} eq ${id}`).join(' or ')
+      const select = `${spec.idField},${spec.nameField}`
+      const result = orgUrl
+        ? await MicrosoftDataverseService.ListRecordsWithOrganization(
+            orgUrl,
+            spec.entitySet,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            select,
+            filter,
+          )
+        : await MicrosoftDataverseService.ListRecords(
+            spec.entitySet,
+            undefined,
+            undefined,
+            undefined,
+            select,
+            filter,
+          )
+      if (!result.success) throw new Error(`${spec.entitySet} query failed`)
+      const rows =
+        (result.data as { value?: Record<string, unknown>[] } | undefined)
+          ?.value ?? []
+      for (const row of rows) {
+        const id = row[spec.idField]
+        if (typeof id === 'string')
+          found.set(
+            id.toLowerCase(),
+            typeof row[spec.nameField] === 'string'
+              ? (row[spec.nameField] as string)
+              : '',
+          )
+      }
+    }
+    return found
+  }
+
+  /**
+   * Dependency check for a release solution: RetrieveMissingDependencies
+   * lists every required component the solution doesn't contain; each is
+   * then looked up in the target environment (where the type allows it).
+   */
+  async checkDependencies(
+    solution: WorkingSolution,
+    envKey: 'uat' | 'prod',
+    onProgress?: (message: string) => void,
+  ): Promise<DependencyCheckResult> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.checkDependencies(solution, envKey, onProgress)
+    const env = ENVIRONMENTS.find((e) => e.key === envKey)
+    if (!env) throw new Error(`Unknown environment ${envKey}`)
+    const orgUrl = env.url.replace(/\/+$/, '')
+
+    onProgress?.('Retrieving missing dependencies…')
+    const result =
+      await RetrieveMissingDependenciesService.RetrieveMissingDependencies(
+        solution.uniqueName,
+      )
+    if (!result.success || !result.data) {
+      console.warn('[deps] RetrieveMissingDependencies failed:', result)
+      throw new Error('RetrieveMissingDependencies failed — see console.')
+    }
+    const rows =
+      (result.data as { value?: Row[] } | undefined)?.value ?? []
+
+    // Display names of the solution's own members (the dependent side).
+    onProgress?.('Resolving solution components…')
+    const members = await this.listComponents(solution.id).catch(
+      () => [] as SolutionComponentInfo[],
+    )
+    const memberNames = new Map(
+      members.map((c) => [c.objectId.toLowerCase(), c.displayName]),
+    )
+
+    // Group required ids by type for the lookups.
+    const idsByType = new Map<number, Set<string>>()
+    for (const row of rows) {
+      const type = Number(row.requiredcomponenttype ?? 0)
+      const id = str(row.requiredcomponentobjectid)
+      if (!id) continue
+      const bucket = idsByType.get(type) ?? new Set<string>()
+      bucket.add(id)
+      idsByType.set(type, bucket)
+    }
+
+    const requiredNames = new Map<string, string>()
+    const targetPresence = new Map<string, boolean>()
+    let targetUnreachable = false
+    for (const [type, idSet] of idsByType) {
+      const spec = DEPENDENCY_SPECS[type]
+      if (!spec) continue // metadata type — stays "unknown"
+      const ids = [...idSet]
+      const label =
+        COMPONENT_TYPE_LABELS[type] ?? `type ${type}`
+      onProgress?.(`Checking ${label} (${ids.length})…`)
+      try {
+        const current = await this.lookupComponents(null, spec, ids)
+        for (const [id, name] of current)
+          if (name) requiredNames.set(id, name)
+      } catch (err) {
+        console.warn('[deps] current-env name lookup failed:', err)
+      }
+      try {
+        const target = await this.lookupComponents(orgUrl, spec, ids)
+        for (const id of ids) {
+          const key = id.toLowerCase()
+          targetPresence.set(key, target.has(key))
+          const name = target.get(key)
+          if (name && !requiredNames.has(key)) requiredNames.set(key, name)
+        }
+      } catch (err) {
+        console.warn(`[deps] target lookup failed for ${spec.entitySet}:`, err)
+        targetUnreachable = true
+      }
+    }
+
+    const typeNameOf = (row: Row, column: string, code: number): string =>
+      prettifyTypeName(
+        formatted(row, column) ??
+          COMPONENT_TYPE_LABELS[code] ??
+          `Type ${code}`,
+      )
+
+    const order = { missing: 0, unknown: 1, present: 2 } as const
+    const items: DependencyItem[] = rows
+      .map((row) => {
+        const requiredType = Number(row.requiredcomponenttype ?? 0)
+        const dependentType = Number(row.dependentcomponenttype ?? 0)
+        const requiredId = str(row.requiredcomponentobjectid)
+        const dependentId = str(row.dependentcomponentobjectid)
+        const key = requiredId.toLowerCase()
+        const targetStatus: DependencyItem['targetStatus'] =
+          DEPENDENCY_SPECS[requiredType] && targetPresence.has(key)
+            ? targetPresence.get(key)
+              ? 'present'
+              : 'missing'
+            : 'unknown'
+        return {
+          requiredObjectId: requiredId,
+          requiredType,
+          requiredTypeName: typeNameOf(row, 'requiredcomponenttype', requiredType),
+          requiredName: requiredNames.get(key),
+          dependentObjectId: dependentId,
+          dependentType,
+          dependentTypeName: typeNameOf(
+            row,
+            'dependentcomponenttype',
+            dependentType,
+          ),
+          dependentName: memberNames.get(dependentId.toLowerCase()),
+          targetStatus,
+        }
+      })
+      .sort(
+        (a, b) =>
+          order[a.targetStatus] - order[b.targetStatus] ||
+          a.requiredTypeName.localeCompare(b.requiredTypeName) ||
+          (a.requiredName ?? a.requiredObjectId).localeCompare(
+            b.requiredName ?? b.requiredObjectId,
+          ),
+      )
+    return { envKey, items, ...(targetUnreachable ? { targetUnreachable } : {}) }
+  }
+
+  /** Pull one missing required component into the release solution. */
+  async addDependencyToSolution(
+    targetUniqueName: string,
+    componentId: string,
+    componentType: number,
+  ): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.addDependencyToSolution()
+    const result = await AddSolutionComponentService.AddSolutionComponent(
+      componentId,
+      componentType,
+      targetUniqueName,
+      false,
+      false,
+    )
+    if (result && result.success === false) {
+      console.warn('[deps] AddSolutionComponent failed:', result)
+      throw new Error('Adding the component to the solution failed.')
+    }
   }
 
   private rolePromises = new Map<string, Promise<boolean>>()

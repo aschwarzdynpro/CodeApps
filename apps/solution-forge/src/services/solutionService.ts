@@ -7,6 +7,7 @@ import type {
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
+import type { DependencyCheckResult } from '../types/dependency'
 import { dataverseSolutionService } from './dataverseSolutionService'
 
 /**
@@ -56,6 +57,22 @@ export interface SolutionService {
    * usable identity.
    */
   getCurrentUser(): Promise<{ id: string | null; name: string | null }>
+  /**
+   * Required components of the solution that the solution itself doesn't
+   * contain (RetrieveMissingDependencies), each checked for presence in
+   * the chosen target environment.
+   */
+  checkDependencies(
+    solution: WorkingSolution,
+    envKey: 'uat' | 'prod',
+    onProgress?: (message: string) => void,
+  ): Promise<DependencyCheckResult>
+  /** Adds one missing required component to the release solution. */
+  addDependencyToSolution(
+    targetUniqueName: string,
+    componentId: string,
+    componentType: number,
+  ): Promise<void>
   /**
    * Whether the signed-in user holds the given security role (direct
    * assignment; team-inherited roles are not considered). Used to gate

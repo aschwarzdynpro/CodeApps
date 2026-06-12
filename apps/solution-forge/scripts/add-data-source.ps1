@@ -40,9 +40,35 @@ finally {
   if ($schemaMoved) { Move-Item $schemaBackup $schema -Force }
 }
 
-# Re-insert the addsolutioncomponent block if the regeneration dropped it.
+# Re-insert the hand-maintained blocks if the regeneration dropped them
+# (the generator only knows schema files; these two are defined here).
 if ((Test-Path $dsInfo) -and -not (Select-String -Path $dsInfo -Pattern '"addsolutioncomponent"' -Quiet)) {
   $block = @'
+  "retrievemissingdependencies": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "",
+    "dataSourceType": "Dataverse",
+    "apis": {
+      "RetrieveMissingDependencies": {
+        "path": "/api/data/v9.2/RetrieveMissingDependencies(SolutionUniqueName='{solutionUniqueName}')",
+        "method": "GET",
+        "parameters": [
+          {
+            "name": "solutionUniqueName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responseInfo": {
+          "200": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
   "addsolutioncomponent": {
     "tableId": "",
     "version": "",
@@ -103,7 +129,7 @@ if ((Test-Path $dsInfo) -and -not (Select-String -Path $dsInfo -Pattern '"addsol
   $anchor = "export const dataSourcesInfo = {"
   $content = $content.Replace($anchor, "$anchor`n$block")
   Set-Content -Path $dsInfo -Value $content -NoNewline
-  Write-Host "Re-inserted the addsolutioncomponent block into dataSourcesInfo.ts."
+  Write-Host "Re-inserted the addsolutioncomponent + retrievemissingdependencies blocks into dataSourcesInfo.ts."
 }
 
 exit $exit

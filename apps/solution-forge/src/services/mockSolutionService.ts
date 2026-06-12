@@ -7,6 +7,7 @@ import type {
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
+import type { DependencyCheckResult } from '../types/dependency'
 import { buildUniqueName } from '../utils/naming'
 import {
   mockComponentsBySolutionId,
@@ -119,6 +120,71 @@ export class MockSolutionService {
   async listComponents(solutionId: string): Promise<SolutionComponentInfo[]> {
     await delay(300)
     return (this.components.get(solutionId) ?? []).map((c) => ({ ...c }))
+  }
+
+  async checkDependencies(
+    _solution: WorkingSolution,
+    envKey: 'uat' | 'prod',
+    onProgress?: (message: string) => void,
+  ): Promise<DependencyCheckResult> {
+    onProgress?.('Retrieving missing dependencies…')
+    await delay(500)
+    onProgress?.('Checking target environment…')
+    await delay(500)
+    const envLabel = envKey.toUpperCase()
+    return {
+      envKey,
+      items: [
+        {
+          requiredObjectId: 'dep-1',
+          requiredType: 61,
+          requiredTypeName: 'Web Resource',
+          requiredName: 'dyn_/shared/utils.js',
+          dependentObjectId: 'c-f4711-7',
+          dependentType: 61,
+          dependentTypeName: 'Web Resource',
+          dependentName: 'dyn_/onboarding/wizard.js',
+          targetStatus: 'missing',
+        },
+        {
+          requiredObjectId: 'dep-2',
+          requiredType: 29,
+          requiredTypeName: 'Process',
+          requiredName: `Base approval template (${envLabel})`,
+          dependentObjectId: 'c-f4711-6',
+          dependentType: 29,
+          dependentTypeName: 'Process',
+          dependentName: 'Onboarding approval flow',
+          targetStatus: 'missing',
+        },
+        {
+          requiredObjectId: 'dep-3',
+          requiredType: 1,
+          requiredTypeName: 'Table',
+          requiredName: 'dyn_basesettings',
+          dependentObjectId: 'c-f4711-1',
+          dependentType: 1,
+          dependentTypeName: 'Table',
+          dependentName: 'dyn_onboardingcase',
+          targetStatus: 'unknown',
+        },
+        {
+          requiredObjectId: 'dep-4',
+          requiredType: 20,
+          requiredTypeName: 'Security Role',
+          requiredName: 'SST | Monteur',
+          dependentObjectId: 'c-f4711-8',
+          dependentType: 80,
+          dependentTypeName: 'Model-driven App',
+          dependentName: 'Onboarding Hub',
+          targetStatus: 'present',
+        },
+      ],
+    }
+  }
+
+  async addDependencyToSolution(): Promise<void> {
+    await delay(400)
   }
 
   async hasRole(): Promise<boolean> {

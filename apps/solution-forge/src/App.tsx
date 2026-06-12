@@ -9,6 +9,7 @@ import { SolutionDetail } from './components/SolutionDetail'
 import { CreateSolutionDialog } from './components/CreateSolutionDialog'
 import { MergeWorkbench } from './components/MergeWorkbench'
 import { CompareWorkbench } from './components/CompareWorkbench'
+import { DependencyCheck } from './components/DependencyCheck'
 import { HelpPanel } from './components/HelpPanel'
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog'
 import {
@@ -25,7 +26,7 @@ import {
   type WorkingSolution,
 } from './types/solution'
 
-type Tab = 'workbench' | 'merge' | 'compare'
+type Tab = 'workbench' | 'merge' | 'compare' | 'dependencies'
 
 function App() {
   const { environmentId } = usePower()
@@ -526,6 +527,20 @@ function App() {
           Compare
           {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
         </button>
+        <button
+          className={`tab ${tab === 'dependencies' ? 'tab--active' : ''} ${
+            isDeploymentManager ? '' : 'tab--disabled'
+          }`}
+          title={
+            isDeploymentManager
+              ? undefined
+              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
+          }
+          onClick={() => isDeploymentManager && setTab('dependencies')}
+        >
+          Dependency Check
+          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
+        </button>
       </nav>
 
       {loading && <div className="state">Loading solutions…</div>}
@@ -708,6 +723,10 @@ function App() {
           solutions={allSolutions}
           initialSolutionId={selectedId}
         />
+      )}
+
+      {!loading && !error && tab === 'dependencies' && isDeploymentManager && (
+        <DependencyCheck solutions={allSolutions} />
       )}
 
       {showHelp && <HelpPanel onClose={() => setShowHelp(false)} />}

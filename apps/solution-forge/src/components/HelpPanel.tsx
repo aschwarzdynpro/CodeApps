@@ -172,6 +172,31 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>Dependency Check</h3>
+            <ul>
+              <li>
+                Pick a <strong>release solution</strong> and a target
+                environment (UAT / PROD) — the check runs
+                RetrieveMissingDependencies and lists every required
+                component the solution doesn't contain.
+              </li>
+              <li>
+                <strong>Missing in target</strong> (red) = the component is
+                neither in the solution nor in the target environment — the
+                import would fail. <strong>Add to Solution</strong> pulls it
+                into the release directly.
+              </li>
+              <li>
+                <strong>Required dependencies</strong> = needed but already
+                present in the target, or “not verifiable” for metadata
+                types (tables, columns, choices) which can't be checked
+                from the app.
+              </li>
+              <li>Requires the “INT | Deployment Manager” role.</li>
+            </ul>
+          </section>
+
+          <section className="help-section">
             <h3>Compare (ALM)</h3>
             <ul>
               <li>
