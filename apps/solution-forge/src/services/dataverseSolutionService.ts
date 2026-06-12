@@ -1150,10 +1150,13 @@ export class DataverseSolutionService implements SolutionService {
     component: SolutionComponentInfo,
     componentName: string,
   ): Promise<ComponentLayerStack> {
+    // msdyn_solutionversion is NOT a declared OData property (selecting it
+    // fails with 0x80060888) — but the virtual provider returns it in the
+    // payload anyway, so it is read opportunistically below.
     const rows = await this.queryRows(
       orgUrl,
       'msdyn_componentlayers',
-      'msdyn_componentlayerid,msdyn_solutionname,msdyn_publishername,msdyn_solutionversion,msdyn_order',
+      'msdyn_componentlayerid,msdyn_solutionname,msdyn_publishername,msdyn_order',
       `msdyn_componentid eq '${component.objectId}' and ` +
         `msdyn_solutioncomponentname eq '${componentName.replace(/'/g, "''")}'`,
     )
