@@ -31,6 +31,7 @@ import type {
 } from '../generated/models/Ssid_workingsolutionsModel'
 import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
 import { SystemusersService } from '../generated/services/SystemusersService'
+import { RolesService } from '../generated/services/RolesService'
 import type { Solutions, SolutionsBase } from '../generated/models/SolutionsModel'
 import type { Solutioncomponents } from '../generated/models/SolutioncomponentsModel'
 import type { Publishers } from '../generated/models/PublishersModel'
@@ -706,6 +707,48 @@ export class DataverseSolutionService implements SolutionService {
       console.warn('[solutions] current user lookup failed:', err)
     }
     return { id: null, name: fallbackName }
+  }
+
+  private rolePromises = new Map<string, Promise<boolean>>()
+
+  /**
+   * Direct role membership of the signed-in user, resolved natively (runs
+   * as the user) via a lambda filter on the role↔user association. Roles
+   * inherited through teams are not detected — assign the role directly
+   * for the deployment managers.
+   */
+  async hasRole(roleName: string): Promise<boolean> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return mockSolutionService.hasRole()
+    let promise = this.rolePromises.get(roleName)
+    if (!promise) {
+      promise = this.resolveHasRole(roleName)
+      this.rolePromises.set(roleName, promise)
+    }
+    return promise
+  }
+
+  private async resolveHasRole(roleName: string): Promise<boolean> {
+    try {
+      const user = await this.getCurrentUser()
+      if (!user.id) return false
+      const escaped = roleName.replace(/'/g, "''")
+      const result = await RolesService.getAll({
+        select: ['roleid'],
+        filter:
+          `name eq '${escaped}' and ` +
+          `systemuserroles_association/any(u:u/systemuserid eq ${user.id})`,
+        top: 1,
+      })
+      if (!result.success) {
+        console.warn('[solutions] role check failed — result:', result)
+        return false
+      }
+      return (result.data?.length ?? 0) > 0
+    } catch (err) {
+      console.warn('[solutions] role check threw:', err)
+      return false
+    }
   }
 
   /**

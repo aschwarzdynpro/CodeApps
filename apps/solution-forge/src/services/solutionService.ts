@@ -56,6 +56,12 @@ export interface SolutionService {
    * usable identity.
    */
   getCurrentUser(): Promise<{ id: string | null; name: string | null }>
+  /**
+   * Whether the signed-in user holds the given security role (direct
+   * assignment; team-inherited roles are not considered). Used to gate
+   * the Merge and Compare tabs.
+   */
+  hasRole(roleName: string): Promise<boolean>
   /** Updates sst_type_opt on an existing working-solution record. */
   updateSolutionType(
     recordId: string,

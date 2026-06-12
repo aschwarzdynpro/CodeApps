@@ -121,6 +121,11 @@ export class MockSolutionService {
     return (this.components.get(solutionId) ?? []).map((c) => ({ ...c }))
   }
 
+  async hasRole(): Promise<boolean> {
+    await delay(150)
+    return true // keep the full feature set demoable offline
+  }
+
   async getCurrentUser(): Promise<{ id: string | null; name: string | null }> {
     await delay(150)
     // Matches the seeded owner of feature_4711 so the filter is demoable.

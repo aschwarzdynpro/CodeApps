@@ -145,6 +145,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <h3>Merge</h3>
             <ul>
               <li>
+                The Merge and Compare tabs require the security role{' '}
+                <strong>“INT | Deployment Manager”</strong> (assigned
+                directly to your user) — without it they appear grayed out.
+              </li>
+              <li>
                 Only <strong>tracked</strong> feature / bug solutions can be
                 merged; the target must be a tracked <strong>Release</strong>{' '}
                 solution.

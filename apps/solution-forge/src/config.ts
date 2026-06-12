@@ -72,6 +72,9 @@ export const ADO_PROJECT_NAME: string = ADO_PROJECT
  */
 export const DEVOPS_PANEL_ENABLED = false
 
+/** Security role required for the Merge and Compare tabs. */
+export const DEPLOYMENT_MANAGER_ROLE = 'INT | Deployment Manager'
+
 /** Maker-portal deep link to one solution (objects list), or the solutions
  *  area when no environment id is known. */
 export function makerSolutionUrl(

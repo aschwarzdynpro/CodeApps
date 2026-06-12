@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { usePower } from './PowerProvider'
 import { useSolutions } from './hooks/useSolutions'
@@ -11,7 +11,11 @@ import { MergeWorkbench } from './components/MergeWorkbench'
 import { CompareWorkbench } from './components/CompareWorkbench'
 import { HelpPanel } from './components/HelpPanel'
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog'
-import { DEVOPS_PANEL_ENABLED, makerSolutionUrl } from './config'
+import {
+  DEPLOYMENT_MANAGER_ROLE,
+  DEVOPS_PANEL_ENABLED,
+  makerSolutionUrl,
+} from './config'
 import {
   CLOSED_STATUS_CODES,
   type ComponentCollision,
@@ -28,6 +32,18 @@ function App() {
   const { solutions, publishers, loading, error, reload } = useSolutions()
 
   const [tab, setTab] = useState<Tab>('workbench')
+  // Merge and Compare are restricted to deployment managers; tabs stay
+  // visible but disabled until the role check confirms access.
+  const [isDeploymentManager, setIsDeploymentManager] = useState(false)
+
+  useEffect(() => {
+    // One-time role probe — drives the tab gating as it resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    solutionService
+      .hasRole(DEPLOYMENT_MANAGER_ROLE)
+      .then((granted) => setIsDeploymentManager(granted))
+      .catch(() => setIsDeploymentManager(false))
+  }, [])
   const [kindFilter, setKindFilter] = useState<KindFilter>('All')
   const [search, setSearch] = useState('')
   const [groupByWorkItem, setGroupByWorkItem] = useState(false)
@@ -484,16 +500,32 @@ function App() {
           Workbench
         </button>
         <button
-          className={`tab ${tab === 'merge' ? 'tab--active' : ''}`}
-          onClick={() => setTab('merge')}
+          className={`tab ${tab === 'merge' ? 'tab--active' : ''} ${
+            isDeploymentManager ? '' : 'tab--disabled'
+          }`}
+          title={
+            isDeploymentManager
+              ? undefined
+              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
+          }
+          onClick={() => isDeploymentManager && setTab('merge')}
         >
           Merge
+          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
         </button>
         <button
-          className={`tab ${tab === 'compare' ? 'tab--active' : ''}`}
-          onClick={() => setTab('compare')}
+          className={`tab ${tab === 'compare' ? 'tab--active' : ''} ${
+            isDeploymentManager ? '' : 'tab--disabled'
+          }`}
+          title={
+            isDeploymentManager
+              ? undefined
+              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
+          }
+          onClick={() => isDeploymentManager && setTab('compare')}
         >
           Compare
+          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
         </button>
       </nav>
 
@@ -668,11 +700,11 @@ function App() {
         </>
       )}
 
-      {!loading && !error && tab === 'merge' && (
+      {!loading && !error && tab === 'merge' && isDeploymentManager && (
         <MergeWorkbench solutions={allSolutions} onMerged={handleMerged} />
       )}
 
-      {!loading && !error && tab === 'compare' && (
+      {!loading && !error && tab === 'compare' && isDeploymentManager && (
         <CompareWorkbench
           solutions={allSolutions}
           initialSolutionId={selectedId}
