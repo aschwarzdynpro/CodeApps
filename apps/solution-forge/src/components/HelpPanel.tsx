@@ -26,10 +26,12 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               the <code>ssid_workingsolution</code> table (title, DevOps id,
               type, owner, deployment status, merge log) and the{' '}
               <strong>real unmanaged solution</strong> carrying the
-              components, linked by its unique name. Entries backed by a
-              record carry the <span className="ws-chip">WS</span> chip;
-              plain solutions without a record are listed too and can be
-              tracked later.
+              components, linked by its unique name. The{' '}
+              <span className="link-badge link-badge--both">
+                <span className="lb-seg lb-ws">WS</span>
+                <span className="lb-seg lb-sol">SOL</span>
+              </span>{' '}
+              badge on every row shows which of the two parts exist.
             </p>
           </section>
 
@@ -184,8 +186,26 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <h3>Chips at a glance</h3>
             <ul className="help-legend">
               <li>
-                <span className="ws-chip">WS</span> tracked by a
-                working-solution record
+                <span className="link-badge link-badge--both">
+                  <span className="lb-seg lb-ws">WS</span>
+                  <span className="lb-seg lb-sol">SOL</span>
+                </span>{' '}
+                tracked — record and solution linked
+              </li>
+              <li>
+                <span className="link-badge link-badge--record-only">
+                  <span className="lb-seg lb-ws">WS</span>
+                  <span className="lb-seg lb-sol">SOL</span>
+                </span>{' '}
+                record without solution (orphaned — re-link in the detail
+                pane)
+              </li>
+              <li>
+                <span className="link-badge link-badge--solution-only">
+                  <span className="lb-seg lb-ws">WS</span>
+                  <span className="lb-seg lb-sol">SOL</span>
+                </span>{' '}
+                solution without record (track it in the detail pane)
               </li>
               <li>
                 <span className="ado-chip">#13388</span> Azure DevOps work

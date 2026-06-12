@@ -23,6 +23,32 @@ const MAX_SHOWN_MATCHES = 2
 /** Key for entries without a work item number when grouping. */
 const NO_WORK_ITEM = ''
 
+/**
+ * Two-segment badge showing what an entry consists of: working-solution
+ * record (WS) and/or real solution (SOL). Present halves are colored,
+ * missing ones grayed out — a record without its solution is flagged red.
+ */
+function LinkStateBadge({ solution }: { solution: WorkingSolution }) {
+  const state = solution.recordId
+    ? solution.solutionMissing
+      ? 'record-only'
+      : 'both'
+    : 'solution-only'
+  const titles: Record<string, string> = {
+    both: 'Tracked — working-solution record and solution are linked.',
+    'record-only':
+      'Working-solution record without a solution — re-link it in the detail pane.',
+    'solution-only':
+      'Solution without a working-solution record — track it in the detail pane.',
+  }
+  return (
+    <span className={`link-badge link-badge--${state}`} title={titles[state]}>
+      <span className="lb-seg lb-ws">WS</span>
+      <span className="lb-seg lb-sol">SOL</span>
+    </span>
+  )
+}
+
 export function SolutionList({
   solutions,
   activeId,
@@ -60,14 +86,7 @@ export function SolutionList({
         <span className="solution-row-main">
           <span className="solution-row-title">
             {s.title}
-            {s.recordId && (
-              <span
-                className="ws-chip"
-                title="Tracked working solution (ssid_workingsolution record)"
-              >
-                WS
-              </span>
-            )}
+            <LinkStateBadge solution={s} />
             {duplicateLink && (
               <span
                 className="dup-chip"

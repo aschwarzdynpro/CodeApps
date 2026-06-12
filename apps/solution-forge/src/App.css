@@ -190,7 +190,8 @@
 }
 .help .ws-chip,
 .help .dup-chip,
-.help .coll-chip {
+.help .coll-chip,
+.help .link-badge {
   margin-left: 0;
 }
 
@@ -322,6 +323,45 @@
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+/* Link-state badge (WS | SOL) */
+.link-badge {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-left: 8px;
+  vertical-align: 2px;
+}
+.lb-seg {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  line-height: 1.2;
+  background: #f1f3f5;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.link-badge .lb-seg + .lb-seg {
+  border-left: 1px solid var(--border);
+}
+.link-badge--both .lb-ws,
+.link-badge--record-only .lb-ws {
+  background: #eef0fb;
+  color: var(--brand);
+  text-decoration: none;
+}
+.link-badge--both .lb-sol,
+.link-badge--solution-only .lb-sol {
+  background: #e7f4ee;
+  color: #1a8754;
+  text-decoration: none;
+}
+.link-badge--record-only .lb-sol {
+  background: #fdf2f3;
+  color: #b02a37;
 }
 
 /* Collision radar */
