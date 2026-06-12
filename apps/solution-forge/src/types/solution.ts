@@ -41,6 +41,8 @@ export interface WorkingSolution {
   ownerId?: string
   /** Formatted ssid_deploymentstatus label, e.g. "Deployment completed". */
   deploymentStatus?: string
+  /** Raw ssid_deploymentstatus option value (see CLOSED_STATUS_CODES). */
+  deploymentStatusCode?: number
   /** True when the row's ssid_uniquesolutionname matches no real solution. */
   solutionMissing?: boolean
   /** uniquename, e.g. "feature_4711" */
@@ -107,6 +109,14 @@ export interface CreateWorkingSolutionInput {
   description: string
   publisherId: string
 }
+
+/**
+ * ssid_deploymentstatus values that count as "closed" for the workbench's
+ * default Open filter: Deployment completed, Merged into Deployment
+ * Solution, Merged into Core Solution. Everything else (None, To be
+ * deployed, Deployment in progress, unset) is open.
+ */
+export const CLOSED_STATUS_CODES = new Set([500870003, 867520001, 867520002])
 
 /** Attach a working-solution record to an already existing solution. */
 export interface TrackSolutionInput {

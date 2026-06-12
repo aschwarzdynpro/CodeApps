@@ -13,14 +13,13 @@ const CHIPS: { value: KindFilter; label: string }[] = [
 interface Props {
   kind: KindFilter
   onKindChange: (kind: KindFilter) => void
-  search: string
-  onSearchChange: (value: string) => void
   counts: Partial<Record<KindFilter, number>>
-  /** Whether the search also matches component display names. */
-  searchInComponents: boolean
-  onSearchInComponentsChange: (enabled: boolean) => void
-  /** [done, total] while the component index is being built. */
-  indexProgress: [number, number] | null
+  /** Default-on: deployment status not completed/merged. */
+  openOnly: boolean
+  onOpenOnlyChange: (enabled: boolean) => void
+  /** Default-on: only entries with a working-solution record. */
+  trackedOnly: boolean
+  onTrackedOnlyChange: (enabled: boolean) => void
   /** Only working solutions owned by the signed-in user. */
   mineOnly: boolean
   onMineOnlyChange: (enabled: boolean) => void
@@ -31,12 +30,11 @@ interface Props {
 export function SolutionFilterBar({
   kind,
   onKindChange,
-  search,
-  onSearchChange,
   counts,
-  searchInComponents,
-  onSearchInComponentsChange,
-  indexProgress,
+  openOnly,
+  onOpenOnlyChange,
+  trackedOnly,
+  onTrackedOnlyChange,
   mineOnly,
   onMineOnlyChange,
   mineUserName,
@@ -60,6 +58,21 @@ export function SolutionFilterBar({
             </button>
           )
         })}
+        <span className="chip-divider" />
+        <button
+          className={`chip ${openOnly ? 'chip--active' : ''}`}
+          title="Deployment status is not Completed / Merged — untick to include finished working solutions."
+          onClick={() => onOpenOnlyChange(!openOnly)}
+        >
+          Open
+        </button>
+        <button
+          className={`chip ${trackedOnly ? 'chip--active' : ''}`}
+          title="Has a working-solution record — untick to include plain solutions without one."
+          onClick={() => onTrackedOnlyChange(!trackedOnly)}
+        >
+          Tracked
+        </button>
         <button
           className={`chip ${mineOnly ? 'chip--active' : ''}`}
           title={
@@ -71,35 +84,6 @@ export function SolutionFilterBar({
         >
           👤 Mine
         </button>
-      </div>
-      <div className="search-group">
-        <input
-          className="search"
-          type="search"
-          placeholder={
-            searchInComponents
-              ? 'Search incl. component names…'
-              : 'Search title, unique name, ADO id…'
-          }
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-        />
-        <label
-          className="search-scope"
-          title="Also match component display names (builds a one-time index across all solutions)."
-        >
-          <input
-            type="checkbox"
-            checked={searchInComponents}
-            onChange={(e) => onSearchInComponentsChange(e.target.checked)}
-          />
-          incl. components
-          {indexProgress && (
-            <span className="search-scope-progress">
-              indexing {indexProgress[0]}/{indexProgress[1]}…
-            </span>
-          )}
-        </label>
       </div>
     </div>
   )

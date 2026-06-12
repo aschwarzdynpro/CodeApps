@@ -109,6 +109,7 @@ export class MockSolutionService {
       owner: 'Marie Curie',
       ownerId: 'u-0001',
       deploymentStatus: 'None',
+      deploymentStatusCode: 500870000,
     }
     this.solutions.unshift(created)
     this.components.set(created.id, [])
@@ -212,6 +213,7 @@ export class MockSolutionService {
     for (const source of this.solutions) {
       if (sourceSolutionIds.includes(source.id) && source.recordId) {
         source.deploymentStatus = 'Merged into Deployment Solution'
+        source.deploymentStatusCode = 867520001
       }
     }
     return result

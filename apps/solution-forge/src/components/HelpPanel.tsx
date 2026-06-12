@@ -40,7 +40,15 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <ul>
               <li>
                 <strong>Filter chips</strong> (Features / Bugs / Releases /
-                Other) and the search box (title, unique name, DevOps id).
+                Other) plus the search box in the action row (title, unique
+                name, DevOps id).
+              </li>
+              <li>
+                <strong>Open</strong> and <strong>Tracked</strong> are on by
+                default — they narrow the list to working solutions whose
+                deployment status is not Completed/Merged and that have a
+                working-solution record. Untick them to reach finished or
+                untracked entries.
               </li>
               <li>
                 <strong>👤 Mine</strong> — only working solutions you own

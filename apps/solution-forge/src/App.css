@@ -372,6 +372,15 @@
   flex-wrap: wrap;
   margin-bottom: 14px;
 }
+.collision-bar .search-group {
+  margin-left: auto;
+}
+.chip-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  margin: 2px 4px;
+}
 .collision-summary {
   font-size: 13px;
 }

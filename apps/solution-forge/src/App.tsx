@@ -12,12 +12,13 @@ import { CompareWorkbench } from './components/CompareWorkbench'
 import { HelpPanel } from './components/HelpPanel'
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog'
 import { DEVOPS_PANEL_ENABLED, makerSolutionUrl } from './config'
-import type {
-  ComponentCollision,
-  SolutionComponentInfo,
-  TrackSolutionInput,
-  WorkItemInfo,
-  WorkingSolution,
+import {
+  CLOSED_STATUS_CODES,
+  type ComponentCollision,
+  type SolutionComponentInfo,
+  type TrackSolutionInput,
+  type WorkItemInfo,
+  type WorkingSolution,
 } from './types/solution'
 
 type Tab = 'workbench' | 'merge' | 'compare'
@@ -30,6 +31,11 @@ function App() {
   const [kindFilter, setKindFilter] = useState<KindFilter>('All')
   const [search, setSearch] = useState('')
   const [groupByWorkItem, setGroupByWorkItem] = useState(false)
+  // Default filters for "the relevant stuff": open (deployment status not
+  // completed/merged) and tracked (has a working-solution record). Both
+  // can be unticked to reach finished or untracked entries.
+  const [openOnly, setOpenOnly] = useState(true)
+  const [trackedOnly, setTrackedOnly] = useState(true)
   // "Mine" filter: resolved lazily on first activation. undefined = not
   // resolved yet, 'loading' = lookup running.
   const [mineOnly, setMineOnly] = useState(false)
@@ -98,11 +104,32 @@ function App() {
     return merged.filter((s) => !pendingKeys.has(s.recordId ?? s.id))
   }, [solutions, created, pendingDeletes])
 
+  // Structural filters (open / tracked / mine) applied before kind and
+  // search — the kind counts reflect this base set.
+  const baseFiltered = useMemo(() => {
+    const isMine = (s: WorkingSolution): boolean => {
+      if (!currentUser || currentUser === 'loading') return true // still resolving
+      if (currentUser.id && s.ownerId) return s.ownerId === currentUser.id
+      if (currentUser.name && s.owner)
+        return s.owner.toLowerCase() === currentUser.name.toLowerCase()
+      return false
+    }
+    return allSolutions
+      .filter(
+        (s) =>
+          !openOnly ||
+          s.deploymentStatusCode === undefined ||
+          !CLOSED_STATUS_CODES.has(s.deploymentStatusCode),
+      )
+      .filter((s) => !trackedOnly || !!s.recordId)
+      .filter((s) => !mineOnly || isMine(s))
+  }, [allSolutions, openOnly, trackedOnly, mineOnly, currentUser])
+
   const counts = useMemo(() => {
     const c: Partial<Record<KindFilter, number>> = {}
-    for (const s of allSolutions) c[s.kind] = (c[s.kind] ?? 0) + 1
+    for (const s of baseFiltered) c[s.kind] = (c[s.kind] ?? 0) + 1
     return c
-  }, [allSolutions])
+  }, [baseFiltered])
 
   // Per-solution components matching the search term — only active when the
   // toggle is on and the index has been built.
@@ -123,16 +150,8 @@ function App() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    const isMine = (s: WorkingSolution): boolean => {
-      if (!currentUser || currentUser === 'loading') return true // still resolving
-      if (currentUser.id && s.ownerId) return s.ownerId === currentUser.id
-      if (currentUser.name && s.owner)
-        return s.owner.toLowerCase() === currentUser.name.toLowerCase()
-      return false
-    }
-    return allSolutions
+    return baseFiltered
       .filter((s) => kindFilter === 'All' || s.kind === kindFilter)
-      .filter((s) => !mineOnly || isMine(s))
       .filter(
         (s) =>
           !q ||
@@ -141,7 +160,7 @@ function App() {
           (s.devOpsId ?? '').includes(q) ||
           componentMatches.has(s.id),
       )
-  }, [allSolutions, kindFilter, search, componentMatches, mineOnly, currentUser])
+  }, [baseFiltered, kindFilter, search, componentMatches])
 
   const toggleMineOnly = (enabled: boolean) => {
     setMineOnly(enabled)
@@ -503,12 +522,11 @@ function App() {
           <SolutionFilterBar
             kind={kindFilter}
             onKindChange={setKindFilter}
-            search={search}
-            onSearchChange={setSearch}
             counts={counts}
-            searchInComponents={searchInComponents}
-            onSearchInComponentsChange={toggleComponentSearch}
-            indexProgress={indexProgress}
+            openOnly={openOnly}
+            onOpenOnlyChange={setOpenOnly}
+            trackedOnly={trackedOnly}
+            onTrackedOnlyChange={setTrackedOnly}
             mineOnly={mineOnly}
             onMineOnlyChange={toggleMineOnly}
             mineUserName={
@@ -547,6 +565,35 @@ function App() {
             >
               Group by work item
             </button>
+            <div className="search-group">
+              <input
+                className="search"
+                type="search"
+                placeholder={
+                  searchInComponents
+                    ? 'Search incl. component names…'
+                    : 'Search title, unique name, ADO id…'
+                }
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <label
+                className="search-scope"
+                title="Also match component display names (builds a one-time index across all solutions)."
+              >
+                <input
+                  type="checkbox"
+                  checked={searchInComponents}
+                  onChange={(e) => toggleComponentSearch(e.target.checked)}
+                />
+                incl. components
+                {indexProgress && (
+                  <span className="search-scope-progress">
+                    indexing {indexProgress[0]}/{indexProgress[1]}…
+                  </span>
+                )}
+              </label>
+            </div>
             {collisionStats &&
               !collisionProgress &&
               (collisionStats.components > 0 ? (

@@ -47,6 +47,7 @@ export const mockSolutions: WorkingSolution[] = [
     owner: 'Marie Curie',
     ownerId: 'u-0001',
     deploymentStatus: 'None',
+    deploymentStatusCode: 500870000,
   },
   {
     id: 'a0000000-0000-4000-9000-000000000002',
@@ -78,6 +79,7 @@ export const mockSolutions: WorkingSolution[] = [
     owner: 'Lise Meitner',
     ownerId: 'u-0003',
     deploymentStatus: 'None',
+    deploymentStatusCode: 500870000,
   },
   {
     id: 'a0000000-0000-4000-9000-000000000004',
@@ -109,6 +111,7 @@ export const mockSolutions: WorkingSolution[] = [
     owner: 'Niels Bohr',
     ownerId: 'u-0005',
     deploymentStatus: 'To be deployed',
+    deploymentStatusCode: 500870001,
   },
   {
     id: 'a0000000-0000-4000-9000-000000000006',

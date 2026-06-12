@@ -388,6 +388,10 @@ export class DataverseSolutionService implements SolutionService {
           deploymentStatus:
             formatted(row, 'ssid_deploymentstatus') ??
             raw.ssid_deploymentstatusname,
+          deploymentStatusCode:
+            raw.ssid_deploymentstatus !== undefined
+              ? Number(raw.ssid_deploymentstatus)
+              : undefined,
           ...(solution ? {} : { solutionMissing: true as const }),
         })
       }
