@@ -25,6 +25,8 @@ export type PowerMode = 'power-platform' | 'local-mock'
 interface PowerContextValue {
   ready: boolean
   mode: PowerMode
+  /** Dataverse-Org-URL der Umgebung — Basis für Datensatz-Deep-Links. */
+  orgUrl?: string
 }
 
 const PowerContext = createContext<PowerContextValue>({
@@ -58,24 +60,26 @@ export function PowerProvider({ children }: { children: ReactNode }) {
 
     const init = async () => {
       let mode: PowerMode = 'local-mock'
+      let orgUrl: string | undefined
       try {
         // Inside a Power Apps host, getContext() resolves quickly via the
         // PostMessage bridge to the parent iframe. Standalone there is no
         // parent listener, so the call hangs — cap it with a 1.5s race.
         const ctx = await Promise.race<
-          | { app?: { appId?: string } }
+          | { app?: { appId?: string; dataverseOrgUrl?: string } }
           | null
         >([
           getContext(),
           new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
         ])
         if (ctx?.app?.appId) mode = 'power-platform'
+        orgUrl = ctx?.app?.dataverseOrgUrl
       } catch {
         // Bridge threw — treat as standalone, use mock.
       }
       // Resolve regardless of cancellation so any pending service calls unblock.
       resolveMode(mode)
-      if (!cancelled) setState({ ready: true, mode })
+      if (!cancelled) setState({ ready: true, mode, orgUrl })
     }
 
     void init()

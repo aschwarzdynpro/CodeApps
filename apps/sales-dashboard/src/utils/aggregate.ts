@@ -16,8 +16,10 @@ export interface ChartCategory {
   total: number
   /** Chronologischer Sortierschlüssel, falls das Diagramm einen definiert. */
   sortKey: number | null
-  /** Sammelkategorie "Weitere" — nicht selektierbar. */
+  /** Sammelkategorie "Weitere" (gekappte Kategorien). */
   isRest: boolean
+  /** Bei "Weitere": die zusammengefassten Gruppen (für den Cross-Filter). */
+  memberKeys: string[]
   segments: ChartSegment[]
 }
 
@@ -32,6 +34,8 @@ export interface ChartData {
 export interface ChartSelection {
   group: string
   stack?: string
+  /** Bei "Weitere": alle Gruppen, die der Sammelbalken repräsentiert. */
+  groups?: string[]
 }
 
 export const REST_KEY = 'Weitere'
@@ -67,6 +71,7 @@ export function buildChartData<T>(rows: T[], def: ChartDef<T>): ChartData {
       total: cat.total,
       sortKey: cat.sortKey,
       isRest: false,
+      memberKeys: [key],
       segments: [...cat.segments.entries()].map(([k, v]) => ({ key: k, value: v })),
     }))
     // Leere Summen (z. B. Umsatz 0 bei offenen Projekten) ausblenden.
@@ -105,6 +110,7 @@ export function buildChartData<T>(rows: T[], def: ChartDef<T>): ChartData {
       total: rest.reduce((sum, c) => sum + c.total, 0),
       sortKey: null,
       isRest: true,
+      memberKeys: rest.map((c) => c.key),
       segments: [...segments.entries()].map(([k, v]) => ({ key: k, value: v })),
     })
     categories = head
@@ -127,7 +133,11 @@ export function matchesSelection<T>(
   def: ChartDef<T>,
   selection: ChartSelection,
 ): boolean {
-  if (def.groupBy(row) !== selection.group) return false
+  const group = def.groupBy(row)
+  // "Weitere" steht für mehrere zusammengefasste Gruppen.
+  if (selection.groups ? !selection.groups.includes(group) : group !== selection.group) {
+    return false
+  }
   if (selection.stack !== undefined && def.stackBy) {
     return def.stackBy(row) === selection.stack
   }

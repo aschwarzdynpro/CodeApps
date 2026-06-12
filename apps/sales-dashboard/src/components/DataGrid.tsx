@@ -12,6 +12,8 @@ interface DataGridProps<T> {
   columns: ColumnDef<T>[]
   rows: T[]
   rowId: (row: T) => string
+  /** Deep-Link in den Datensatz (neuer Tab); undefined → keine Icon-Spalte. */
+  recordHref?: (row: T) => string | undefined
   emptyText: string
 }
 
@@ -31,7 +33,13 @@ function compareValues(
   return String(a).localeCompare(String(b), 'de')
 }
 
-export function DataGrid<T>({ columns, rows, rowId, emptyText }: DataGridProps<T>) {
+export function DataGrid<T>({
+  columns,
+  rows,
+  rowId,
+  recordHref,
+  emptyText,
+}: DataGridProps<T>) {
   const [sort, setSort] = useState<SortState | null>(null)
 
   const sorted = useMemo(() => {
@@ -60,6 +68,7 @@ export function DataGrid<T>({ columns, rows, rowId, emptyText }: DataGridProps<T
       <table className="grid">
         <thead>
           <tr>
+            {recordHref && <th className="grid__open-th" aria-label="Datensatz öffnen" />}
             {columns.map((col) => (
               <th
                 key={col.key}
@@ -78,6 +87,11 @@ export function DataGrid<T>({ columns, rows, rowId, emptyText }: DataGridProps<T
         <tbody>
           {sorted.map((row) => (
             <tr key={rowId(row)}>
+              {recordHref && (
+                <td className="grid__open-td">
+                  <OpenRecordLink href={recordHref(row)} />
+                </td>
+              )}
               {columns.map((col) => (
                 <td
                   key={col.key}
@@ -91,6 +105,26 @@ export function DataGrid<T>({ columns, rows, rowId, emptyText }: DataGridProps<T
         </tbody>
       </table>
     </div>
+  )
+}
+
+function OpenRecordLink({ href }: { href: string | undefined }) {
+  if (!href) return null
+  return (
+    <a
+      className="grid__open"
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      title="Datensatz in neuem Tab öffnen"
+      aria-label="Datensatz in neuem Tab öffnen"
+    >
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M15 3h6v6" />
+        <path d="M10 14 21 3" />
+        <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+      </svg>
+    </a>
   )
 }
 

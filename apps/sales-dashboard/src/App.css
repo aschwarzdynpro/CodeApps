@@ -711,6 +711,32 @@
   border-bottom: none;
 }
 
+/* --- Datensatz öffnen --- */
+
+.grid th.grid__open-th {
+  width: 30px;
+}
+
+.grid td.grid__open-td {
+  padding: 4px 2px 4px 8px;
+  max-width: none;
+}
+
+.grid__open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: var(--text-muted);
+}
+
+.grid__open:hover {
+  color: var(--tile-accent);
+  background: color-mix(in srgb, var(--tile-accent) 12%, transparent);
+}
+
 /* --- Badges --- */
 
 .badge {

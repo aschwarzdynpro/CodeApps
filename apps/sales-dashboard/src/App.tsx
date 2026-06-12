@@ -36,7 +36,7 @@ function initialTheme(): Theme {
 }
 
 export default function App() {
-  const { mode } = usePower()
+  const { mode, orgUrl } = usePower()
 
   // Demo-Schalter: erzwingt Demo-Daten auch im Power-Apps-Host (zum Testen).
   const [forceMock, setForceMock] = useState(
@@ -113,12 +113,12 @@ export default function App() {
         <KpiBar data={data} ctx={ctx} />
 
         <div className="tile-grid">
-          <DashboardTile def={activitiesTile} rows={data.activities} ctx={ctx} />
-          <DashboardTile def={leadsTile} rows={data.leads} ctx={ctx} />
-          <DashboardTile def={opportunitiesTile} rows={data.opportunities} ctx={ctx} />
-          <DashboardTile def={projectsTile} rows={data.projects} ctx={ctx} />
-          <DashboardTile def={quotesTile} rows={data.quotes} ctx={ctx} />
-          <DashboardTile def={ordersTile} rows={data.orders} ctx={ctx} />
+          <DashboardTile def={activitiesTile} rows={data.activities} ctx={ctx} orgUrl={orgUrl} />
+          <DashboardTile def={leadsTile} rows={data.leads} ctx={ctx} orgUrl={orgUrl} />
+          <DashboardTile def={opportunitiesTile} rows={data.opportunities} ctx={ctx} orgUrl={orgUrl} />
+          <DashboardTile def={projectsTile} rows={data.projects} ctx={ctx} orgUrl={orgUrl} />
+          <DashboardTile def={quotesTile} rows={data.quotes} ctx={ctx} orgUrl={orgUrl} />
+          <DashboardTile def={ordersTile} rows={data.orders} ctx={ctx} orgUrl={orgUrl} />
         </div>
       </main>
     </div>

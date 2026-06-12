@@ -69,6 +69,10 @@ export interface TileDef<T> {
   icon: TileIconName
   /** Akzentfarbe der Kachel (Icon-Hintergrund, aktive Elemente). */
   accent: string
+  /** Logischer Tabellenname für den Datensatz-Deep-Link (main.aspx). */
+  entityLogicalName: string
+  /** Abweichende Tabelle je Zeile (z. B. konkreter Aktivitätstyp). */
+  recordEntity?: (row: T) => string
   views: ViewDef<T>[]
   charts: ChartDef<T>[]
   columns: ColumnDef<T>[]

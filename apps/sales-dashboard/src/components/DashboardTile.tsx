@@ -22,9 +22,14 @@ interface DashboardTileProps<T> {
   def: TileDef<T>
   rows: T[]
   ctx: ViewContext
+  /** Dataverse-Org-URL für Datensatz-Deep-Links (nur bei Live-Daten gesetzt). */
+  orgUrl?: string
 }
 
-export function DashboardTile<T>({ def, rows, ctx }: DashboardTileProps<T>) {
+const GUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export function DashboardTile<T>({ def, rows, ctx, orgUrl }: DashboardTileProps<T>) {
   const [viewId, setViewId] = useState(def.views[0].id)
   const [chartId, setChartId] = useState(def.charts[0].id)
   const [search, setSearch] = useState('')
@@ -59,13 +64,30 @@ export function DashboardTile<T>({ def, rows, ctx }: DashboardTileProps<T>) {
   }
 
   const handleSelect = (category: ChartCategory, stack?: string) => {
-    if (category.isRest) return
     setSelection((prev) =>
       prev && prev.group === category.key && prev.stack === stack
         ? null
-        : { group: category.key, stack },
+        : {
+            group: category.key,
+            stack,
+            // "Weitere" filtert auf alle zusammengefassten Gruppen.
+            ...(category.isRest ? { groups: category.memberKeys } : {}),
+          },
     )
   }
+
+  // Deep-Link in den Datensatz — nur mit Org-URL und echter Datensatz-GUID
+  // (Demo-Daten haben keine, dort entfällt das Öffnen-Icon).
+  const recordHref = useMemo(() => {
+    if (!orgUrl) return undefined
+    const base = orgUrl.replace(/\/+$/, '')
+    return (row: T): string | undefined => {
+      const id = def.rowId(row)
+      if (!GUID_RE.test(id)) return undefined
+      const entity = def.recordEntity?.(row) ?? def.entityLogicalName
+      return `${base}/main.aspx?pagetype=entityrecord&etn=${entity}&id=${id}`
+    }
+  }, [orgUrl, def])
 
   const chartEmpty = chartData.categories.length === 0
 
@@ -176,6 +198,7 @@ export function DashboardTile<T>({ def, rows, ctx }: DashboardTileProps<T>) {
         columns={def.columns}
         rows={gridRows}
         rowId={def.rowId}
+        recordHref={recordHref}
         emptyText="Keine Datensätze in dieser Ansicht"
       />
     </section>

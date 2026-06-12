@@ -92,7 +92,7 @@ export function ColumnChart({ data, format, selection, onSelect }: ColumnChartPr
                       height={Math.max(height, 1)}
                       rx={2}
                       fill={chartColor(si)}
-                      className={`column-chart__bar${cat.isRest ? '' : ' column-chart__bar--clickable'}${dimmed(cat, stackKey) ? ' is-dimmed' : ''}`}
+                      className={`column-chart__bar column-chart__bar--clickable${dimmed(cat, stackKey) ? ' is-dimmed' : ''}`}
                       onClick={() => onSelect(cat, stackKey)}
                     >
                       <title>{`${cat.key} · ${stackKey}: ${fullFmt(seg.value)}`}</title>
@@ -107,7 +107,7 @@ export function ColumnChart({ data, format, selection, onSelect }: ColumnChartPr
                   height={Math.max(y(0) - y(cat.total), 1)}
                   rx={3}
                   fill={cat.isRest ? 'var(--rest-color)' : chartColor(ci)}
-                  className={`column-chart__bar${cat.isRest ? '' : ' column-chart__bar--clickable'}${dimmed(cat) ? ' is-dimmed' : ''}`}
+                  className={`column-chart__bar column-chart__bar--clickable${dimmed(cat) ? ' is-dimmed' : ''}`}
                   onClick={() => onSelect(cat)}
                 >
                   <title>{`${cat.key}: ${fullFmt(cat.total)}`}</title>

@@ -148,6 +148,13 @@ function buildActivities(): Activity[] {
   for (let i = 0; i < 52; i++) {
     const account = pick(ACCOUNTS)
     const type = pick(['Telefonat', 'E-Mail', 'Termin', 'Termin', 'Aufgabe', 'Brief'] as const)
+    const typeCode = {
+      Telefonat: 'phonecall',
+      'E-Mail': 'email',
+      Termin: 'appointment',
+      Aufgabe: 'task',
+      Brief: 'letter',
+    }[type]
     const state = pick(['Offen', 'Offen', 'Offen', 'Geplant', 'Abgeschlossen', 'Abgebrochen'] as const)
     // Fälligkeit: dieser Monat / letzter Monat / ohne — exakt das Fenster der
     // Legacy-View ("this-month | last-month | null").
@@ -167,6 +174,7 @@ function buildActivities(): Activity[] {
       subject: `${pick(ACTIVITY_SUBJECTS)} – ${account.name.split(' ')[0]}`,
       regarding: account.name,
       type,
+      typeCode,
       isAppointment: type === 'Termin',
       state,
       open: state === 'Offen' || state === 'Geplant',

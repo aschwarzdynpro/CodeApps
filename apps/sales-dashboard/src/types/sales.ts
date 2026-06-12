@@ -28,6 +28,8 @@ export interface Activity {
   regarding: string
   /** Anzeige-Label des Aktivitätstyps (z. B. "Termin", "Telefonanruf"). */
   type: string
+  /** Logischer Tabellenname des Aktivitätstyps (activitytypecode) — für Deep-Links. */
+  typeCode: string
   /** Abgeleitet aus activitytypecode — Basis der "Meine Termine"-Ansicht. */
   isAppointment: boolean
   /** Anzeige-Label des Status (statecode). */

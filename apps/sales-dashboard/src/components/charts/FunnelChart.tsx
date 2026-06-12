@@ -30,7 +30,6 @@ export function FunnelChart({ data, format, selection, onSelect }: FunnelChartPr
             type="button"
             className={`funnel__row${dimmed ? ' is-dimmed' : ''}${selection?.group === cat.key ? ' is-active' : ''}`}
             onClick={() => onSelect(cat)}
-            disabled={cat.isRest}
           >
             <span
               className="funnel__bar"

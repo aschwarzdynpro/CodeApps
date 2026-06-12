@@ -97,6 +97,9 @@ export const activitiesTile: TileDef<Activity> = {
   title: 'Aktivitäten',
   icon: 'activity',
   accent: '#2e7cd6',
+  entityLogicalName: 'activitypointer',
+  // Deep-Link braucht die konkrete Aktivitätstabelle (appointment, task, …).
+  recordEntity: (row) => row.typeCode || 'activitypointer',
   views: [
     {
       id: 'meine-aktivitaeten',
@@ -156,6 +159,7 @@ export const leadsTile: TileDef<Lead> = {
   title: 'Leads',
   icon: 'lead',
   accent: '#8e5cd9',
+  entityLogicalName: 'lead',
   views: [
     {
       id: 'meine-offenen',
@@ -196,6 +200,7 @@ export const opportunitiesTile: TileDef<Opportunity> = {
   title: 'Verkaufschancen',
   icon: 'opportunity',
   accent: '#12a594',
+  entityLogicalName: 'opportunity',
   views: [
     {
       id: 'entscheidung-bald',
@@ -243,6 +248,7 @@ export const projectsTile: TileDef<Project> = {
   title: 'Projekte',
   icon: 'project',
   accent: '#e5862b',
+  entityLogicalName: 'wal_project',
   views: [
     {
       id: 'offen',
@@ -359,6 +365,7 @@ export const quotesTile: TileDef<Quote> = {
   title: 'Angebote',
   icon: 'quote',
   accent: '#d6409f',
+  entityLogicalName: 'quote',
   views: [
     {
       id: 'neu-monat',
@@ -422,6 +429,7 @@ export const ordersTile: TileDef<SalesOrder> = {
   title: 'Aufträge',
   icon: 'order',
   accent: '#46a758',
+  entityLogicalName: 'salesorder',
   views: [
     {
       id: 'meine-monat',

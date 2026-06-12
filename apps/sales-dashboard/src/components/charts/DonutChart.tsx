@@ -96,7 +96,7 @@ export function DonutChart({ data, format, selection, onSelect }: DonutChartProp
               fill="none"
               stroke={seg.color}
               strokeWidth={STROKE}
-              className={`donut__segment${seg.cat.isRest ? '' : ' donut__segment--clickable'}${isDimmed(seg.cat) ? ' is-dimmed' : ''}`}
+              className={`donut__segment donut__segment--clickable${isDimmed(seg.cat) ? ' is-dimmed' : ''}`}
               onClick={() => onSelect(seg.cat)}
             >
               <title>{`${seg.cat.key}: ${fmt(seg.cat.total)}`}</title>
@@ -117,7 +117,6 @@ export function DonutChart({ data, format, selection, onSelect }: DonutChartProp
               type="button"
               className={`chart-legend__item${isDimmed(cat) ? ' is-dimmed' : ''}${selection?.group === cat.key ? ' is-active' : ''}`}
               onClick={() => onSelect(cat)}
-              disabled={cat.isRest}
             >
               <span
                 className="chart-legend__dot"

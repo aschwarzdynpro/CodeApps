@@ -171,6 +171,7 @@ function toActivity(raw: Row): Activity {
     subject: str(raw, 'subject') ?? '(ohne Betreff)',
     regarding: fv(raw, '_regardingobjectid_value') ?? '',
     type: fv(raw, 'activitytypecode') ?? typeCode,
+    typeCode,
     isAppointment: typeCode === 'appointment' || typeCode === 'serviceappointment',
     state: fv(raw, 'statecode') ?? String(stateCode),
     open: stateCode === 0 || stateCode === 3,
