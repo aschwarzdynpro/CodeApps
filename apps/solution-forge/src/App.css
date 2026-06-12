@@ -102,6 +102,14 @@
   padding: 5px 10px;
   font-size: 12px;
 }
+.btn--danger {
+  color: #b02a37;
+  border-color: #f1aeb5;
+}
+.btn--danger:hover {
+  background: #fdf2f3;
+  border-color: #b02a37;
+}
 
 /* Help */
 .icon-btn {
@@ -380,6 +388,95 @@
 .track-panel-hint {
   font-size: 12px;
   margin-bottom: 10px;
+}
+
+/* Delete confirmation + undo */
+.confirm-delete-target {
+  margin: 4px 0 12px;
+  font-size: 15px;
+}
+.confirm-delete-text {
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.confirm-delete-list {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.detail-delete {
+  margin-left: auto;
+}
+.undo-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 100;
+}
+.undo-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #1b1f2a;
+  color: #fff;
+  border-radius: 10px;
+  padding: 12px 16px 14px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.28);
+  overflow: hidden;
+  animation: undo-slide-in 0.18s ease-out;
+  max-width: 380px;
+}
+@keyframes undo-slide-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.undo-text {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.undo-button {
+  background: none;
+  border: none;
+  color: #9db4ff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+.undo-button:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+.undo-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  background: #9db4ff;
+  animation: undo-countdown 5s linear forwards;
+}
+@keyframes undo-countdown {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
 }
 
 /* Kind badges */

@@ -119,6 +119,16 @@ export class MockSolutionService {
     return (this.components.get(solutionId) ?? []).map((c) => ({ ...c }))
   }
 
+  async deleteSolution(solution: WorkingSolution): Promise<void> {
+    await delay(300)
+    this.solutions = this.solutions.filter(
+      (s) =>
+        s.id !== solution.id &&
+        (!solution.recordId || s.recordId !== solution.recordId),
+    )
+    this.components.delete(solution.id)
+  }
+
   async trackSolution(input: TrackSolutionInput): Promise<void> {
     await delay(400)
     const solution = this.solutions.find((s) => s.id === input.solutionId)

@@ -525,6 +525,24 @@ export class DataverseSolutionService implements SolutionService {
     await this.createPresentationRow(input)
   }
 
+  /**
+   * Final deletion after the UI's undo window: solution first (so a
+   * failing solution delete leaves the tracking record intact), then the
+   * presentation record. Deleting an unmanaged solution removes only the
+   * container, not the components inside.
+   */
+  async deleteSolution(solution: WorkingSolution): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.deleteSolution(solution)
+    if (!solution.solutionMissing && solution.id && !solution.id.startsWith('missing-')) {
+      await SolutionsService.delete(solution.id)
+    }
+    if (solution.recordId) {
+      await Ssid_workingsolutionsService.delete(solution.recordId)
+    }
+  }
+
   /** Raw `solutioncomponent` rows — root components plus their behaviors. */
   private async fetchRawComponents(
     solutionId: string,

@@ -105,6 +105,14 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 The Azure DevOps work item panel (status, assignee, link)
                 appears here once the DevOps connection is active.
               </li>
+              <li>
+                <strong>Delete…</strong> removes the entry after a
+                confirmation: the working-solution record, the solution
+                container, or both — depending on what exists. A card pops
+                up for 5 seconds to <strong>undo</strong>; only after that
+                the deletion becomes final. Components inside a deleted
+                solution stay in the system.
+              </li>
             </ul>
           </section>
 

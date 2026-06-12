@@ -27,6 +27,8 @@ interface Props {
   collisions?: ComponentCollision[] | null
   /** Creates the working-solution record for an untracked solution. */
   onTrack: (input: TrackSolutionInput) => Promise<void>
+  /** Opens the delete confirmation for this entry. */
+  onDelete: (solution: WorkingSolution) => void
 }
 
 /** Groups with at most this many components start expanded. */
@@ -146,6 +148,7 @@ export function SolutionDetail({
   workItemLoading,
   collisions,
   onTrack,
+  onDelete,
 }: Props) {
   const adoUrl = workItem?.url ?? devOpsWorkItemUrl(solution.devOpsId)
   const grouped = [...groupBy(components, (c) => c.typeName).entries()].sort(
@@ -196,6 +199,12 @@ export function SolutionDetail({
             Open in Maker Portal ↗
           </a>
         )}
+        <button
+          className="btn btn--danger detail-delete"
+          onClick={() => onDelete(solution)}
+        >
+          Delete…
+        </button>
       </div>
 
       {solution.solutionMissing && (

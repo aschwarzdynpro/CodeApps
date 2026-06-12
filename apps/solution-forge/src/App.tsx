@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import './App.css'
 import { usePower } from './PowerProvider'
 import { useSolutions } from './hooks/useSolutions'
@@ -10,6 +10,7 @@ import { CreateSolutionDialog } from './components/CreateSolutionDialog'
 import { MergeWorkbench } from './components/MergeWorkbench'
 import { CompareWorkbench } from './components/CompareWorkbench'
 import { HelpPanel } from './components/HelpPanel'
+import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog'
 import { DEVOPS_PANEL_ENABLED, makerSolutionUrl } from './config'
 import type {
   ComponentCollision,
@@ -56,6 +57,17 @@ function App() {
   const [workItemLoading, setWorkItemLoading] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+
+  // Soft delete: confirmed entries disappear immediately and wait in
+  // pendingDeletes for the 5-second undo window; only then the hard
+  // delete runs. Undo just cancels the timer and re-shows the entry.
+  const [confirmDelete, setConfirmDelete] = useState<WorkingSolution | null>(
+    null,
+  )
+  const [pendingDeletes, setPendingDeletes] = useState<
+    { key: string; solution: WorkingSolution }[]
+  >([])
+  const deleteTimers = useRef(new Map<string, number>())
   const [justCreated, setJustCreated] = useState<WorkingSolution | null>(null)
   // Locally created solutions show up immediately, even before reload() lands.
   const [created, setCreated] = useState<WorkingSolution[]>([])
@@ -73,8 +85,12 @@ function App() {
 
   const allSolutions = useMemo(() => {
     const known = new Set(solutions.map((s) => s.id))
-    return [...created.filter((s) => !known.has(s.id)), ...solutions]
-  }, [solutions, created])
+    const merged = [...created.filter((s) => !known.has(s.id)), ...solutions]
+    if (pendingDeletes.length === 0) return merged
+    // Entries awaiting their undo window are hidden from every view.
+    const pendingKeys = new Set(pendingDeletes.map((p) => p.key))
+    return merged.filter((s) => !pendingKeys.has(s.recordId ?? s.id))
+  }, [solutions, created, pendingDeletes])
 
   const counts = useMemo(() => {
     const c: Partial<Record<KindFilter, number>> = {}
@@ -305,6 +321,54 @@ function App() {
     reload()
   }
 
+  /** Confirmed in the dialog: hide the entry and start the undo window. */
+  const startDelete = (solution: WorkingSolution) => {
+    setConfirmDelete(null)
+    const key = solution.recordId ?? solution.id
+    if (selectedId === solution.id) {
+      setSelectedId(null)
+      setComponents([])
+      setComponentsLoading(false)
+    }
+    setPendingDeletes((prev) => [...prev, { key, solution }])
+    const timeout = window.setTimeout(() => {
+      void finalizeDelete(key, solution)
+    }, 5000)
+    deleteTimers.current.set(key, timeout)
+  }
+
+  const undoDelete = (key: string) => {
+    const timeout = deleteTimers.current.get(key)
+    if (timeout) window.clearTimeout(timeout)
+    deleteTimers.current.delete(key)
+    // The entry was never deleted server-side — unhiding it is enough.
+    setPendingDeletes((prev) => prev.filter((p) => p.key !== key))
+  }
+
+  const finalizeDelete = async (key: string, solution: WorkingSolution) => {
+    deleteTimers.current.delete(key)
+    try {
+      await solutionService.deleteSolution(solution)
+    } catch (err) {
+      console.warn('[solutions] delete failed:', err)
+    }
+    setPendingDeletes((prev) => prev.filter((p) => p.key !== key))
+    setComponentCache((prev) => {
+      const next = new Map(prev)
+      next.delete(solution.id)
+      return next
+    })
+    setCollisions((prev) => {
+      if (!prev?.has(solution.id)) return prev
+      const next = new Map(prev)
+      next.delete(solution.id)
+      return next
+    })
+    // Reload to reflect the truth — if the delete failed, the entry
+    // simply reappears.
+    reload()
+  }
+
   // Attach a working-solution record to an untracked solution, then
   // reload so the entry shows up with its WS chip, owner and type.
   const handleTrack = async (input: TrackSolutionInput) => {
@@ -466,6 +530,7 @@ function App() {
                 onRefreshComponents={() => loadComponents(selected.id, true)}
                 collisions={collisions?.get(selected.id) ?? null}
                 onTrack={handleTrack}
+                onDelete={(s) => setConfirmDelete(s)}
                 workItem={
                   selected.devOpsId
                     ? (workItems.get(selected.devOpsId) ?? null)
@@ -498,6 +563,33 @@ function App() {
       )}
 
       {showHelp && <HelpPanel onClose={() => setShowHelp(false)} />}
+
+      {confirmDelete && (
+        <ConfirmDeleteDialog
+          solution={confirmDelete}
+          onConfirm={() => startDelete(confirmDelete)}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+
+      {pendingDeletes.length > 0 && (
+        <div className="undo-stack">
+          {pendingDeletes.map((p) => (
+            <div key={p.key} className="undo-card">
+              <span className="undo-text">
+                Deleted <strong>{p.solution.title}</strong>
+              </span>
+              <button
+                className="undo-button"
+                onClick={() => undoDelete(p.key)}
+              >
+                Undo
+              </button>
+              <div className="undo-progress" />
+            </div>
+          ))}
+        </div>
+      )}
 
       {showCreate && (
         <CreateSolutionDialog
