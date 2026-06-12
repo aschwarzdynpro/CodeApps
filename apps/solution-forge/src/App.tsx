@@ -38,7 +38,6 @@ function App() {
 
   useEffect(() => {
     // One-time role probe — drives the tab gating as it resolves.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     solutionService
       .hasRole(DEPLOYMENT_MANAGER_ROLE)
       .then((granted) => setIsDeploymentManager(granted))
