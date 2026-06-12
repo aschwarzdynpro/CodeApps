@@ -7,6 +7,7 @@ import type {
 } from '../types/solution'
 import { solutionService } from '../services/solutionService'
 import { KindBadge } from './KindBadge'
+import { SolutionSelect } from './SolutionSelect'
 
 interface Props {
   solutions: WorkingSolution[]
@@ -201,17 +202,11 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
               Solution” with type <strong>Release</strong>.
             </div>
           ) : (
-            <select
+            <SolutionSelect
+              options={targets}
               value={targetId}
-              onChange={(e) => setTargetId(e.target.value)}
-            >
-              <option value="">Select target…</option>
-              {targets.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.title} ({t.uniqueName})
-                </option>
-              ))}
-            </select>
+              onChange={setTargetId}
+            />
           )}
         </div>
 
