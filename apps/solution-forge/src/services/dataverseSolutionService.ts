@@ -197,53 +197,75 @@ function prettifyTypeName(name: string): string {
 }
 
 /**
- * Component types whose existence can be verified via a plain table query
- * (entity set + id column + display column). Metadata-level dependencies
- * (tables, columns, choices, relationships, …) can't be checked from the
- * app and stay "unknown".
+ * Component types whose existence can be verified via a plain table query.
+ * `displayField` feeds the UI; `matchField` (when set) is the unique name
+ * the platform uses to match the component across environments at import
+ * time — for those types a target row with a different id but the same
+ * name still satisfies the dependency (e.g. environment variables created
+ * independently per environment). Metadata-level dependencies (tables,
+ * columns, choices, …) can't be checked and stay "unknown".
  */
-const DEPENDENCY_SPECS: Record<
-  number,
-  { entitySet: string; idField: string; nameField: string }
-> = {
-  20: { entitySet: 'roles', idField: 'roleid', nameField: 'name' },
-  26: { entitySet: 'savedqueries', idField: 'savedqueryid', nameField: 'name' },
-  29: { entitySet: 'workflows', idField: 'workflowid', nameField: 'name' },
-  31: { entitySet: 'reports', idField: 'reportid', nameField: 'name' },
+interface DependencySpec {
+  entitySet: string
+  idField: string
+  displayField: string
+  matchField?: string
+}
+const DEPENDENCY_SPECS: Record<number, DependencySpec> = {
+  20: { entitySet: 'roles', idField: 'roleid', displayField: 'name' },
+  26: { entitySet: 'savedqueries', idField: 'savedqueryid', displayField: 'name' },
+  29: { entitySet: 'workflows', idField: 'workflowid', displayField: 'name' },
+  31: { entitySet: 'reports', idField: 'reportid', displayField: 'name' },
   59: {
     entitySet: 'savedqueryvisualizations',
     idField: 'savedqueryvisualizationid',
-    nameField: 'name',
+    displayField: 'name',
   },
-  60: { entitySet: 'systemforms', idField: 'formid', nameField: 'name' },
-  61: { entitySet: 'webresourceset', idField: 'webresourceid', nameField: 'name' },
+  60: { entitySet: 'systemforms', idField: 'formid', displayField: 'name' },
+  61: {
+    entitySet: 'webresourceset',
+    idField: 'webresourceid',
+    displayField: 'name',
+    matchField: 'name',
+  },
   70: {
     entitySet: 'fieldsecurityprofiles',
     idField: 'fieldsecurityprofileid',
-    nameField: 'name',
+    displayField: 'name',
   },
-  80: { entitySet: 'appmodules', idField: 'appmoduleid', nameField: 'name' },
+  80: { entitySet: 'appmodules', idField: 'appmoduleid', displayField: 'name' },
   91: {
     entitySet: 'pluginassemblies',
     idField: 'pluginassemblyid',
-    nameField: 'name',
+    displayField: 'name',
   },
   92: {
     entitySet: 'sdkmessageprocessingsteps',
     idField: 'sdkmessageprocessingstepid',
-    nameField: 'name',
+    displayField: 'name',
   },
-  95: { entitySet: 'serviceendpoints', idField: 'serviceendpointid', nameField: 'name' },
-  300: { entitySet: 'canvasapps', idField: 'canvasappid', nameField: 'name' },
+  95: {
+    entitySet: 'serviceendpoints',
+    idField: 'serviceendpointid',
+    displayField: 'name',
+  },
+  300: {
+    entitySet: 'canvasapps',
+    idField: 'canvasappid',
+    displayField: 'name',
+    matchField: 'name',
+  },
   372: {
     entitySet: 'connectionreferences',
     idField: 'connectionreferenceid',
-    nameField: 'connectionreferencedisplayname',
+    displayField: 'connectionreferencedisplayname',
+    matchField: 'connectionreferencelogicalname',
   },
   380: {
     entitySet: 'environmentvariabledefinitions',
     idField: 'environmentvariabledefinitionid',
-    nameField: 'schemaname',
+    displayField: 'displayname',
+    matchField: 'schemaname',
   },
 }
 
@@ -780,47 +802,87 @@ export class DataverseSolutionService implements SolutionService {
    * environment when orgUrl is null, otherwise the given target org via
    * the Dataverse connector.
    */
+  private async queryRows(
+    orgUrl: string | null,
+    entitySet: string,
+    select: string,
+    filter: string,
+  ): Promise<Row[]> {
+    const result = orgUrl
+      ? await MicrosoftDataverseService.ListRecordsWithOrganization(
+          orgUrl,
+          entitySet,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          select,
+          filter,
+        )
+      : await MicrosoftDataverseService.ListRecords(
+          entitySet,
+          undefined,
+          undefined,
+          undefined,
+          select,
+          filter,
+        )
+    if (!result.success) throw new Error(`${entitySet} query failed`)
+    return (
+      (result.data as { value?: Row[] } | undefined)?.value ?? []
+    )
+  }
+
+  /** Rows for a set of component ids, keyed by lowercased id. */
   private async lookupComponents(
     orgUrl: string | null,
-    spec: { entitySet: string; idField: string; nameField: string },
+    spec: DependencySpec,
     ids: string[],
-  ): Promise<Map<string, string>> {
-    const found = new Map<string, string>()
+  ): Promise<Map<string, { name: string; matchKey?: string }>> {
+    const found = new Map<string, { name: string; matchKey?: string }>()
+    const select = [
+      spec.idField,
+      spec.displayField,
+      ...(spec.matchField && spec.matchField !== spec.displayField
+        ? [spec.matchField]
+        : []),
+    ].join(',')
     for (const chunk of chunksOf(ids, 20)) {
       const filter = chunk.map((id) => `${spec.idField} eq ${id}`).join(' or ')
-      const select = `${spec.idField},${spec.nameField}`
-      const result = orgUrl
-        ? await MicrosoftDataverseService.ListRecordsWithOrganization(
-            orgUrl,
-            spec.entitySet,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            select,
-            filter,
-          )
-        : await MicrosoftDataverseService.ListRecords(
-            spec.entitySet,
-            undefined,
-            undefined,
-            undefined,
-            select,
-            filter,
-          )
-      if (!result.success) throw new Error(`${spec.entitySet} query failed`)
-      const rows =
-        (result.data as { value?: Record<string, unknown>[] } | undefined)
-          ?.value ?? []
-      for (const row of rows) {
+      for (const row of await this.queryRows(orgUrl, spec.entitySet, select, filter)) {
         const id = row[spec.idField]
-        if (typeof id === 'string')
-          found.set(
-            id.toLowerCase(),
-            typeof row[spec.nameField] === 'string'
-              ? (row[spec.nameField] as string)
-              : '',
-          )
+        if (typeof id !== 'string') continue
+        found.set(id.toLowerCase(), {
+          name: str(row[spec.displayField]),
+          ...(spec.matchField
+            ? { matchKey: str(row[spec.matchField]) }
+            : {}),
+        })
+      }
+    }
+    return found
+  }
+
+  /** Which of the given unique names exist in the target (lowercased). */
+  private async lookupByNames(
+    orgUrl: string,
+    spec: DependencySpec,
+    names: string[],
+  ): Promise<Set<string>> {
+    const found = new Set<string>()
+    if (!spec.matchField) return found
+    for (const chunk of chunksOf(names, 20)) {
+      const filter = chunk
+        .map((n) => `${spec.matchField} eq '${n.replace(/'/g, "''")}'`)
+        .join(' or ')
+      for (const row of await this.queryRows(
+        orgUrl,
+        spec.entitySet,
+        spec.matchField,
+        filter,
+      )) {
+        const value = row[spec.matchField]
+        if (typeof value === 'string') found.add(value.toLowerCase())
       }
     }
     return found
@@ -885,10 +947,11 @@ export class DataverseSolutionService implements SolutionService {
       const label =
         COMPONENT_TYPE_LABELS[type] ?? `type ${type}`
       onProgress?.(`Checking ${label} (${ids.length})…`)
+      let current = new Map<string, { name: string; matchKey?: string }>()
       try {
-        const current = await this.lookupComponents(null, spec, ids)
-        for (const [id, name] of current)
-          if (name) requiredNames.set(id, name)
+        current = await this.lookupComponents(null, spec, ids)
+        for (const [id, info] of current)
+          if (info.name) requiredNames.set(id, info.name)
       } catch (err) {
         console.warn('[deps] current-env name lookup failed:', err)
       }
@@ -897,8 +960,32 @@ export class DataverseSolutionService implements SolutionService {
         for (const id of ids) {
           const key = id.toLowerCase()
           targetPresence.set(key, target.has(key))
-          const name = target.get(key)
-          if (name && !requiredNames.has(key)) requiredNames.set(key, name)
+          const info = target.get(key)
+          if (info?.name && !requiredNames.has(key))
+            requiredNames.set(key, info.name)
+        }
+        // Second pass for name-matched types: a target row with a
+        // different id but the same unique name satisfies the dependency
+        // at import time (environment variables, connection references,
+        // web resources, canvas apps).
+        if (spec.matchField) {
+          const unresolved = ids.filter(
+            (id) => targetPresence.get(id.toLowerCase()) === false,
+          )
+          const keyById = new Map(
+            unresolved
+              .map((id) => [id, current.get(id.toLowerCase())?.matchKey] as const)
+              .filter((pair): pair is readonly [string, string] => !!pair[1]),
+          )
+          if (keyById.size > 0) {
+            const foundNames = await this.lookupByNames(orgUrl, spec, [
+              ...new Set(keyById.values()),
+            ])
+            for (const [id, matchKey] of keyById) {
+              if (foundNames.has(matchKey.toLowerCase()))
+                targetPresence.set(id.toLowerCase(), true)
+            }
+          }
         }
       } catch (err) {
         console.warn(`[deps] target lookup failed for ${spec.entitySet}:`, err)

@@ -84,7 +84,7 @@ export function DependencyCheck({ solutions }: Props) {
   const missing = result?.items.filter((i) => i.targetStatus === 'missing') ?? []
   const others = result?.items.filter((i) => i.targetStatus !== 'missing') ?? []
 
-  const renderItem = (item: DependencyItem, withAdd: boolean) => {
+  const renderItem = (item: DependencyItem) => {
     const added = addedIds.has(item.requiredObjectId)
     return (
       <li
@@ -100,36 +100,19 @@ export function DependencyCheck({ solutions }: Props) {
             {item.dependentName ?? shortGuid(item.dependentObjectId)}
           </span>
         </span>
-        {item.targetStatus === 'present' && (
-          <span className="state-pill state-pill--on">in {envLabel}</span>
-        )}
-        {item.targetStatus === 'unknown' && (
-          <span
-            className="state-pill state-pill--neutral"
-            title="Metadata components (tables, columns, choices, …) can't be verified against the target from here."
+        {added ? (
+          <span className="dep-added">Added ✓</span>
+        ) : (
+          <button
+            className="btn btn--small"
+            disabled={addBusyId !== null}
+            onClick={() => void addToSolution(item)}
           >
-            not verifiable
-          </span>
+            {addBusyId === item.requiredObjectId
+              ? 'Adding…'
+              : 'Add to Solution'}
+          </button>
         )}
-        {item.targetStatus === 'missing' && (
-          <span className="state-pill state-pill--missing">
-            missing in {envLabel}
-          </span>
-        )}
-        {withAdd &&
-          (added ? (
-            <span className="dep-added">Added ✓</span>
-          ) : (
-            <button
-              className="btn btn--small"
-              disabled={addBusyId !== null}
-              onClick={() => void addToSolution(item)}
-            >
-              {addBusyId === item.requiredObjectId
-                ? 'Adding…'
-                : 'Add to Solution'}
-            </button>
-          ))}
       </li>
     )
   }
@@ -182,10 +165,10 @@ export function DependencyCheck({ solutions }: Props) {
 
       {!running && result && (
         <>
-          {result.items.length === 0 && (
+          {missing.length === 0 && (
             <div className="state state--success">
-              No missing dependencies — every required component is part of
-              the solution itself.
+              Nothing is missing in {envLabel} — the import should not fail
+              on dependencies.
             </div>
           )}
 
@@ -195,25 +178,17 @@ export function DependencyCheck({ solutions }: Props) {
                 Missing in {envLabel} ({missing.length}) — import would fail
               </h3>
               {addError && <div className="state state--error">{addError}</div>}
-              <ul className="dep-list">
-                {missing.map((item) => renderItem(item, true))}
-              </ul>
+              <ul className="dep-list">{missing.map(renderItem)}</ul>
             </section>
           )}
 
           {others.length > 0 && (
-            <section className="card">
-              <h3 className="card-title">
-                Required dependencies ({others.length})
-              </h3>
-              <p className="muted dep-hint">
-                Needed by the solution but not contained in it — already
-                present in {envLabel} or not verifiable from here.
-              </p>
-              <ul className="dep-list">
-                {others.map((item) => renderItem(item, false))}
-              </ul>
-            </section>
+            <p className="muted dep-hint">
+              {others.length} further required component
+              {others.length === 1 ? '' : 's'} (not part of the solution) are
+              already present in {envLabel} or not verifiable from here —
+              nothing to do for those.
+            </p>
           )}
 
           {addedIds.size > 0 && (

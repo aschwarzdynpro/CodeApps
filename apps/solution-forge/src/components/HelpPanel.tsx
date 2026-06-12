@@ -181,16 +181,18 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 component the solution doesn't contain.
               </li>
               <li>
-                <strong>Missing in target</strong> (red) = the component is
+                <strong>Missing in target</strong> = the component is
                 neither in the solution nor in the target environment — the
                 import would fail. <strong>Add to Solution</strong> pulls it
-                into the release directly.
+                into the release directly. Name-matched types (environment
+                variables, connection references, web resources, canvas
+                apps) count as present when the target has them under the
+                same unique name, even with a different id.
               </li>
               <li>
-                <strong>Required dependencies</strong> = needed but already
-                present in the target, or “not verifiable” for metadata
-                types (tables, columns, choices) which can't be checked
-                from the app.
+                Everything else required (already present in the target, or
+                metadata types that can't be verified from the app) is
+                summarized in one line — nothing to do for those.
               </li>
               <li>Requires the “INT | Deployment Manager” role.</li>
             </ul>
