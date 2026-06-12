@@ -6,6 +6,7 @@ import {
   type ChartCategory,
   type ChartSelection,
 } from '../utils/aggregate'
+import { RECORD_LINK_APP_ID } from '../config'
 import { DataGrid } from './DataGrid'
 import { TileIcon } from './TileIcon'
 import { ColumnChart } from './charts/ColumnChart'
@@ -77,15 +78,17 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl }: DashboardTileProps<
   }
 
   // Deep-Link in den Datensatz — nur mit Org-URL und echter Datensatz-GUID
-  // (Demo-Daten haben keine, dort entfällt das Öffnen-Icon).
+  // (Demo-Daten haben keine, dort entfällt das Öffnen-Icon). Öffnet im
+  // Kontext der konfigurierten Model-driven App (Sales Hub) via appid.
   const recordHref = useMemo(() => {
     if (!orgUrl) return undefined
     const base = orgUrl.replace(/\/+$/, '')
+    const appParam = RECORD_LINK_APP_ID ? `appid=${RECORD_LINK_APP_ID}&` : ''
     return (row: T): string | undefined => {
       const id = def.rowId(row)
       if (!GUID_RE.test(id)) return undefined
       const entity = def.recordEntity?.(row) ?? def.entityLogicalName
-      return `${base}/main.aspx?pagetype=entityrecord&etn=${entity}&id=${id}`
+      return `${base}/main.aspx?${appParam}pagetype=entityrecord&etn=${entity}&id=${id}`
     }
   }, [orgUrl, def])
 
