@@ -23,6 +23,11 @@ import type {
   DependencyCheckResult,
   DependencyItem,
 } from '../types/dependency'
+import type {
+  ComponentLayerInfo,
+  ComponentLayerStack,
+  LayerInspectionResult,
+} from '../types/layers'
 import { SolutionsService } from '../generated/services/SolutionsService'
 import { PublishersService } from '../generated/services/PublishersService'
 import { SolutioncomponentsService } from '../generated/services/SolutioncomponentsService'
@@ -267,6 +272,40 @@ const DEPENDENCY_SPECS: Record<number, DependencySpec> = {
     displayField: 'displayname',
     matchField: 'schemaname',
   },
+}
+
+/**
+ * `msdyn_solutioncomponentname` values for the layer query, by
+ * componenttype. The classic metadata types are NOT listed in
+ * `solutioncomponentdefinition` (only solution-aware tables are), so this
+ * static map covers them — values follow the platform SchemaName
+ * convention; 'Entity' and 'Workflow' are wire-verified against INT-11.
+ * Newer types (canvas apps, connection references, environment variables,
+ * bots, …) are merged in dynamically from `solutioncomponentdefinition`.
+ */
+const LAYER_COMPONENT_NAMES: Record<number, string> = {
+  1: 'Entity',
+  2: 'Attribute',
+  3: 'Relationship',
+  9: 'OptionSet',
+  10: 'EntityRelationship',
+  14: 'EntityKey',
+  20: 'Role',
+  26: 'SavedQuery',
+  29: 'Workflow',
+  31: 'Report',
+  50: 'RibbonCustomization',
+  59: 'SavedQueryVisualization',
+  60: 'SystemForm',
+  61: 'WebResource',
+  62: 'SiteMap',
+  66: 'CustomControl',
+  70: 'FieldSecurityProfile',
+  80: 'AppModule',
+  91: 'PluginAssembly',
+  92: 'SdkMessageProcessingStep',
+  95: 'ServiceEndpoint',
+  150: 'RoutingRule',
 }
 
 const SOLUTION_SELECT = [
@@ -806,7 +845,7 @@ export class DataverseSolutionService implements SolutionService {
     orgUrl: string | null,
     entitySet: string,
     select: string,
-    filter: string,
+    filter?: string,
   ): Promise<Row[]> {
     // "Current environment" queries also go through WithOrganization (with
     // the host environment's own URL): the plain ListRecords variant has
@@ -1062,6 +1101,153 @@ export class DataverseSolutionService implements SolutionService {
       ...(targetUnreachable ? { targetUnreachable } : {}),
       ...(lookupWarnings.length ? { lookupWarnings } : {}),
     }
+  }
+
+  private layerNamesPromise: Promise<Map<number, string>> | null = null
+
+  /**
+   * componenttype → msdyn_solutioncomponentname for the layer query: the
+   * static classic map, extended once per session with the solution-aware
+   * types from `solutioncomponentdefinition` (their `name` column is the
+   * value the layer provider expects, e.g. 'EnvironmentVariableDefinition').
+   */
+  private async layerComponentNames(): Promise<Map<number, string>> {
+    this.layerNamesPromise ??= (async () => {
+      const map = new Map<number, string>(
+        Object.entries(LAYER_COMPONENT_NAMES).map(([type, name]) => [
+          Number(type),
+          name,
+        ]),
+      )
+      try {
+        const rows = await this.queryRows(
+          null,
+          'solutioncomponentdefinitions',
+          'solutioncomponenttype,name',
+        )
+        for (const row of rows) {
+          const type = Number(row.solutioncomponenttype ?? 0)
+          const name = str(row.name)
+          if (type && name && !map.has(type)) map.set(type, name)
+        }
+      } catch (err) {
+        // The static map still covers the classic types — keep going.
+        console.warn('[layers] solutioncomponentdefinition lookup failed:', err)
+      }
+      return map
+    })()
+    return this.layerNamesPromise
+  }
+
+  /**
+   * Layer stack of one component in the target org. The virtual table
+   * requires both filter conditions; the component id is the plain GUID
+   * (no braces). An empty result means the component has no layers there,
+   * i.e. it doesn't exist in the target.
+   */
+  private async fetchLayerStack(
+    orgUrl: string,
+    component: SolutionComponentInfo,
+    componentName: string,
+  ): Promise<ComponentLayerStack> {
+    const rows = await this.queryRows(
+      orgUrl,
+      'msdyn_componentlayers',
+      'msdyn_componentlayerid,msdyn_solutionname,msdyn_publishername,msdyn_solutionversion,msdyn_order',
+      `msdyn_componentid eq '${component.objectId}' and ` +
+        `msdyn_solutioncomponentname eq '${componentName.replace(/'/g, "''")}'`,
+    )
+    const layers: ComponentLayerInfo[] = rows
+      .map((row) => ({
+        id: str(row.msdyn_componentlayerid),
+        solutionName: str(row.msdyn_solutionname),
+        publisherName: str(row.msdyn_publishername) || undefined,
+        solutionVersion: str(row.msdyn_solutionversion) || undefined,
+        order: Number(row.msdyn_order ?? 0),
+      }))
+      .sort((a, b) => b.order - a.order)
+    if (layers.length === 0) return { component, verdict: 'absent', layers }
+    const hasActive = layers.some((l) => l.solutionName === 'Active')
+    const hasManaged = layers.some((l) => l.solutionName !== 'Active')
+    const verdict = hasActive
+      ? hasManaged
+        ? 'overridden'
+        : 'unmanagedOnly'
+      : 'clean'
+    return { component, verdict, layers }
+  }
+
+  /**
+   * Layer inspector: every component of the solution is checked for an
+   * unmanaged "Active" layer in the target environment. One layer query
+   * per component (the virtual table only answers per component), so the
+   * progress callback matters for larger solutions.
+   */
+  async inspectLayers(
+    solution: WorkingSolution,
+    envKey: 'uat' | 'prod',
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<LayerInspectionResult> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.inspectLayers(solution, envKey, onProgress)
+    const env = ENVIRONMENTS.find((e) => e.key === envKey)
+    if (!env) throw new Error(`Unknown environment ${envKey}`)
+    const orgUrl = env.url.replace(/\/+$/, '')
+
+    const [components, typeNames] = await Promise.all([
+      this.listComponents(solution.id),
+      this.layerComponentNames(),
+    ])
+
+    const stacks: ComponentLayerStack[] = []
+    const failedTypes = new Set<string>()
+    let done = 0
+    onProgress?.(0, components.length)
+    for (const batch of chunksOf(components, 4)) {
+      await Promise.all(
+        batch.map(async (component) => {
+          const componentName = typeNames.get(component.typeCode)
+          if (!componentName) {
+            stacks.push({ component, verdict: 'unsupported', layers: [] })
+          } else {
+            try {
+              stacks.push(
+                await this.fetchLayerStack(orgUrl, component, componentName),
+              )
+            } catch (err) {
+              console.warn(
+                `[layers] ${component.typeName} ${component.objectId} failed:`,
+                err,
+              )
+              failedTypes.add(component.typeName)
+              stacks.push({ component, verdict: 'error', layers: [] })
+            }
+          }
+          onProgress?.(++done, components.length)
+        }),
+      )
+    }
+
+    const severity: Record<ComponentLayerStack['verdict'], number> = {
+      overridden: 0,
+      unmanagedOnly: 1,
+      error: 2,
+      absent: 3,
+      unsupported: 4,
+      clean: 5,
+    }
+    stacks.sort(
+      (a, b) =>
+        severity[a.verdict] - severity[b.verdict] ||
+        a.component.typeName.localeCompare(b.component.typeName) ||
+        a.component.displayName.localeCompare(b.component.displayName),
+    )
+    const warnings = [...failedTypes].map(
+      (typeName) =>
+        `${typeName}: layer query failed for some components — their verdict is "error" (details in the browser console).`,
+    )
+    return { envKey, stacks, warnings }
   }
 
   /** Pull one missing required component into the release solution. */

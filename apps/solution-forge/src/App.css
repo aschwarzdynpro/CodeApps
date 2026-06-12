@@ -1450,6 +1450,31 @@
   margin-bottom: 10px;
 }
 
+/* Layer inspector — the stack reads left to right, top layer first. */
+.layer-stack {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 3px;
+}
+.layer-chip {
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.layer-chip--active {
+  background: #fdf2f3;
+  border-color: #ecb6bd;
+  color: #b02a37;
+  font-weight: 700;
+}
+
 /* Merge workbench */
 .merge-layout {
   display: grid;

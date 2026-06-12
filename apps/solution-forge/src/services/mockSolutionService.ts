@@ -8,6 +8,10 @@ import type {
   WorkingSolution,
 } from '../types/solution'
 import type { DependencyCheckResult } from '../types/dependency'
+import type {
+  ComponentLayerStack,
+  LayerInspectionResult,
+} from '../types/layers'
 import { buildUniqueName } from '../utils/naming'
 import {
   mockComponentsBySolutionId,
@@ -185,6 +189,67 @@ export class MockSolutionService {
 
   async addDependencyToSolution(): Promise<void> {
     await delay(400)
+  }
+
+  async inspectLayers(
+    solution: WorkingSolution,
+    envKey: 'uat' | 'prod',
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<LayerInspectionResult> {
+    const components = this.components.get(solution.id) ?? []
+    const stacks: ComponentLayerStack[] = []
+    onProgress?.(0, components.length)
+    for (const [index, component] of components.entries()) {
+      await delay(150)
+      // Deterministic spread so every verdict is demoable offline.
+      if (index === 0) {
+        stacks.push({
+          component,
+          verdict: 'overridden',
+          layers: [
+            { id: `l-${index}-a`, solutionName: 'Active', order: 3 },
+            {
+              id: `l-${index}-m`,
+              solutionName: 'deploy_2026_06',
+              publisherName: 'DynPro GmbH',
+              solutionVersion: '1.3.0.0',
+              order: 2,
+            },
+            {
+              id: `l-${index}-s`,
+              solutionName: 'System',
+              publisherName: 'MicrosoftCorporation',
+              solutionVersion: '5.0',
+              order: 1,
+            },
+          ],
+        })
+      } else if (index === 1) {
+        stacks.push({
+          component,
+          verdict: 'unmanagedOnly',
+          layers: [{ id: `l-${index}-a`, solutionName: 'Active', order: 1 }],
+        })
+      } else if (index === 2) {
+        stacks.push({ component, verdict: 'absent', layers: [] })
+      } else {
+        stacks.push({
+          component,
+          verdict: 'clean',
+          layers: [
+            {
+              id: `l-${index}-m`,
+              solutionName: 'deploy_2026_06',
+              publisherName: 'DynPro GmbH',
+              solutionVersion: '1.3.0.0',
+              order: 1,
+            },
+          ],
+        })
+      }
+      onProgress?.(index + 1, components.length)
+    }
+    return { envKey, stacks, warnings: [] }
   }
 
   async hasRole(): Promise<boolean> {

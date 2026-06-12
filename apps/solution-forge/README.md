@@ -2,7 +2,8 @@
 
 Power Apps **Code App** zum Verwalten von Dataverse-Solutions während der
 Feature- und Bug-Entwicklung: Working Solutions anlegen, Komponenten
-einsehen und Feature-/Bug-Solutions in eine Deployment Solution mergen.
+einsehen, Feature-/Bug-Solutions in eine Deployment Solution mergen und
+Releases vor dem Deployment prüfen (Dependency Check, Layer Inspector).
 
 ## Konzept
 
@@ -64,6 +65,21 @@ Deployment-Status „Merged into Deployment Solution".
   Steuertabelle. Hinweis: `modifiedon` wird bewusst nicht als Drift-Signal
   gewertet (Solution-Import überschreibt es); Inhalts-Hashes
   (clientdata/xaml/content) sind die nächste Ausbaustufe.
+- **Dependency Check**: Release-Solution gegen UAT/PROD prüfen
+  (`RetrieveMissingDependencies`) — listet benötigte Komponenten, die weder
+  in der Solution noch im Ziel vorhanden sind (Import würde scheitern),
+  inkl. **Add to Solution** je fehlender Komponente. Name-gematchte Typen
+  (EnvVars, Connection References, Web Resources, Canvas Apps) zählen als
+  vorhanden, wenn das Ziel sie unter gleichem Namen kennt.
+- **Layer Inspector**: Komponenten einer Solution gegen die Layer-Stacks
+  in UAT/PROD prüfen (virtuelle Tabelle `msdyn_componentlayer`, eine
+  Abfrage pro Komponente mit `msdyn_componentid` + 
+  `msdyn_solutioncomponentname`). Findet **unmanaged „Active"-Layer über
+  managed Komponenten** — direkte Customizations im Ziel, die jede
+  deployte Änderung maskieren — sowie Komponenten, die im Ziel nur
+  unmanaged existieren. Klassische Typnamen (Entity, Workflow, …) sind
+  statisch gemappt, solution-aware Typen kommen dynamisch aus
+  `solutioncomponentdefinition`.
 
 ## Architektur
 

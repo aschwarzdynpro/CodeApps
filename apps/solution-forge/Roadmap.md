@@ -33,8 +33,9 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 
 - [ ] ⭐ **Drift-Report über alles**: Compare über alle getrackten Solutions
       aggregiert (X missing in PROD, Y Status-Drift) mit CSV-Export.
-- [ ] **Layer-Inspektor** (`msdyn_componentlayer`): Aktive unmanaged Layer
-      über managed Komponenten in UAT/PROD aufdecken.
+- [x] **Layer-Inspektor** (`msdyn_componentlayer`): Aktive unmanaged Layer
+      über managed Komponenten in UAT/PROD aufdecken. *(Tab „Layer
+      Inspector")*
 - [ ] **Präfix-Wächter**: Komponenten mit fremdem Publisher-Präfix in einer
       Working Solution flaggen.
 - [ ] **Housekeeping-Cockpit**: Duplikate, Orphans, leere Solutions,
@@ -72,3 +73,5 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 - [x] Merge mit Plan, Konflikt-Markierung und Status-Logging
 - [x] Compare über INT-11 / UAT / PROD
 - [x] Standard-Filter Open/Tracked/Mine, Rollen-Gating Merge & Compare
+- [x] Layer Inspector: unmanaged Active-Layer über managed Komponenten in
+      UAT/PROD (`msdyn_componentlayer`)

@@ -10,6 +10,7 @@ import { CreateSolutionDialog } from './components/CreateSolutionDialog'
 import { MergeWorkbench } from './components/MergeWorkbench'
 import { CompareWorkbench } from './components/CompareWorkbench'
 import { DependencyCheck } from './components/DependencyCheck'
+import { LayerInspector } from './components/LayerInspector'
 import { HelpPanel } from './components/HelpPanel'
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog'
 import {
@@ -26,7 +27,7 @@ import {
   type WorkingSolution,
 } from './types/solution'
 
-type Tab = 'workbench' | 'merge' | 'compare' | 'dependencies'
+type Tab = 'workbench' | 'merge' | 'compare' | 'dependencies' | 'layers'
 
 function App() {
   const { environmentId } = usePower()
@@ -541,6 +542,20 @@ function App() {
           Dependency Check
           {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
         </button>
+        <button
+          className={`tab ${tab === 'layers' ? 'tab--active' : ''} ${
+            isDeploymentManager ? '' : 'tab--disabled'
+          }`}
+          title={
+            isDeploymentManager
+              ? undefined
+              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
+          }
+          onClick={() => isDeploymentManager && setTab('layers')}
+        >
+          Layer Inspector
+          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
+        </button>
       </nav>
 
       {loading && <div className="state">Loading solutions…</div>}
@@ -727,6 +742,10 @@ function App() {
 
       {!loading && !error && tab === 'dependencies' && isDeploymentManager && (
         <DependencyCheck solutions={allSolutions} />
+      )}
+
+      {!loading && !error && tab === 'layers' && isDeploymentManager && (
+        <LayerInspector solutions={allSolutions} />
       )}
 
       {showHelp && <HelpPanel onClose={() => setShowHelp(false)} />}

@@ -199,6 +199,41 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>Layer Inspector</h3>
+            <ul>
+              <li>
+                Pick a solution and a target environment (UAT / PROD) — the
+                inspector resolves every component's{' '}
+                <strong>solution layers</strong> there (the same stack the
+                maker portal shows under “See solution layers”).
+              </li>
+              <li>
+                <strong>Unmanaged layer over managed component</strong> =
+                someone customized the component directly in the target. The
+                unmanaged “Active” layer wins over all managed layers, so
+                deployed changes are masked until the active customizations
+                are removed in the target (maker portal: See solution layers
+                → Remove active customizations).
+              </li>
+              <li>
+                <strong>Unmanaged-only</strong> = the component exists in the
+                target only as an unmanaged customization — it was created
+                there directly, not deployed.
+              </li>
+              <li>
+                The summary line counts clean components, components not
+                present in the target, and component types without layer
+                data (metadata-only types the virtual table doesn't serve).
+              </li>
+              <li>
+                One layer query per component — large solutions take a
+                moment; the button shows the progress.
+              </li>
+              <li>Requires the “INT | Deployment Manager” role.</li>
+            </ul>
+          </section>
+
+          <section className="help-section">
             <h3>Compare (ALM)</h3>
             <ul>
               <li>

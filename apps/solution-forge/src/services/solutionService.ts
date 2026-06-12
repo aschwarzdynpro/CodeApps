@@ -8,6 +8,7 @@ import type {
   WorkingSolution,
 } from '../types/solution'
 import type { DependencyCheckResult } from '../types/dependency'
+import type { LayerInspectionResult } from '../types/layers'
 import { dataverseSolutionService } from './dataverseSolutionService'
 
 /**
@@ -73,6 +74,16 @@ export interface SolutionService {
     componentId: string,
     componentType: number,
   ): Promise<void>
+  /**
+   * Layer inspector: resolves the msdyn_componentlayer stack of every
+   * component of the solution in the chosen target environment and flags
+   * unmanaged "Active" layers sitting on top of managed layers.
+   */
+  inspectLayers(
+    solution: WorkingSolution,
+    envKey: 'uat' | 'prod',
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<LayerInspectionResult>
   /**
    * Whether the signed-in user holds the given security role (direct
    * assignment; team-inherited roles are not considered). Used to gate
