@@ -30,6 +30,7 @@ import type {
   Ssid_workingsolutionsBase,
 } from '../generated/models/Ssid_workingsolutionsModel'
 import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
+import { SystemusersService } from '../generated/services/SystemusersService'
 import type { Solutions, SolutionsBase } from '../generated/models/SolutionsModel'
 import type { Solutioncomponents } from '../generated/models/SolutioncomponentsModel'
 import type { Publishers } from '../generated/models/PublishersModel'
@@ -551,6 +552,34 @@ export class DataverseSolutionService implements SolutionService {
     name: string | null
   }> {
     const fallbackName = hostUserHints.displayName ?? null
+
+    // Primary: native data sources run as the signed-in user (unlike the
+    // connector, which runs as its connection — here a service principal),
+    // so Dataverse itself can answer "who am I" via the EqualUserId query
+    // function.
+    try {
+      const result = await SystemusersService.getAll({
+        select: ['systemuserid', 'fullname'],
+        filter:
+          "Microsoft.Dynamics.CRM.EqualUserId(PropertyName='systemuserid')",
+        top: 1,
+      })
+      const row = result.data?.[0] as
+        | { systemuserid?: string; fullname?: string }
+        | undefined
+      if (result.success && typeof row?.systemuserid === 'string') {
+        return {
+          id: row.systemuserid,
+          name: row.fullname || fallbackName,
+        }
+      }
+      console.warn('[solutions] EqualUserId lookup returned no row:', result)
+    } catch (err) {
+      console.warn('[solutions] EqualUserId lookup threw:', err)
+    }
+
+    // Fallback: match host-context identity hints against systemusers via
+    // the connector (works regardless of the connection's own identity).
     try {
       let filter: string | null = null
       if (hostUserHints.entraObjectId) {

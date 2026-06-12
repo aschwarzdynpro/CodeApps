@@ -507,7 +507,22 @@ function App() {
             onGroupByWorkItemChange={setGroupByWorkItem}
             mineOnly={mineOnly}
             onMineOnlyChange={toggleMineOnly}
+            mineUserName={
+              currentUser && currentUser !== 'loading' ? currentUser.name : null
+            }
           />
+
+          {mineOnly &&
+            currentUser &&
+            currentUser !== 'loading' &&
+            !currentUser.id &&
+            !currentUser.name && (
+              <div className="state state--error">
+                Could not determine the signed-in user — the “Mine” filter
+                has nothing to match. Check the browser console for the
+                identity lookup details.
+              </div>
+            )}
 
           <div className="collision-bar">
             <button

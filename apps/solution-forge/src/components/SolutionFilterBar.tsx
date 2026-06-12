@@ -27,6 +27,8 @@ interface Props {
   /** Only working solutions owned by the signed-in user. */
   mineOnly: boolean
   onMineOnlyChange: (enabled: boolean) => void
+  /** Resolved name of the signed-in user, when known. */
+  mineUserName?: string | null
 }
 
 export function SolutionFilterBar({
@@ -42,6 +44,7 @@ export function SolutionFilterBar({
   onGroupByWorkItemChange,
   mineOnly,
   onMineOnlyChange,
+  mineUserName,
 }: Props) {
   return (
     <div className="filter-bar">
@@ -64,7 +67,11 @@ export function SolutionFilterBar({
         })}
         <button
           className={`chip ${mineOnly ? 'chip--active' : ''}`}
-          title="Only working solutions owned by you"
+          title={
+            mineUserName
+              ? `Only working solutions owned by ${mineUserName}`
+              : 'Only working solutions owned by you'
+          }
           onClick={() => onMineOnlyChange(!mineOnly)}
         >
           👤 Mine
