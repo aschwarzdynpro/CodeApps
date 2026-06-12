@@ -103,6 +103,76 @@
   font-size: 12px;
 }
 
+/* Help */
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-btn:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.modal--wide {
+  max-width: 720px;
+}
+.help-body {
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  padding-right: 6px;
+}
+.help-section {
+  margin-bottom: 18px;
+}
+.help-section h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+.help-section p,
+.help-section li {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.help-section ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.help-section code {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
+.help-legend {
+  list-style: none;
+  padding-left: 0 !important;
+}
+.help-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.help .ws-chip,
+.help .dup-chip,
+.help .coll-chip {
+  margin-left: 0;
+}
+
 /* Filter bar */
 .filter-bar {
   display: flex;

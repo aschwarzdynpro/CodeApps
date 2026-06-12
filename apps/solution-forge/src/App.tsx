@@ -9,6 +9,7 @@ import { SolutionDetail } from './components/SolutionDetail'
 import { CreateSolutionDialog } from './components/CreateSolutionDialog'
 import { MergeWorkbench } from './components/MergeWorkbench'
 import { CompareWorkbench } from './components/CompareWorkbench'
+import { HelpPanel } from './components/HelpPanel'
 import { DEVOPS_PANEL_ENABLED, makerSolutionUrl } from './config'
 import type {
   ComponentCollision,
@@ -54,6 +55,7 @@ function App() {
   )
   const [workItemLoading, setWorkItemLoading] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [justCreated, setJustCreated] = useState<WorkingSolution | null>(null)
   // Locally created solutions show up immediately, even before reload() lands.
   const [created, setCreated] = useState<WorkingSolution[]>([])
@@ -339,6 +341,14 @@ function App() {
           </p>
         </div>
         <div className="header-right">
+          <button
+            className="icon-btn"
+            title="Help & feature guide"
+            aria-label="Help"
+            onClick={() => setShowHelp(true)}
+          >
+            ?
+          </button>
           <span className={`mode-badge mode-${mode}`}>
             {mode === 'power-platform' ? 'Power Platform' : 'Local · mock data'}
           </span>
@@ -486,6 +496,8 @@ function App() {
           initialSolutionId={selectedId}
         />
       )}
+
+      {showHelp && <HelpPanel onClose={() => setShowHelp(false)} />}
 
       {showCreate && (
         <CreateSolutionDialog
