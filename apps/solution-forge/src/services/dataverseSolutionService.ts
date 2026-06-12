@@ -164,6 +164,22 @@ function kindFromWorkItemType(workItemType?: string): SolutionKind | undefined {
   return undefined
 }
 
+/**
+ * Some component types arrive as untranslated resource keys like
+ * "Customization.Type_SecurityRole" — strip the prefix and space out the
+ * PascalCase tail ("Security Role", "Plugin Assembly", …).
+ */
+function prettifyTypeName(name: string): string {
+  const match = /^Customization\.Type_(.+)$/.exec(name)
+  if (!match) return name
+  return match[1]
+    .replace(/_/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/\bSdk\b/g, 'SDK')
+    .trim()
+}
+
 const SOLUTION_SELECT = [
   'solutionid',
   'uniquename',
@@ -221,10 +237,11 @@ function summaryToComponentInfo(
   behaviorByObjectId: Map<string, number>,
 ): SolutionComponentInfo {
   const typeCode = Number(raw.msdyn_componenttype ?? 0)
-  const typeName =
+  const typeName = prettifyTypeName(
     raw.msdyn_componenttypename ??
-    COMPONENT_TYPE_LABELS[typeCode] ??
-    `Type ${typeCode}`
+      COMPONENT_TYPE_LABELS[typeCode] ??
+      `Type ${typeCode}`,
+  )
   const objectId = raw.msdyn_objectid ?? ''
   const displayName =
     raw.msdyn_displayname || raw.msdyn_name || `${typeName} ${shortGuid(objectId)}`
@@ -246,10 +263,11 @@ function summaryToComponentInfo(
 function toComponentInfo(raw: Solutioncomponents): SolutionComponentInfo {
   const row = raw as Solutioncomponents & Record<string, unknown>
   const typeCode = Number(raw.componenttype ?? 0)
-  const typeName =
+  const typeName = prettifyTypeName(
     formatted(row, 'componenttype') ??
-    COMPONENT_TYPE_LABELS[typeCode] ??
-    `Type ${typeCode}`
+      COMPONENT_TYPE_LABELS[typeCode] ??
+      `Type ${typeCode}`,
+  )
   const objectId = raw.objectid ?? ''
   const rootBehavior =
     raw.rootcomponentbehavior !== undefined
