@@ -106,7 +106,8 @@ export class MockSolutionService {
       publisher:
         mockPublishers.find((p) => p.id === input.publisherId) ?? null,
       recordId: `ws-${mockIdCounter}`,
-      owner: 'You (mock)',
+      owner: 'Marie Curie',
+      ownerId: 'u-0001',
       deploymentStatus: 'None',
     }
     this.solutions.unshift(created)
@@ -117,6 +118,12 @@ export class MockSolutionService {
   async listComponents(solutionId: string): Promise<SolutionComponentInfo[]> {
     await delay(300)
     return (this.components.get(solutionId) ?? []).map((c) => ({ ...c }))
+  }
+
+  async getCurrentUser(): Promise<{ id: string | null; name: string | null }> {
+    await delay(150)
+    // Matches the seeded owner of feature_4711 so the filter is demoable.
+    return { id: 'u-0001', name: 'Marie Curie' }
   }
 
   async deleteSolution(solution: WorkingSolution): Promise<void> {
@@ -137,7 +144,8 @@ export class MockSolutionService {
     solution.title = input.title
     solution.devOpsId = input.devOpsId
     solution.kind = input.kind
-    solution.owner = 'You (mock)'
+    solution.owner = 'Marie Curie'
+    solution.ownerId = 'u-0001'
     solution.deploymentStatus = 'None'
   }
 

@@ -45,6 +45,7 @@ export const mockSolutions: WorkingSolution[] = [
     publisher: mockPublishers[0],
     recordId: 'ws-0001',
     owner: 'Marie Curie',
+    ownerId: 'u-0001',
     deploymentStatus: 'None',
   },
   {
@@ -75,6 +76,7 @@ export const mockSolutions: WorkingSolution[] = [
     publisher: mockPublishers[0],
     recordId: 'ws-0003',
     owner: 'Lise Meitner',
+    ownerId: 'u-0003',
     deploymentStatus: 'None',
   },
   {
@@ -105,6 +107,7 @@ export const mockSolutions: WorkingSolution[] = [
     publisher: mockPublishers[0],
     recordId: 'ws-0005',
     owner: 'Niels Bohr',
+    ownerId: 'u-0005',
     deploymentStatus: 'To be deployed',
   },
   {

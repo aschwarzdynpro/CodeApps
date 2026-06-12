@@ -49,6 +49,13 @@ export interface SolutionService {
    * deletion is final.
    */
   deleteSolution(solution: WorkingSolution): Promise<void>
+  /**
+   * Resolves the signed-in user for the "Mine" filter. id is the
+   * systemuser guid (matched against the rows' ownerId); name is a
+   * display-name fallback. Both may be null when the host exposes no
+   * usable identity.
+   */
+  getCurrentUser(): Promise<{ id: string | null; name: string | null }>
   /** Components contained in one solution. */
   listComponents(solutionId: string): Promise<SolutionComponentInfo[]>
   /**

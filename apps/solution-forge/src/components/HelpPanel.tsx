@@ -41,6 +41,10 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 Other) and the search box (title, unique name, DevOps id).
               </li>
               <li>
+                <strong>👤 Mine</strong> — only working solutions you own
+                (matched via the owner of the working-solution record).
+              </li>
+              <li>
                 <strong>incl. components</strong> — builds a one-time index
                 so the search also matches component display names (e.g.
                 find every solution containing a specific security role).

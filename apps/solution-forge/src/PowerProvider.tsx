@@ -53,6 +53,63 @@ export const powerModeReady = new Promise<PowerMode>((resolve) => {
 })
 
 /**
+ * Hints about the signed-in user, harvested from the host context. Used by
+ * the service layer to resolve the current systemuser (e.g. for the "Mine"
+ * filter). Filled before {@link powerModeReady} resolves.
+ */
+export interface HostUserHints {
+  /** Entra object id, when the host exposes one. */
+  entraObjectId?: string
+  /** UPN / email, when exposed. */
+  userPrincipalName?: string
+  displayName?: string
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const hostUserHints: HostUserHints = {}
+
+const GUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Probe the (untyped) context for user identity fields. */
+function extractUserHints(ctx: unknown): void {
+  if (!ctx || typeof ctx !== 'object') return
+  const root = ctx as Record<string, unknown>
+  const user = (root.user ?? root.currentUser) as
+    | Record<string, unknown>
+    | undefined
+  if (!user) return
+  for (const key of [
+    'entraObjectId',
+    'aadObjectId',
+    'azureAdObjectId',
+    'objectId',
+    'userId',
+    'id',
+  ]) {
+    const v = user[key]
+    if (typeof v === 'string' && GUID_RE.test(v)) {
+      hostUserHints.entraObjectId = v
+      break
+    }
+  }
+  for (const key of ['userPrincipalName', 'upn', 'email', 'mail', 'userName']) {
+    const v = user[key]
+    if (typeof v === 'string' && v.includes('@')) {
+      hostUserHints.userPrincipalName = v
+      break
+    }
+  }
+  for (const key of ['displayName', 'fullName', 'name']) {
+    const v = user[key]
+    if (typeof v === 'string' && v) {
+      hostUserHints.displayName = v
+      break
+    }
+  }
+}
+
+/**
  * The context payload isn't fully typed by the SDK, so probe the plausible
  * locations for an environment id defensively.
  */
@@ -98,6 +155,7 @@ export function PowerProvider({ children }: { children: ReactNode }) {
         if (ctx?.app?.appId) {
           mode = 'power-platform'
           environmentId = extractEnvironmentId(ctx)
+          extractUserHints(ctx)
         }
       } catch {
         // Bridge threw — treat as standalone, use mock.

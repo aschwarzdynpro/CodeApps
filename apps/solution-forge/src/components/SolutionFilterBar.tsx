@@ -24,6 +24,9 @@ interface Props {
   /** Group the list by Azure DevOps work item number. */
   groupByWorkItem: boolean
   onGroupByWorkItemChange: (enabled: boolean) => void
+  /** Only working solutions owned by the signed-in user. */
+  mineOnly: boolean
+  onMineOnlyChange: (enabled: boolean) => void
 }
 
 export function SolutionFilterBar({
@@ -37,6 +40,8 @@ export function SolutionFilterBar({
   indexProgress,
   groupByWorkItem,
   onGroupByWorkItemChange,
+  mineOnly,
+  onMineOnlyChange,
 }: Props) {
   return (
     <div className="filter-bar">
@@ -57,6 +62,13 @@ export function SolutionFilterBar({
             </button>
           )
         })}
+        <button
+          className={`chip ${mineOnly ? 'chip--active' : ''}`}
+          title="Only working solutions owned by you"
+          onClick={() => onMineOnlyChange(!mineOnly)}
+        >
+          👤 Mine
+        </button>
       </div>
       <div className="search-group">
         <input

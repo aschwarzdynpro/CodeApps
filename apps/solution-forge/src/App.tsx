@@ -30,6 +30,12 @@ function App() {
   const [kindFilter, setKindFilter] = useState<KindFilter>('All')
   const [search, setSearch] = useState('')
   const [groupByWorkItem, setGroupByWorkItem] = useState(false)
+  // "Mine" filter: resolved lazily on first activation. undefined = not
+  // resolved yet, 'loading' = lookup running.
+  const [mineOnly, setMineOnly] = useState(false)
+  const [currentUser, setCurrentUser] = useState<
+    { id: string | null; name: string | null } | 'loading' | undefined
+  >(undefined)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [components, setComponents] = useState<SolutionComponentInfo[]>([])
   const [componentsLoading, setComponentsLoading] = useState(false)
@@ -117,8 +123,16 @@ function App() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
+    const isMine = (s: WorkingSolution): boolean => {
+      if (!currentUser || currentUser === 'loading') return true // still resolving
+      if (currentUser.id && s.ownerId) return s.ownerId === currentUser.id
+      if (currentUser.name && s.owner)
+        return s.owner.toLowerCase() === currentUser.name.toLowerCase()
+      return false
+    }
     return allSolutions
       .filter((s) => kindFilter === 'All' || s.kind === kindFilter)
+      .filter((s) => !mineOnly || isMine(s))
       .filter(
         (s) =>
           !q ||
@@ -127,7 +141,18 @@ function App() {
           (s.devOpsId ?? '').includes(q) ||
           componentMatches.has(s.id),
       )
-  }, [allSolutions, kindFilter, search, componentMatches])
+  }, [allSolutions, kindFilter, search, componentMatches, mineOnly, currentUser])
+
+  const toggleMineOnly = (enabled: boolean) => {
+    setMineOnly(enabled)
+    if (enabled && currentUser === undefined) {
+      setCurrentUser('loading')
+      solutionService
+        .getCurrentUser()
+        .then((u) => setCurrentUser(u))
+        .catch(() => setCurrentUser({ id: null, name: null }))
+    }
+  }
 
   const selected = allSolutions.find((s) => s.id === selectedId) ?? null
 
@@ -480,6 +505,8 @@ function App() {
             indexProgress={indexProgress}
             groupByWorkItem={groupByWorkItem}
             onGroupByWorkItemChange={setGroupByWorkItem}
+            mineOnly={mineOnly}
+            onMineOnlyChange={toggleMineOnly}
           />
 
           <div className="collision-bar">

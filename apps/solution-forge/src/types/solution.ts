@@ -37,6 +37,8 @@ export interface WorkingSolution {
   recordId?: string
   /** Owner of the working-solution row (owneridname). */
   owner?: string
+  /** Raw owner id (systemuser/team guid) for the "Mine" filter. */
+  ownerId?: string
   /** Formatted ssid_deploymentstatus label, e.g. "Deployment completed". */
   deploymentStatus?: string
   /** True when the row's ssid_uniquesolutionname matches no real solution. */

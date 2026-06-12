@@ -10,7 +10,7 @@ import type {
 } from '../types/solution'
 import type { SolutionService } from './solutionService'
 import { mockSolutionService } from './mockSolutionService'
-import { powerModeReady } from '../PowerProvider'
+import { hostUserHints, powerModeReady } from '../PowerProvider'
 import {
   buildUniqueName,
   classifyUniqueName,
@@ -355,6 +355,10 @@ export class DataverseSolutionService implements SolutionService {
           modifiedOn: solution?.modifiedOn ?? raw.modifiedon ?? '',
           publisher: solution?.publisher ?? null,
           owner: formatted(row, '_ownerid_value') ?? raw.owneridname,
+          ownerId:
+            typeof row._ownerid_value === 'string'
+              ? row._ownerid_value
+              : undefined,
           deploymentStatus:
             formatted(row, 'ssid_deploymentstatus') ??
             raw.ssid_deploymentstatusname,
@@ -523,6 +527,71 @@ export class DataverseSolutionService implements SolutionService {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockSolutionService.trackSolution(input)
     await this.createPresentationRow(input)
+  }
+
+  private currentUserPromise: Promise<{
+    id: string | null
+    name: string | null
+  }> | null = null
+
+  /**
+   * Resolve the signed-in user's systemuser id once per session. The host
+   * context only carries Entra-level identity (object id / UPN), so it is
+   * matched against systemusers via the Dataverse connector.
+   */
+  async getCurrentUser(): Promise<{ id: string | null; name: string | null }> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return mockSolutionService.getCurrentUser()
+    this.currentUserPromise ??= this.resolveCurrentUser()
+    return this.currentUserPromise
+  }
+
+  private async resolveCurrentUser(): Promise<{
+    id: string | null
+    name: string | null
+  }> {
+    const fallbackName = hostUserHints.displayName ?? null
+    try {
+      let filter: string | null = null
+      if (hostUserHints.entraObjectId) {
+        filter = `azureactivedirectoryobjectid eq ${hostUserHints.entraObjectId}`
+      } else if (hostUserHints.userPrincipalName) {
+        const upn = hostUserHints.userPrincipalName.replace(/'/g, "''")
+        filter = `domainname eq '${upn}'`
+      }
+      if (!filter) {
+        console.info('[solutions] no user identity in host context:', hostUserHints)
+        return { id: null, name: fallbackName }
+      }
+      const result = await MicrosoftDataverseService.ListRecords(
+        'systemusers',
+        undefined,
+        undefined,
+        undefined,
+        'systemuserid,fullname',
+        filter,
+        undefined,
+        undefined,
+        undefined,
+        1,
+      )
+      const row = (
+        result.data as { value?: Record<string, unknown>[] } | undefined
+      )?.value?.[0]
+      if (row && typeof row.systemuserid === 'string') {
+        return {
+          id: row.systemuserid,
+          name:
+            typeof row.fullname === 'string' && row.fullname
+              ? row.fullname
+              : fallbackName,
+        }
+      }
+      console.warn('[solutions] current user not found via', filter)
+    } catch (err) {
+      console.warn('[solutions] current user lookup failed:', err)
+    }
+    return { id: null, name: fallbackName }
   }
 
   /**
