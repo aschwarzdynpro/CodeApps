@@ -1,7 +1,10 @@
 import type {
   AlmComponentKind,
+  AlmComponentRef,
   ComparisonResult,
   ComparisonRow,
+  ContentPair,
+  ContentSide,
   DeviationKind,
   EnvComponentState,
   EnvKey,
@@ -128,6 +131,61 @@ const WEB_RESOURCE_SPEC: TableSpec = {
 
 /** Per-environment lookup: table spec → (objectId → state). */
 type EnvSnapshot = Map<TableSpec, Map<string, EnvComponentState>>
+
+/**
+ * Where a component kind's definition lives for the content-drift pass.
+ * `fields` are concatenated (in order) and hashed; plugin steps have no
+ * such definition and are absent here.
+ */
+interface ContentSpec {
+  entitySet: string
+  idField: string
+  fields: string[]
+}
+const CONTENT_SPECS: Partial<Record<AlmComponentKind, ContentSpec>> = {
+  cloudflow: {
+    entitySet: 'workflows',
+    idField: 'workflowid',
+    fields: ['clientdata', 'xaml'],
+  },
+  workflow: {
+    entitySet: 'workflows',
+    idField: 'workflowid',
+    fields: ['clientdata', 'xaml'],
+  },
+  businessrule: {
+    entitySet: 'workflows',
+    idField: 'workflowid',
+    fields: ['clientdata', 'xaml'],
+  },
+  webresource: {
+    entitySet: 'webresourceset',
+    idField: 'webresourceid',
+    fields: ['content'],
+  },
+}
+
+/** webresourcetype codes that are binary (can't be shown as text). */
+const BINARY_WEBRESOURCE_TYPES = new Set([5, 6, 7, 8, 10])
+/** webresourcetype codes whose text is XML-flavoured. */
+const XML_WEBRESOURCE_TYPES = new Set([4, 9, 11, 12])
+
+/** Lowercase hex SHA-256 of a string (Web Crypto, available in the host). */
+async function sha256Hex(text: string): Promise<string> {
+  const bytes = new TextEncoder().encode(text)
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+/** Decode a base64 web-resource payload to UTF-8 text plus its byte length. */
+function decodeBase64Utf8(b64: string): { text: string; bytes: number } {
+  const binary = atob(b64)
+  const arr = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i)
+  return { text: new TextDecoder('utf-8').decode(arr), bytes: arr.length }
+}
 
 export class DataverseComparisonService implements ComparisonService {
   /** Fetch the rows for one table in one environment, keyed by id. */
@@ -320,6 +378,217 @@ export class DataverseComparisonService implements ComparisonService {
       if (target.isManaged === false) deviations.add('unmanaged')
     }
     return [...deviations]
+  }
+
+  /** Raw connector query against one environment. */
+  private async queryRaw(
+    orgUrl: string,
+    entitySet: string,
+    select: string,
+    filter: string,
+  ): Promise<Row[]> {
+    const result = await MicrosoftDataverseService.ListRecordsWithOrganization(
+      orgUrl,
+      entitySet,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      select,
+      filter,
+    )
+    if (!result.success) {
+      const detail = (result as { error?: { message?: string } }).error?.message
+      throw new Error(
+        `${entitySet} query failed${detail ? ` — ${detail}` : ''}`,
+      )
+    }
+    return (result.data as { value?: Row[] } | undefined)?.value ?? []
+  }
+
+  /**
+   * Content-drift pass: hash each diffable component's definition in every
+   * environment where it is present and flag a `content` deviation when the
+   * hashes diverge. Only components present in at least two environments are
+   * fetched.
+   */
+  async checkContentDrift(
+    result: ComparisonResult,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<ComparisonResult> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockComparisonService.checkContentDrift(result, onProgress)
+
+    const presentEnvs = (row: ComparisonRow): EnvKey[] =>
+      ENVIRONMENTS.filter((e) => row.byEnv[e.key]?.present).map((e) => e.key)
+
+    const targets = result.rows
+      .map((row) => ({ row, spec: CONTENT_SPECS[row.ref.kind] }))
+      .filter(
+        (t): t is { row: ComparisonRow; spec: ContentSpec } =>
+          !!t.spec && presentEnvs(t.row).length >= 2,
+      )
+
+    const total = targets.reduce((sum, t) => sum + presentEnvs(t.row).length, 0)
+    let done = 0
+    onProgress?.(0, total)
+    if (total === 0) return result
+
+    // key = `${envKey}:${objectId}` (id lowercased) → hash + size.
+    const contentByKey = new Map<string, { hash: string; size: number }>()
+    for (const env of ENVIRONMENTS) {
+      const orgUrl = env.url.replace(/\/+$/, '')
+      // Group this env's present target ids by entity set (workflows are
+      // shared across cloud flow / workflow / business rule).
+      const idsByEntitySet = new Map<string, { spec: ContentSpec; ids: string[] }>()
+      for (const { row, spec } of targets) {
+        if (!row.byEnv[env.key]?.present) continue
+        const entry = idsByEntitySet.get(spec.entitySet) ?? { spec, ids: [] }
+        entry.ids.push(row.ref.objectId)
+        idsByEntitySet.set(spec.entitySet, entry)
+      }
+      for (const { spec, ids } of idsByEntitySet.values()) {
+        const select = [spec.idField, ...spec.fields].join(',')
+        // Content fields are large — keep the chunks small.
+        for (const chunk of chunks(ids, 10)) {
+          const filter = chunk
+            .map((id) => `${spec.idField} eq ${id}`)
+            .join(' or ')
+          let rows: Row[]
+          try {
+            rows = await this.queryRaw(orgUrl, spec.entitySet, select, filter)
+          } catch (err) {
+            console.warn(`[compare] content fetch ${env.key}/${spec.entitySet}:`, err)
+            done += chunk.length
+            onProgress?.(done, total)
+            continue
+          }
+          const byId = new Map(
+            rows.map((r) => [str(r[spec.idField]).toLowerCase(), r]),
+          )
+          for (const id of chunk) {
+            const row = byId.get(id.toLowerCase())
+            if (row) {
+              const payload = spec.fields.map((f) => str(row[f])).join(' ')
+              contentByKey.set(`${env.key}:${id.toLowerCase()}`, {
+                hash: await sha256Hex(payload),
+                size: payload.length,
+              })
+            }
+            done++
+            onProgress?.(done, total)
+          }
+        }
+      }
+    }
+
+    const rows = result.rows.map((row): ComparisonRow => {
+      if (!CONTENT_SPECS[row.ref.kind]) return row
+      const byEnv = { ...row.byEnv }
+      const hashes: string[] = []
+      for (const env of ENVIRONMENTS) {
+        const state = byEnv[env.key]
+        if (!state?.present) continue
+        const info = contentByKey.get(
+          `${env.key}:${row.ref.objectId.toLowerCase()}`,
+        )
+        if (info) {
+          byEnv[env.key] = {
+            ...state,
+            contentHash: info.hash,
+            contentSize: info.size,
+          }
+          hashes.push(info.hash)
+        } else {
+          // Present but its content couldn't be fetched — mark, don't drift.
+          byEnv[env.key] = { ...state, contentHash: 'error' }
+        }
+      }
+      const deviations = new Set(row.deviations)
+      if (new Set(hashes).size > 1) deviations.add('content')
+      return { ...row, byEnv, deviations: [...deviations] }
+    })
+
+    return { ...result, rows }
+  }
+
+  /** One side of the diff for a component in one environment. */
+  private async fetchContentSide(
+    envKey: EnvKey,
+    spec: ContentSpec,
+    objectId: string,
+    isWebResource: boolean,
+  ): Promise<{ side: ContentSide; language: 'json' | 'xml' | 'text' | null }> {
+    const env = ENVIRONMENTS.find((e) => e.key === envKey)
+    if (!env) return { side: { text: null, present: false }, language: null }
+    const orgUrl = env.url.replace(/\/+$/, '')
+    const select = [
+      spec.idField,
+      ...spec.fields,
+      ...(isWebResource ? ['webresourcetype'] : []),
+    ].join(',')
+    const rows = await this.queryRaw(
+      orgUrl,
+      spec.entitySet,
+      select,
+      `${spec.idField} eq ${objectId}`,
+    )
+    const row = rows[0]
+    if (!row) return { side: { text: null, present: false }, language: null }
+
+    if (isWebResource) {
+      const b64 = str(row.content)
+      if (!b64) return { side: { text: '', present: true, size: 0 }, language: 'text' }
+      const type = Number(row.webresourcetype ?? 0)
+      if (BINARY_WEBRESOURCE_TYPES.has(type)) {
+        const { bytes } = decodeBase64Utf8(b64)
+        return { side: { text: null, present: true, binary: true, size: bytes }, language: 'text' }
+      }
+      const { text, bytes } = decodeBase64Utf8(b64)
+      return {
+        side: { text, present: true, size: bytes },
+        language: XML_WEBRESOURCE_TYPES.has(type) ? 'xml' : 'text',
+      }
+    }
+
+    // workflow: prefer clientdata (modern flow JSON), else xaml (classic).
+    const clientdata = str(row.clientdata)
+    if (clientdata) {
+      let pretty = clientdata
+      try {
+        pretty = JSON.stringify(JSON.parse(clientdata), null, 2)
+      } catch {
+        // leave as-is when it isn't valid JSON
+      }
+      return {
+        side: { text: pretty, present: true, size: clientdata.length },
+        language: 'json',
+      }
+    }
+    const xaml = str(row.xaml)
+    return {
+      side: { text: xaml, present: true, size: xaml.length },
+      language: 'xml',
+    }
+  }
+
+  async fetchContentPair(
+    ref: AlmComponentRef,
+    envA: EnvKey,
+    envB: EnvKey,
+  ): Promise<ContentPair> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockComparisonService.fetchContentPair()
+    const spec = CONTENT_SPECS[ref.kind]
+    if (!spec) throw new Error('This component type has no diffable content.')
+    const isWebResource = ref.kind === 'webresource'
+    const [a, b] = await Promise.all([
+      this.fetchContentSide(envA, spec, ref.objectId, isWebResource),
+      this.fetchContentSide(envB, spec, ref.objectId, isWebResource),
+    ])
+    return { language: a.language ?? b.language ?? 'text', a: a.side, b: b.side }
   }
 }
 

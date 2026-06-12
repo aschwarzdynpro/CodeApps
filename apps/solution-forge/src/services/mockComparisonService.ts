@@ -2,9 +2,13 @@ import type {
   AlmComponentKind,
   ComparisonResult,
   ComparisonRow,
+  ContentPair,
   DeviationKind,
   EnvComponentState,
+  EnvKey,
 } from '../types/comparison'
+import { CONTENT_DIFFABLE_KINDS } from '../types/comparison'
+import { ENVIRONMENTS } from '../config'
 
 /**
  * Mock implementation of {@link ComparisonService}: a deterministic sample
@@ -137,6 +141,87 @@ export class MockComparisonService {
       }),
     )
     return { rows, envErrors: {} }
+  }
+
+  /**
+   * Deterministic content-drift demo: the first diffable component present
+   * everywhere drifts in PROD; all other diffable components hash equal.
+   */
+  async checkContentDrift(
+    result: ComparisonResult,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<ComparisonResult> {
+    const presentEnvs = (row: ComparisonRow): EnvKey[] =>
+      ENVIRONMENTS.filter((e) => row.byEnv[e.key]?.present).map((e) => e.key)
+    const targets = result.rows.filter(
+      (r) => CONTENT_DIFFABLE_KINDS.has(r.ref.kind) && presentEnvs(r).length >= 2,
+    )
+    const driftId = targets[0]?.ref.objectId
+    const total = targets.reduce((sum, r) => sum + presentEnvs(r).length, 0)
+    let done = 0
+    onProgress?.(0, total)
+
+    const rows: ComparisonRow[] = []
+    for (const row of result.rows) {
+      if (!CONTENT_DIFFABLE_KINDS.has(row.ref.kind) || presentEnvs(row).length < 2) {
+        rows.push(row)
+        continue
+      }
+      await delay(120)
+      const byEnv = { ...row.byEnv }
+      for (const env of ENVIRONMENTS) {
+        const state = byEnv[env.key]
+        if (!state?.present) continue
+        const drifts = row.ref.objectId === driftId && env.key === 'prod'
+        byEnv[env.key] = {
+          ...state,
+          contentHash: drifts ? 'b'.repeat(64) : 'a'.repeat(64),
+          contentSize: drifts ? 2480 : 2456,
+        }
+        done++
+        onProgress?.(done, total)
+      }
+      const deviations = new Set(row.deviations)
+      if (row.ref.objectId === driftId) deviations.add('content')
+      rows.push({ ...row, byEnv, deviations: [...deviations] })
+    }
+    return { ...result, rows }
+  }
+
+  // Params omitted — the mock returns the same canned pair regardless of
+  // component or environments (matches the interface contravariantly, like
+  // the other arg-less mock methods).
+  async fetchContentPair(): Promise<ContentPair> {
+    await delay(300)
+    const base = {
+      properties: {
+        definition: {
+          triggers: { When_a_row_is_added: { type: 'OpenApiConnection' } },
+          actions: {
+            Send_notification: {
+              type: 'OpenApiConnection',
+              inputs: { parameters: { recipient: 'owner@contoso.com' } },
+            },
+          },
+        },
+      },
+    }
+    const changed = JSON.parse(JSON.stringify(base))
+    changed.properties.definition.actions.Send_notification.inputs.parameters.recipient =
+      'team@contoso.com'
+    return {
+      language: 'json',
+      a: {
+        text: JSON.stringify(base, null, 2),
+        present: true,
+        size: 2456,
+      },
+      b: {
+        text: JSON.stringify(changed, null, 2),
+        present: true,
+        size: 2480,
+      },
+    }
   }
 }
 

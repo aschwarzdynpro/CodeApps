@@ -40,8 +40,8 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       Working Solution flaggen.
 - [ ] **Housekeeping-Cockpit**: Duplikate, Orphans, leere Solutions,
       „Work Item zu / Solution offen" als Aufräum-Seite mit Direkt-Aktionen.
-- [ ] **Compare: Inhalts-Drift** via Hash (`clientdata` / `xaml` / `content`)
-      + Side-by-side-Diff.
+- [x] **Compare: Inhalts-Drift** via Hash (`clientdata` / `xaml` / `content`)
+      + Side-by-side-Diff. *(Compare → „Check content drift" + ⇄ diff)*
 
 ## DevOps-Synergien (sobald der Service Principal steht, siehe TODO.md)
 
@@ -75,3 +75,4 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 - [x] Standard-Filter Open/Tracked/Mine, Rollen-Gating Merge & Compare
 - [x] Layer Inspector: unmanaged Active-Layer über managed Komponenten in
       UAT/PROD (`msdyn_componentlayer`)
+- [x] Compare-Inhalts-Drift: Hash der Definition + Side-by-side-Diff (⇄ diff)

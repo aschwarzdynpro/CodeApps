@@ -254,6 +254,26 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 queried — the banner shows the reason. Modified dates are
                 shown for information only (solution import rewrites them).
               </li>
+              <li>
+                <strong>Check content drift</strong> runs a second pass that
+                hashes each cloud flow / workflow / business rule / web
+                resource definition (<code>clientdata</code>, <code>xaml</code>,{' '}
+                <code>content</code>) in every environment and flags{' '}
+                <span className="drift-tag drift-tag--content">
+                  Content drift
+                </span>{' '}
+                when they differ — even when status and presence match.
+                Loaded on demand because the definitions can be large.
+              </li>
+              <li>
+                <strong>⇄ diff</strong> on a diffable row opens a
+                side-by-side diff of the definition between two environments
+                (env pickers at the top). Cloud-flow JSON is pretty-printed,
+                web resources are decoded; binary web resources show only
+                their size. Possible false positive: an import can rewrite{' '}
+                <code>clientdata</code> (embedded connection info) — the diff
+                shows whether the change is real.
+              </li>
             </ul>
           </section>
 
@@ -304,6 +324,13 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                   unmanaged
                 </span>{' '}
                 component has an unmanaged layer in the target
+              </li>
+              <li>
+                <span className="drift-tag drift-tag--content">
+                  Content drift
+                </span>{' '}
+                definition differs across environments (Compare → Check
+                content drift)
               </li>
             </ul>
           </section>

@@ -63,8 +63,15 @@ Deployment-Status „Merged into Deployment Solution".
   Benutzers in der jeweiligen Umgebung). Umgebungen sind aktuell hart in
   `config.ts` hinterlegt (`ENVIRONMENTS`) — geplante Ausbaustufe ist eine
   Steuertabelle. Hinweis: `modifiedon` wird bewusst nicht als Drift-Signal
-  gewertet (Solution-Import überschreibt es); Inhalts-Hashes
-  (clientdata/xaml/content) sind die nächste Ausbaustufe.
+  gewertet (Solution-Import überschreibt es). Optionaler Zweitpass
+  **Inhalts-Drift**: hasht je Komponente die Definition
+  (`clientdata`/`xaml`/`content`) in allen Umgebungen und markiert
+  *Content drift*, wenn sie sich unterscheidet — mit **Side-by-side-Diff**
+  pro Zeile (⇄ diff) zwischen zwei wählbaren Umgebungen. Cloud-Flow-JSON
+  wird pretty-printed, Web Resources base64-dekodiert (binäre zeigen nur
+  die Größe). Wird on demand geladen, weil die Definitionen groß sein
+  können; mögliches False-Positive: ein Import kann `clientdata` umschreiben
+  (eingebettete Connection-Infos) — der Diff zeigt, ob die Änderung echt ist.
 - **Dependency Check**: Release-Solution gegen UAT/PROD prüfen
   (`RetrieveMissingDependencies`) — listet benötigte Komponenten, die weder
   in der Solution noch im Ziel vorhanden sind (Import würde scheitern),

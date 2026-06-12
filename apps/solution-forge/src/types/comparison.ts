@@ -49,14 +49,48 @@ export interface EnvComponentState {
   active?: boolean
   modifiedOn?: string
   isManaged?: boolean
+  /**
+   * SHA-256 of the component's definition (clientdata/xaml/content), set by
+   * the on-demand content-drift pass. Undefined until that pass runs;
+   * 'binary' / 'error' mark cells whose content couldn't be hashed.
+   */
+  contentHash?: string
+  /** Byte length of the hashed content. */
+  contentSize?: number
 }
 
-export type DeviationKind = 'missing' | 'state' | 'unmanaged'
+export type DeviationKind = 'missing' | 'state' | 'unmanaged' | 'content'
 
 export const DEVIATION_LABELS: Record<DeviationKind, string> = {
   missing: 'Missing',
   state: 'Status drift',
   unmanaged: 'Unmanaged in target',
+  content: 'Content drift',
+}
+
+/** Component kinds whose definition the content-drift pass can hash/diff. */
+export const CONTENT_DIFFABLE_KINDS: ReadonlySet<AlmComponentKind> = new Set<
+  AlmComponentKind
+>(['cloudflow', 'workflow', 'businessrule', 'webresource'])
+
+/** One side's decoded content for the side-by-side diff. */
+export interface ContentSide {
+  /** Decoded text, or null when absent / binary / unreadable. */
+  text: string | null
+  /** Present in this environment at all. */
+  present: boolean
+  /** Set when the content is binary (image web resources, …). */
+  binary?: boolean
+  /** Byte length of the raw content. */
+  size?: number
+}
+
+/** Result of fetching one component's content from two environments. */
+export interface ContentPair {
+  /** Display hint for the diff ('json' | 'xml' | 'text'). */
+  language: 'json' | 'xml' | 'text'
+  a: ContentSide
+  b: ContentSide
 }
 
 export interface ComparisonRow {
