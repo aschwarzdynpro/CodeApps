@@ -509,8 +509,6 @@ function App() {
             searchInComponents={searchInComponents}
             onSearchInComponentsChange={toggleComponentSearch}
             indexProgress={indexProgress}
-            groupByWorkItem={groupByWorkItem}
-            onGroupByWorkItemChange={setGroupByWorkItem}
             mineOnly={mineOnly}
             onMineOnlyChange={toggleMineOnly}
             mineUserName={
@@ -541,6 +539,13 @@ function App() {
                 : collisions
                   ? '⚠ Re-scan collisions'
                   : '⚠ Scan collisions'}
+            </button>
+            <button
+              className={`btn btn--small ${groupByWorkItem ? 'btn--toggled' : ''}`}
+              title="Group solutions sharing the same Azure DevOps work item number."
+              onClick={() => setGroupByWorkItem((v) => !v)}
+            >
+              Group by work item
             </button>
             {collisionStats &&
               !collisionProgress &&

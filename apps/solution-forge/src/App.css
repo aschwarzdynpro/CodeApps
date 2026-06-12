@@ -107,6 +107,14 @@
   padding: 5px 10px;
   font-size: 12px;
 }
+.btn--toggled {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.btn--toggled:hover {
+  filter: brightness(1.07);
+}
 .btn--danger {
   color: #b02a37;
   border-color: #f1aeb5;

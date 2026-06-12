@@ -21,9 +21,6 @@ interface Props {
   onSearchInComponentsChange: (enabled: boolean) => void
   /** [done, total] while the component index is being built. */
   indexProgress: [number, number] | null
-  /** Group the list by Azure DevOps work item number. */
-  groupByWorkItem: boolean
-  onGroupByWorkItemChange: (enabled: boolean) => void
   /** Only working solutions owned by the signed-in user. */
   mineOnly: boolean
   onMineOnlyChange: (enabled: boolean) => void
@@ -40,8 +37,6 @@ export function SolutionFilterBar({
   searchInComponents,
   onSearchInComponentsChange,
   indexProgress,
-  groupByWorkItem,
-  onGroupByWorkItemChange,
   mineOnly,
   onMineOnlyChange,
   mineUserName,
@@ -89,17 +84,6 @@ export function SolutionFilterBar({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
         />
-        <label
-          className="search-scope"
-          title="Group solutions sharing the same Azure DevOps work item number."
-        >
-          <input
-            type="checkbox"
-            checked={groupByWorkItem}
-            onChange={(e) => onGroupByWorkItemChange(e.target.checked)}
-          />
-          group by work item
-        </label>
         <label
           className="search-scope"
           title="Also match component display names (builds a one-time index across all solutions)."
