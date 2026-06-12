@@ -146,14 +146,21 @@ const WORKING_ROW_SELECT = [
 ]
 
 /**
- * Legacy rows predate the sst_type_opt field — fall back to the synced
- * DevOps work item type ("Bug", "Feature", "Product Backlog Item", …).
+ * Derive the kind from the synced DevOps work item type whenever
+ * sst_type_opt is not set explicitly:
+ *   Bug → Bug; Change Request / Feature / Product Backlog Item → Feature.
  */
 function kindFromWorkItemType(workItemType?: string): SolutionKind | undefined {
   const t = (workItemType ?? '').toLowerCase()
   if (!t) return undefined
   if (t.includes('bug')) return 'bug'
-  if (t.includes('feature') || t.includes('backlog')) return 'feature'
+  if (
+    t.includes('change request') ||
+    t === 'cr' ||
+    t.includes('feature') ||
+    t.includes('backlog')
+  )
+    return 'feature'
   return undefined
 }
 
