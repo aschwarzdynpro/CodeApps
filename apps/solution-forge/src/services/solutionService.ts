@@ -56,6 +56,11 @@ export interface SolutionService {
    * usable identity.
    */
   getCurrentUser(): Promise<{ id: string | null; name: string | null }>
+  /** Updates sst_type_opt on an existing working-solution record. */
+  updateSolutionType(
+    recordId: string,
+    kind: TrackSolutionInput['kind'],
+  ): Promise<void>
   /** Components contained in one solution. */
   listComponents(solutionId: string): Promise<SolutionComponentInfo[]>
   /**

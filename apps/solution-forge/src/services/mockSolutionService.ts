@@ -126,6 +126,16 @@ export class MockSolutionService {
     return { id: 'u-0001', name: 'Marie Curie' }
   }
 
+  async updateSolutionType(
+    recordId: string,
+    kind: TrackSolutionInput['kind'],
+  ): Promise<void> {
+    await delay(250)
+    const solution = this.solutions.find((s) => s.recordId === recordId)
+    if (!solution) throw new Error('Unknown working-solution record.')
+    solution.kind = kind
+  }
+
   async deleteSolution(solution: WorkingSolution): Promise<void> {
     await delay(300)
     this.solutions = this.solutions.filter(

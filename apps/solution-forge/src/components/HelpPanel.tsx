@@ -100,6 +100,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 the <strong>Open in Maker Portal</strong> deep link.
               </li>
               <li>
+                For tracked entries the type badge has a <strong>✎</strong>{' '}
+                button — change Feature / Bug / Release there; it updates
+                the record's type choice.
+              </li>
+              <li>
                 <strong>Components</strong> grouped by type in collapsible
                 sections — display names come from the same source the maker
                 portal uses. Loaded once per solution;{' '}

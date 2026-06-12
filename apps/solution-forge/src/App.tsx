@@ -572,6 +572,11 @@ function App() {
                 collisions={collisions?.get(selected.id) ?? null}
                 onTrack={handleTrack}
                 onDelete={(s) => setConfirmDelete(s)}
+                onChangeType={async (s, kind) => {
+                  if (!s.recordId) return
+                  await solutionService.updateSolutionType(s.recordId, kind)
+                  reload()
+                }}
                 workItem={
                   selected.devOpsId
                     ? (workItems.get(selected.devOpsId) ?? null)

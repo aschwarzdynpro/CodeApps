@@ -523,6 +523,28 @@ export class DataverseSolutionService implements SolutionService {
     return rowResult.data?.ssid_workingsolutionid
   }
 
+  /** Change the Feature / Bug / Release classification of a record. */
+  async updateSolutionType(
+    recordId: string,
+    kind: TrackSolutionInput['kind'],
+  ): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.updateSolutionType(recordId, kind)
+    const result = await Ssid_workingsolutionsService.update(
+      recordId,
+      {
+        sst_type_opt: TYPE_OPT_BY_KIND[kind],
+      } as unknown as Partial<
+        Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+      >,
+    )
+    if (result && result.success === false) {
+      console.warn('[solutions] type update failed:', result)
+      throw new Error('Updating the type failed.')
+    }
+  }
+
   /** Attach a presentation record to an already existing solution. */
   async trackSolution(input: TrackSolutionInput): Promise<void> {
     const mode = await powerModeReady

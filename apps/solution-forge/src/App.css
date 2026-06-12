@@ -395,6 +395,31 @@
   margin-bottom: 10px;
 }
 
+/* Inline type editor */
+.type-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.type-edit-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 2px 4px;
+  line-height: 1;
+}
+.type-edit-btn:hover {
+  color: var(--brand);
+}
+.type-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+}
+
 /* Delete confirmation + undo */
 .confirm-delete-target {
   margin: 4px 0 12px;
