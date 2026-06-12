@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from 'react'
 import { getContext } from '@microsoft/power-apps/app'
+import { FALLBACK_DATAVERSE_ORG_URL } from './config'
 
 /**
  * PowerProvider detects whether the app is running inside a Power Apps host
@@ -73,7 +74,17 @@ export function PowerProvider({ children }: { children: ReactNode }) {
           new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
         ])
         if (ctx?.app?.appId) mode = 'power-platform'
-        orgUrl = ctx?.app?.dataverseOrgUrl
+        // dataverseOrgUrl ist laut SDK optional — nicht jeder Host befüllt
+        // es schon. Im Power-Apps-Host auf die konfigurierte URL zurückfallen,
+        // damit die Datensatz-Deep-Links der Listen funktionieren.
+        orgUrl =
+          ctx?.app?.dataverseOrgUrl ??
+          (mode === 'power-platform' ? FALLBACK_DATAVERSE_ORG_URL : undefined)
+        if (mode === 'power-platform') {
+          console.info(
+            `[sales] Org-URL für Deep-Links: ${orgUrl} (${ctx?.app?.dataverseOrgUrl ? 'aus App-Kontext' : 'Fallback aus config.ts'})`,
+          )
+        }
       } catch {
         // Bridge threw — treat as standalone, use mock.
       }
