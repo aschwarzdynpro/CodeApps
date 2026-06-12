@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<savedqueries xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <savedquery>
+    <IsCustomizable>1</IsCustomizable>
+    <CanBeDeleted>1</CanBeDeleted>
+    <isquickfindquery>0</isquickfindquery>
+    <isprivate>0</isprivate>
+    <isdefault>0</isdefault>
+    <savedqueryid>{e9763fe0-7453-f111-bec7-000d3a49e410}</savedqueryid>
+    <layoutxml>
+      <grid name="resultset" jump="name" select="1" icon="1" preview="1">
+        <row name="result" id="opportunityid">
+          <cell name="wal_opportunitynumber_int" width="158" />
+          <cell name="name" width="150" />
+          <cell name="wal_city_txt" width="100" />
+          <cell name="parentaccountid" width="144" />
+          <cell name="parentcontactid" width="100" />
+          <cell name="wal_decisiondate_dat" width="117" />
+          <cell name="estimatedvalue" width="100" />
+          <cell name="statuscode" width="119" />
+          <cell name="wal_processstage_opt" width="118" />
+          <cell name="statecode" width="100" />
+          <cell name="msdyn_forecastcategory" width="140" />
+          <cell name="wal_areasalesmanager_id" width="154" />
+          <cell name="wal_keyaccountmanager_id" width="168" />
+          <cell name="ownerid" width="100" />
+          <cell name="createdon" width="105" />
+        </row>
+      </grid>
+    </layoutxml>
+    <querytype>0</querytype>
+    <fetchxml>
+      <fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="true">
+        <entity name="opportunity">
+          <attribute name="name" />
+          <attribute name="estimatedvalue" />
+          <attribute name="parentcontactid" />
+          <attribute name="parentaccountid" />
+          <attribute name="opportunityid" />
+          <attribute name="wal_city_txt" />
+          <attribute name="wal_decisiondate_dat" />
+          <attribute name="statuscode" />
+          <attribute name="msdyn_forecastcategory" />
+          <attribute name="wal_areasalesmanager_id" />
+          <attribute name="wal_keyaccountmanager_id" />
+          <attribute name="ownerid" />
+          <attribute name="wal_processstage_opt" />
+          <attribute name="statecode" />
+          <attribute name="createdon" />
+          <attribute name="wal_opportunitynumber_int" />
+          <order attribute="name" descending="false" />
+          <filter type="and">
+            <condition attribute="statecode" operator="eq" value="0" />
+            <condition attribute="wal_areasalesmanager_id" operator="eq-userid" />
+            <filter type="or">
+              <condition attribute="wal_decisiondate_dat" operator="next-x-months" value="2" />
+              <condition attribute="wal_decisiondate_dat" operator="this-month" />
+              <condition attribute="wal_decisiondate_dat" operator="olderthan-x-days" value="1" />
+            </filter>
+          </filter>
+        </entity>
+      </fetch>
+    </fetchxml>
+    <IntroducedVersion>0.0.0.1</IntroducedVersion>
+    <LocalizedNames>
+      <LocalizedName description="Offene Verkaufschancen bei denen ich GVL bin mit Entscheidungsdatum in den nächsten 2 Monaten oder früher" languagecode="1031" />
+      <LocalizedName description="Offene Verkaufschancen bei denen ich GVL bin mit Entscheidungsdatum in den nächsten 2 Monaten oder früher" languagecode="1033" />
+    </LocalizedNames>
+  </savedquery>
+</savedqueries>

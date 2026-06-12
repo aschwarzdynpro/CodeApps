@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<savedqueries xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <savedquery>
+    <IsCustomizable>1</IsCustomizable>
+    <CanBeDeleted>1</CanBeDeleted>
+    <isquickfindquery>0</isquickfindquery>
+    <isprivate>0</isprivate>
+    <isdefault>0</isdefault>
+    <savedqueryid>{010f4d6c-7753-f111-bec7-000d3a2a79f2}</savedqueryid>
+    <layoutxml>
+      <grid name="resultset" jump="wal_name_txt" select="1" icon="1" preview="1">
+        <row name="result" id="wal_projectid">
+          <cell name="wal_projectsnumber_int" width="130" />
+          <cell name="wal_projectdesignation_txt" width="148" />
+          <cell name="wal_inquiringfirm_id" width="172" />
+          <cell name="wal_endcustomer_id" width="121" />
+          <cell name="wal_city_txt" width="100" />
+          <cell name="wal_projecttype_opt" width="111" />
+          <cell name="wal_followupdate_dat" width="126" />
+          <cell name="wal_decisiondate_dat" width="117" />
+          <cell name="wal_estimateddeliverydate_dat" width="138" />
+          <cell name="wal_projectpotential_cur" width="133" />
+          <cell name="wal_processstageproject_opt" width="118" />
+          <cell name="statuscode" width="119" />
+          <cell name="wal_pspelement_txt" width="114" />
+          <cell name="wal_areasalesmanager_id" width="154" />
+          <cell name="wal_keyaccountmanager_id" width="168" />
+          <cell name="wal_projectmanager_id" width="157" />
+          <cell name="ownerid" width="100" />
+          <cell name="wal_projectregistration_bol" width="226" />
+          <cell name="createdon" width="105" />
+        </row>
+      </grid>
+    </layoutxml>
+    <querytype>0</querytype>
+    <fetchxml>
+      <fetch version="1.0" mapping="logical" distinct="true">
+        <entity name="wal_project">
+          <attribute name="wal_projectid" />
+          <attribute name="wal_projectsnumber_int" />
+          <attribute name="wal_projectdesignation_txt" />
+          <attribute name="wal_inquiringfirm_id" />
+          <attribute name="wal_endcustomer_id" />
+          <attribute name="wal_city_txt" />
+          <attribute name="wal_decisiondate_dat" />
+          <attribute name="wal_estimateddeliverydate_dat" />
+          <attribute name="wal_projectpotential_cur" />
+          <attribute name="statuscode" />
+          <attribute name="wal_pspelement_txt" />
+          <attribute name="wal_areasalesmanager_id" />
+          <attribute name="wal_keyaccountmanager_id" />
+          <attribute name="wal_projectmanager_id" />
+          <attribute name="ownerid" />
+          <attribute name="wal_projectregistration_bol" />
+          <attribute name="wal_processstageproject_opt" />
+          <attribute name="wal_projecttype_opt" />
+          <attribute name="createdon" />
+          <order attribute="wal_projectsnumber_int" descending="false" />
+          <filter type="and">
+            <condition attribute="statuscode" operator="in">
+              <value>956980001</value>
+              <value>956980002</value>
+              <value>956980003</value>
+            </condition>
+            <condition attribute="wal_followupdate_dat" operator="this-month" />
+          </filter>
+          <link-entity name="connection" alias="aa" link-type="inner" from="record1id" to="wal_projectid">
+            <filter type="and">
+              <condition attribute="record2id" operator="eq-userid" />
+            </filter>
+          </link-entity>
+          <attribute name="wal_followupdate_dat" />
+        </entity>
+      </fetch>
+    </fetchxml>
+    <IntroducedVersion>0.0.0.1</IntroducedVersion>
+    <LocalizedNames>
+      <LocalizedName description="Alle offenen (Neu, Vorphase, In Bearbeitung) Projekte, bei denen ich im Projektteam als GVL bin mit Nachfasstermin (BPF) diesen Monat" languagecode="1031" />
+      <LocalizedName description="Alle offenen (Neu, Vorphase, In Bearbeitung) Projekte, bei denen ich im Projektteam als GVL bin mit Nachfasstermin (BPF) diesen Monat" languagecode="1033" />
+    </LocalizedNames>
+  </savedquery>
+</savedqueries>

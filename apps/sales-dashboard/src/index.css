@@ -1,0 +1,110 @@
+/* Design-Tokens & Basis — modernes, Fluent-angelehntes Erscheinungsbild
+   mit hellem und dunklem Design (Umschalter im Kopfbereich). */
+
+:root {
+  --bg: #eef1f6;
+  --surface: #ffffff;
+  --surface-2: #f6f8fb;
+  --text: #1a2433;
+  --text-muted: #5d6b7e;
+  --border: #e2e8f0;
+  --accent: #2e7cd6;
+  --rest-color: #9aa6b5;
+  --shadow:
+    0 1px 2px rgb(16 30 54 / 0.05),
+    0 6px 20px rgb(16 30 54 / 0.06);
+  --radius: 14px;
+
+  /* Badge-/Diagramm-Grundtöne */
+  --blue: #2e7cd6;
+  --green: #2f9e57;
+  --red: #d6452e;
+  --amber: #b97a13;
+  --violet: #8e5cd9;
+  --gray: #64748b;
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #0e141f;
+  --surface: #161e2d;
+  --surface-2: #1c2638;
+  --text: #e8edf4;
+  --text-muted: #97a4b8;
+  --border: #283450;
+  --rest-color: #6b7891;
+  --shadow:
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 8px 24px rgb(0 0 0 / 0.35);
+
+  --blue: #6aa6e8;
+  --green: #5dc389;
+  --red: #ef8472;
+  --amber: #ddab4f;
+  --violet: #b294ea;
+  --gray: #94a3b8;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    'Segoe UI Variable Text',
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    Roboto,
+    'Helvetica Neue',
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+select,
+input {
+  font: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-muted) 35%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

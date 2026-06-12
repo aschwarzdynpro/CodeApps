@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<RibbonDiffXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <CustomActions>
+    <CustomAction Id="wal.opportunity.button.form.convertToInquiry.CustomAction" Location="Mscrm.Form.opportunity.MainTab.Actions.Controls._children" Sequence="5">
+      <CommandUIDefinition>
+        <Button Alt="$LocLabels:wal.opportunity.button.form.convertToInquiry.Alt" Command="wal.opportunity.command.form.convertToInquiry" Id="wal.opportunity.button.form.convertToInquiry" LabelText="$LocLabels:wal.opportunity.button.form.convertToInquiry.LabelText" Sequence="5" TemplateAlias="o1" ToolTipTitle="$LocLabels:wal.opportunity.button.form.convertToInquiry.ToolTipTitle" ToolTipDescription="$LocLabels:wal.opportunity.button.form.convertToInquiry.ToolTipDescription" ModernImage="Convert" />
+      </CommandUIDefinition>
+    </CustomAction>
+  </CustomActions>
+  <Templates>
+    <RibbonTemplates Id="Mscrm.Templates"></RibbonTemplates>
+  </Templates>
+  <CommandDefinitions>
+    <CommandDefinition Id="wal.opportunity.command.form.convertToInquiry">
+      <EnableRules />
+      <DisplayRules>
+        <DisplayRule Id="wal.opportunity.displayRule.form.isExisting" />
+      </DisplayRules>
+      <Actions>
+        <JavaScriptFunction FunctionName="WAL.Opportunity.Ribbon.Form.qualify" Library="$webresource:wal_/Scripts/opportunity.ribbon.js">
+          <CrmParameter Value="FirstPrimaryItemId" />
+          <CrmParameter Value="PrimaryControl" />
+        </JavaScriptFunction>
+      </Actions>
+    </CommandDefinition>
+  </CommandDefinitions>
+  <RuleDefinitions>
+    <TabDisplayRules />
+    <DisplayRules>
+      <DisplayRule Id="wal.opportunity.displayRule.form.isExisting">
+        <FormStateRule State="Existing" Default="false" />
+      </DisplayRule>
+    </DisplayRules>
+    <EnableRules />
+  </RuleDefinitions>
+  <LocLabels>
+    <LocLabel Id="wal.opportunity.button.form.convertToInquiry.Alt">
+      <Titles>
+        <Title description="Convert to Project Inquiry" languagecode="1033" />
+        <Title description="Konvertieren in Projektanfrage" languagecode="1031" />
+      </Titles>
+    </LocLabel>
+    <LocLabel Id="wal.opportunity.button.form.convertToInquiry.LabelText">
+      <Titles>
+        <Title description="Convert to Project Inquiry" languagecode="1033" />
+        <Title description="Konvertieren in Projektanfrage" languagecode="1031" />
+      </Titles>
+    </LocLabel>
+    <LocLabel Id="wal.opportunity.button.form.convertToInquiry.ToolTipDescription">
+      <Titles>
+        <Title description="Converts the opportunity to a project inquiry." languagecode="1033" />
+        <Title description="Konvertiert die Verkaufschance in eine Projektanfrage und deaktiviert die Verkaufschance dabei." languagecode="1031" />
+      </Titles>
+    </LocLabel>
+    <LocLabel Id="wal.opportunity.button.form.convertToInquiry.ToolTipTitle">
+      <Titles>
+        <Title description="Convert to Project Inquiry" languagecode="1033" />
+        <Title description="Konvertieren in Projektanfrage" languagecode="1031" />
+      </Titles>
+    </LocLabel>
+  </LocLabels>
+</RibbonDiffXml>

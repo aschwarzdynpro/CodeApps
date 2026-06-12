@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<savedqueries xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <savedquery>
+    <IsCustomizable>1</IsCustomizable>
+    <CanBeDeleted>1</CanBeDeleted>
+    <isquickfindquery>0</isquickfindquery>
+    <isprivate>0</isprivate>
+    <isdefault>0</isdefault>
+    <savedqueryid>{7d37af40-2054-f111-bec7-000d3a49ef0f}</savedqueryid>
+    <layoutxml>
+      <grid name="resultset" jump="subject" select="1" icon="1" preview="1">
+        <row name="result" id="activityid" multiobjectidfield="activitytypecode">
+          <cell name="subject" width="180" />
+          <cell name="regardingobjectid" width="110" />
+          <cell name="activitytypecode" width="100" />
+          <cell name="statecode" width="100" />
+          <cell name="prioritycode" width="100" />
+          <cell name="scheduledstart" width="140" />
+          <cell name="scheduledend" width="140" />
+          <cell name="instancetypecode" width="100" ishidden="1" />
+          <cell name="community" width="100" ishidden="1" />
+          <cell name="ownerid" width="120" />
+          <cell name="createdon" width="114" />
+          <cell name="createdby" width="104" />
+        </row>
+      </grid>
+    </layoutxml>
+    <querytype>0</querytype>
+    <fetchxml>
+      <fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="true">
+        <entity name="activitypointer">
+          <attribute name="subject" />
+          <attribute name="scheduledstart" />
+          <attribute name="regardingobjectid" />
+          <attribute name="prioritycode" />
+          <attribute name="scheduledend" />
+          <attribute name="activitytypecode" />
+          <attribute name="instancetypecode" />
+          <attribute name="community" />
+          <attribute name="senton" />
+          <attribute name="statuscode" />
+          <filter type="and">
+            <filter type="or">
+              <condition attribute="scheduledend" operator="this-month" />
+              <condition attribute="scheduledend" operator="last-month" />
+              <condition attribute="scheduledend" operator="null" />
+            </filter>
+          </filter>
+          <link-entity name="activityparty" from="activityid" to="activityid" alias="aa" link-type="inner">
+            <filter type="and">
+              <condition attribute="partyid" operator="eq-userid" />
+            </filter>
+          </link-entity>
+          <link-entity name="email" from="activityid" to="activityid" alias="email_engagement" link-type="outer" visible="false">
+            <attribute name="isemailfollowed" />
+            <attribute name="lastopenedtime" />
+            <attribute name="delayedemailsendtime" />
+          </link-entity>
+          <attribute name="ownerid" />
+          <attribute name="createdby" />
+          <attribute name="statecode" />
+          <attribute name="activityid" />
+          <attribute name="createdon" />
+          <order attribute="scheduledend" descending="false" />
+        </entity>
+      </fetch>
+    </fetchxml>
+    <IntroducedVersion>0.0.0.1</IntroducedVersion>
+    <LocalizedNames>
+      <LocalizedName description="Meine offenen Aktivitäten dieser und letzter Monat" languagecode="1031" />
+      <LocalizedName description="Meine Aktivitäten dieser und letzter Monat" languagecode="1033" />
+    </LocalizedNames>
+  </savedquery>
+</savedqueries>
