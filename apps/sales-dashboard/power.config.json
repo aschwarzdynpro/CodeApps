@@ -1,0 +1,52 @@
+{
+  "version": "1.0",
+  "appId": "7c15eecc-c0ef-4f56-ace8-45f0f90dc584",
+  "appDisplayName": "Sales Dashboard GVL",
+  "region": "prod",
+  "environmentId": "33146d71-4fe8-e1d7-af2f-f80fe968fc47",
+  "description": "Modernes Sales Dashboard (GVL) - Code-App-Fassung des Dashboards aus der Legacy-Solution",
+  "buildPath": "dist",
+  "buildEntryPoint": "index.html",
+  "localAppUrl": "http://localhost:3000",
+  "logoPath": "Default",
+  "connectionReferences": {},
+  "databaseReferences": {
+    "default.cds": {
+      "dataSources": {
+        "activities": {
+          "entitySetName": "activitypointers",
+          "logicalName": "activitypointer"
+        },
+        "leads": {
+          "entitySetName": "leads",
+          "logicalName": "lead"
+        },
+        "opportunities": {
+          "entitySetName": "opportunities",
+          "logicalName": "opportunity"
+        },
+        "projects": {
+          "entitySetName": "wal_projects",
+          "logicalName": "wal_project"
+        },
+        "quotes": {
+          "entitySetName": "quotes",
+          "logicalName": "quote"
+        },
+        "orders": {
+          "entitySetName": "salesorders",
+          "logicalName": "salesorder"
+        },
+        "users": {
+          "entitySetName": "systemusers",
+          "logicalName": "systemuser"
+        },
+        "accounts": {
+          "entitySetName": "accounts",
+          "logicalName": "account"
+        }
+      },
+      "environmentVariableName": ""
+    }
+  }
+}

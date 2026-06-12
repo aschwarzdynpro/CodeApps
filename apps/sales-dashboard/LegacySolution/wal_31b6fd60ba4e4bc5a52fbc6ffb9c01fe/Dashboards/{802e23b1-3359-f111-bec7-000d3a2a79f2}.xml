@@ -1,0 +1,223 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Dashboard xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <LocalizedNames>
+    <LocalizedName description="Dashboard GVL" languagecode="1031" />
+    <LocalizedName description="Dashboard GVL" languagecode="1033" />
+  </LocalizedNames>
+  <FormId>{802e23b1-3359-f111-bec7-000d3a2a79f2}</FormId>
+  <IsCustomizable>1</IsCustomizable>
+  <IsDefault>0</IsDefault>
+  <FormXml>
+    <forms type="dashboard">
+      <form>
+        <tabs>
+          <tab showlabel="false" verticallayout="true" id="{a53c67a6-2b5d-468c-ae60-0913eee5dec9}">
+            <labels>
+              <label description="Registerkarte" languagecode="1031" />
+              <label description="Registerkarte" languagecode="1033" />
+            </labels>
+            <columns>
+              <column width="100%">
+                <sections>
+                  <section showlabel="false" showbar="false" columns="111" id="{d1234880-a137-4c43-9f8a-5a75958a8326}">
+                    <labels>
+                      <label description="Abschnitt" languagecode="1031" />
+                      <label description="Abschnitt" languagecode="1033" />
+                    </labels>
+                    <rows>
+                      <row>
+                        <cell colspan="1" rowspan="12" showlabel="false" id="{5d1e69b3-34dd-4a97-ba2b-7b1fdb813b2e}" auto="false">
+                          <labels>
+                            <label description="Activities" languagecode="1033" />
+                            <label description="Aktivität" languagecode="1031" />
+                            <label description="Activités" languagecode="1036" />
+                          </labels>
+                          <control id="ctrl_Activity" uniqueid="{eb62484e-55db-6479-b0b8-759932191013}" classid="{E7A81278-8635-4d9e-8D4D-59480B391C5B}" indicationOfSubgrid="true">
+                            <parameters>
+                              <TargetEntityType>activitypointer</TargetEntityType>
+                              <ChartGridMode>Chart</ChartGridMode>
+                              <EnableQuickFind>false</EnableQuickFind>
+                              <EnableViewPicker>true</EnableViewPicker>
+                              <EnableJumpBar>false</EnableJumpBar>
+                              <RecordsPerPage>12</RecordsPerPage>
+                              <HeaderColorCode>#F3F3F3</HeaderColorCode>
+                              <ViewId>{7D37AF40-2054-F111-BEC7-000D3A49EF0F}</ViewId>
+                              <IsUserView>false</IsUserView>
+                              <ViewIds>{7D37AF40-2054-F111-BEC7-000D3A49EF0F},{246D8FF2-2054-F111-BEC7-000D3A49E410}</ViewIds>
+                              <AutoExpand>Fixed</AutoExpand>
+                              <VisualizationId>{8B9D1CEF-F658-F111-BEC7-000D3A2A79F2}</VisualizationId>
+                              <IsUserChart>false</IsUserChart>
+                              <EnableChartPicker>true</EnableChartPicker>
+                              <RelationshipName />
+                            </parameters>
+                          </control>
+                        </cell>
+                        <cell colspan="1" rowspan="12" showlabel="false" id="{e72b95f4-8558-43a6-92bc-8d21f91d54da}" auto="false">
+                          <labels>
+                            <label description="Activities" languagecode="1033" />
+                            <label description="Lead" languagecode="1031" />
+                            <label description="Activités" languagecode="1036" />
+                          </labels>
+                          <control id="ctrl_Lead" uniqueid="{1306d9d1-5368-2755-ada0-533300b7bea6}" classid="{E7A81278-8635-4d9e-8D4D-59480B391C5B}" indicationOfSubgrid="true">
+                            <parameters>
+                              <TargetEntityType>lead</TargetEntityType>
+                              <ChartGridMode>Chart</ChartGridMode>
+                              <EnableQuickFind>false</EnableQuickFind>
+                              <EnableViewPicker>true</EnableViewPicker>
+                              <EnableJumpBar>false</EnableJumpBar>
+                              <RecordsPerPage>12</RecordsPerPage>
+                              <HeaderColorCode>#F3F3F3</HeaderColorCode>
+                              <ViewId>{FEB70A12-7253-F111-BEC7-000D3A49EF0F}</ViewId>
+                              <IsUserView>false</IsUserView>
+                              <ViewIds>{FEB70A12-7253-F111-BEC7-000D3A49EF0F}</ViewIds>
+                              <AutoExpand>Fixed</AutoExpand>
+                              <VisualizationId>{B3BE506B-2654-F111-BEC7-000D3A2A79F2}</VisualizationId>
+                              <IsUserChart>false</IsUserChart>
+                              <EnableChartPicker>false</EnableChartPicker>
+                              <RelationshipName />
+                            </parameters>
+                          </control>
+                        </cell>
+                        <cell colspan="1" rowspan="12" showlabel="false" id="{76157200-ea9c-49f8-8cab-35ec78042480}" auto="false">
+                          <labels>
+                            <label description="Activities" languagecode="1033" />
+                            <label description="Verkaufschance" languagecode="1031" />
+                            <label description="Activités" languagecode="1036" />
+                          </labels>
+                          <control id="ctrl_Opportunity" uniqueid="{d5361e91-65db-3d29-4274-8ec03e57b87d}" classid="{E7A81278-8635-4d9e-8D4D-59480B391C5B}" indicationOfSubgrid="true">
+                            <parameters>
+                              <TargetEntityType>opportunity</TargetEntityType>
+                              <ChartGridMode>Chart</ChartGridMode>
+                              <EnableQuickFind>false</EnableQuickFind>
+                              <EnableViewPicker>true</EnableViewPicker>
+                              <EnableJumpBar>false</EnableJumpBar>
+                              <RecordsPerPage>12</RecordsPerPage>
+                              <HeaderColorCode>#F3F3F3</HeaderColorCode>
+                              <ViewId>{E9763FE0-7453-F111-BEC7-000D3A49E410}</ViewId>
+                              <IsUserView>false</IsUserView>
+                              <ViewIds>{E9763FE0-7453-F111-BEC7-000D3A49E410}</ViewIds>
+                              <AutoExpand>Fixed</AutoExpand>
+                              <VisualizationId>{976D4EB5-F158-F111-BEC7-000D3A2A79F2}</VisualizationId>
+                              <IsUserChart>false</IsUserChart>
+                              <EnableChartPicker>false</EnableChartPicker>
+                              <RelationshipName />
+                            </parameters>
+                          </control>
+                        </cell>
+                      </row>
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row>
+                        <cell colspan="1" rowspan="12" showlabel="false" id="{6c8845ba-2007-45a6-99c8-a55e7669d0d4}" auto="false">
+                          <labels>
+                            <label description="Activities" languagecode="1033" />
+                            <label description="Projekt" languagecode="1031" />
+                            <label description="Activités" languagecode="1036" />
+                          </labels>
+                          <control id="ctrl_Project" uniqueid="{b14cbbbd-d9a8-c34d-b142-858502273419}" classid="{E7A81278-8635-4d9e-8D4D-59480B391C5B}" indicationOfSubgrid="true">
+                            <parameters>
+                              <TargetEntityType>wal_project</TargetEntityType>
+                              <ChartGridMode>Chart</ChartGridMode>
+                              <EnableQuickFind>false</EnableQuickFind>
+                              <EnableViewPicker>true</EnableViewPicker>
+                              <EnableJumpBar>false</EnableJumpBar>
+                              <RecordsPerPage>12</RecordsPerPage>
+                              <HeaderColorCode>#F3F3F3</HeaderColorCode>
+                              <ViewId>{2F3877F0-7653-F111-BEC7-000D3A49E1DF}</ViewId>
+                              <IsUserView>false</IsUserView>
+                              <ViewIds>{84BC1703-7853-F111-BEC7-000D3A49E410},{2F3877F0-7653-F111-BEC7-000D3A49E1DF},{387D1B0B-7753-F111-BEC7-000D3A49E410},{010F4D6C-7753-F111-BEC7-000D3A2A79F2},{B686F4C3-7753-F111-BEC7-000D3A49E410},{FEBB5F48-7853-F111-BEC7-000D3A49EF0F}</ViewIds>
+                              <AutoExpand>Fixed</AutoExpand>
+                              <VisualizationId>{255E1637-F658-F111-BEC7-000D3A2A79F2}</VisualizationId>
+                              <IsUserChart>false</IsUserChart>
+                              <EnableChartPicker>true</EnableChartPicker>
+                              <RelationshipName />
+                            </parameters>
+                          </control>
+                        </cell>
+                        <cell colspan="1" rowspan="12" showlabel="false" id="{8594d03c-63f2-4cfa-ad17-afdba9c97a42}" auto="false">
+                          <labels>
+                            <label description="Angebote" languagecode="1033" />
+                            <label description="Angebote" languagecode="1031" />
+                            <label description="Activités" languagecode="1036" />
+                          </labels>
+                          <control id="Componentf93e503" uniqueid="{cba1aad4-59a0-c06e-e2b1-4e4b3a8c0676}" classid="{E7A81278-8635-4d9e-8D4D-59480B391C5B}" indicationOfSubgrid="true">
+                            <parameters>
+                              <TargetEntityType>quote</TargetEntityType>
+                              <ChartGridMode>Chart</ChartGridMode>
+                              <EnableQuickFind>true</EnableQuickFind>
+                              <EnableViewPicker>true</EnableViewPicker>
+                              <EnableJumpBar>true</EnableJumpBar>
+                              <RecordsPerPage>12</RecordsPerPage>
+                              <HeaderColorCode>#F3F3F3</HeaderColorCode>
+                              <ViewId>{695D2EB7-2154-F111-BEC7-000D3A2A79F2}</ViewId>
+                              <IsUserView>false</IsUserView>
+                              <ViewIds>{6B669215-3A66-F111-A825-000D3A49569A},{8DE191D3-2354-F111-BEC7-000D3A49EF0F},{695D2EB7-2154-F111-BEC7-000D3A2A79F2}</ViewIds>
+                              <AutoExpand>Fixed</AutoExpand>
+                              <VisualizationId>{79BFEEF7-3A66-F111-A825-70A8A536D97F}</VisualizationId>
+                              <IsUserChart>false</IsUserChart>
+                              <EnableChartPicker>false</EnableChartPicker>
+                              <RelationshipName />
+                            </parameters>
+                          </control>
+                        </cell>
+                        <cell colspan="1" rowspan="12" showlabel="false" id="{bc8651e6-8145-4d4a-98a7-dd903889e0a8}" auto="false">
+                          <labels>
+                            <label description="Aufträge" languagecode="1033" />
+                            <label description="Aufträge" languagecode="1031" />
+                            <label description="Activités" languagecode="1036" />
+                          </labels>
+                          <control id="Componentb7f09ed" uniqueid="{859cd95c-143b-1ebd-e7b0-e2e01b903718}" classid="{E7A81278-8635-4d9e-8D4D-59480B391C5B}" indicationOfSubgrid="true">
+                            <parameters>
+                              <TargetEntityType>salesorder</TargetEntityType>
+                              <ChartGridMode>Chart</ChartGridMode>
+                              <EnableQuickFind>true</EnableQuickFind>
+                              <EnableViewPicker>true</EnableViewPicker>
+                              <EnableJumpBar>true</EnableJumpBar>
+                              <RecordsPerPage>12</RecordsPerPage>
+                              <HeaderColorCode>#F3F3F3</HeaderColorCode>
+                              <ViewId>{4768C466-3C66-F111-A825-7CED8D1558DA}</ViewId>
+                              <IsUserView>false</IsUserView>
+                              <ViewIds>{B576320B-3D66-F111-A825-7CED8D1558DA},{4768C466-3C66-F111-A825-7CED8D1558DA},{BC29F750-12A0-4EB5-AC08-698EF528F921}</ViewIds>
+                              <AutoExpand>Fixed</AutoExpand>
+                              <VisualizationId>{36552794-063E-E711-80E1-00155D871BB4}</VisualizationId>
+                              <IsUserChart>false</IsUserChart>
+                              <EnableChartPicker>true</EnableChartPicker>
+                              <RelationshipName />
+                            </parameters>
+                          </control>
+                        </cell>
+                      </row>
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                      <row />
+                    </rows>
+                  </section>
+                </sections>
+              </column>
+            </columns>
+          </tab>
+        </tabs>
+        <controlDescriptions />
+      </form>
+    </forms>
+  </FormXml>
+  <IntroducedVersion>0.0.0.1</IntroducedVersion>
+  <IsTabletEnabled>0</IsTabletEnabled>
+</Dashboard>

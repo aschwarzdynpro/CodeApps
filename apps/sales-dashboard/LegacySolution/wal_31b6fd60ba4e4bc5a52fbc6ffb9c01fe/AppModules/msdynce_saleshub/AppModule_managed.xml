@@ -1,0 +1,410 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<AppModule>
+  <UniqueName>msdynce_saleshub</UniqueName>
+  <IntroducedVersion>9.1.0.0</IntroducedVersion>
+  <WebResourceId>7257d4d7-4981-e611-80d3-00155d42a122</WebResourceId>
+  <OptimizedFor></OptimizedFor>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+  <FormFactor>1</FormFactor>
+  <ClientType>4</ClientType>
+  <NavigationType>0</NavigationType>
+  <AppModuleComponents>
+    <AppModuleComponent type="1" schemaName="activitymimeattachment" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="annotation" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="bookableresourcebooking" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="msdyn_paymentterm" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="msdyn_playbookcategory" solutionaction="Removed" />
+    <AppModuleComponent type="1" schemaName="msdyn_scheduleboardsetting" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="msdyn_workorder" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="msdyn_workorderproduct" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="msdyn_workorderservicetask" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="msdynmkt_topic" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="pricelevel" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="queue" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_academictitle" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_accessgate" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_accountingarea" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_country" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_customerident" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_deliveryterm" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_deviatinglightplanningrecipients" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_deviatingquoterecipient" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_ightplanning" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_industrycode" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_inquiringfirm" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_inquiringfirms" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_installationproduct" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_language" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_leadtoopportunitysalesprocess_bpf" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_ltx" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_ltxcontactperson" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_marketingleadassignment" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_masterdata_changerequest" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_opportunitysalesprocess_bpf" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_planningarea" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_planningstandard" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_planningstandardareas" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_postalcoderange" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_product_revenue" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_productfeature" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_productlist" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_project" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_projecthub" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_projectinquiry" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_projectinquirytoprojectprocess_bpf" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_projectline" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_projectlog" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_projectprocess_bpf" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_projecttask" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_reflectionvalues" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_salesoffice" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_salesorganization" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_salesorganizationproductproperties" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_sample" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_sampleproduct" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_sellergroup" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_shippingmethod" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_topic" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_tradeshow" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_tradeshowproduct" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_tradeshowproductonlead" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_tradeshowproductontradeshow" solutionaction="Added" />
+    <AppModuleComponent type="1" schemaName="wal_tradingclass" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000000666000}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000000666100}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000000666300}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000000666400}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000000666700}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000000666800}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000000666900}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000000666a00}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000000666b00}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001001}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001002}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001003}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001004}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001005}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001006}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001007}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001008}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001009}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001031}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001033}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001110}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001200}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001203}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001206}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001210}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001899}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001900}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001901}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001902}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010001903}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010003000}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010003001}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010003002}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010003006}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{00000000-0000-0000-00aa-000010013100}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{e0982ca2-2744-ef11-a316-000d3a20d225}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{c976744f-eb5e-ef11-bfe3-000d3a20d225}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{ed26129b-286c-ef11-bfe3-000d3a20d225}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{99b08fe8-2544-ef11-a316-000d3a24631a}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{a599f8eb-e95e-ef11-bfe3-000d3a24631a}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{b8cfc500-ec5e-ef11-bfe3-000d3a24631a}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{be7a9b63-c99d-ef11-8a69-000d3a25e6e3}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{1af769dd-54a7-ef11-b8e8-000d3a25e6e3}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{08bc534d-56a7-ef11-b8e8-000d3a25e6e3}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{110f0bb0-57a7-ef11-b8e8-000d3a25e6e3}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{a9751ed0-57a7-ef11-b8e8-000d3a25e6e3}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{561cf00f-54a7-ef11-b8e8-000d3a2668e0}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{695d2eb7-2154-f111-bec7-000d3a2a79f2}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{0db11c43-55a7-ef11-b8e8-000d3a467ba5}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{e9763fe0-7453-f111-bec7-000d3a49e410}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{246d8ff2-2054-f111-bec7-000d3a49e410}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{feb70a12-7253-f111-bec7-000d3a49ef0f}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{7d37af40-2054-f111-bec7-000d3a49ef0f}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{8de191d3-2354-f111-bec7-000d3a49ef0f}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{a54d1a9b-c360-f011-bec2-000d3aaac3b5}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{149557aa-b63a-ef11-8409-000d3aaccae5}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{c4398499-b242-e111-9bb9-00155d28960b}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{31dae384-a86f-df11-986c-00155d2e3002}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{5a926b99-3a5f-df11-ae90-00155d2e3002}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{9bee7ca3-b068-df11-ae90-00155d2e3002}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{c6f6fc1b-1b3e-e711-80e1-00155d871bb4}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{5cfca9b8-2d7c-e211-bb35-00155d882402}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{59e57080-0cc2-e211-9b83-00155d89b902}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{61273827-328e-e011-95ae-00155d9cfa02}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{3a282da1-5d90-e011-95ae-00155d9cfa02}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{d603107c-5e90-e011-95ae-00155d9cfa02}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{b2a4f916-5f90-e011-95ae-00155d9cfa02}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{f73a5bef-a782-de11-9ff3-00155da3b012}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{5bd2527c-a882-de11-9ff3-00155da3b012}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{8fba639e-cd73-df11-805d-00155db1891a}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{aa7ca5e6-2644-ef11-a316-0022487edde9}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{74f8b621-405e-ef11-bfe2-0022487edde9}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{184dc77f-047f-ef11-ac20-00224885a0be}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{1e4db3c0-057f-ef11-ac20-00224885a0be}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{38a21ffb-4e32-4038-beb9-03172a0dd034}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{edf36890-a7c9-4795-b131-0767492b34c8}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{f7ba26ee-3f8e-4cf2-8e02-0b4bbcd16da8}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{8ba625b2-6a2a-4735-bab2-0c74ae8442a4}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{41c05d68-9e39-4884-8324-0cee66987a38}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{e6f001df-303c-447b-b184-0f65cd00c3f9}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{ecbac1a3-f8d8-4423-8f7e-10b11119739a}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{cb46d7d1-f9d4-40b7-8a4c-187232647255}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{30969771-f303-4b8e-ae91-1e4f5a7feefb}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{d26e6749-e832-426b-b4cb-222ab902ce7c}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{fc71d030-7a82-4b51-bde8-29b24b7abf9d}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{9eb361b4-67ac-4830-8abf-2d29efbaee2c}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{65ffaf9a-e8c5-432d-860b-32f841b00d87}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{71f7da6e-2772-4097-89d1-3670ff8348bb}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{2aeee36c-aefd-44f5-b3b5-367b69bdc371}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{cf76fac4-9a6e-436b-aa64-3a160eabb0c4}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{307b3f86-2f65-4f37-b38d-3e0827a0db37}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{d2638a4d-0627-4d57-bd07-3e7241b54d6f}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{8222b939-d560-4684-b04e-40e6ea09ef5a}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{2d1187c4-23fe-4bb5-9647-43bb1c6ddbd1}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{58afc3c5-8add-4552-98cb-473bc8f75619}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{ed1f0041-4f6b-4171-8757-4ac44c2fcafa}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{199a7fea-93b3-47c8-b950-4b6d60b2c955}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{3f6d889e-6549-4025-9ce0-4c4103efb6a3}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{2d03b77e-72ea-4de6-bdc7-53ee3b7d6e59}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{d4b5a6e3-8661-4c64-8bb1-54aaf87d2dda}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{31c1d587-5374-4c22-bdcf-54fe8cd1aee5}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{03d46203-3074-4793-b857-5803e7083692}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{3db514aa-60a3-4e8e-b4c0-5a62d9f1fd4f}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{95de183f-1945-ef11-bfe2-6045bd057909}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{e2e08080-9ba9-f011-bbd2-6045bd87d403}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{333e22cc-a65b-ef11-bfe3-6045bd89f358}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{45a5404e-405e-ef11-bfe3-6045bd89f358}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{e1b6cf0b-6c1f-f011-998a-6045bd8a68ce}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{04ac13e8-c360-f011-bec3-6045bd8a68ce}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{7a7aa849-d82c-ef11-840a-6045bd8c9cc0}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{7e059edd-2a96-ef11-8a69-6045bd8f36f6}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{bfec77ae-0491-ef11-8a69-6045bd8f3adb}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{63337b27-0dab-ef11-b8e8-6045bd93bc0f}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{4d242ab6-0dab-ef11-b8e8-6045bd93bc0f}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{14c9be5e-fe23-ef11-840a-6045bd93cdb0}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{52f16a0a-047f-ef11-ac21-6045bdf3a38b}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{3b31b786-057f-ef11-ac21-6045bdf3a38b}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{7cf594a1-7a35-ef11-8409-6045bdf4bb1b}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{cd2c511e-2c86-ef11-ac20-6045bdf5ba58}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{646583c9-55a7-ef11-b8e8-6045bdf5ba58}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{436d8066-56a7-ef11-b8e8-6045bdf5ba58}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{8dd43836-58a7-ef11-b8e8-6045bdf5ba58}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{af0d8856-0dab-ef11-b8e8-6045bdf5ba58}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{3b00a46f-0dab-ef11-b8e8-6045bdf5ba58}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{ffb65caa-0dab-ef11-b8e8-6045bdf5ba58}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{e68ed1cd-0dab-ef11-b8e8-6045bdf5ba58}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{df6230d4-0dab-ef11-b8e8-6045bdf5ba58}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{14ea1914-0e2c-4918-8eca-60930324f18f}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{7c3a2605-2ac1-4914-83b6-60e9b9d00d5e}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{67dfcc1b-48fd-4bc7-86ac-6223f9fa4af2}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{b2ff9333-1003-4a51-b2f0-6562a5dbd507}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{642095db-91dd-4813-bb31-665a3a2bae61}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{1662ced4-9bc6-4e77-90b2-6bbf2bef029f}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{4b2438f6-4949-484b-a272-6f694a2b2fae}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{fad31c91-6638-45e7-84db-7257bd940e9c}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{abf9e11d-08a5-4f4d-966b-7335a924e9c7}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{e346bf9f-9527-4ffe-89d6-748f53c1078a}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{1795e537-6270-4c62-8175-77cf045315f3}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{ca97cfba-4b1c-48fc-8f33-7840945cf16f}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{0fa11297-a5db-446b-89ee-7b0771d1d590}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{e822d515-8be6-42e7-80b8-7b9e261b5218}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{1d145a26-fdb7-45ae-b55a-7befa66e184f}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{d42faa0f-dc8e-f011-b4cb-7c1e52271f77}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{cf544068-2f57-f011-bec1-7c1e52285ff7}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{16d08fad-d918-ef11-9f89-7c1e52290245}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{161b734f-54a7-ef11-b8e8-7c1e52292beb}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{1c443734-56a7-ef11-b8e8-7c1e52292beb}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{c6ba9f89-56a7-ef11-b8e8-7c1e52292beb}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{5d054722-57a7-ef11-b8e8-7c1e52292beb}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{c3e40de0-0dab-ef11-b8e8-7c1e52292beb}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{b662fd80-1e57-f011-877b-7c1e52298c57}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{bd7efa80-3057-f011-877b-7c1e52298c57}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{3ebe07fa-696b-ef11-a670-7c1e524e24dc}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{146a6d46-2c86-ef11-ac20-7c1e524e7a9f}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{dec05d63-2757-f011-877b-7c1e525fbd77}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{3dc74b44-3057-f011-877b-7c1e525fbd77}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{b3e55cbe-54a7-ef11-b8e8-7c1e52616949}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{80a41ea5-56a7-ef11-b8e8-7c1e52616949}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{9d96f5cd-56a7-ef11-b8e8-7c1e52616949}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{d04e407a-57a7-ef11-b8e8-7c1e52616949}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{7f46573a-0dab-ef11-b8e8-7c1e52616949}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{125e8f61-0dab-ef11-b8e8-7c1e52616949}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{caaf6ea1-0dab-ef11-b8e8-7c1e52616949}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{a4fdf342-2c57-f011-877b-7c1e5270b8a2}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{59234238-8756-f011-877a-7c1e5282f25e}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{f68bc701-cc5b-f011-bec1-7ced8d127952}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{902b88be-55a4-f011-bbd2-7ced8d145fbd}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{a2d479c5-53e3-4c69-addd-802327e67a0d}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{1aa93c16-e1e3-45cc-a9ae-83d9ec18ff9c}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{92399d3b-224c-41c2-98f6-933d4b11cc9f}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{3bf5b939-6d58-477c-b903-95c43f1eda56}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{f8de15f4-4c76-4a21-94c9-a38fcafdb73d}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{2fcd7d4b-531d-4232-82c4-a491da528744}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{0d5d377b-5e7c-47b5-bab1-a5cb8b4ac105}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{2fccf2b0-1baf-4b4d-9126-ac53df457c4d}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{21e2b905-6fdb-470d-8517-ad69b4c01268}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{8df63abe-ed68-40b1-aabe-b7659ffbd10d}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{7f15e2bb-305a-468f-9af7-be865755a984}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{a9af0ab8-861d-4cfa-92a5-c6281fed7fab}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{58fb20ff-d5be-406f-908e-c777e9dedf5f}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{3b7d8177-15ca-41a1-9232-ce49d4ff1bfd}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{42051953-0b19-4c1f-9398-d3ab897b124a}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{924e0056-ebf8-408e-90c3-d3b6bdd676e7}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{e899847e-8bd6-4061-b7aa-ddc0693fc6ed}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{ee125d53-e648-4153-86f0-e5e222097c4d}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{008fbb15-98e9-4c5d-a81a-e685ff8ccc2c}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{f1a7c4d9-f439-46da-8b69-ecc133214695}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{73bc2d9b-4e0e-424c-8839-ed59d6817e3a}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{8df19b44-a073-40c3-9d6d-ee1355d8c4ba}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{49fd0049-f06b-4130-90df-f50c34111df7}" solutionaction="Added" />
+    <AppModuleComponent type="26" id="{eda26f1e-dbcc-40ad-91f2-ff2878d1d8d8}" solutionaction="Added" />
+    <AppModuleComponent type="29" id="{4a1c133f-1224-ef11-840a-000d3a2f8fde}" solutionaction="Added" />
+    <AppModuleComponent type="29" id="{7fd83fc4-2b40-ef11-8409-000d3aaccae5}" solutionaction="Added" />
+    <AppModuleComponent type="29" id="{97dde055-ec1b-ef11-840b-6045bd9219a1}" solutionaction="Added" />
+    <AppModuleComponent type="29" id="{ff16c171-1c86-ef11-ac20-7c1e524e7a9f}" solutionaction="Added" />
+    <AppModuleComponent type="29" id="{919e14d1-6489-4852-abd0-a63a6ecaac5d}" solutionaction="Removed" />
+    <AppModuleComponent type="29" id="{3e8ebee6-a2bc-4451-9c5f-b146b085413a}" solutionaction="Removed" />
+    <AppModuleComponent type="29" id="{0ffbcde4-61c1-4355-aa89-aa1d7b2b8792}" solutionaction="Removed" />
+    <AppModuleComponent type="60" id="{01f580ee-0c70-ef11-a671-000d3a20d225}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{6d0c4f20-9a49-ef11-bfe2-000d3a20d225}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{bd483163-a637-ef11-8409-000d3a21defe}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{88a28f36-4b17-ef11-9f89-000d3a228709}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{2a276ddf-b26b-ef11-bfe2-000d3a2315f2}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{c9fdf52f-2e0e-f111-8406-000d3a2a74ae}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{2be02d1d-2f0e-f111-8406-000d3a2a74ae}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{802e23b1-3359-f111-bec7-000d3a2a79f2}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{3de3363e-0d24-ef11-840a-000d3a2addcb}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{5c00666e-8c29-ef11-840a-000d3a2bebb6}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{ed535341-4323-ee11-9cbe-000d3a32e968}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{82281bc3-4323-ee11-9cbe-000d3a32e968}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{5b9137e4-9a58-ef11-bfe3-000d3a487240}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{ece7a540-1039-ef11-8409-000d3aaccae5}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{184b36d7-8c76-ef11-a671-0022487edde9}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{c173a16e-616b-ef11-bfe3-0022487edde9}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{097c53e0-6a6b-ef11-bfe3-0022487edde9}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{31af5469-6d6b-ef11-bfe3-0022487edde9}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{5a3d6801-186c-ef11-bfe3-0022487edde9}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{d3381543-266c-ef11-bfe3-0022487edde9}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{c466c56a-ab9d-41a3-ac68-008a60bfe67e}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{b64420dc-fd24-406d-8551-01b6371c291f}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{894155a3-95d5-4881-b9c3-04444cef1bcc}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{e4a4f113-52ef-4e49-b7c1-08ef08d457e3}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{d228d73e-e56e-48b3-ab95-0a06b1397b03}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{1e70456a-ccfa-4a29-9e78-0d71724b3377}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{8dd0025e-7d87-4a7b-aaf4-12754b8fbede}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{c0db2a3b-b90a-4f83-9eec-18ecfba16e14}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{cc287fab-10d3-44be-b738-1daf50a2aa03}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{44106358-bcf8-4615-a8dd-2087be2cfb61}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{2d7a8f0b-2771-40d9-9dbd-20f1baaccd63}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{d40de9d5-d823-4fb7-8fdc-21be01f61424}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{672e520b-6bbc-47f8-977f-228bfc6d8faf}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{6728f0a0-6571-4b16-a019-2440abf3d37d}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{d880c3cf-80e2-42f3-82f9-24d040d09f17}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{e3c588ee-8e11-49da-a5fe-3800f3f683de}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{81a89014-442c-44ad-9725-4077426a7fee}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{449faa0e-f471-48ec-87d0-4719909546d2}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{8e0b7c1e-f5a0-4e7d-b04d-4ca8d5c5ca80}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{7bb87dfd-ec3e-4ed9-8e3e-5725d3067295}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{661157fe-2fc9-4eaa-835f-5bfa2f7b64f7}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{f3b707fb-3b5f-45f9-9c6b-5e573bb5d19e}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{26c5467e-ee69-ef11-bfe2-6045bd8723ae}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{abe27b37-1139-ef11-8409-6045bd8824d8}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{4e7b3923-5c40-ef11-8409-6045bd8824d8}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{66b13a53-f026-ef11-840a-6045bd8824d8}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{38232ff8-ee69-ef11-bfe2-6045bd89d6bf}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{ed457d6b-c450-f011-877b-6045bd89dc64}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{9cb58f80-d32b-f011-8c4e-6045bd89dc64}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{101997e3-9b50-ef11-bfe2-6045bd89f358}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{9407fffd-5b2b-f011-8c4e-6045bd8a68ce}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{c6da7268-bd5b-f011-bec2-6045bd8a68ce}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{144b19f8-883f-ef11-8409-6045bd8b6dd9}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{95ab649e-091c-ef11-840b-6045bd9219a1}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{8ee09888-d623-ef11-840b-6045bd9219a1}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{f5cfd286-fe1b-ef11-840a-6045bd93cdb0}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{4b56670b-033e-ef11-8409-6045bd9f068a}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{c34295ba-b296-ef11-8a69-6045bd9f1cbb}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{b420f823-8f76-ef11-a670-6045bd9fc82e}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{5c90abcb-89d2-ef11-a72e-6045bdf43011}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{fd57aeed-ab95-4a32-9c6c-61ae92d2a296}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{44c9f1ee-9bce-4c6f-9a7f-6568be05c41c}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{eee059c4-f486-46f9-8935-72a294aed9b6}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{2ad2c7ff-e6fa-ee11-9f89-7c1e521a5763}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{ce860529-d88e-f011-b4cb-7c1e52271f77}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{1eda5ac1-4d17-ef11-9f8a-7c1e5228944f}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{51f42bb3-5917-ef11-9f89-7c1e52290245}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{88367692-d89d-ef11-8a69-7c1e52292beb}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{664f5622-3c92-f011-b4cc-7c1e525fbd77}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{cea8ac71-b196-ef11-8a69-7c1e526061bb}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{09921768-0d51-f011-877b-7c1e5270b8a2}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{6e870afc-5f2b-f011-8c4e-7c1e5270b8a2}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{23d47243-c71a-f011-998a-7c1e5270b8a2}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{700ce34a-fc7b-f011-b4cc-7c1e5270b8a2}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{1ffe08e9-b296-ef11-8a69-7c1e527185c9}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{a1c8a6dc-8804-4019-9c78-7dbe86560ea1}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{46a3bdc2-b561-4666-97a7-7de5aa831580}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{fb65cc73-181c-468b-9bb3-82ecde306991}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{5efdc20d-5ae6-47d2-b4ed-8a929d089d7a}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{1fac7e2e-0b1c-4b6c-ab92-8af0f92dbdbc}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{bdb0ae1c-32fa-4374-b637-8dafe107bc44}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{24b5ce86-1811-44c3-b1ad-90f7ea02d2d7}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{9f75b30c-e0a6-4f29-9882-984a3a358e33}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{71e5b25d-6c68-4278-9e69-a640edf54d3f}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{5194a156-576a-4fa1-bf1a-abf7a41b0e8c}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{05ea391a-d034-43fe-849b-b4fa3213a2b2}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{3ace4e34-9f50-4e73-ae49-b595d6b48fa4}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{29fdbd16-87ef-460c-b1e3-b8994f9f198a}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{a54fa9b7-bd31-49c4-8ccd-b8ccc42f4fc4}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{a80fb36c-353f-4310-a4cb-b8fa47d58b9b}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{29de27bc-a257-4f29-99cf-bab4a84e688f}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{b028db32-3619-48a5-ac51-cf3f947b0ef3}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{22b536e5-a2d7-4f51-bdf0-ddd604d8d1f2}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{707fc57b-c5e6-471b-a180-e37ed28a38e2}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{4fcfa8a9-9189-42c9-9189-e5a38acb6e72}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{95192c4e-f96e-4771-b10a-e6421c908533}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{76b81f10-2a08-4f1a-9454-ee38bea94eb5}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{4c975747-5f17-4f7a-b7f0-f0c03b0a880a}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{89e0d275-331f-4a59-860d-f3c15c783041}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{5d904496-1ba1-4724-a582-f46732305a7f}" solutionaction="Added" />
+    <AppModuleComponent type="60" id="{7ba7fac1-1418-4335-935f-f7f8dfd73fcc}" solutionaction="Added" />
+  </AppModuleComponents>
+  <AppModuleRoleMaps>
+    <Role id="{30141375-fd65-ef11-bfe3-000d3a20d225}" solutionaction="Added" />
+  </AppModuleRoleMaps>
+  <LocalizedNames>
+    <LocalizedName description="Sales Hub" languagecode="1031" />
+    <LocalizedName description="Sales Hub" languagecode="1033" />
+    <LocalizedName description="Centre de vente" languagecode="1036" />
+  </LocalizedNames>
+  <Descriptions>
+    <Description description="Modernize the sales experience with this mobile relationship management app" languagecode="1031" />
+    <Description description="Modernize the sales experience with this mobile relationship management app" languagecode="1033" />
+    <Description description="Outils de vente faciles à utiliser grâce aux aperçus générés par l’IA Copilot." languagecode="1036" />
+  </Descriptions>
+  <appelements>
+    <appelement uniquename="wal_msdynce_saleshub_canvasappid_wal_saleshubdefaultcommandlibrary_904e9">
+      <canvasappid>
+        <name>wal_saleshubdefaultcommandlibrary_904e9</name>
+      </canvasappid>
+      <iscustomizable>1</iscustomizable>
+      <name>wal_msdynce_saleshub_canvasappid_wal_saleshubdefaultcommandlibrary_904e9</name>
+    </appelement>
+  </appelements>
+  <appsettings>
+    <appsetting settingdefinitionid.uniquename="AllowNotificationsEarlyAccess">
+      <iscustomizable>1</iscustomizable>
+      <value>true</value>
+    </appsetting>
+    <appsetting settingdefinitionid.uniquename="msdyn_enablertecopilot">
+      <iscustomizable>1</iscustomizable>
+      <value>true</value>
+    </appsetting>
+    <appsetting settingdefinitionid.uniquename="msdyn_RTEv2DefaultConfig">
+      <iscustomizable>1</iscustomizable>
+      <value>true</value>
+    </appsetting>
+  </appsettings>
+</AppModule>

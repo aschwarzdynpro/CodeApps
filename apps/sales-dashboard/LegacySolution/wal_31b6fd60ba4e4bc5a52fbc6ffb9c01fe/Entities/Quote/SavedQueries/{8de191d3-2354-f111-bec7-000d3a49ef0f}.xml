@@ -1,0 +1,73 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<savedqueries xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <savedquery>
+    <IsCustomizable>1</IsCustomizable>
+    <CanBeDeleted>1</CanBeDeleted>
+    <isquickfindquery>0</isquickfindquery>
+    <isprivate>0</isprivate>
+    <isdefault>0</isdefault>
+    <savedqueryid>{8de191d3-2354-f111-bec7-000d3a49ef0f}</savedqueryid>
+    <layoutxml>
+      <grid name="resultset" jump="name" select="1" icon="1" preview="1">
+        <row name="result" id="quoteid">
+          <cell name="quotenumber" width="114" />
+          <cell name="wal_creationdate_dat" width="119" />
+          <cell name="customerid" width="150" />
+          <cell name="a_4d778f0062894eebba60633dfdff6c3f.accountnumber" width="267" />
+          <cell name="name" width="300" />
+          <cell name="wal_project_id" width="100" />
+          <cell name="a_b1c3d994076d49b5b1236b8b6a7dd302.wal_pspelement_txt" width="166" />
+          <cell name="wal_ordernumber_str" width="123" />
+          <cell name="wal_quotekind_str" width="118" />
+          <cell name="wal_quotetype_opt" width="112" />
+          <cell name="statuscode" width="107" />
+          <cell name="totalamount" width="149" />
+          <cell name="ownerid" width="112" />
+          <cell name="a_4d778f0062894eebba60633dfdff6c3f.wal_areasalesmanager_id" width="248" />
+          <cell name="a_4d778f0062894eebba60633dfdff6c3f.wal_keyaccountmanager_id" width="255" />
+          <cell name="opportunityid" width="129" />
+        </row>
+      </grid>
+    </layoutxml>
+    <querytype>0</querytype>
+    <fetchxml>
+      <fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="true">
+        <entity name="quote">
+          <attribute name="name" />
+          <attribute name="totalamount" />
+          <attribute name="customerid" />
+          <attribute name="quoteid" />
+          <attribute name="quotenumber" />
+          <attribute name="wal_quotekind_str" />
+          <attribute name="wal_ordernumber_str" />
+          <attribute name="wal_quotetype_opt" />
+          <attribute name="statuscode" />
+          <attribute name="wal_project_id" />
+          <attribute name="opportunityid" />
+          <attribute name="ownerid" />
+          <filter type="and">
+            <condition attribute="statuscode" operator="eq" value="4" />
+            <condition attribute="modifiedon" operator="this-month" />
+          </filter>
+          <link-entity alias="a_4d778f0062894eebba60633dfdff6c3f" name="account" to="customerid" from="accountid" link-type="inner">
+            <attribute name="wal_areasalesmanager_id" />
+            <attribute name="wal_keyaccountmanager_id" />
+            <attribute name="accountnumber" />
+            <filter type="and">
+              <condition attribute="wal_areasalesmanager_id" operator="eq-userid" />
+            </filter>
+          </link-entity>
+          <attribute name="wal_creationdate_dat" />
+          <link-entity alias="a_b1c3d994076d49b5b1236b8b6a7dd302" name="wal_project" to="wal_project_id" from="wal_projectid" link-type="outer" visible="false">
+            <attribute name="wal_pspelement_txt" />
+          </link-entity>
+        </entity>
+      </fetch>
+    </fetchxml>
+    <IntroducedVersion>0.0.0.1</IntroducedVersion>
+    <LocalizedNames>
+      <LocalizedName description="Geänderte Angebote mit mir als GVL in diesem Monat" languagecode="1031" />
+      <LocalizedName description="Beauftragte Angebote mit mir als GVL in diesem Monat" languagecode="1033" />
+    </LocalizedNames>
+  </savedquery>
+</savedqueries>

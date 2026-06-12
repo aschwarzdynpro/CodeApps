@@ -1,0 +1,59 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<RibbonDiffXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <CustomActions>
+    <CustomAction Id="wal.Mscrm.Form.lead.DisqualifyLeadAs.UCI.CustomAction" Location="Mscrm.Form.lead.MainTab.Actions.Controls._children" Sequence="11">
+      <CommandUIDefinition>
+        <FlyoutAnchor Alt="$LocLabels:Mscrm.Form.lead.DisqualifyLeadAs.UCI.Alt" Command="wal.lead.Command0.Disqualify" Id="Mscrm.Form.lead.DisqualifyLeadAs.UCI" Image16by16="$webresource:MarketingSales/_imgs/ribbon/DisqualifyLead_16.png" Image32by32="$webresource:MarketingSales/_imgs/ribbon/DisqualifyLead_32.png" LabelText="$LocLabels:Mscrm.Form.lead.DisqualifyLeadAs.UCI.LabelText" PopulateDynamically="true" PopulateQueryCommand="Mscrm.DynamicMenu.Form.PopulateDisqualifyAs" Sequence="11" TemplateAlias="o1" ToolTipTitle="$LocLabels:Mscrm.Form.lead.DisqualifyLeadAs.UCI.ToolTipTitle" ToolTipDescription="$LocLabels:Mscrm.Form.lead.DisqualifyLeadAs.UCI.ToolTipDescription" ModernImage="Disqualify" />
+      </CommandUIDefinition>
+    </CustomAction>
+  </CustomActions>
+  <Templates>
+    <RibbonTemplates Id="Mscrm.Templates"></RibbonTemplates>
+  </Templates>
+  <CommandDefinitions>
+    <CommandDefinition Id="wal.lead.Command0.Disqualify">
+      <EnableRules>
+        <EnableRule Id="wal.lead.EnableRule0.Disqualify" />
+      </EnableRules>
+      <DisplayRules />
+      <Actions />
+    </CommandDefinition>
+  </CommandDefinitions>
+  <RuleDefinitions>
+    <TabDisplayRules />
+    <DisplayRules />
+    <EnableRules>
+      <EnableRule Id="wal.lead.EnableRule0.Disqualify">
+        <CustomRule FunctionName="WAL.LeadForm.hideDisqualifyButton" Library="$webresource:wal_/Scripts/lead.form.js" InvertResult="false">
+          <CrmParameter Value="PrimaryControl" />
+        </CustomRule>
+      </EnableRule>
+    </EnableRules>
+  </RuleDefinitions>
+  <LocLabels>
+    <LocLabel Id="Mscrm.Form.lead.DisqualifyLeadAs.UCI.Alt">
+      <Titles>
+        <Title description="Disqualify" languagecode="1033" />
+        <Title description="Disqualifizieren" languagecode="1031" />
+      </Titles>
+    </LocLabel>
+    <LocLabel Id="Mscrm.Form.lead.DisqualifyLeadAs.UCI.LabelText">
+      <Titles>
+        <Title description="Disqualify" languagecode="1033" />
+        <Title description="Disqualifizieren" languagecode="1031" />
+      </Titles>
+    </LocLabel>
+    <LocLabel Id="Mscrm.Form.lead.DisqualifyLeadAs.UCI.ToolTipDescription">
+      <Titles>
+        <Title description="Disqualify the lead and close it. &lt;br&gt;&lt;br&gt;When the lead is converted, it is saved as disqualified in the Closed Leads view." languagecode="1033" />
+        <Title description="Disqualify the lead and close it. &lt;br&gt;&lt;br&gt;When the lead is converted, it is saved as disqualified in the Closed Leads view." languagecode="1031" />
+      </Titles>
+    </LocLabel>
+    <LocLabel Id="Mscrm.Form.lead.DisqualifyLeadAs.UCI.ToolTipTitle">
+      <Titles>
+        <Title description="Disqualify" languagecode="1033" />
+        <Title description="Disqualifizieren" languagecode="1031" />
+      </Titles>
+    </LocLabel>
+  </LocLabels>
+</RibbonDiffXml>
