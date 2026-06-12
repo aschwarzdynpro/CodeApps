@@ -16,6 +16,11 @@
   font-size: 26px;
   letter-spacing: -0.02em;
 }
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .subtitle {
   color: var(--muted);
   font-size: 14px;

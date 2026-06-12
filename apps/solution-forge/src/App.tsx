@@ -23,7 +23,7 @@ import type {
 type Tab = 'workbench' | 'merge' | 'compare'
 
 function App() {
-  const { mode, environmentId } = usePower()
+  const { environmentId } = usePower()
   const { solutions, publishers, loading, error, reload } = useSolutions()
 
   const [tab, setTab] = useState<Tab>('workbench')
@@ -423,24 +423,23 @@ function App() {
     <div className="app">
       <header className="app-header">
         <div>
-          <h1>Solution Administration Console</h1>
+          <div className="title-row">
+            <h1>Solution Administration Console</h1>
+            <button
+              className="icon-btn"
+              title="Help & feature guide"
+              aria-label="Help"
+              onClick={() => setShowHelp(true)}
+            >
+              ?
+            </button>
+          </div>
           <p className="subtitle">
             Working solutions for feature &amp; bug development — create,
             inspect, merge.
           </p>
         </div>
         <div className="header-right">
-          <button
-            className="icon-btn"
-            title="Help & feature guide"
-            aria-label="Help"
-            onClick={() => setShowHelp(true)}
-          >
-            ?
-          </button>
-          <span className={`mode-badge mode-${mode}`}>
-            {mode === 'power-platform' ? 'Power Platform' : 'Local · mock data'}
-          </span>
           <button
             className="btn btn--primary"
             onClick={() => setShowCreate(true)}
