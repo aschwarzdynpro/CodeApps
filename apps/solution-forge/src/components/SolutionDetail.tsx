@@ -34,6 +34,10 @@ interface Props {
     solution: WorkingSolution,
     kind: TrackSolutionInput['kind'],
   ) => Promise<void>
+  /** Unmanaged solutions without a record — candidates for re-linking. */
+  linkCandidates: WorkingSolution[]
+  /** Re-links an orphaned record to the chosen solution. */
+  onLink: (record: WorkingSolution, target: WorkingSolution) => Promise<void>
 }
 
 /** Groups with at most this many components start expanded. */
@@ -44,6 +48,94 @@ const TRACK_KIND_OPTIONS: { value: TrackSolutionInput['kind']; label: string }[]
   { value: 'bug', label: 'Bug' },
   { value: 'deployment', label: 'Release' },
 ]
+
+/** Top-N cap for the re-link search results. */
+const LINK_RESULT_LIMIT = 10
+
+/**
+ * Search-and-pick panel for orphaned records: finds unmanaged solutions
+ * that aren't linked to any record yet (by unique or display name) and
+ * re-links the record to the chosen one.
+ */
+function LinkSolutionPanel({
+  record,
+  candidates,
+  onLink,
+}: {
+  record: WorkingSolution
+  candidates: WorkingSolution[]
+  onLink: (record: WorkingSolution, target: WorkingSolution) => Promise<void>
+}) {
+  const [query, setQuery] = useState('')
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const q = query.trim().toLowerCase()
+  const matches = (
+    q
+      ? candidates.filter(
+          (c) =>
+            c.title.toLowerCase().includes(q) ||
+            c.uniqueName.toLowerCase().includes(q),
+        )
+      : candidates
+  ).slice(0, LINK_RESULT_LIMIT)
+
+  const link = async (target: WorkingSolution) => {
+    setBusyId(target.id)
+    setError(null)
+    try {
+      await onLink(record, target)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+      setBusyId(null)
+    }
+  }
+
+  return (
+    <section className="track-panel">
+      <h3 className="track-panel-title">Link an existing solution</h3>
+      <p className="muted track-panel-hint">
+        Search the unmanaged solutions that aren't linked to any record yet
+        and pick the right one.
+      </p>
+      <input
+        className="search merge-source-search"
+        type="search"
+        placeholder="Search by unique name or display name…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        autoFocus
+      />
+      {matches.length === 0 && (
+        <div className="state">
+          {candidates.length === 0
+            ? 'No unlinked solutions available in this environment.'
+            : `No solution matches “${query}”.`}
+        </div>
+      )}
+      <ul className="link-result-list">
+        {matches.map((c) => (
+          <li key={c.id}>
+            <button
+              className="link-result"
+              disabled={busyId !== null}
+              onClick={() => void link(c)}
+            >
+              <span className="link-result-title">{c.title}</span>
+              <code>{c.uniqueName}</code>
+              {c.version && <span className="muted">v{c.version}</span>}
+              <span className="link-result-action">
+                {busyId === c.id ? 'Linking…' : 'Link'}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {error && <div className="state state--error">{error}</div>}
+    </section>
+  )
+}
 
 /**
  * Inline form to attach a ssid_workingsolution record to an untracked
@@ -155,6 +247,8 @@ export function SolutionDetail({
   onTrack,
   onDelete,
   onChangeType,
+  linkCandidates,
+  onLink,
 }: Props) {
   // Inline type editor for tracked entries (sst_type_opt).
   const [editingType, setEditingType] = useState(false)
@@ -264,10 +358,18 @@ export function SolutionDetail({
       </div>
 
       {solution.solutionMissing && (
-        <div className="state state--error">
-          The linked solution (<code>{solution.uniqueName || '—'}</code>) was
-          not found in this environment — it may have been deleted or renamed.
-        </div>
+        <>
+          <div className="state state--error">
+            The linked solution (<code>{solution.uniqueName || '—'}</code>)
+            was not found in this environment — it may have been deleted or
+            renamed.
+          </div>
+          <LinkSolutionPanel
+            record={solution}
+            candidates={linkCandidates}
+            onLink={onLink}
+          />
+        </>
       )}
 
       {!solution.recordId && !solution.solutionMissing && (

@@ -395,6 +395,48 @@
   margin-bottom: 10px;
 }
 
+/* Re-link search results */
+.link-result-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.link-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.link-result:hover {
+  border-color: var(--brand);
+}
+.link-result-title {
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.link-result code {
+  font-size: 11px;
+  color: var(--muted);
+}
+.link-result-action {
+  color: var(--brand);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 /* Inline type editor */
 .type-edit {
   display: inline-flex;

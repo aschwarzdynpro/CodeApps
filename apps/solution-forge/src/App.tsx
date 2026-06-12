@@ -156,6 +156,13 @@ function App() {
 
   const selected = allSolutions.find((s) => s.id === selectedId) ?? null
 
+  // Unmanaged solutions without a record — offered when re-linking
+  // orphaned records.
+  const linkCandidates = useMemo(
+    () => allSolutions.filter((s) => !s.recordId && !s.solutionMissing),
+    [allSolutions],
+  )
+
   // Loads the component list lazily when a solution is opened — runs in
   // event handlers (not effects), mirroring audit-explorer's drill-down.
   // Cached per solution; `force` (Refresh button) bypasses the cache.
@@ -575,6 +582,18 @@ function App() {
                 onChangeType={async (s, kind) => {
                   if (!s.recordId) return
                   await solutionService.updateSolutionType(s.recordId, kind)
+                  reload()
+                }}
+                linkCandidates={linkCandidates}
+                onLink={async (record, target) => {
+                  if (!record.recordId) return
+                  await solutionService.linkSolution(record.recordId, {
+                    id: target.id,
+                    uniqueName: target.uniqueName,
+                  })
+                  // Follow the record to its now-linked solution entry.
+                  setSelectedId(target.id)
+                  loadComponents(target.id)
                   reload()
                 }}
                 workItem={

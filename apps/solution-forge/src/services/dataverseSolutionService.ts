@@ -552,6 +552,29 @@ export class DataverseSolutionService implements SolutionService {
     }
   }
 
+  /** Point an orphaned record at an existing solution. */
+  async linkSolution(
+    recordId: string,
+    target: { id: string; uniqueName: string },
+  ): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.linkSolution(recordId, target)
+    const result = await Ssid_workingsolutionsService.update(
+      recordId,
+      {
+        ssid_uniquesolutionname: target.uniqueName,
+        ssid_solutionlink: makerSolutionUrl(null, target.id),
+      } as unknown as Partial<
+        Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+      >,
+    )
+    if (result && result.success === false) {
+      console.warn('[solutions] link update failed:', result)
+      throw new Error('Linking the solution failed.')
+    }
+  }
+
   /** Attach a presentation record to an already existing solution. */
   async trackSolution(input: TrackSolutionInput): Promise<void> {
     const mode = await powerModeReady

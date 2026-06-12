@@ -126,6 +126,18 @@ export class MockSolutionService {
     return { id: 'u-0001', name: 'Marie Curie' }
   }
 
+  async linkSolution(
+    recordId: string,
+    target: { id: string; uniqueName: string },
+  ): Promise<void> {
+    await delay(300)
+    const record = this.solutions.find((s) => s.recordId === recordId)
+    if (record) {
+      record.uniqueName = target.uniqueName
+      record.solutionMissing = undefined
+    }
+  }
+
   async updateSolutionType(
     recordId: string,
     kind: TrackSolutionInput['kind'],

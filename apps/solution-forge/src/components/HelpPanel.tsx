@@ -89,6 +89,12 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 working-solution record” with type, title and DevOps id
                 prefilled from what the solution reveals.
               </li>
+              <li>
+                <strong>Re-link an orphaned record</strong>: when the linked
+                solution is missing, the detail pane offers a search over
+                all unlinked unmanaged solutions (unique or display name,
+                top 10) — pick one to repair the link.
+              </li>
             </ul>
           </section>
 

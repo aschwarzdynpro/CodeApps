@@ -61,6 +61,14 @@ export interface SolutionService {
     recordId: string,
     kind: TrackSolutionInput['kind'],
   ): Promise<void>
+  /**
+   * Re-links an orphaned working-solution record to an existing solution
+   * (updates ssid_uniquesolutionname and the maker link).
+   */
+  linkSolution(
+    recordId: string,
+    target: { id: string; uniqueName: string },
+  ): Promise<void>
   /** Components contained in one solution. */
   listComponents(solutionId: string): Promise<SolutionComponentInfo[]>
   /**
