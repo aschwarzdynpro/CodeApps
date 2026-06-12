@@ -10,5 +10,43 @@
   "localAppUrl": "http://localhost:3000",
   "logoPath": "Default",
   "connectionReferences": {},
-  "databaseReferences": {}
+  "databaseReferences": {
+    "default.cds": {
+      "dataSources": {
+        "activities": {
+          "entitySetName": "activitypointers",
+          "logicalName": "activitypointer"
+        },
+        "leads": {
+          "entitySetName": "leads",
+          "logicalName": "lead"
+        },
+        "opportunities": {
+          "entitySetName": "opportunities",
+          "logicalName": "opportunity"
+        },
+        "projects": {
+          "entitySetName": "wal_projects",
+          "logicalName": "wal_project"
+        },
+        "quotes": {
+          "entitySetName": "quotes",
+          "logicalName": "quote"
+        },
+        "orders": {
+          "entitySetName": "salesorders",
+          "logicalName": "salesorder"
+        },
+        "users": {
+          "entitySetName": "systemusers",
+          "logicalName": "systemuser"
+        },
+        "accounts": {
+          "entitySetName": "accounts",
+          "logicalName": "account"
+        }
+      },
+      "environmentVariableName": ""
+    }
+  }
 }

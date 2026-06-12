@@ -1,13 +1,19 @@
-import type { UserRef } from '../types/sales'
-import type { PowerMode } from '../PowerProvider'
+import type { SalesDataSource, UserRef } from '../types/sales'
 
 /**
- * Kopfbereich: Titel, Live/Demo-Badge, Demo-Perspektivwechsel ("ich" der
- * "Meine …"-Ansichten), Aktualisieren und Dark-Mode-Umschalter.
+ * Kopfbereich: Titel, Datenquellen-Badge, Demo-Daten-Schalter,
+ * Demo-Perspektivwechsel ("ich" der "Meine …"-Ansichten), Aktualisieren
+ * und Dark-Mode-Umschalter.
  */
 
 interface HeaderProps {
-  mode: PowerMode
+  /** Herkunft des aktuell angezeigten Datenbestands (Badge). */
+  dataSource: SalesDataSource
+  /** Läuft die App in einem Power-Apps-Host (Live-Daten möglich)? */
+  canUseLive: boolean
+  /** Demo-Schalter: Demo-Daten erzwingen, auch wenn Live möglich wäre. */
+  forceMock: boolean
+  onForceMockChange: (value: boolean) => void
   salesManagers: UserRef[]
   perspectiveId: string
   onPerspectiveChange: (id: string) => void
@@ -20,8 +26,29 @@ interface HeaderProps {
 
 const TIME = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' })
 
+const BADGE: Record<SalesDataSource, { label: string; tone: string; title: string }> = {
+  live: {
+    label: 'Live',
+    tone: 'mode-badge--live',
+    title: 'Daten aus Dataverse (D365 DEV)',
+  },
+  mixed: {
+    label: 'Live + Demo',
+    tone: 'mode-badge--demo',
+    title: 'Einzelne Tabellen konnten nicht geladen werden — dort Demo-Daten (Details in der Konsole)',
+  },
+  demo: {
+    label: 'Demo-Daten',
+    tone: 'mode-badge--demo',
+    title: 'Lokale Demo-Daten',
+  },
+}
+
 export function Header({
-  mode,
+  dataSource,
+  canUseLive,
+  forceMock,
+  onForceMockChange,
   salesManagers,
   perspectiveId,
   onPerspectiveChange,
@@ -31,6 +58,7 @@ export function Header({
   loading,
   lastUpdated,
 }: HeaderProps) {
+  const badge = BADGE[dataSource]
   return (
     <header className="topbar">
       <div className="topbar__brand">
@@ -50,18 +78,31 @@ export function Header({
       </div>
 
       <div className="topbar__actions">
-        <span
-          className={`mode-badge ${mode === 'power-platform' ? 'mode-badge--live' : 'mode-badge--demo'}`}
-          title={
-            mode === 'power-platform'
-              ? 'Verbunden mit der Power Platform'
-              : 'Lokale Demo-Daten — außerhalb eines Power-Apps-Hosts'
-          }
-        >
-          {mode === 'power-platform' ? 'Live' : 'Demo-Daten'}
+        <span className={`mode-badge ${badge.tone}`} title={badge.title}>
+          {badge.label}
         </span>
 
-        {mode === 'local-mock' && salesManagers.length > 1 && (
+        <label
+          className={`switch${canUseLive ? '' : ' switch--disabled'}`}
+          title={
+            canUseLive
+              ? 'Demo-Daten statt Live-Daten anzeigen (zum Testen)'
+              : 'Außerhalb eines Power-Apps-Hosts laufen immer Demo-Daten'
+          }
+        >
+          <input
+            type="checkbox"
+            checked={forceMock || !canUseLive}
+            disabled={!canUseLive}
+            onChange={(e) => onForceMockChange(e.target.checked)}
+          />
+          <span className="switch__track" aria-hidden="true">
+            <span className="switch__thumb" />
+          </span>
+          Demo-Daten
+        </label>
+
+        {dataSource === 'demo' && salesManagers.length > 1 && (
           <label className="topbar__perspective">
             Perspektive
             <select

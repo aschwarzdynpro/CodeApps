@@ -37,6 +37,9 @@ Die Grid-Spalten entsprechen den `layoutxml`-Zellen der Legacy-Views,
 - **Sortierbare Spalten**, responsives Raster (3 → 1 Spalten), Dark Mode
 - **Demo-Perspektive** — im Demo-Modus lässt sich das „ich" der
   „Meine …"-Ansichten auf jeden GVL umschalten
+- **Demo-Daten-Schalter** — im Header lässt sich jederzeit von Live- auf
+  Demo-Daten umschalten (zum Testen); das Badge zeigt die aktive Quelle
+  (Live / Demo-Daten / Live + Demo bei Teilausfällen)
 
 ## Projektstruktur
 
@@ -50,9 +53,11 @@ src/
 │   ├── types.ts              # Kachel-Framework (ViewDef/ChartDef/ColumnDef)
 │   └── tiles.ts              # Die 6 Kacheln — Übersetzung der Legacy-Solution
 ├── services/
-│   ├── salesService.ts       # Service-Interface + Singleton (Go-live-Seam)
-│   ├── mockSalesService.ts   # Demo-Implementierung
-│   └── mockData.ts           # deterministische Demo-Daten (Seed-PRNG)
+│   ├── salesService.ts            # Service-Interface + Singleton
+│   ├── dataverseSalesService.ts   # Live-Implementierung (Dataverse, FormattedValues)
+│   ├── mockSalesService.ts        # Demo-Implementierung
+│   └── mockData.ts                # deterministische Demo-Daten (Seed-PRNG)
+├── generated/                # typed Dataverse-Clients (pac code add-data-source)
 ├── hooks/useSalesData.ts     # Laden + Refresh
 ├── components/               # Header, KpiBar, DashboardTile, DataGrid, Charts
 └── utils/                    # Formatierung (de-DE/EUR), Chart-Aggregation
@@ -72,31 +77,51 @@ arbeitet mit dem deterministischen Demo-Datensatz. Die Datumsfenster der
 Ansichten („dieser Monat" usw.) werden relativ zu „heute" erzeugt und sind
 daher immer gefüllt.
 
-## Veröffentlichen & Daten anbinden (Go-live)
+## Live-Datenanbindung (Stand: verdrahtet)
 
-1. App initialisieren (erzeugt `power.config.json`):
-   ```bash
-   power-apps init --display-name "Sales Dashboard GVL" --environment-id <ENV-ID>
-   ```
-2. Dataverse-Datenquellen generieren:
-   ```bash
-   pac code add-data-source -a dataverse -t activitypointer
-   pac code add-data-source -a dataverse -t lead
-   pac code add-data-source -a dataverse -t opportunity
-   pac code add-data-source -a dataverse -t wal_project
-   pac code add-data-source -a dataverse -t quote
-   pac code add-data-source -a dataverse -t salesorder
-   ```
-3. `dataverseSalesService` implementieren, der die generierten Modelle auf
-   `types/sales.ts` mappt (Optionset-Codes → deutsche Labels an einer Stelle),
-   auf `powerModeReady` wartet und außerhalb des Hosts auf Mock zurückfällt —
-   Vorlage: `apps/audit-explorer/src/services/dataverseAuditService.ts`.
-   Danach in `services/salesService.ts` den Singleton umhängen.
-4. Veröffentlichen:
-   ```bash
-   npm run build
-   power-apps push
-   ```
+Die App ist gegen **Waldmann D365 DEV** initialisiert und live verdrahtet
+(`dataverseSalesService`). Acht Dataverse-Datasources sind registriert:
+die sechs Dashboard-Tabellen plus `systemuser` (Auflösung Entra-Object-ID →
+Dataverse-Benutzer für die „Meine …"-Filter) und `account` (clientseitiger
+Join für Kundennummer + Kunden-GVL/KAM der Angebote/Aufträge — die
+Code-App-API unterstützt kein `$expand`).
+
+Designentscheidungen:
+
+- **Anzeige-Labels** (Optionsets, Lookups) kommen aus den
+  FormattedValue-Annotations der Web API — keine handgepflegten Code→Label-Maps.
+- **Filterlogik** hängt nie an Label-Schreibweisen, sondern an env-stabilen
+  Roh-Codes (`statecode`, `statuscode`-Kategorien, `activitytypecode`).
+- **Fallback**: außerhalb eines Power-Apps-Hosts oder bei Fehlern liefert der
+  Service Demo-Daten; Teilausfälle einzelner Tabellen → Badge „Live + Demo".
+
+Bekannte Annäherungen gegenüber der Legacy-Lösung (Grenzen des Daten-Clients):
+
+- „Meine Aktivitäten" filtert auf Besitzer statt activityparty-Beteiligung
+- Projekt-„GVL im Projektteam" nutzt `wal_areasalesmanager_id` statt der
+  connection-Tabelle
+- `statusChangedOn` ≈ `modifiedon`; „offene Projektaufgaben für mich" bleibt
+  live leer, bis eine `task`-Datasource ergänzt ist
+
+> **Generator-Hinweis:** `pac code add-data-source` (pac 2.8.1) registriert
+> `lead` und `account` korrekt, emittiert für diese beiden Tabellen aber
+> stillschweigend keine TypeScript-Dateien. `LeadsModel/-Service` und
+> `AccountsModel/-Service` unter `src/generated/` sind deshalb handgeschrieben
+> (aus den Schema-JSONs unter `.power/schemas/dataverse/`) und entsprechend
+> kommentiert.
+
+> **Nach frischem Clone:** Der Ordner `.power/` ist bewusst nicht versioniert
+> (Repo-Konvention, wie audit-explorer). Vor dem ersten Build einmal die
+> Datasources neu registrieren (`pac code add-data-source -a dataverse -t
+> <tabelle>` für die acht Tabellen) — das erzeugt `.power/` neu; die
+> versionierten Dateien unter `src/generated/` bleiben unverändert.
+
+Veröffentlichen:
+
+```bash
+npm run build
+pac code push
+```
 
 > Hinweis: `LegacySolution/` enthält den entpackten Export der ursprünglichen
 > Dynamics-365-Lösung (Dashboard-FormXml, SavedQueries, Visualizations) und

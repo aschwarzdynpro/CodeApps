@@ -4,9 +4,14 @@
  * Mirrors the six entities of the legacy model-driven dashboard
  * ("Dashboard GVL" in LegacySolution/): activitypointer, lead, opportunity,
  * wal_project, quote and salesorder — reduced to the columns the legacy
- * views actually displayed. Option-set values are carried as German display
- * labels because the dashboard is a read-only visualization; the live
- * Dataverse mapping translates codes to these labels in one place.
+ * views actually displayed.
+ *
+ * Option-set values are carried as display labels (`string`): live they come
+ * from the Dataverse FormattedValue annotations (localized environment
+ * labels), in demo mode from the seeded sample data. Everything view logic
+ * FILTERS on is additionally modeled as a code-derived, environment-stable
+ * field (`open`, `isAppointment`, `statusCategory`, `status` unions for
+ * quote/order) so filters never depend on label spelling.
  */
 
 export interface UserRef {
@@ -16,18 +21,20 @@ export interface UserRef {
 
 /* ---------------------------------------------------------------- Aktivität */
 
-export type ActivityType = 'Telefonat' | 'E-Mail' | 'Termin' | 'Aufgabe' | 'Brief'
-export type ActivityState = 'Offen' | 'Geplant' | 'Abgeschlossen' | 'Abgebrochen'
-export type ActivityPriority = 'Niedrig' | 'Normal' | 'Hoch'
-
 export interface Activity {
   id: string
   subject: string
   /** Name des Bezugsdatensatzes (regardingobjectid). */
   regarding: string
-  type: ActivityType
-  state: ActivityState
-  priority: ActivityPriority
+  /** Anzeige-Label des Aktivitätstyps (z. B. "Termin", "Telefonanruf"). */
+  type: string
+  /** Abgeleitet aus activitytypecode — Basis der "Meine Termine"-Ansicht. */
+  isAppointment: boolean
+  /** Anzeige-Label des Status (statecode). */
+  state: string
+  /** statecode ∈ {Open, Scheduled}. */
+  open: boolean
+  priority: string
   scheduledStart?: string
   /** Fälligkeit; die Legacy-Views filtern auf diesen/letzten Monat oder leer. */
   scheduledEnd?: string
@@ -40,24 +47,16 @@ export interface Activity {
 
 /* --------------------------------------------------------------------- Lead */
 
-export type LeadStatus = 'Neu' | 'Kontaktiert' | 'Qualifiziert'
-export type LeadSource =
-  | 'Messe'
-  | 'Webseite'
-  | 'Empfehlung'
-  | 'Kaltakquise'
-  | 'Bestandskunde'
-  | 'Partner'
-
 export interface Lead {
   id: string
   subject: string
   companyName: string
   fullName: string
-  /** Anwendungsbereiche (wal_application_opts, Multiselect). */
+  /** Anwendungsbereiche (wal_application_opts, Multiselect-Labels). */
   applications: string[]
-  source: LeadSource
-  status: LeadStatus
+  /** Ursprung (wal_leadsource_opt-Label). */
+  source: string
+  status: string
   /** statecode = 0 (offen / in Bearbeitung). */
   open: boolean
   areaSalesManager: UserRef
@@ -68,20 +67,6 @@ export interface Lead {
 
 /* ------------------------------------------------------------ Verkaufschance */
 
-export type ForecastCategory =
-  | 'Pipeline'
-  | 'Bester Fall'
-  | 'Zugesagt'
-  | 'Gewonnen'
-  | 'Ausgelassen'
-
-export type OpportunityStage =
-  | 'Qualifizierung'
-  | 'Konzept'
-  | 'Angebot'
-  | 'Verhandlung'
-  | 'Abschluss'
-
 export interface Opportunity {
   id: string
   number: number
@@ -91,10 +76,11 @@ export interface Opportunity {
   contact: string
   decisionDate?: string
   estimatedValue: number
-  status: 'In Bearbeitung' | 'Gewonnen' | 'Verloren'
+  status: string
+  /** statecode = 0. */
   open: boolean
-  processStage: OpportunityStage
-  forecastCategory: ForecastCategory
+  processStage: string
+  forecastCategory: string
   areaSalesManager: UserRef
   keyAccountManager: UserRef
   owner: UserRef
@@ -103,16 +89,8 @@ export interface Opportunity {
 
 /* ------------------------------------------------------------------- Projekt */
 
-export type ProjectStatus =
-  | 'Neu'
-  | 'Vorphase'
-  | 'In Bearbeitung'
-  | 'Offen gewonnen'
-  | 'Geschlossen gewonnen'
-  | 'Verloren'
-  | 'Zurückgestellt'
-
-export type ProjectType = 'Neuanlage' | 'Erweiterung' | 'Modernisierung' | 'Service'
+/** Statuscode-Kategorie (Codes aus der Legacy-Solution, env-stabil). */
+export type ProjectStatusCategory = 'open' | 'won' | 'lost'
 
 export interface Project {
   id: string
@@ -121,15 +99,18 @@ export interface Project {
   inquiringFirm: string
   endCustomer: string
   city: string
-  type: ProjectType
+  type: string
   followUpDate?: string
   decisionDate?: string
   estimatedDeliveryDate?: string
   potential: number
   actualRevenue: number
-  status: ProjectStatus
+  /** Anzeige-Label des Statusgrunds (statuscode). */
+  status: string
+  /** open = Neu/Vorphase/In Bearbeitung · won = gewonnen · lost = verloren/zurückgestellt. */
+  statusCategory: ProjectStatusCategory
   pspElement: string
-  forecastCategory: ForecastCategory
+  forecastCategory: string
   areaSalesManager: UserRef
   keyAccountManager: UserRef
   projectManager: UserRef
@@ -145,8 +126,7 @@ export interface Project {
 
 /* ------------------------------------------------------------------- Angebot */
 
-export type QuoteKind = 'Erstangebot' | 'Folgeangebot' | 'Budgetangebot' | 'Revision'
-export type QuoteType = 'Projektangebot' | 'Serviceangebot' | 'Ersatzteilangebot'
+/** Aus quote.statecode abgeleitet: 0 Draft, 1 Active, 2 Won, 3 Closed. */
 export type QuoteStatus = 'In Bearbeitung' | 'Aktiv' | 'Beauftragt' | 'Abgesagt'
 
 export interface Quote {
@@ -160,8 +140,10 @@ export interface Quote {
   project?: string
   pspElement?: string
   orderNumber?: string
-  kind: QuoteKind
-  type: QuoteType
+  /** Angebotsart (wal_quotekind_str). */
+  kind: string
+  /** Angebotstyp (wal_quotetype_opt-Label). */
+  type: string
   status: QuoteStatus
   totalAmount: number
   owner: UserRef
@@ -174,12 +156,7 @@ export interface Quote {
 
 /* ------------------------------------------------------------------- Auftrag */
 
-export type OrderDocumentType =
-  | 'Auftrag'
-  | 'Projektauftrag'
-  | 'Serviceauftrag'
-  | 'Ersatzteilauftrag'
-
+/** Aus salesorder.statecode abgeleitet (Fulfilled/Invoiced → Abgerechnet). */
 export type OrderState = 'Aktiv' | 'Übermittelt' | 'Abgerechnet' | 'Storniert'
 
 export interface SalesOrder {
@@ -192,7 +169,8 @@ export interface SalesOrder {
   project?: string
   pspElement?: string
   externalOrderNumber?: string
-  documentType: OrderDocumentType
+  /** Auftragsart (wal_salesdocumenttype_str). */
+  documentType: string
   state: OrderState
   totalAmount: number
   owner: UserRef
@@ -205,7 +183,12 @@ export interface SalesOrder {
 
 /* ----------------------------------------------------------------- Gesamtbild */
 
+/** Woher der angezeigte Datenbestand stammt (steuert das Badge im Header). */
+export type SalesDataSource = 'live' | 'demo' | 'mixed'
+
 export interface SalesData {
+  /** Herkunft des Datenbestands. */
+  dataSource: SalesDataSource
   /** Angemeldeter Benutzer — das "ich" der "Meine …"-Ansichten. */
   currentUser: UserRef
   /** Alle GVL, die in den Daten vorkommen (für den Demo-Perspektivwechsel). */

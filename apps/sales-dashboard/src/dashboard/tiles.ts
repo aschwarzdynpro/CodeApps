@@ -3,7 +3,6 @@ import type {
   Lead,
   Opportunity,
   Project,
-  ProjectStatus,
   Quote,
   SalesOrder,
 } from '../types/sales'
@@ -110,7 +109,7 @@ export const activitiesTile: TileDef<Activity> = {
       id: 'meine-termine',
       label: 'Meine Termine – dieser & letzter Monat',
       filter: (row, ctx) =>
-        row.type === 'Termin' &&
+        row.isAppointment &&
         row.participantIds.includes(ctx.userId) &&
         inActivityWindow(row, ctx.now),
       sort: dateAsc((row) => row.scheduledEnd),
@@ -236,10 +235,8 @@ export const opportunitiesTile: TileDef<Opportunity> = {
 
 /* ---------------------------------------------------------------- Projekte */
 
-const OPEN_STATUSES: readonly ProjectStatus[] = ['Neu', 'Vorphase', 'In Bearbeitung']
-
 const isOpenProject = (row: Project, userId: string) =>
-  OPEN_STATUSES.includes(row.status) && row.areaSalesManager.id === userId
+  row.statusCategory === 'open' && row.areaSalesManager.id === userId
 
 export const projectsTile: TileDef<Project> = {
   id: 'projects',
@@ -271,7 +268,7 @@ export const projectsTile: TileDef<Project> = {
       id: 'gewonnen-monat',
       label: 'Gewonnene Projekte in diesem Monat',
       filter: (row, ctx) =>
-        (row.status === 'Offen gewonnen' || row.status === 'Geschlossen gewonnen') &&
+        row.statusCategory === 'won' &&
         row.areaSalesManager.id === ctx.userId &&
         isThisMonth(row.statusChangedOn, ctx.now),
       sort: dateDesc((row) => row.statusChangedOn),
@@ -286,7 +283,7 @@ export const projectsTile: TileDef<Project> = {
       id: 'verloren-monat',
       label: 'Verlorene / zurückgestellte Projekte diesen Monat',
       filter: (row, ctx) =>
-        (row.status === 'Verloren' || row.status === 'Zurückgestellt') &&
+        row.statusCategory === 'lost' &&
         row.areaSalesManager.id === ctx.userId &&
         isThisMonth(row.statusChangedOn, ctx.now),
       sort: dateDesc((row) => row.statusChangedOn),
@@ -436,10 +433,12 @@ export const ordersTile: TileDef<SalesOrder> = {
     {
       id: 'projekt-monat',
       label: 'Projektaufträge diesen Monat – ich GVL',
+      // "Projektauftrag" = Auftrag mit verknüpftem Projekt (env-stabil,
+      // statt auf die Schreibweise der Auftragsart zu vertrauen).
       filter: (row, ctx) =>
         row.areaSalesManager.id === ctx.userId &&
         isThisMonth(row.creationDate, ctx.now) &&
-        row.documentType === 'Projektauftrag',
+        row.project !== undefined,
       sort: dateDesc((row) => row.creationDate),
     },
     {

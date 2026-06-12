@@ -25,6 +25,7 @@ import { DashboardTile } from './components/DashboardTile'
 type Theme = 'light' | 'dark'
 
 const THEME_KEY = 'sales-dashboard-theme'
+const DATA_MODE_KEY = 'sales-dashboard-data-mode'
 
 function initialTheme(): Theme {
   const stored = localStorage.getItem(THEME_KEY)
@@ -36,7 +37,17 @@ function initialTheme(): Theme {
 
 export default function App() {
   const { mode } = usePower()
-  const { data, loading, error, refresh, lastUpdated } = useSalesData()
+
+  // Demo-Schalter: erzwingt Demo-Daten auch im Power-Apps-Host (zum Testen).
+  const [forceMock, setForceMock] = useState(
+    () => localStorage.getItem(DATA_MODE_KEY) === 'demo',
+  )
+  const changeForceMock = (value: boolean) => {
+    setForceMock(value)
+    localStorage.setItem(DATA_MODE_KEY, value ? 'demo' : 'auto')
+  }
+
+  const { data, loading, error, refresh, lastUpdated } = useSalesData(forceMock)
 
   const [theme, setTheme] = useState<Theme>(initialTheme)
   useEffect(() => {
@@ -45,8 +56,15 @@ export default function App() {
   }, [theme])
 
   // "Ich" der "Meine …"-Ansichten; im Demo-Modus per Kopfzeile wechselbar.
+  // Nach einem Wechsel Demo ↔ Live passen alte Perspektiv-IDs nicht zum
+  // neuen Datenbestand — dann zählt der angemeldete Benutzer (abgeleitet,
+  // kein State-Reset nötig).
   const [perspectiveId, setPerspectiveId] = useState<string | null>(null)
-  const userId = perspectiveId ?? data?.currentUser.id ?? ''
+  const validPerspective =
+    perspectiveId && data?.salesManagers.some((u) => u.id === perspectiveId)
+      ? perspectiveId
+      : null
+  const userId = validPerspective ?? data?.currentUser.id ?? ''
 
   const ctx = useMemo<ViewContext>(
     () => ({ userId, now: new Date() }),
@@ -77,7 +95,10 @@ export default function App() {
   return (
     <div className="app">
       <Header
-        mode={mode}
+        dataSource={data.dataSource}
+        canUseLive={mode === 'power-platform'}
+        forceMock={forceMock}
+        onForceMockChange={changeForceMock}
         salesManagers={data.salesManagers}
         perspectiveId={userId}
         onPerspectiveChange={setPerspectiveId}

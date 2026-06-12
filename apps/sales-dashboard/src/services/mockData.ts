@@ -1,23 +1,11 @@
 import type {
   Activity,
-  ActivityPriority,
-  ActivityState,
-  ActivityType,
-  ForecastCategory,
   Lead,
-  LeadSource,
-  LeadStatus,
   Opportunity,
-  OpportunityStage,
-  OrderDocumentType,
-  OrderState,
   Project,
-  ProjectStatus,
-  ProjectType,
+  ProjectStatusCategory,
   Quote,
-  QuoteKind,
   QuoteStatus,
-  QuoteType,
   SalesData,
   SalesOrder,
   UserRef,
@@ -159,22 +147,8 @@ function buildActivities(): Activity[] {
   const result: Activity[] = []
   for (let i = 0; i < 52; i++) {
     const account = pick(ACCOUNTS)
-    const type: ActivityType = pick([
-      'Telefonat',
-      'E-Mail',
-      'Termin',
-      'Termin',
-      'Aufgabe',
-      'Brief',
-    ] as const)
-    const state: ActivityState = pick([
-      'Offen',
-      'Offen',
-      'Offen',
-      'Geplant',
-      'Abgeschlossen',
-      'Abgebrochen',
-    ] as const)
+    const type = pick(['Telefonat', 'E-Mail', 'Termin', 'Termin', 'Aufgabe', 'Brief'] as const)
+    const state = pick(['Offen', 'Offen', 'Offen', 'Geplant', 'Abgeschlossen', 'Abgebrochen'] as const)
     // Fälligkeit: dieser Monat / letzter Monat / ohne — exakt das Fenster der
     // Legacy-View ("this-month | last-month | null").
     const bucket = rng()
@@ -193,8 +167,10 @@ function buildActivities(): Activity[] {
       subject: `${pick(ACTIVITY_SUBJECTS)} – ${account.name.split(' ')[0]}`,
       regarding: account.name,
       type,
+      isAppointment: type === 'Termin',
       state,
-      priority: pick(['Niedrig', 'Normal', 'Normal', 'Hoch'] as const satisfies readonly ActivityPriority[]),
+      open: state === 'Offen' || state === 'Geplant',
+      priority: pick(['Niedrig', 'Normal', 'Normal', 'Hoch'] as const),
       scheduledStart,
       scheduledEnd,
       owner,
@@ -231,7 +207,6 @@ function buildLeads(): Lead[] {
   const result: Lead[] = []
   for (let i = 0; i < 28; i++) {
     const company = `${pick(LAST_NAMES)} ${pick(['Industrietechnik', 'Logistik', 'Systeme', 'Anlagenbau'])} ${pick(['GmbH', 'AG', 'KG'])}`
-    const status: LeadStatus = pick(['Neu', 'Neu', 'Kontaktiert', 'Kontaktiert', 'Qualifiziert'] as const)
     result.push({
       id: `lead-${i + 1}`,
       subject: pick(LEAD_TOPICS),
@@ -246,8 +221,8 @@ function buildLeads(): Lead[] {
         'Kaltakquise',
         'Bestandskunde',
         'Partner',
-      ] as const satisfies readonly LeadSource[]),
-      status,
+      ] as const),
+      status: pick(['Neu', 'Neu', 'Kontaktiert', 'Kontaktiert', 'Qualifiziert'] as const),
       open: chance(0.85),
       areaSalesManager: someGvl(),
       owner: someGvl(),
@@ -260,8 +235,8 @@ function buildLeads(): Lead[] {
 
 /* --------------------------------------------------------- Verkaufschancen */
 
-const FORECAST_OPEN: readonly ForecastCategory[] = ['Pipeline', 'Pipeline', 'Bester Fall', 'Zugesagt']
-const STAGES: readonly OpportunityStage[] = ['Qualifizierung', 'Konzept', 'Angebot', 'Verhandlung', 'Abschluss']
+const FORECAST_OPEN = ['Pipeline', 'Pipeline', 'Bester Fall', 'Zugesagt'] as const
+const STAGES = ['Qualifizierung', 'Konzept', 'Angebot', 'Verhandlung', 'Abschluss'] as const
 
 function buildOpportunities(): Opportunity[] {
   const result: Opportunity[] = []
@@ -307,33 +282,29 @@ const DESIGNATIONS = [
   'AKL-Anlage',
 ]
 
-const OPEN_PROJECT_STATUSES: readonly ProjectStatus[] = ['Neu', 'Vorphase', 'In Bearbeitung']
+/** Statusgrund-Label + env-stabile Kategorie, gewichtet wie eine echte Pipeline. */
+const PROJECT_STATUSES: ReadonlyArray<[string, ProjectStatusCategory]> = [
+  ['Neu', 'open'],
+  ['Vorphase', 'open'],
+  ['Vorphase', 'open'],
+  ['In Bearbeitung', 'open'],
+  ['In Bearbeitung', 'open'],
+  ['In Bearbeitung', 'open'],
+  ['Offen gewonnen', 'won'],
+  ['Geschlossen gewonnen', 'won'],
+  ['Verloren', 'lost'],
+  ['Zurückgestellt', 'lost'],
+]
 
 function buildProjects(): Project[] {
   const result: Project[] = []
   for (let i = 0; i < 30; i++) {
     const account = someAccount()
     const endCustomer = chance(0.4) ? pick(ACCOUNTS).name : account.name
-    const status: ProjectStatus = pick([
-      'Neu',
-      'Vorphase',
-      'Vorphase',
-      'In Bearbeitung',
-      'In Bearbeitung',
-      'In Bearbeitung',
-      'Offen gewonnen',
-      'Geschlossen gewonnen',
-      'Verloren',
-      'Zurückgestellt',
-    ] as const)
-    const isOpen = OPEN_PROJECT_STATUSES.includes(status)
-    const won = status === 'Offen gewonnen' || status === 'Geschlossen gewonnen'
+    const [status, statusCategory] = pick(PROJECT_STATUSES)
+    const isOpen = statusCategory === 'open'
+    const won = statusCategory === 'won'
     const potential = amount(150_000, 4_800_000)
-    const forecastCategory: ForecastCategory = won
-      ? 'Gewonnen'
-      : status === 'Verloren' || status === 'Zurückgestellt'
-        ? 'Ausgelassen'
-        : pick(FORECAST_OPEN)
     result.push({
       id: `prj-${i + 1}`,
       number: 70500 + i,
@@ -341,15 +312,20 @@ function buildProjects(): Project[] {
       inquiringFirm: account.name,
       endCustomer,
       city: account.city,
-      type: pick(['Neuanlage', 'Neuanlage', 'Erweiterung', 'Modernisierung', 'Service'] as const satisfies readonly ProjectType[]),
+      type: pick(['Neuanlage', 'Neuanlage', 'Erweiterung', 'Modernisierung', 'Service'] as const),
       followUpDate: isOpen && chance(0.6) ? dayInMonth(chance(0.6) ? 0 : 1) : undefined,
       decisionDate: chance(0.85) ? dayInMonth(pick([-1, 0, 0, 1, 2, 3] as const)) : undefined,
       estimatedDeliveryDate: chance(0.7) ? dayInMonth(int(2, 8)) : undefined,
       potential,
       actualRevenue: won ? Math.round(potential * (0.7 + rng() * 0.3)) : 0,
       status,
+      statusCategory,
       pspElement: `P-${int(100, 999)}.${int(10, 99)}`,
-      forecastCategory,
+      forecastCategory: won
+        ? 'Gewonnen'
+        : statusCategory === 'lost'
+          ? 'Ausgelassen'
+          : pick(FORECAST_OPEN),
       areaSalesManager: account.gvl,
       keyAccountManager: account.kam,
       projectManager: pick(PM),
@@ -395,10 +371,10 @@ function buildQuotes(projects: Project[]): Quote[] {
       project: project ? `P-${project.number}` : undefined,
       pspElement: project?.pspElement,
       orderNumber: status === 'Beauftragt' ? `AB-${41000 + i * 7}` : undefined,
-      kind: pick(['Erstangebot', 'Erstangebot', 'Folgeangebot', 'Budgetangebot', 'Revision'] as const satisfies readonly QuoteKind[]),
+      kind: pick(['Erstangebot', 'Erstangebot', 'Folgeangebot', 'Budgetangebot', 'Revision'] as const),
       type: project
         ? 'Projektangebot'
-        : pick(['Serviceangebot', 'Ersatzteilangebot'] as const satisfies readonly QuoteType[]),
+        : pick(['Serviceangebot', 'Ersatzteilangebot'] as const),
       status,
       totalAmount: amount(12_000, 980_000),
       owner: account.gvl,
@@ -429,7 +405,7 @@ function buildQuotes(projects: Project[]): Quote[] {
       project: `P-${project.number}`,
       pspElement: project.pspElement,
       orderNumber: status === 'Beauftragt' ? `AB-${41900 + n}` : undefined,
-      kind: pick(['Erstangebot', 'Folgeangebot', 'Revision'] as const satisfies readonly QuoteKind[]),
+      kind: pick(['Erstangebot', 'Folgeangebot', 'Revision'] as const),
       type: 'Projektangebot',
       status,
       totalAmount: amount(45_000, 720_000),
@@ -449,7 +425,7 @@ function buildOrders(projects: Project[]): SalesOrder[] {
   const result: SalesOrder[] = []
   for (let i = 0; i < 20; i++) {
     const account = someAccount()
-    const documentType: OrderDocumentType = pick([
+    const documentType = pick([
       'Auftrag',
       'Auftrag',
       'Projektauftrag',
@@ -473,7 +449,7 @@ function buildOrders(projects: Project[]): SalesOrder[] {
       pspElement: project?.pspElement,
       externalOrderNumber: chance(0.7) ? `BE-${int(100_000, 999_999)}` : undefined,
       documentType,
-      state: pick(['Aktiv', 'Aktiv', 'Übermittelt', 'Abgerechnet'] as const satisfies readonly OrderState[]),
+      state: pick(['Aktiv', 'Aktiv', 'Übermittelt', 'Abgerechnet'] as const),
       totalAmount: amount(15_000, 1_600_000),
       owner: account.gvl,
       areaSalesManager: account.gvl,
@@ -490,6 +466,7 @@ function buildOrders(projects: Project[]): SalesOrder[] {
 export function buildMockData(): SalesData {
   const projects = buildProjects()
   return {
+    dataSource: 'demo',
     currentUser: CURRENT_USER,
     salesManagers: GVL,
     activities: buildActivities(),

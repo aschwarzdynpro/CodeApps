@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { SalesData } from '../types/sales'
 import { salesService } from '../services/salesService'
+import { mockSalesService } from '../services/mockSalesService'
 
 interface SalesDataState {
   data: SalesData | null
@@ -9,8 +10,14 @@ interface SalesDataState {
   lastUpdated: Date | null
 }
 
-/** Lädt den Dashboard-Datenbestand und stellt einen manuellen Refresh bereit. */
-export function useSalesData() {
+/**
+ * Lädt den Dashboard-Datenbestand und stellt einen manuellen Refresh bereit.
+ *
+ * @param forceMock Demo-Schalter im Header: erzwingt die Demo-Daten auch
+ *   innerhalb eines Power-Apps-Hosts (zum Testen). Außerhalb des Hosts
+ *   liefert der Live-Service ohnehin Demo-Daten.
+ */
+export function useSalesData(forceMock: boolean) {
   const [state, setState] = useState<SalesDataState>({
     data: null,
     loading: true,
@@ -21,7 +28,8 @@ export function useSalesData() {
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }))
     try {
-      const data = await salesService.load()
+      const service = forceMock ? mockSalesService : salesService
+      const data = await service.load()
       setState({ data, loading: false, error: null, lastUpdated: new Date() })
     } catch (err) {
       setState((s) => ({
@@ -30,7 +38,7 @@ export function useSalesData() {
         error: err instanceof Error ? err.message : 'Unbekannter Fehler beim Laden',
       }))
     }
-  }, [])
+  }, [forceMock])
 
   useEffect(() => {
     void load()

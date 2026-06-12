@@ -27,8 +27,6 @@ interface Kpi {
   delta?: number
 }
 
-const OPEN_PROJECT_STATUSES = ['Neu', 'Vorphase', 'In Bearbeitung']
-
 function pctDelta(current: number, previous: number): number | undefined {
   if (previous <= 0) return undefined
   return ((current - previous) / previous) * 100
@@ -41,7 +39,7 @@ export function KpiBar({ data, ctx }: KpiBarProps) {
     const openActivities = data.activities.filter(
       (a) =>
         a.participantIds.includes(userId) &&
-        (a.state === 'Offen' || a.state === 'Geplant') &&
+        a.open &&
         (!a.scheduledEnd ||
           isThisMonth(a.scheduledEnd, now) ||
           isLastMonth(a.scheduledEnd, now)),
@@ -57,9 +55,7 @@ export function KpiBar({ data, ctx }: KpiBarProps) {
     const pipeline = myOpenOpps.reduce((sum, o) => sum + o.estimatedValue, 0)
 
     const myOpenProjects = data.projects.filter(
-      (p) =>
-        OPEN_PROJECT_STATUSES.includes(p.status) &&
-        p.areaSalesManager.id === userId,
+      (p) => p.statusCategory === 'open' && p.areaSalesManager.id === userId,
     )
     const projectPotential = myOpenProjects.reduce((sum, p) => sum + p.potential, 0)
 
