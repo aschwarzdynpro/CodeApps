@@ -70,16 +70,19 @@ function LinkSolutionPanel({
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Results only from 2 characters on — the candidate pool is too large
+  // for a useful unfiltered list.
   const q = query.trim().toLowerCase()
-  const matches = (
-    q
-      ? candidates.filter(
-          (c) =>
-            c.title.toLowerCase().includes(q) ||
-            c.uniqueName.toLowerCase().includes(q),
-        )
+  const matches =
+    q.length < 2
+      ? []
       : candidates
-  ).slice(0, LINK_RESULT_LIMIT)
+          .filter(
+            (c) =>
+              c.title.toLowerCase().includes(q) ||
+              c.uniqueName.toLowerCase().includes(q),
+          )
+          .slice(0, LINK_RESULT_LIMIT)
 
   const link = async (target: WorkingSolution) => {
     setBusyId(target.id)
@@ -111,7 +114,9 @@ function LinkSolutionPanel({
         <div className="state">
           {candidates.length === 0
             ? 'No unlinked solutions available in this environment.'
-            : `No solution matches “${query}”.`}
+            : q.length < 2
+              ? 'Type at least 2 characters to search.'
+              : `No solution matches “${query}”.`}
         </div>
       )}
       <ul className="link-result-list">
