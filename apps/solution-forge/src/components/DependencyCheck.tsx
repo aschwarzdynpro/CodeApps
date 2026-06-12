@@ -156,10 +156,15 @@ export function DependencyCheck({ solutions }: Props) {
       </div>
 
       {error && <div className="state state--error">{error}</div>}
-      {result?.targetUnreachable && (
+      {!!result?.lookupWarnings?.length && (
         <div className="state state--error">
-          Some target lookups failed — affected components show “not
-          verifiable”. See the browser console for details.
+          Some lookups failed — the result may be incomplete (details in
+          the browser console):
+          <ul className="merge-errors">
+            {result.lookupWarnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
         </div>
       )}
 

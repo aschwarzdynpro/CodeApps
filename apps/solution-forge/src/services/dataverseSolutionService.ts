@@ -808,9 +808,17 @@ export class DataverseSolutionService implements SolutionService {
     select: string,
     filter: string,
   ): Promise<Row[]> {
-    const result = orgUrl
+    // "Current environment" queries also go through WithOrganization (with
+    // the host environment's own URL): the plain ListRecords variant has
+    // proven unreliable for some entity sets, while the explicit-org
+    // operation is the same code path the Compare tab uses successfully.
+    const url =
+      orgUrl ??
+      ENVIRONMENTS.find((e) => e.isCurrent)?.url.replace(/\/+$/, '') ??
+      null
+    const result = url
       ? await MicrosoftDataverseService.ListRecordsWithOrganization(
-          orgUrl,
+          url,
           entitySet,
           undefined,
           undefined,
@@ -827,7 +835,10 @@ export class DataverseSolutionService implements SolutionService {
           select,
           filter,
         )
-    if (!result.success) throw new Error(`${entitySet} query failed`)
+    if (!result.success) {
+      console.warn(`[deps] ${entitySet} query failed:`, result)
+      throw new Error(`${entitySet} query failed`)
+    }
     return (
       (result.data as { value?: Row[] } | undefined)?.value ?? []
     )
@@ -939,6 +950,7 @@ export class DataverseSolutionService implements SolutionService {
 
     const requiredNames = new Map<string, string>()
     const targetPresence = new Map<string, boolean>()
+    const lookupWarnings: string[] = []
     let targetUnreachable = false
     for (const [type, idSet] of idsByType) {
       const spec = DEPENDENCY_SPECS[type]
@@ -954,6 +966,9 @@ export class DataverseSolutionService implements SolutionService {
           if (info.name) requiredNames.set(id, info.name)
       } catch (err) {
         console.warn('[deps] current-env name lookup failed:', err)
+        lookupWarnings.push(
+          `${label}: name lookup in the current environment failed — names and name-based matching are incomplete.`,
+        )
       }
       try {
         const target = await this.lookupComponents(orgUrl, spec, ids)
@@ -990,6 +1005,9 @@ export class DataverseSolutionService implements SolutionService {
       } catch (err) {
         console.warn(`[deps] target lookup failed for ${spec.entitySet}:`, err)
         targetUnreachable = true
+        lookupWarnings.push(
+          `${label}: target lookup failed — affected components stay "unknown".`,
+        )
       }
     }
 
@@ -1038,7 +1056,12 @@ export class DataverseSolutionService implements SolutionService {
             b.requiredName ?? b.requiredObjectId,
           ),
       )
-    return { envKey, items, ...(targetUnreachable ? { targetUnreachable } : {}) }
+    return {
+      envKey,
+      items,
+      ...(targetUnreachable ? { targetUnreachable } : {}),
+      ...(lookupWarnings.length ? { lookupWarnings } : {}),
+    }
   }
 
   /** Pull one missing required component into the release solution. */

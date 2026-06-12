@@ -31,4 +31,6 @@ export interface DependencyCheckResult {
   items: DependencyItem[]
   /** Set when the target environment could not be queried at all. */
   targetUnreachable?: boolean
+  /** Per-type lookup problems (name resolution / target check failed). */
+  lookupWarnings?: string[]
 }
