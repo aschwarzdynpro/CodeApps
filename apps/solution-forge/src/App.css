@@ -1562,6 +1562,95 @@
   font-weight: 700;
 }
 
+/* App sharing */
+.card-subtitle {
+  font-size: 12px;
+  font-weight: 400;
+}
+.sharing-row {
+  cursor: pointer;
+}
+.sharing-row:hover {
+  background: var(--bg);
+}
+.sharing-row--open {
+  background: var(--bg);
+}
+.sharing-caret {
+  display: inline-block;
+  width: 14px;
+  color: var(--muted);
+}
+.cell-notdeployed {
+  font-size: 12px;
+}
+.sharing-pill {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.sharing-detail-row > td {
+  background: var(--bg);
+  padding: 0;
+}
+.sharing-detail {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 12px;
+}
+@media (max-width: 800px) {
+  .sharing-detail {
+    grid-template-columns: 1fr;
+  }
+}
+.sharing-detail-col {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 13px;
+}
+.sharing-detail-head {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.sharing-owner {
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+.sharing-principals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sharing-principals li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sharing-principal-icon {
+  flex: none;
+}
+.sharing-principal-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sharing-principal-access {
+  flex: none;
+  font-size: 11px;
+}
+
 /* Merge workbench */
 .merge-layout {
   display: grid;

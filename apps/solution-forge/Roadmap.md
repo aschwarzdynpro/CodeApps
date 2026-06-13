@@ -36,6 +36,10 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 - [x] **Layer-Inspektor** (`msdyn_componentlayer`): Aktive unmanaged Layer
       über managed Komponenten in UAT/PROD aufdecken. *(Tab „Layer
       Inspector")*
+- [x] **App-Sharing-Check**: Canvas Apps & Custom Pages einer Solution
+      daraufhin prüfen, mit welchen Usern/Teams sie in UAT/PROD geteilt sind
+      (`RetrieveSharedPrincipalsAndAccess`) — deployt-aber-nicht-geteilt
+      aufdecken. *(Tab „App Sharing")*
 - [ ] **Präfix-Wächter**: Komponenten mit fremdem Publisher-Präfix in einer
       Working Solution flaggen.
 - [ ] **Housekeeping-Cockpit**: Duplikate, Orphans, leere Solutions,
@@ -76,3 +80,5 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 - [x] Layer Inspector: unmanaged Active-Layer über managed Komponenten in
       UAT/PROD (`msdyn_componentlayer`)
 - [x] Compare-Inhalts-Drift: Hash der Definition + Side-by-side-Diff (⇄ diff)
+- [x] App Sharing: Canvas-App-/Custom-Page-Sharing über DEV/UAT/PROD
+      (`RetrieveSharedPrincipalsAndAccess` via Konnektor-Unbound-Action)

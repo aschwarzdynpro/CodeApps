@@ -87,6 +87,16 @@ Deployment-Status „Merged into Deployment Solution".
   unmanaged existieren. Klassische Typnamen (Entity, Workflow, …) sind
   statisch gemappt, solution-aware Typen kommen dynamisch aus
   `solutioncomponentdefinition`.
+- **App Sharing**: Canvas Apps und Custom Pages einer Solution daraufhin
+  prüfen, mit wem sie in DEV/UAT/PROD geteilt sind. Solution-Import
+  überträgt **kein** User-Sharing — eine deployte Canvas App erreicht
+  niemanden, bis sie im Ziel geteilt wird; genau diese Lücke wird oben
+  hervorgehoben. Cross-Env-Match über den import-stabilen `canvasapp.name`;
+  die Prinzipale kommen aus der Message `RetrieveSharedPrincipalsAndAccess`,
+  aufgerufen je Umgebung über `PerformUnboundActionWithOrganization` (der
+  Konnektor ist bereits verdrahtet — keine neue Data Source). Custom Pages
+  (`canvasapptype 2`) erhalten Zugriff über die Rollen der modellgetriebenen
+  App, nicht über direktes Sharing — „nicht geteilt" ist dort normal.
 
 ## Architektur
 

@@ -234,6 +234,37 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>App Sharing</h3>
+            <ul>
+              <li>
+                Pick a solution — its <strong>canvas apps</strong> and{' '}
+                <strong>custom pages</strong> are checked for who they're
+                shared with in DEV, UAT and PROD (matched across environments
+                by their import-stable unique name).
+              </li>
+              <li>
+                Solution import <strong>never carries user sharing</strong>,
+                so a canvas app can be deployed to UAT/PROD and reach nobody.
+                Apps that are <span className="cell-missing">⚠ not shared</span>{' '}
+                there are called out at the top — those need a Share in the
+                target before users can open them.
+              </li>
+              <li>
+                Each cell shows how many <strong>👤 users</strong> and{' '}
+                <strong>👥 teams</strong> the app is shared with; open a row
+                to see the principals and their access level (Read / Read,
+                Write / Co-owner) per environment, plus the owner.
+              </li>
+              <li>
+                <strong>Custom pages</strong> get access through the
+                model-driven app's security roles, not direct sharing — so
+                “no shares” is normal for them and not flagged as a gap.
+              </li>
+              <li>Requires the “INT | Deployment Manager” role.</li>
+            </ul>
+          </section>
+
+          <section className="help-section">
             <h3>Compare (ALM)</h3>
             <ul>
               <li>

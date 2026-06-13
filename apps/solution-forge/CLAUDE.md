@@ -35,8 +35,8 @@ UI hängt NUR am Interface `SolutionService`
 `dataverseSolutionService.ts` (echt, fällt via `powerModeReady` auf Mock
 zurück) + `mockSolutionService.ts`/`mockData.ts` (offline voll demobar —
 bei neuen Methoden IMMER Mock mitziehen). Compare separat:
-`comparisonService.ts`. Caches (Komponenten, Suche-Index,
-Kollisionsradar, WorkItems) leben in `App.tsx`.
+`comparisonService.ts`; App-Sharing separat: `sharingService.ts`. Caches
+(Komponenten, Suche-Index, Kollisionsradar, WorkItems) leben in `App.tsx`.
 
 **Datenmodell:** `ssid_workingsolution` = Darstellungs-Schicht, verlinkt
 über `ssid_uniquesolutionname` zur echten Solution. Typ-Kaskade:
@@ -82,6 +82,12 @@ aus erstem `ssid_workbenchsettings`-Datensatz aufgelöst. Status-Codes:
    `dataSourcesInfo.ts` + handgeschriebener Client außerhalb
    `src/generated/` (siehe `retrieveMissingDependenciesService.ts`;
    GET-Function mit Pfad-Param wie audit-explorer/RetrieveAuditDetails).
+   **Cross-Env-Messages** (nicht nur Tabellen-Reads): über
+   `MicrosoftDataverseService.PerformUnboundActionWithOrganization(orgUrl,
+   '<Message>', {param})` — keine neue Data Source nötig. So ruft
+   `sharingService.ts` `RetrieveSharedPrincipalsAndAccess` gegen UAT/PROD
+   (Target als typed entity ref `{'@odata.type':'…canvasapp','canvasappid':id}`).
+   Canvas Apps cross-env per `canvasapp.name` matchen (IDs divergieren).
 9. **DevOps-Konnektor:** kein PAT; EntraOAuth-Token kommt aus dem
    Heimat-Tenant des Kontos (HSO-Konto ⇒ TF400813 in Schulz-Org, Gast
    hilft nicht) ⇒ Lösung ist SP (TODO.md). EntraOAuth-Connections sind
