@@ -8,6 +8,7 @@ import {
 } from '../utils/aggregate'
 import { RECORD_LINK_APP_ID } from '../config'
 import { DataGrid } from './DataGrid'
+import { RecordModal } from './RecordModal'
 import { TileIcon } from './TileIcon'
 import { ColumnChart } from './charts/ColumnChart'
 import { DonutChart } from './charts/DonutChart'
@@ -37,6 +38,7 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: Dashboar
   const [chartId, setChartId] = useState(def.charts[0].id)
   const [search, setSearch] = useState('')
   const [selection, setSelection] = useState<ChartSelection | null>(null)
+  const [selectedRow, setSelectedRow] = useState<T | null>(null)
 
   const view = def.views.find((v) => v.id === viewId) ?? def.views[0]
   const chart = def.charts.find((c) => c.id === chartId) ?? def.charts[0]
@@ -209,10 +211,20 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: Dashboar
             rows={gridRows}
             rowId={def.rowId}
             recordHref={recordHref}
+            onRowClick={setSelectedRow}
             emptyText="Keine Datensätze in dieser Ansicht"
           />
         </div>
       </div>
+
+      {selectedRow && (
+        <RecordModal
+          def={def}
+          row={selectedRow}
+          recordHref={recordHref?.(selectedRow)}
+          onClose={() => setSelectedRow(null)}
+        />
+      )}
     </section>
   )
 }

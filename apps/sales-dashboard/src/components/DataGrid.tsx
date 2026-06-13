@@ -14,6 +14,8 @@ interface DataGridProps<T> {
   rowId: (row: T) => string
   /** Deep-Link in den Datensatz (neuer Tab); undefined → keine Icon-Spalte. */
   recordHref?: (row: T) => string | undefined
+  /** Klick auf eine Zeile (öffnet das Detail-Modal); undefined → nicht klickbar. */
+  onRowClick?: (row: T) => void
   emptyText: string
 }
 
@@ -38,6 +40,7 @@ export function DataGrid<T>({
   rows,
   rowId,
   recordHref,
+  onRowClick,
   emptyText,
 }: DataGridProps<T>) {
   const [sort, setSort] = useState<SortState | null>(null)
@@ -86,9 +89,27 @@ export function DataGrid<T>({
         </thead>
         <tbody>
           {sorted.map((row) => (
-            <tr key={rowId(row)}>
+            <tr
+              key={rowId(row)}
+              className={onRowClick ? 'is-clickable' : undefined}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              tabIndex={onRowClick ? 0 : undefined}
+              onKeyDown={
+                onRowClick
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onRowClick(row)
+                      }
+                    }
+                  : undefined
+              }
+            >
               {recordHref && (
-                <td className="grid__open-td">
+                <td
+                  className="grid__open-td"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <OpenRecordLink href={recordHref(row)} />
                 </td>
               )}
@@ -128,7 +149,7 @@ function OpenRecordLink({ href }: { href: string | undefined }) {
   )
 }
 
-function GridCell<T>({ column, row }: { column: ColumnDef<T>; row: T }) {
+export function GridCell<T>({ column, row }: { column: ColumnDef<T>; row: T }) {
   const value = column.value(row)
   switch (column.kind) {
     case 'currency':
