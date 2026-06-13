@@ -92,11 +92,14 @@ Deployment-Status „Merged into Deployment Solution".
   überträgt **kein** User-Sharing — eine deployte Canvas App erreicht
   niemanden, bis sie im Ziel geteilt wird; genau diese Lücke wird oben
   hervorgehoben. Cross-Env-Match über den import-stabilen `canvasapp.name`;
-  die Prinzipale kommen aus der Message `RetrieveSharedPrincipalsAndAccess`,
-  aufgerufen je Umgebung über `PerformUnboundActionWithOrganization` (der
-  Konnektor ist bereits verdrahtet — keine neue Data Source). Custom Pages
-  (`canvasapptype 2`) erhalten Zugriff über die Rollen der modellgetriebenen
-  App, nicht über direktes Sharing — „nicht geteilt" ist dort normal.
+  die Prinzipale kommen aus der Sharing-Tabelle `principalobjectaccess`
+  (per FetchXML über `ListRecordsWithOrganization`, gefiltert auf
+  `objectid`), je Umgebung über den bereits verdrahteten Konnektor — keine
+  neue Data Source. (Der direkte Weg `RetrieveSharedPrincipalsAndAccess`
+  scheidet aus: der Konnektor kann nur POST-Actions cross-env aufrufen,
+  keine GET-Functions.) Custom Pages (`canvasapptype 2`) erhalten Zugriff
+  über die Rollen der modellgetriebenen App, nicht über direktes Sharing —
+  „nicht geteilt" ist dort normal.
 
 ## Architektur
 

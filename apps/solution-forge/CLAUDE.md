@@ -82,12 +82,17 @@ aus erstem `ssid_workbenchsettings`-Datensatz aufgelöst. Status-Codes:
    `dataSourcesInfo.ts` + handgeschriebener Client außerhalb
    `src/generated/` (siehe `retrieveMissingDependenciesService.ts`;
    GET-Function mit Pfad-Param wie audit-explorer/RetrieveAuditDetails).
-   **Cross-Env-Messages** (nicht nur Tabellen-Reads): über
-   `MicrosoftDataverseService.PerformUnboundActionWithOrganization(orgUrl,
-   '<Message>', {param})` — keine neue Data Source nötig. So ruft
-   `sharingService.ts` `RetrieveSharedPrincipalsAndAccess` gegen UAT/PROD
-   (Target als typed entity ref `{'@odata.type':'…canvasapp','canvasappid':id}`).
-   Canvas Apps cross-env per `canvasapp.name` matchen (IDs divergieren).
+   **Konnektor-Grenze:** `PerformUnboundActionWithOrganization` macht POST
+   und kann nur **Actions** cross-env aufrufen, KEINE GET-*Functions*
+   (z. B. `RetrieveSharedPrincipalsAndAccess` ⇒ „No HTTP resource found").
+   Es gibt keine GET-Function-Konnektor-Op. ⇒ Sharing-Daten cross-env
+   stattdessen als **Tabellen-Read** holen: `sharingService.ts` liest
+   `principalobjectaccess` (POA, Entity-Set `principalobjectaccessset`) per
+   **FetchXML** (`ListRecordsWithOrganization`-fetchXml-Param, da POA nicht
+   im Standard-Entity-Reference ist) gefiltert auf `objectid eq <recordId>`
+   → `principalid` + `principaltypecode` (8 User/9 Team) + `accessrightsmask`
+   (Bitmaske). Läuft als SP — POA-Leserecht im Ziel nötig. Canvas Apps
+   cross-env per `canvasapp.name` matchen (IDs divergieren).
 9. **DevOps-Konnektor:** kein PAT; EntraOAuth-Token kommt aus dem
    Heimat-Tenant des Kontos (HSO-Konto ⇒ TF400813 in Schulz-Org, Gast
    hilft nicht) ⇒ Lösung ist SP (TODO.md). EntraOAuth-Connections sind

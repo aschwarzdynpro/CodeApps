@@ -76,6 +76,18 @@ export function AppSharing({ solutions }: Props) {
     return list
   }, [result])
 
+  // Any present cell whose sharing lookup failed — the success banner must
+  // not claim "all shared" when we couldn't actually read the sharing.
+  const errorCount = useMemo(() => {
+    let n = 0
+    for (const row of result?.rows ?? [])
+      for (const env of ENVIRONMENTS) {
+        const state = row.byEnv[env.key]
+        if (state?.present && state.error) n++
+      }
+    return n
+  }, [result])
+
   const grouped = useMemo(() => {
     const groups = new Map<CanvasAppKind, AppSharingRow[]>()
     for (const kind of KIND_ORDER) groups.set(kind, [])
@@ -136,6 +148,13 @@ export function AppSharing({ solutions }: Props) {
           {result.rows.length === 0 ? (
             <div className="state">
               This solution contains no canvas apps or custom pages.
+            </div>
+          ) : errorCount > 0 ? (
+            <div className="state state--error">
+              The sharing lookup failed for {errorCount} app/environment
+              cell{errorCount === 1 ? '' : 's'} (shown as “lookup failed”) —
+              results are incomplete. Details are in the browser console
+              (filter <code>[sharing]</code>).
             </div>
           ) : gaps.length > 0 ? (
             <div className="state state--error">

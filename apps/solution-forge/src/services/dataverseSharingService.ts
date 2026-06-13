@@ -57,20 +57,33 @@ function chunks<T>(items: T[], size: number): T[][] {
   return out
 }
 
-/** Turn an AccessRights flag string ("ReadAccess, WriteAccess") into a
- *  compact label ("Read, Write", or "Co-owner" for the full owner set). */
-function simplifyAccess(mask: string): string {
-  const flags = mask
-    .split(',')
-    .map((f) => f.trim().replace(/Access$/, ''))
-    .filter((f) => f && f !== 'None')
+/** AccessRights enum bits (Web API AccessRights EnumType). */
+const ACCESS_BITS: [number, string][] = [
+  [1, 'Read'],
+  [2, 'Write'],
+  [4, 'Append'],
+  [16, 'AppendTo'],
+  [32, 'Create'],
+  [65536, 'Delete'],
+  [262144, 'Share'],
+  [524288, 'Assign'],
+]
+const OWNER_FLAGS = ['Read', 'Write', 'Delete', 'Append', 'AppendTo', 'Share', 'Assign']
+
+/** Turn an accessrightsmask bitmask into a compact label. */
+function maskToAccess(mask: number): string {
+  const flags = ACCESS_BITS.filter(([bit]) => (mask & bit) === bit).map(
+    ([, name]) => name,
+  )
   if (flags.length === 0) return '—'
-  const owns = ['Read', 'Write', 'Delete', 'Append', 'AppendTo', 'Share', 'Assign']
-  if (owns.every((o) => flags.includes(o))) return 'Co-owner'
-  // Read-only is the common "just use it" share.
+  if (OWNER_FLAGS.every((o) => flags.includes(o))) return 'Co-owner'
   if (flags.length === 1 && flags[0] === 'Read') return 'Read'
   return flags.join(', ')
 }
+
+/** principaltypecode values in principalobjectaccess. */
+const PRINCIPAL_USER = 8
+const PRINCIPAL_TEAM = 9
 
 export class DataverseSharingService implements SharingService {
   /** Raw connector query against one environment, returns the value rows. */
@@ -126,46 +139,62 @@ export class DataverseSharingService implements SharingService {
   }
 
   /**
-   * Who one canvas app is shared with in one environment.
-   * RetrieveSharedPrincipalsAndAccess is a global message invoked through
-   * the connector's unbound-action passthrough; the Target is the canvas
-   * app reference. Returns raw principals (names resolved separately).
+   * Who one canvas app is shared with in one environment, read from the
+   * `principalobjectaccess` (POA) table — the record-sharing store. POA
+   * isn't in the standard entity reference and is queried via FetchXML
+   * (Microsoft's documented approach); the connector's fetchXml passthrough
+   * runs it against the chosen environment. Returns raw principals (names
+   * resolved separately).
    */
   private async sharedPrincipals(
     orgUrl: string,
     appId: string,
   ): Promise<{ id: string; type: SharedPrincipal['type']; access: string }[]> {
-    const result =
-      await MicrosoftDataverseService.PerformUnboundActionWithOrganization(
-        orgUrl,
-        'RetrieveSharedPrincipalsAndAccess',
-        // Target as a typed entity reference — the form the connector's
-        // action passthrough expects for a crmbaseentity parameter. If a
-        // future connector build wants the @odata.id alias instead, this is
-        // the single spot to change.
-        { Target: { '@odata.type': 'Microsoft.Dynamics.CRM.canvasapp', canvasappid: appId } },
-      )
+    const fetchXml =
+      `<fetch>` +
+      `<entity name="principalobjectaccess">` +
+      `<attribute name="principalid" />` +
+      `<attribute name="principaltypecode" />` +
+      `<attribute name="accessrightsmask" />` +
+      `<attribute name="inheritedaccessrightsmask" />` +
+      `<filter><condition attribute="objectid" operator="eq" value="${appId}" /></filter>` +
+      `</entity></fetch>`
+    const result = await MicrosoftDataverseService.ListRecordsWithOrganization(
+      orgUrl,
+      'principalobjectaccessset',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      fetchXml,
+    )
     if (!result.success) {
       const detail = (result as { error?: { message?: string } }).error?.message
-      throw new Error(
-        `RetrieveSharedPrincipalsAndAccess failed${detail ? ` — ${detail}` : ''}`,
-      )
+      throw new Error(`principalobjectaccess query failed${detail ? ` — ${detail}` : ''}`)
     }
-    const data = (result.data ?? {}) as Record<string, unknown>
-    const list = (data.PrincipalAccesses ??
-      (data.value as unknown) ??
-      []) as Row[]
+    const rows = (result.data as { value?: Row[] } | undefined)?.value ?? []
     const out: { id: string; type: SharedPrincipal['type']; access: string }[] = []
-    for (const entry of Array.isArray(list) ? list : []) {
-      const principal = (entry.Principal ?? {}) as Row
-      const access = simplifyAccess(str(entry.AccessMask))
-      const odataType = str(principal['@odata.type']).toLowerCase()
-      if (typeof principal.systemuserid === 'string' || odataType.includes('systemuser'))
-        out.push({ id: str(principal.systemuserid), type: 'user', access })
-      else if (typeof principal.teamid === 'string' || odataType.includes('team'))
-        out.push({ id: str(principal.teamid), type: 'team', access })
-      else if (typeof principal.organizationid === 'string' || odataType.includes('organization'))
-        out.push({ id: str(principal.organizationid), type: 'organization', access })
+    for (const row of rows) {
+      const id = str(row.principalid)
+      if (!id) continue
+      const code = Number(row.principaltypecode ?? 0)
+      const direct = Number(row.accessrightsmask ?? 0)
+      const inherited = Number(row.inheritedaccessrightsmask ?? 0)
+      const access = maskToAccess(direct || inherited)
+      out.push({
+        id,
+        type:
+          code === PRINCIPAL_USER
+            ? 'user'
+            : code === PRINCIPAL_TEAM
+              ? 'team'
+              : 'organization',
+        access,
+      })
     }
     return out
   }
