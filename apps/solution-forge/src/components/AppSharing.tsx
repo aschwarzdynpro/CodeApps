@@ -8,7 +8,7 @@ import {
   type AppSharingState,
   type CanvasAppKind,
 } from '../types/sharing'
-import { ENVIRONMENTS } from '../config'
+import { ENVIRONMENTS, makerCanvasAppUrl } from '../config'
 import { sharingService } from '../services/sharingService'
 import { SolutionSelect } from './SolutionSelect'
 
@@ -240,6 +240,8 @@ export function AppSharing({ solutions }: Props) {
                                     label={env.label}
                                     state={row.byEnv[env.key]}
                                     kind={row.kind}
+                                    appName={row.name}
+                                    environmentId={env.environmentId}
                                   />
                                 ))}
                               </div>
@@ -310,10 +312,14 @@ function SharingDetail({
   label,
   state,
   kind,
+  appName,
+  environmentId,
 }: {
   label: string
   state: AppSharingState | null
   kind: CanvasAppKind
+  appName: string
+  environmentId: string
 }) {
   return (
     <div className="sharing-detail-col">
@@ -347,6 +353,19 @@ function SharingDetail({
                 </li>
               ))}
             </ul>
+          )}
+          {kind !== 'custompage' && (
+            <a
+              className="sharing-manage-link"
+              href={makerCanvasAppUrl(environmentId, appName)}
+              target="_blank"
+              rel="noreferrer"
+              title="Open the app in the maker portal to share it"
+            >
+              {state.principals.length === 0
+                ? 'Share in Maker ↗'
+                : 'Manage sharing ↗'}
+            </a>
           )}
         </>
       )}

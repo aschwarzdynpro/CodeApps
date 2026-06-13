@@ -170,8 +170,7 @@ export function AlmDetective({ solutions }: Props) {
               ))}
             </div>
             <span className="detective-target-hint muted">
-              applies to Layer Inspector &amp; Dependency Check; Compare and App
-              Sharing always span UAT &amp; PROD
+              every check audits the release against this environment
             </span>
           </div>
 
@@ -303,6 +302,18 @@ export function AlmDetective({ solutions }: Props) {
                             </span>
                           )}
                         </span>
+                        {f.link && (
+                          <a
+                            className="finding-link"
+                            href={f.link.href}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Open the app in the maker portal to share it"
+                          >
+                            {f.link.label}
+                          </a>
+                        )}
                         {f.env && (
                           <span className="finding-env">{envLabel(f.env)}</span>
                         )}

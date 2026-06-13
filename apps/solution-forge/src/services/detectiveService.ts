@@ -1,5 +1,4 @@
 import type { WorkingSolution } from '../types/solution'
-import type { EnvKey } from '../types/comparison'
 import { ALM_KIND_LABELS } from '../types/comparison'
 import type {
   DetectivePhaseKey,
@@ -9,6 +8,7 @@ import type {
   Severity,
 } from '../types/detective'
 import { PHASE_ORDER, SEVERITY_ORDER } from '../types/detective'
+import { ENVIRONMENTS, makerCanvasAppUrl } from '../config'
 import { comparisonService } from './comparisonService'
 import { solutionService } from './solutionService'
 import { sharingService } from './sharingService'
@@ -22,13 +22,11 @@ import { sharingService } from './sharingService'
 
 interface InvestigateOptions {
   solution: WorkingSolution
-  /** Target environment for the single-env phases (layers, dependencies). */
+  /** The environment every phase audits the release against. */
   targetEnv: 'uat' | 'prod'
   phases: DetectivePhaseKey[]
   onPhase: (state: PhaseState) => void
 }
-
-const TARGET_ENVS: EnvKey[] = ['uat', 'prod']
 
 export async function runInvestigation({
   solution,
@@ -55,11 +53,11 @@ export async function runInvestigation({
         }
         await runDependencies(solution, targetEnv, add, onPhase)
       } else if (key === 'compare') {
-        await runCompare(solution, add, onPhase)
+        await runCompare(solution, targetEnv, add, onPhase)
       } else if (key === 'layers') {
         await runLayers(solution, targetEnv, add, onPhase)
       } else if (key === 'sharing') {
-        await runSharing(solution, add, onPhase)
+        await runSharing(solution, targetEnv, add, onPhase)
       }
       onPhase({ key, status: 'done', findings: findings.length - before })
     } catch (err) {
@@ -106,6 +104,7 @@ async function runDependencies(
 
 async function runCompare(
   solution: WorkingSolution,
+  targetEnv: 'uat' | 'prod',
   add: (f: Finding) => void,
   onPhase: (s: PhaseState) => void,
 ): Promise<void> {
@@ -122,56 +121,63 @@ async function runCompare(
     }),
   )
 
+  // Only the chosen target environment is audited (DEV is the source).
   for (const row of result.rows) {
     const dev = row.byEnv.dev
+    const target = row.byEnv[targetEnv]
     const kindLabel = ALM_KIND_LABELS[row.ref.kind]
-    if (!dev?.present) continue
-    for (const envKey of TARGET_ENVS) {
-      const target = row.byEnv[envKey]
-      if (!target) continue
-      if (!target.present) {
-        add({
-          severity: 'low',
-          phase: 'compare',
-          category: 'Missing in target',
-          subject: row.ref.name,
-          detail: kindLabel,
-          env: envKey,
-        })
-        continue
-      }
-      if (target.isManaged === false) {
-        add({
-          severity: 'high',
-          phase: 'compare',
-          category: 'Unmanaged in target',
-          subject: row.ref.name,
-          detail: kindLabel,
-          env: envKey,
-        })
-      }
-      if (
-        dev.active !== undefined &&
-        target.active !== undefined &&
-        dev.active !== target.active
-      ) {
-        add({
-          severity: 'medium',
-          phase: 'compare',
-          category: 'Status drift',
-          subject: row.ref.name,
-          detail: `DEV ${dev.stateLabel ?? '—'} → ${target.stateLabel ?? '—'}`,
-          env: envKey,
-        })
-      }
+    if (!dev?.present || !target) continue
+    if (!target.present) {
+      add({
+        severity: 'low',
+        phase: 'compare',
+        category: 'Missing in target',
+        subject: row.ref.name,
+        detail: kindLabel,
+        env: targetEnv,
+      })
+      continue
     }
-    if (row.deviations.includes('content')) {
+    if (target.isManaged === false) {
+      add({
+        severity: 'high',
+        phase: 'compare',
+        category: 'Unmanaged in target',
+        subject: row.ref.name,
+        detail: kindLabel,
+        env: targetEnv,
+      })
+    }
+    if (
+      dev.active !== undefined &&
+      target.active !== undefined &&
+      dev.active !== target.active
+    ) {
+      add({
+        severity: 'medium',
+        phase: 'compare',
+        category: 'Status drift',
+        subject: row.ref.name,
+        detail: `DEV ${dev.stateLabel ?? '—'} → ${target.stateLabel ?? '—'}`,
+        env: targetEnv,
+      })
+    }
+    // Content drift between DEV and the target specifically (hashes from the
+    // content pass; 'error' marks cells that couldn't be hashed).
+    if (
+      dev.contentHash &&
+      target.contentHash &&
+      dev.contentHash !== 'error' &&
+      target.contentHash !== 'error' &&
+      dev.contentHash !== target.contentHash
+    ) {
       add({
         severity: 'medium',
         phase: 'compare',
         category: 'Content drift',
         subject: row.ref.name,
-        detail: `${kindLabel} — definition differs across environments`,
+        detail: `${kindLabel} — definition differs from DEV`,
+        env: targetEnv,
       })
     }
   }
@@ -225,35 +231,43 @@ async function runLayers(
 
 async function runSharing(
   solution: WorkingSolution,
+  targetEnv: 'uat' | 'prod',
   add: (f: Finding) => void,
   onPhase: (s: PhaseState) => void,
 ): Promise<void> {
   const res = await sharingService.checkAppSharing(solution.id, (m) =>
     onPhase({ key: 'sharing', status: 'running', message: m }),
   )
+  const env = ENVIRONMENTS.find((e) => e.key === targetEnv)
   for (const row of res.rows) {
     if (row.kind === 'custompage') continue
-    for (const envKey of TARGET_ENVS) {
-      const state = row.byEnv[envKey]
-      if (!state?.present) continue
-      if (state.error) {
-        add({
-          severity: 'low',
-          phase: 'sharing',
-          category: 'Sharing lookup failed',
-          subject: row.displayName,
-          env: envKey,
-        })
-      } else if (state.principals.length === 0) {
-        add({
-          severity: 'high',
-          phase: 'sharing',
-          category: 'Canvas app not shared',
-          subject: row.displayName,
-          detail: 'Reaches no users or teams in this environment',
-          env: envKey,
-        })
-      }
+    const state = row.byEnv[targetEnv]
+    if (!state?.present) continue
+    if (state.error) {
+      add({
+        severity: 'low',
+        phase: 'sharing',
+        category: 'Sharing lookup failed',
+        subject: row.displayName,
+        env: targetEnv,
+      })
+    } else if (state.principals.length === 0) {
+      add({
+        severity: 'high',
+        phase: 'sharing',
+        category: 'Canvas app not shared',
+        subject: row.displayName,
+        detail: 'Reaches no users or teams in this environment',
+        env: targetEnv,
+        ...(env
+          ? {
+              link: {
+                href: makerCanvasAppUrl(env.environmentId, row.name),
+                label: 'Share ↗',
+              },
+            }
+          : {}),
+      })
     }
   }
 }

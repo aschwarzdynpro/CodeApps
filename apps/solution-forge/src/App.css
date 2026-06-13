@@ -1682,6 +1682,17 @@
   flex: none;
   font-size: 11px;
 }
+.sharing-manage-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand);
+  text-decoration: none;
+}
+.sharing-manage-link:hover {
+  text-decoration: underline;
+}
 
 /* ALM Detective */
 .detective-config {
@@ -1943,6 +1954,17 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 1px 8px;
+}
+.finding-link {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.finding-link:hover {
+  text-decoration: underline;
 }
 .finding-phase {
   flex: none;

@@ -68,6 +68,8 @@ export interface Finding {
   detail?: string
   /** Environment the finding pertains to, when applicable. */
   env?: EnvKey
+  /** Optional remediation deep link (e.g. the app's Share page). */
+  link?: { href: string; label: string }
 }
 
 export interface DetectiveResult {

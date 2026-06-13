@@ -87,6 +87,18 @@ export function makerSolutionUrl(
     : 'https://make.powerapps.com'
 }
 
+/** Maker-portal deep link to a canvas app's details page (where the Share
+ *  command lives) in a specific environment. `appName` is the canvas app's
+ *  import-stable logical name (`canvasapp.name`) — the id the maker portal
+ *  uses in app URLs, not the per-environment `canvasappid`. */
+export function makerCanvasAppUrl(
+  environmentId: string,
+  appName: string,
+): string {
+  if (!environmentId || !appName) return 'https://make.powerapps.com'
+  return `https://make.powerapps.com/environments/${environmentId}/apps/${appName}/details`
+}
+
 /** Azure DevOps work item link, or null when the org isn't configured yet. */
 export function devOpsWorkItemUrl(devOpsId: string | null): string | null {
   if (!devOpsId || !ADO_ORG_URL || !ADO_PROJECT) return null
