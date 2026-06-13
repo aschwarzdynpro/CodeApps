@@ -28,9 +28,13 @@ const GAP_ENVS: EnvKey[] = ['uat', 'prod']
  * reach nobody — those gaps are called out.
  */
 export function AppSharing({ solutions }: Props) {
+  // Only release solutions — those are what gets deployed to UAT/PROD, so
+  // their canvas apps' sharing in the targets is what matters here.
   const candidates = solutions.filter(
     (s, index) =>
-      !s.solutionMissing && solutions.findIndex((o) => o.id === s.id) === index,
+      s.kind === 'deployment' &&
+      !s.solutionMissing &&
+      solutions.findIndex((o) => o.id === s.id) === index,
   )
 
   const [solutionId, setSolutionId] = useState('')
