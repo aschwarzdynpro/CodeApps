@@ -1567,6 +1567,38 @@
   font-size: 12px;
   font-weight: 400;
 }
+.sharing-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #eef2fb;
+  border: 1px solid #d6def5;
+  color: #2c4a8a;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.sharing-progress-spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #c2cdf0;
+  border-top-color: #4666c4;
+  animation: sharing-spin 0.7s linear infinite;
+}
+.sharing-progress-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@keyframes sharing-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .sharing-row {
   cursor: pointer;
 }

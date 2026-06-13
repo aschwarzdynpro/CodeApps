@@ -129,10 +129,17 @@ export function AppSharing({ solutions }: Props) {
             disabled={!solution || running}
             onClick={() => void run()}
           >
-            {running ? `Checking… ${progress}` : 'Check Sharing'}
+            {running ? 'Checking…' : 'Check Sharing'}
           </button>
         </div>
       </div>
+
+      {running && (
+        <div className="sharing-progress" aria-live="polite">
+          <span className="sharing-progress-spinner" />
+          <span className="sharing-progress-text">{progress || 'Starting…'}</span>
+        </div>
+      )}
 
       {error && <div className="state state--error">{error}</div>}
       {result &&
