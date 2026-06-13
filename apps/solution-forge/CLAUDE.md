@@ -35,7 +35,10 @@ UI hängt NUR am Interface `SolutionService`
 `dataverseSolutionService.ts` (echt, fällt via `powerModeReady` auf Mock
 zurück) + `mockSolutionService.ts`/`mockData.ts` (offline voll demobar —
 bei neuen Methoden IMMER Mock mitziehen). Compare separat:
-`comparisonService.ts`; App-Sharing separat: `sharingService.ts`. Caches
+`comparisonService.ts`; App-Sharing separat: `sharingService.ts`. Der
+**ALM Detective** (`detectiveService.ts`) orchestriert nur diese Services
+phasenweise zu einem Severity-Report — kein eigener Datenpfad, daher auch
+ohne eigenen Mock (erbt die Mock-Fallbacks der genutzten Services). Caches
 (Komponenten, Suche-Index, Kollisionsradar, WorkItems) leben in `App.tsx`.
 
 **Datenmodell:** `ssid_workingsolution` = Darstellungs-Schicht, verlinkt

@@ -81,4 +81,6 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       UAT/PROD (`msdyn_componentlayer`)
 - [x] Compare-Inhalts-Drift: Hash der Definition + Side-by-side-Diff (⇄ diff)
 - [x] App Sharing: Canvas-App-/Custom-Page-Sharing über DEV/UAT/PROD
-      (`RetrieveSharedPrincipalsAndAccess` via Konnektor-Unbound-Action)
+      (POA via Konnektor-FetchXML; nur Releases, ohne Component Libraries)
+- [x] ALM Detective: phasenweiser Pre-Deployment-Audit (Dependency, Compare
+      inkl. Content Drift, Layer, App Sharing) mit Severity-Report

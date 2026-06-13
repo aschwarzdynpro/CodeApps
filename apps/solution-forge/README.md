@@ -3,7 +3,9 @@
 Power Apps **Code App** zum Verwalten von Dataverse-Solutions während der
 Feature- und Bug-Entwicklung: Working Solutions anlegen, Komponenten
 einsehen, Feature-/Bug-Solutions in eine Deployment Solution mergen und
-Releases vor dem Deployment prüfen (Dependency Check, Layer Inspector).
+Releases vor dem Deployment prüfen (Dependency Check, Layer Inspector,
+App Sharing) — gebündelt im **ALM Detective**, der die Checks phasenweise
+durchläuft und einen nach Kritikalität sortierten Bericht erstellt.
 
 ## Konzept
 
@@ -100,6 +102,17 @@ Deployment-Status „Merged into Deployment Solution".
   keine GET-Functions.) Custom Pages (`canvasapptype 2`) erhalten Zugriff
   über die Rollen der modellgetriebenen App, nicht über direktes Sharing —
   „nicht geteilt" ist dort normal.
+- **ALM Detective**: Pre-Deployment-Audit, das die ausgewählten ALM-Checks
+  (Dependency Check, Compare inkl. Content Drift, Layer Inspector, App
+  Sharing) phasenweise gegen eine Release-Solution laufen lässt und die
+  Ergebnisse zu **einem nach Kritikalität sortierten Bericht** bündelt.
+  Ein Phasen-Stepper zeigt den Fortschritt je Check; Findings sind nach
+  Severity gruppiert/filterbar (Critical: fehlende Dependency; High:
+  unmanaged Layer über managed Komponente, Canvas App nicht geteilt;
+  Medium: Status-/Content-Drift; Low: Missing in Target, unmanaged-only,
+  Lookup-Fehler). Kompakter als die Einzelseiten — für die volle Tiefe den
+  jeweiligen Feature-Tab öffnen. Der Detective orchestriert nur die
+  vorhandenen Services (kein eigener Datenpfad).
 
 ## Architektur
 

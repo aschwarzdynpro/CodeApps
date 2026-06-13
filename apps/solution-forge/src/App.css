@@ -1683,6 +1683,274 @@
   font-size: 11px;
 }
 
+/* ALM Detective */
+.detective-config {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.detective-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .detective-options {
+    grid-template-columns: 1fr;
+  }
+}
+.detective-target {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.detective-target-hint {
+  font-size: 11px;
+  max-width: 240px;
+}
+.phase-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.phase-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.phase-check input {
+  margin-top: 2px;
+}
+.phase-check-body {
+  display: flex;
+  flex-direction: column;
+}
+.phase-check-name {
+  font-weight: 600;
+}
+.phase-check-hint {
+  font-size: 11px;
+}
+.detective-run {
+  align-self: end;
+  white-space: nowrap;
+}
+
+/* Phase stepper */
+.detective-stepper {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.det-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 4px;
+  position: relative;
+}
+/* Connector line between steps. */
+.det-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 32px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--border);
+}
+.det-step-icon {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  z-index: 1;
+}
+.det-step--running .det-step-icon {
+  border-color: #4666c4;
+  color: #4666c4;
+}
+.det-step--done .det-step-icon {
+  background: #e7f4ee;
+  border-color: #1a8754;
+  color: #1a8754;
+}
+.det-step--failed .det-step-icon {
+  background: #fdf2f3;
+  border-color: #b02a37;
+  color: #b02a37;
+}
+.det-step--skipped .det-step-icon {
+  opacity: 0.7;
+}
+.det-step-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.det-step-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+.det-step-status {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.det-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #c2cdf0;
+  border-top-color: #4666c4;
+  animation: sharing-spin 0.7s linear infinite;
+}
+
+/* Verdict + findings */
+.detective-verdict {
+  font-weight: 600;
+}
+.detective-summary {
+  margin-top: 4px;
+}
+.sev-chip:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.sev-chip--critical.chip--active {
+  background: #b02a37;
+  border-color: #b02a37;
+}
+.sev-chip--high.chip--active {
+  background: #c0571f;
+  border-color: #c0571f;
+}
+.sev-chip--medium.chip--active {
+  background: #b7791f;
+  border-color: #b7791f;
+}
+.sev-chip--low.chip--active {
+  background: #6b7280;
+  border-color: #6b7280;
+}
+.sev-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.sev-dot--critical {
+  background: #b02a37;
+}
+.sev-dot--high {
+  background: #c0571f;
+}
+.sev-dot--medium {
+  background: #b7791f;
+}
+.sev-dot--low {
+  background: #6b7280;
+}
+.finding-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.finding-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+.sev-pill {
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+.sev-pill--critical {
+  background: #fdf2f3;
+  color: #b02a37;
+}
+.sev-pill--high {
+  background: #fcefe6;
+  color: #c0571f;
+}
+.sev-pill--medium {
+  background: #fdf6e7;
+  color: #b7791f;
+}
+.sev-pill--low {
+  background: #f1f3f5;
+  color: #5a6470;
+}
+.finding-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+.finding-subject {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.finding-detail {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.finding-env {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.finding-phase {
+  flex: none;
+  font-size: 11px;
+  min-width: 92px;
+  text-align: right;
+}
+
 /* Merge workbench */
 .merge-layout {
   display: grid;

@@ -12,6 +12,7 @@ import { CompareWorkbench } from './components/CompareWorkbench'
 import { DependencyCheck } from './components/DependencyCheck'
 import { LayerInspector } from './components/LayerInspector'
 import { AppSharing } from './components/AppSharing'
+import { AlmDetective } from './components/AlmDetective'
 import { HelpPanel } from './components/HelpPanel'
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog'
 import {
@@ -28,7 +29,14 @@ import {
   type WorkingSolution,
 } from './types/solution'
 
-type Tab = 'workbench' | 'merge' | 'compare' | 'dependencies' | 'layers' | 'sharing'
+type Tab =
+  | 'workbench'
+  | 'merge'
+  | 'compare'
+  | 'dependencies'
+  | 'layers'
+  | 'sharing'
+  | 'detective'
 
 function App() {
   const { environmentId } = usePower()
@@ -571,6 +579,20 @@ function App() {
           App Sharing
           {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
         </button>
+        <button
+          className={`tab ${tab === 'detective' ? 'tab--active' : ''} ${
+            isDeploymentManager ? '' : 'tab--disabled'
+          }`}
+          title={
+            isDeploymentManager
+              ? undefined
+              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
+          }
+          onClick={() => isDeploymentManager && setTab('detective')}
+        >
+          🔍 ALM Detective
+          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
+        </button>
       </nav>
 
       {loading && <div className="state">Loading solutions…</div>}
@@ -765,6 +787,10 @@ function App() {
 
       {!loading && !error && tab === 'sharing' && isDeploymentManager && (
         <AppSharing solutions={allSolutions} />
+      )}
+
+      {!loading && !error && tab === 'detective' && isDeploymentManager && (
+        <AlmDetective solutions={allSolutions} />
       )}
 
       {showHelp && <HelpPanel onClose={() => setShowHelp(false)} />}

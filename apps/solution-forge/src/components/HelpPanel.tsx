@@ -36,6 +36,48 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🔍 ALM Detective</h3>
+            <ul>
+              <li>
+                A phased <strong>pre-deployment audit</strong> for a release
+                solution: it runs the selected ALM checks one after another
+                and compiles everything into a single report ranked by
+                criticality — instead of opening each tab separately.
+              </li>
+              <li>
+                Pick the <strong>deployment target</strong> (UAT / PROD) and
+                tick the checks: <strong>Dependency Check</strong>,{' '}
+                <strong>Compare</strong> (incl. content drift),{' '}
+                <strong>Layer Inspector</strong>, <strong>App Sharing</strong>.
+                The target applies to Layer &amp; Dependency checks; Compare
+                and App Sharing always span UAT &amp; PROD.
+              </li>
+              <li>
+                A <strong>phase stepper</strong> lights up as the
+                investigation runs — each phase shows its progress, then a ✓
+                with the number of findings (or “skipped” / “failed”).
+              </li>
+              <li>
+                Findings are grouped by severity and filterable:{' '}
+                <span className="sev-pill sev-pill--critical">Critical</span>{' '}
+                (missing dependency — import breaks),{' '}
+                <span className="sev-pill sev-pill--high">High</span> (unmanaged
+                layer over a managed component, canvas app not shared),{' '}
+                <span className="sev-pill sev-pill--medium">Medium</span>{' '}
+                (status / content drift),{' '}
+                <span className="sev-pill sev-pill--low">Low</span> (missing in
+                target, unmanaged-only, lookup failures). The verdict at the
+                top says whether the release is deployment-ready.
+              </li>
+              <li>
+                The report is intentionally compact — for the full detail of
+                any finding, open the matching single-feature tab. Requires the
+                “INT | Deployment Manager” role.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
             <h3>Workbench</h3>
             <ul>
               <li>
