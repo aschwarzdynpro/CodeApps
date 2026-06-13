@@ -12,7 +12,8 @@ import { CompareWorkbench } from './components/CompareWorkbench'
 import { DependencyCheck } from './components/DependencyCheck'
 import { LayerInspector } from './components/LayerInspector'
 import { AppSharing } from './components/AppSharing'
-import { AlmDetective } from './components/AlmDetective'
+// ALM Detective is temporarily hidden from the UI — component + service
+// (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
 import { HelpPanel } from './components/HelpPanel'
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog'
 import {
@@ -36,7 +37,6 @@ type Tab =
   | 'dependencies'
   | 'layers'
   | 'sharing'
-  | 'detective'
 
 function App() {
   const { environmentId } = usePower()
@@ -524,20 +524,6 @@ function App() {
           {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
         </button>
         <button
-          className={`tab ${tab === 'detective' ? 'tab--active' : ''} ${
-            isDeploymentManager ? '' : 'tab--disabled'
-          }`}
-          title={
-            isDeploymentManager
-              ? undefined
-              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
-          }
-          onClick={() => isDeploymentManager && setTab('detective')}
-        >
-          🔍 ALM Detective
-          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
-        </button>
-        <button
           className={`tab ${tab === 'compare' ? 'tab--active' : ''} ${
             isDeploymentManager ? '' : 'tab--disabled'
           }`}
@@ -787,10 +773,6 @@ function App() {
 
       {!loading && !error && tab === 'sharing' && isDeploymentManager && (
         <AppSharing solutions={allSolutions} />
-      )}
-
-      {!loading && !error && tab === 'detective' && isDeploymentManager && (
-        <AlmDetective solutions={allSolutions} />
       )}
 
       {showHelp && <HelpPanel onClose={() => setShowHelp(false)} />}
