@@ -1,4 +1,4 @@
-import type { SalesData } from '../types/sales'
+import type { SalesData, UserRef } from '../types/sales'
 import { dataverseSalesService } from './dataverseSalesService'
 
 /**
@@ -9,8 +9,21 @@ import { dataverseSalesService } from './dataverseSalesService'
  * im Header).
  */
 export interface SalesService {
-  /** Lädt den vollständigen Dashboard-Datenbestand. */
-  load(): Promise<SalesData>
+  /**
+   * Lädt den vollständigen Dashboard-Datenbestand.
+   *
+   * @param gvlId Optionale GVL, aus deren Sicht das Dashboard geladen wird
+   *   (Live: serverseitige Filter auf diese GVL statt auf den angemeldeten
+   *   Benutzer). Ohne Angabe greift der Standard = angemeldeter Benutzer.
+   */
+  load(gvlId?: string): Promise<SalesData>
+
+  /**
+   * GVL-Kandidaten für das Suchfeld im Kopfbereich (Live: Territory-Manager;
+   * Demo: die geseedeten GVL). Die Liste ist klein und wird einmal geladen;
+   * der Tippfilter läuft clientseitig.
+   */
+  listSalesManagers(): Promise<UserRef[]>
 }
 
 export const salesService: SalesService = dataverseSalesService

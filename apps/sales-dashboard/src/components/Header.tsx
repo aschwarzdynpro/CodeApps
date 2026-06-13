@@ -1,9 +1,10 @@
 import type { SalesDataSource, UserRef } from '../types/sales'
+import { GvlFilter } from './GvlFilter'
 
 /**
- * Kopfbereich: Titel, Datenquellen-Badge, Demo-Daten-Schalter,
- * Demo-Perspektivwechsel ("ich" der "Meine …"-Ansichten), Aktualisieren
- * und Dark-Mode-Umschalter.
+ * Kopfbereich: Titel, Datenquellen-Badge, Demo-Daten-Schalter, GVL-Suchfeld
+ * (aus wessen Sicht das Dashboard gefiltert wird), Aktualisieren und
+ * Dark-Mode-Umschalter.
  */
 
 interface HeaderProps {
@@ -14,9 +15,13 @@ interface HeaderProps {
   /** Demo-Schalter: Demo-Daten erzwingen, auch wenn Live möglich wäre. */
   forceMock: boolean
   onForceMockChange: (value: boolean) => void
-  salesManagers: UserRef[]
-  perspectiveId: string
-  onPerspectiveChange: (id: string) => void
+  /** Gewählte GVL oder `null` für den Standard (angemeldeter Benutzer). */
+  selectedGvl: UserRef | null
+  /** Name des angemeldeten Benutzers — der Standard, als Platzhalter-Hinweis. */
+  defaultName: string
+  /** Lädt die GVL-Kandidaten für die Suche. */
+  loadCandidates: () => Promise<UserRef[]>
+  onGvlChange: (gvl: UserRef | null) => void
   theme: 'light' | 'dark'
   onThemeToggle: () => void
   onRefresh: () => void
@@ -49,9 +54,10 @@ export function Header({
   canUseLive,
   forceMock,
   onForceMockChange,
-  salesManagers,
-  perspectiveId,
-  onPerspectiveChange,
+  selectedGvl,
+  defaultName,
+  loadCandidates,
+  onGvlChange,
   theme,
   onThemeToggle,
   onRefresh,
@@ -102,21 +108,12 @@ export function Header({
           Demo-Daten
         </label>
 
-        {dataSource === 'demo' && salesManagers.length > 1 && (
-          <label className="topbar__perspective">
-            Perspektive
-            <select
-              value={perspectiveId}
-              onChange={(e) => onPerspectiveChange(e.target.value)}
-            >
-              {salesManagers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+        <GvlFilter
+          selected={selectedGvl}
+          defaultName={defaultName}
+          loadCandidates={loadCandidates}
+          onChange={onGvlChange}
+        />
 
         <button
           type="button"

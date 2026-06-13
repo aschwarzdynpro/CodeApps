@@ -25,6 +25,7 @@ import { QuotesService } from '../generated/services/QuotesService'
 import { SalesordersService } from '../generated/services/SalesordersService'
 import { AccountsService } from '../generated/services/AccountsService'
 import { SystemusersService } from '../generated/services/SystemusersService'
+import { TerritoriesService } from '../generated/services/TerritoriesService'
 
 /**
  * Live implementation of {@link SalesService} against Dataverse (Waldmann).
@@ -374,7 +375,7 @@ async function fetchAccountInfos(
 /* ----------------------------------------------------------------- Service */
 
 export class DataverseSalesService implements SalesService {
-  async load(): Promise<SalesData> {
+  async load(gvlId?: string): Promise<SalesData> {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return buildMockData()
 
@@ -387,6 +388,11 @@ export class DataverseSalesService implements SalesService {
       console.warn('[sales] Fallback auf Demo-Daten (kein systemuser)')
       return buildMockData()
     }
+
+    // Aus wessen Sicht wird geladen? Ohne GVL-Auswahl der angemeldete Benutzer
+    // (Standard); mit Auswahl die gewählte GVL — alle personenbezogenen
+    // Serverfilter unten beziehen sich auf diese Identität.
+    const subjectId = gvlId ?? me.id
 
     const mock = buildMockData()
     let anyFailed = false
@@ -430,7 +436,7 @@ export class DataverseSalesService implements SalesService {
                   '_createdby_value',
                 ],
                 // Legacy-Fenster: Fälligkeit dieser/letzter Monat oder leer.
-                filter: `_ownerid_value eq ${me.id} and (scheduledend ge ${windowStart} or scheduledend eq null)`,
+                filter: `_ownerid_value eq ${subjectId} and (scheduledend ge ${windowStart} or scheduledend eq null)`,
                 orderBy: ['scheduledend asc'],
               },
               'activities',
@@ -460,7 +466,7 @@ export class DataverseSalesService implements SalesService {
                   '_wal_areasalesmanager_id_value',
                 ],
                 // Legacy-View: meine offenen Leads.
-                filter: `_ownerid_value eq ${me.id} and statecode eq 0`,
+                filter: `_ownerid_value eq ${subjectId} and statecode eq 0`,
                 orderBy: ['createdon desc'],
               },
               'leads',
@@ -494,7 +500,7 @@ export class DataverseSalesService implements SalesService {
                   '_wal_keyaccountmanager_id_value',
                 ],
                 // Legacy-View: offen + ich als GVL (Datumsfenster filtert die Ansicht).
-                filter: `_wal_areasalesmanager_id_value eq ${me.id} and statecode eq 0`,
+                filter: `_wal_areasalesmanager_id_value eq ${subjectId} and statecode eq 0`,
                 orderBy: ['wal_decisiondate_dat asc'],
               },
               'opportunities',
@@ -536,7 +542,7 @@ export class DataverseSalesService implements SalesService {
                 // Offene Projekte komplett; gewonnene/verlorene nur mit
                 // Statuswechsel im Monatsfenster (≈ modifiedon).
                 filter:
-                  `_wal_areasalesmanager_id_value eq ${me.id} and ` +
+                  `_wal_areasalesmanager_id_value eq ${subjectId} and ` +
                   `(statuscode eq 956980001 or statuscode eq 956980002 or statuscode eq 956980003 or modifiedon ge ${windowStart})`,
                 orderBy: ['wal_projectsnumber_int asc'],
               },
@@ -640,6 +646,38 @@ export class DataverseSalesService implements SalesService {
       projects,
       quotes,
       orders,
+    }
+  }
+
+  /**
+   * GVL-Kandidaten für das Suchfeld = Manager eines Territory
+   * (territory.managerid → systemuser). Distinct nach Benutzer, nach Name
+   * sortiert. Außerhalb eines Power-Apps-Hosts liefern wir die Demo-GVL, damit
+   * die Suche auch im lokalen Dev funktioniert; bei Fehlern eine leere Liste
+   * (das Dashboard bleibt nutzbar, nur die Auswahl ist leer).
+   */
+  async listSalesManagers(): Promise<UserRef[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return buildMockData().salesManagers
+    try {
+      const rows = await fetchAll<Row>(
+        TerritoriesService as unknown as GetAllCapable<Row>,
+        {
+          select: ['territoryid', 'name', '_managerid_value'],
+          filter: '_managerid_value ne null',
+          orderBy: ['name asc'],
+        },
+        'territories',
+      )
+      const byId = new Map<string, UserRef>()
+      for (const row of rows) {
+        const gvl = userRef(row, 'managerid')
+        if (gvl.id && !byId.has(gvl.id)) byId.set(gvl.id, gvl)
+      }
+      return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name, 'de'))
+    } catch (err) {
+      console.warn('[sales] Territory-Manager nicht ladbar —', err)
+      return []
     }
   }
 }

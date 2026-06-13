@@ -105,7 +105,9 @@
   flex-wrap: wrap;
 }
 
-.topbar__perspective {
+/* ----------------------------------------------------------- GVL-Suchfeld */
+
+.gvl-filter {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -113,13 +115,106 @@
   color: var(--text-muted);
 }
 
-.topbar__perspective select {
+.gvl-filter__caption {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Positionierungsanker für das Dropdown. */
+.gvl-filter__field {
+  position: relative;
+}
+
+.gvl-filter__control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid var(--border);
   background: var(--surface);
-  color: var(--text);
   border-radius: 8px;
-  padding: 5px 8px;
+  padding: 4px 8px;
+}
+
+.gvl-filter__control:focus-within,
+.gvl-filter__control.is-open {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.gvl-filter__icon {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.gvl-filter__input {
+  border: none;
+  background: transparent;
+  color: var(--text);
   font-size: 0.82rem;
+  width: 190px;
+  max-width: 42vw;
+  padding: 1px 0;
+}
+
+.gvl-filter__input:focus {
+  outline: none;
+}
+
+.gvl-filter__input::placeholder {
+  color: var(--text-muted);
+}
+
+.gvl-filter__clear {
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: 6px;
+}
+
+.gvl-filter__clear:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text-muted) 18%, transparent);
+}
+
+.gvl-filter__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.gvl-filter__option {
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.gvl-filter__option.is-active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
+.gvl-filter__hint {
+  padding: 7px 10px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
 }
 
 .mode-badge {
