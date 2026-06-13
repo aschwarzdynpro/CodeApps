@@ -17,9 +17,15 @@ import {
 interface KpiBarProps {
   data: SalesData
   ctx: ViewContext
+  /** Aktuell gewählter Bereich — die zugehörige Kennzahl wird hervorgehoben. */
+  activeTileId: string
+  /** Klick auf eine Kennzahl wählt den zugehörigen Bereich (Vorauswahl). */
+  onSelectTile: (id: string) => void
 }
 
 interface Kpi {
+  /** Bereich, den diese Kennzahl repräsentiert (Kachel-ID). */
+  tileId: string
   label: string
   value: string
   sub: string
@@ -32,7 +38,7 @@ function pctDelta(current: number, previous: number): number | undefined {
   return ((current - previous) / previous) * 100
 }
 
-export function KpiBar({ data, ctx }: KpiBarProps) {
+export function KpiBar({ data, ctx, activeTileId, onSelectTile }: KpiBarProps) {
   const kpis = useMemo<Kpi[]>(() => {
     const { userId, now } = ctx
 
@@ -75,32 +81,38 @@ export function KpiBar({ data, ctx }: KpiBarProps) {
 
     return [
       {
+        tileId: 'activities',
         label: 'Offene Aktivitäten',
         value: fmtNumber(openActivities),
         sub: 'dieser & letzter Monat',
       },
       {
+        tileId: 'leads',
         label: 'Offene Leads',
         value: fmtNumber(openLeads),
         sub: 'mit mir als Besitzer',
       },
       {
+        tileId: 'opportunities',
         label: 'Pipeline Verkaufschancen',
         value: fmtEurCompact(pipeline),
         sub: `${myOpenOpps.length} offene Chancen`,
       },
       {
+        tileId: 'projects',
         label: 'Offenes Projektpotential',
         value: fmtEurCompact(projectPotential),
         sub: `${myOpenProjects.length} offene Projekte`,
       },
       {
+        tileId: 'quotes',
         label: 'Angebotswert',
         value: fmtEurCompact(quoteValue),
         sub: `${quotesThisMonth.length} Angebote diesen Monat`,
         delta: pctDelta(quoteValue, quoteValuePrev),
       },
       {
+        tileId: 'orders',
         label: 'Auftragseingang',
         value: fmtEurCompact(orderValue),
         sub: `${ordersThisMonth.length} Aufträge diesen Monat`,
@@ -112,7 +124,14 @@ export function KpiBar({ data, ctx }: KpiBarProps) {
   return (
     <section className="kpis" aria-label="Kennzahlen">
       {kpis.map((kpi) => (
-        <article className="kpi" key={kpi.label}>
+        <button
+          type="button"
+          className={`kpi${activeTileId === kpi.tileId ? ' is-active' : ''}`}
+          key={kpi.tileId}
+          onClick={() => onSelectTile(kpi.tileId)}
+          aria-pressed={activeTileId === kpi.tileId}
+          title={`Bereich „${kpi.label}" anzeigen`}
+        >
           <p className="kpi__label">{kpi.label}</p>
           <p className="kpi__value">
             {kpi.value}
@@ -126,7 +145,7 @@ export function KpiBar({ data, ctx }: KpiBarProps) {
             )}
           </p>
           <p className="kpi__sub">{kpi.sub}</p>
-        </article>
+        </button>
       ))}
     </section>
   )

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import './App.css'
 import { usePower } from './PowerProvider'
 import { useSalesData } from './hooks/useSalesData'
-import type { ViewContext } from './dashboard/types'
+import type { TileDef, ViewContext } from './dashboard/types'
 import type { UserRef } from './types/sales'
 import {
   activitiesTile,
@@ -15,11 +15,13 @@ import {
 import { Header } from './components/Header'
 import { KpiBar } from './components/KpiBar'
 import { DashboardTile } from './components/DashboardTile'
+import { TileIcon } from './components/TileIcon'
 
 /**
  * Moderne Code-App-Fassung des Legacy-Dashboards "Dashboard GVL":
- * KPI-Leiste plus sechs Kacheln (Aktivitäten, Leads, Verkaufschancen,
- * Projekte, Angebote, Aufträge) — jede mit Ansichts-/Diagrammwechsler,
+ * KPI-Leiste als Überblick plus eine Bereichsauswahl — der gewählte Bereich
+ * (Aktivitäten, Leads, Verkaufschancen, Projekte, Angebote, Aufträge) wird
+ * groß angezeigt (Diagramm + Tabelle), mit Ansichts-/Diagrammwechsler,
  * Schnellsuche und Cross-Filter per Diagramm-Klick.
  */
 
@@ -27,6 +29,14 @@ type Theme = 'light' | 'dark'
 
 const THEME_KEY = 'sales-dashboard-theme'
 const DATA_MODE_KEY = 'sales-dashboard-data-mode'
+
+/** Anzahl der Datensätze in der Standardansicht einer Kachel (Badge der Tableiste). */
+function defaultViewCount<T>(def: TileDef<T>, rows: T[], ctx: ViewContext): number {
+  const filter = def.views[0].filter
+  let count = 0
+  for (const row of rows) if (filter(row, ctx)) count++
+  return count
+}
 
 function initialTheme(): Theme {
   const stored = localStorage.getItem(THEME_KEY)
@@ -47,6 +57,9 @@ export default function App() {
   // Gewählte GVL, aus deren Sicht das Dashboard gefiltert wird; `null` = der
   // Standard (angemeldeter Benutzer).
   const [selectedGvl, setSelectedGvl] = useState<UserRef | null>(null)
+
+  // Aktuell angezeigter Bereich (eine der sechs Kacheln).
+  const [activeTile, setActiveTile] = useState<string>('activities')
 
   const changeForceMock = (value: boolean) => {
     setForceMock(value)
@@ -74,6 +87,19 @@ export default function App() {
     // `data` als Dependency: nach einem Refresh soll auch `now` neu sein.
     [userId, data], // eslint-disable-line react-hooks/exhaustive-deps
   )
+
+  // Bereichs-Tableiste: Icon, Titel, Akzent und Anzahl (Standardansicht) je Kachel.
+  const tabs = useMemo(() => {
+    if (!data) return []
+    return [
+      { id: activitiesTile.id, icon: activitiesTile.icon, title: activitiesTile.title, accent: activitiesTile.accent, count: defaultViewCount(activitiesTile, data.activities, ctx) },
+      { id: leadsTile.id, icon: leadsTile.icon, title: leadsTile.title, accent: leadsTile.accent, count: defaultViewCount(leadsTile, data.leads, ctx) },
+      { id: opportunitiesTile.id, icon: opportunitiesTile.icon, title: opportunitiesTile.title, accent: opportunitiesTile.accent, count: defaultViewCount(opportunitiesTile, data.opportunities, ctx) },
+      { id: projectsTile.id, icon: projectsTile.icon, title: projectsTile.title, accent: projectsTile.accent, count: defaultViewCount(projectsTile, data.projects, ctx) },
+      { id: quotesTile.id, icon: quotesTile.icon, title: quotesTile.title, accent: quotesTile.accent, count: defaultViewCount(quotesTile, data.quotes, ctx) },
+      { id: ordersTile.id, icon: ordersTile.icon, title: ordersTile.title, accent: ordersTile.accent, count: defaultViewCount(ordersTile, data.orders, ctx) },
+    ]
+  }, [data, ctx])
 
   if (!data) {
     return (
@@ -114,16 +140,50 @@ export default function App() {
       />
 
       <main className="app__main">
-        <KpiBar data={data} ctx={ctx} />
+        <KpiBar
+          data={data}
+          ctx={ctx}
+          activeTileId={activeTile}
+          onSelectTile={setActiveTile}
+        />
 
-        <div className="tile-grid">
-          <DashboardTile def={activitiesTile} rows={data.activities} ctx={ctx} orgUrl={orgUrl} />
-          <DashboardTile def={leadsTile} rows={data.leads} ctx={ctx} orgUrl={orgUrl} />
-          <DashboardTile def={opportunitiesTile} rows={data.opportunities} ctx={ctx} orgUrl={orgUrl} />
-          <DashboardTile def={projectsTile} rows={data.projects} ctx={ctx} orgUrl={orgUrl} />
-          <DashboardTile def={quotesTile} rows={data.quotes} ctx={ctx} orgUrl={orgUrl} />
-          <DashboardTile def={ordersTile} rows={data.orders} ctx={ctx} orgUrl={orgUrl} />
-        </div>
+        <nav className="tile-tabs" aria-label="Bereich wählen">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={`tile-tab${activeTile === tab.id ? ' is-active' : ''}`}
+              style={{ '--tile-accent': tab.accent } as CSSProperties}
+              onClick={() => setActiveTile(tab.id)}
+              aria-pressed={activeTile === tab.id}
+            >
+              <span className="tile-tab__icon">
+                <TileIcon name={tab.icon} />
+              </span>
+              <span className="tile-tab__label">{tab.title}</span>
+              <span className="tile-tab__count">{tab.count}</span>
+            </button>
+          ))}
+        </nav>
+
+        {activeTile === 'activities' && (
+          <DashboardTile def={activitiesTile} rows={data.activities} ctx={ctx} orgUrl={orgUrl} fullWidth />
+        )}
+        {activeTile === 'leads' && (
+          <DashboardTile def={leadsTile} rows={data.leads} ctx={ctx} orgUrl={orgUrl} fullWidth />
+        )}
+        {activeTile === 'opportunities' && (
+          <DashboardTile def={opportunitiesTile} rows={data.opportunities} ctx={ctx} orgUrl={orgUrl} fullWidth />
+        )}
+        {activeTile === 'projects' && (
+          <DashboardTile def={projectsTile} rows={data.projects} ctx={ctx} orgUrl={orgUrl} fullWidth />
+        )}
+        {activeTile === 'quotes' && (
+          <DashboardTile def={quotesTile} rows={data.quotes} ctx={ctx} orgUrl={orgUrl} fullWidth />
+        )}
+        {activeTile === 'orders' && (
+          <DashboardTile def={ordersTile} rows={data.orders} ctx={ctx} orgUrl={orgUrl} fullWidth />
+        )}
       </main>
     </div>
   )

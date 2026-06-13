@@ -333,6 +333,30 @@
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 13px 16px;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.kpi:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.kpi:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.kpi.is-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow);
+}
+
+.kpi.is-active .kpi__label {
+  color: var(--accent);
 }
 
 .kpi__label {
@@ -372,20 +396,75 @@
   color: var(--text-muted);
 }
 
-/* ================================================================= Kacheln */
+/* =========================================================== Bereichs-Tabs */
 
-.tile-grid {
+.tile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tile-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 140px;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.tile-tab:hover {
+  border-color: color-mix(in srgb, var(--tile-accent) 55%, var(--border));
+  color: var(--text);
+}
+
+.tile-tab:focus-visible {
+  outline: 2px solid var(--tile-accent);
+  outline-offset: 1px;
+}
+
+.tile-tab.is-active {
+  color: var(--tile-accent);
+  border-color: var(--tile-accent);
+  background: color-mix(in srgb, var(--tile-accent) 12%, transparent);
+}
+
+.tile-tab__icon {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
-  gap: 16px;
-  align-items: start;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  color: var(--tile-accent);
 }
 
-@media (max-width: 480px) {
-  .tile-grid {
-    grid-template-columns: 1fr;
-  }
+.tile-tab__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+.tile-tab__count {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--tile-accent);
+  background: color-mix(in srgb, var(--tile-accent) 14%, transparent);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+/* ================================================================= Kacheln */
 
 .tile {
   background: var(--surface);
@@ -526,6 +605,49 @@
 
 .tile__filter button:hover {
   color: var(--text);
+}
+
+/* Körper: kompakt = gestapelt; große Einzelansicht = Diagramm + Tabelle nebeneinander. */
+.tile__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tile__data {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tile--full .tile__body {
+  display: grid;
+  grid-template-columns: minmax(300px, 36%) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* In der Einzelansicht mehr Zeilen sichtbar. */
+.tile--full .grid-wrap {
+  max-height: min(62vh, 640px);
+}
+
+/* Diagramm in der Einzelansicht nicht in die Höhe ziehen. */
+.tile--full .tile__chart {
+  position: sticky;
+  top: 12px;
+}
+
+@media (max-width: 900px) {
+  .tile--full .tile__body {
+    grid-template-columns: 1fr;
+  }
+
+  .tile--full .tile__chart {
+    position: static;
+  }
 }
 
 /* ================================================================ Diagramme */

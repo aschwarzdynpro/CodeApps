@@ -25,12 +25,14 @@ interface DashboardTileProps<T> {
   ctx: ViewContext
   /** Dataverse-Org-URL für Datensatz-Deep-Links (nur bei Live-Daten gesetzt). */
   orgUrl?: string
+  /** Große Einzelansicht: Diagramm und Tabelle nebeneinander, höheres Grid. */
+  fullWidth?: boolean
 }
 
 const GUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export function DashboardTile<T>({ def, rows, ctx, orgUrl }: DashboardTileProps<T>) {
+export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: DashboardTileProps<T>) {
   const [viewId, setViewId] = useState(def.views[0].id)
   const [chartId, setChartId] = useState(def.charts[0].id)
   const [search, setSearch] = useState('')
@@ -95,7 +97,10 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl }: DashboardTileProps<
   const chartEmpty = chartData.categories.length === 0
 
   return (
-    <section className="tile" style={{ '--tile-accent': def.accent } as CSSProperties}>
+    <section
+      className={`tile${fullWidth ? ' tile--full' : ''}`}
+      style={{ '--tile-accent': def.accent } as CSSProperties}
+    >
       <header className="tile__head">
         <span className="tile__icon">
           <TileIcon name={def.icon} />
@@ -153,57 +158,61 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl }: DashboardTileProps<
         />
       </div>
 
-      <div className="tile__chart" data-chart={chart.kind}>
-        <p className="tile__chart-title">{chart.label}</p>
-        {chartEmpty ? (
-          <p className="chart-empty">Keine Werte in dieser Ansicht</p>
-        ) : chart.kind === 'donut' ? (
-          <DonutChart
-            data={chartData}
-            format={chart.format}
-            selection={selection}
-            onSelect={handleSelect}
-          />
-        ) : chart.kind === 'funnel' ? (
-          <FunnelChart
-            data={chartData}
-            format={chart.format}
-            selection={selection}
-            onSelect={handleSelect}
-          />
-        ) : (
-          <ColumnChart
-            data={chartData}
-            format={chart.format}
-            selection={selection}
-            onSelect={handleSelect}
-          />
-        )}
-      </div>
-
-      {selection && (
-        <div className="tile__filter">
-          <span>
-            Filter: <strong>{selection.group}</strong>
-            {selection.stack !== undefined && <> · {selection.stack}</>}
-          </span>
-          <button
-            type="button"
-            onClick={() => setSelection(null)}
-            aria-label="Diagrammfilter aufheben"
-          >
-            ✕
-          </button>
+      <div className="tile__body">
+        <div className="tile__chart" data-chart={chart.kind}>
+          <p className="tile__chart-title">{chart.label}</p>
+          {chartEmpty ? (
+            <p className="chart-empty">Keine Werte in dieser Ansicht</p>
+          ) : chart.kind === 'donut' ? (
+            <DonutChart
+              data={chartData}
+              format={chart.format}
+              selection={selection}
+              onSelect={handleSelect}
+            />
+          ) : chart.kind === 'funnel' ? (
+            <FunnelChart
+              data={chartData}
+              format={chart.format}
+              selection={selection}
+              onSelect={handleSelect}
+            />
+          ) : (
+            <ColumnChart
+              data={chartData}
+              format={chart.format}
+              selection={selection}
+              onSelect={handleSelect}
+            />
+          )}
         </div>
-      )}
 
-      <DataGrid
-        columns={def.columns}
-        rows={gridRows}
-        rowId={def.rowId}
-        recordHref={recordHref}
-        emptyText="Keine Datensätze in dieser Ansicht"
-      />
+        <div className="tile__data">
+          {selection && (
+            <div className="tile__filter">
+              <span>
+                Filter: <strong>{selection.group}</strong>
+                {selection.stack !== undefined && <> · {selection.stack}</>}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelection(null)}
+                aria-label="Diagrammfilter aufheben"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          <DataGrid
+            columns={def.columns}
+            rows={gridRows}
+            rowId={def.rowId}
+            recordHref={recordHref}
+            emptyText="Keine Datensätze in dieser Ansicht"
+          />
+        </div>
+      </div>
     </section>
   )
 }
