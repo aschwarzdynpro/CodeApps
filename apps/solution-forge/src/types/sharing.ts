@@ -13,13 +13,15 @@ import type { EnvKey } from './comparison'
  * through the Dataverse connector's `PerformUnboundActionWithOrganization`.
  */
 
-/** Bucket derived from canvasapp.canvasapptype. */
-export type CanvasAppKind = 'canvas' | 'custompage' | 'componentlibrary'
+/**
+ * Bucket derived from canvasapp.canvasapptype. Component libraries
+ * (canvasapptype 1) can't be shared with users and are excluded upstream.
+ */
+export type CanvasAppKind = 'canvas' | 'custompage'
 
 export const CANVAS_KIND_LABELS: Record<CanvasAppKind, string> = {
   canvas: 'Canvas Apps',
   custompage: 'Custom Pages',
-  componentlibrary: 'Component Libraries',
 }
 
 /** One principal a canvas app is shared with in one environment. */

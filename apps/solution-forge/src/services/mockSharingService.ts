@@ -70,16 +70,6 @@ const MOCK_ROWS: AppSharingRow[] = [
       prod: present([]),
     },
   },
-  {
-    name: 'dyn_sharedcontrols_lib_9c0a',
-    displayName: 'Shared Controls',
-    kind: 'componentlibrary',
-    byEnv: {
-      dev: present([team('Makers', 'Read')]),
-      uat: present([team('Makers', 'Read')]),
-      prod: { present: false, principals: [] },
-    },
-  },
 ]
 
 export class MockSharingService implements SharingService {

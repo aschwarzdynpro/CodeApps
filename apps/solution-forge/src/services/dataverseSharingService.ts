@@ -39,10 +39,12 @@ const str = (v: unknown): string => (typeof v === 'string' ? v : '')
 /** componenttype for Canvas App solution components. */
 const TYPE_CANVAS_APP = 300
 
+/** canvasapptype 1 = App Component Library — can't be shared, excluded. */
+const TYPE_COMPONENT_LIBRARY = 1
+
 /** canvasapptype → bucket (0 Classic / 3 Unified / 4 Code / 5 Mobile = app). */
 const CANVAS_KIND_BY_TYPE: Record<number, CanvasAppKind> = {
   0: 'canvas',
-  1: 'componentlibrary',
   2: 'custompage',
   3: 'canvas',
   4: 'canvas',
@@ -288,6 +290,8 @@ export class DataverseSharingService implements SharingService {
       for (const row of rows) {
         const name = str(row.name)
         if (!name) continue
+        // Component libraries can't be shared with users — leave them out.
+        if (Number(row.canvasapptype ?? 0) === TYPE_COMPONENT_LIBRARY) continue
         baseRows.set(name.toLowerCase(), {
           name,
           displayName: str(row.displayname) || name,

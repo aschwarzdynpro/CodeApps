@@ -16,7 +16,7 @@ interface Props {
   solutions: WorkingSolution[]
 }
 
-const KIND_ORDER: CanvasAppKind[] = ['canvas', 'custompage', 'componentlibrary']
+const KIND_ORDER: CanvasAppKind[] = ['canvas', 'custompage']
 
 /** Target environments where "deployed but not shared" is a real gap. */
 const GAP_ENVS: EnvKey[] = ['uat', 'prod']
