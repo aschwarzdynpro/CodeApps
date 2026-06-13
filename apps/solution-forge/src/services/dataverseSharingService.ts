@@ -199,20 +199,25 @@ export class DataverseSharingService implements SharingService {
     return out
   }
 
-  /** Resolve user/team ids to display names in one environment. */
+  /**
+   * Resolve principal ids to display names in one environment. A principal
+   * id is either a systemuser or a team; both tables are queried for the
+   * same id set (independent of principaltypecode, which can come through
+   * unreliably), and whichever table holds the id supplies the name.
+   */
   private async resolveNames(
     orgUrl: string,
-    userIds: string[],
-    teamIds: string[],
+    ids: string[],
   ): Promise<Map<string, string>> {
     const names = new Map<string, string>()
+    const unique = [...new Set(ids.map((id) => id.toLowerCase()))]
+    if (unique.length === 0) return names
     const lookup = async (
       entitySet: string,
       idField: string,
       nameField: string,
-      ids: string[],
     ) => {
-      for (const chunk of chunks([...new Set(ids)], 20)) {
+      for (const chunk of chunks(unique, 20)) {
         const filter = chunk.map((id) => `${idField} eq ${id}`).join(' or ')
         try {
           const rows = await this.query(
@@ -223,7 +228,8 @@ export class DataverseSharingService implements SharingService {
           )
           for (const row of rows) {
             const id = str(row[idField])
-            if (id) names.set(id.toLowerCase(), str(row[nameField]))
+            const name = str(row[nameField])
+            if (id && name) names.set(id.toLowerCase(), name)
           }
         } catch (err) {
           console.warn(`[sharing] name lookup ${entitySet} failed:`, err)
@@ -231,8 +237,8 @@ export class DataverseSharingService implements SharingService {
       }
     }
     await Promise.all([
-      userIds.length ? lookup('systemusers', 'systemuserid', 'fullname', userIds) : null,
-      teamIds.length ? lookup('teams', 'teamid', 'name', teamIds) : null,
+      lookup('systemusers', 'systemuserid', 'fullname'),
+      lookup('teams', 'teamid', 'name'),
     ])
     return names
   }
@@ -313,8 +319,7 @@ export class DataverseSharingService implements SharingService {
 
       // Collect sharing for every present app, then resolve names in bulk.
       const states = new Map<string, AppSharingState>()
-      const userIds: string[] = []
-      const teamIds: string[] = []
+      const principalIds: string[] = []
       for (const row of rows) {
         const match = located.get(row.name.toLowerCase())
         onProgress?.(`${env.label} · ${row.displayName} (${++done}/${totalSteps})`)
@@ -324,10 +329,7 @@ export class DataverseSharingService implements SharingService {
         }
         try {
           const raw = await this.sharedPrincipals(orgUrl, match.appId)
-          for (const p of raw) {
-            if (p.type === 'user') userIds.push(p.id)
-            else if (p.type === 'team') teamIds.push(p.id)
-          }
+          for (const p of raw) principalIds.push(p.id)
           states.set(row.name, {
             present: true,
             appId: match.appId,
@@ -351,7 +353,7 @@ export class DataverseSharingService implements SharingService {
         }
       }
 
-      const nameMap = await this.resolveNames(orgUrl, userIds, teamIds)
+      const nameMap = await this.resolveNames(orgUrl, principalIds)
       for (const row of rows) {
         const state = states.get(row.name) ?? null
         if (state) {
