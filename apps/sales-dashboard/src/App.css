@@ -98,17 +98,12 @@
   color: var(--text-muted);
 }
 
-/* Waldmann-Layout: anthrazitfarbene Kopfleiste. Die lokalen Variablen-Overrides
-   sorgen dafür, dass alle var()-basierten Bedienelemente (Badge, Schalter,
-   GVL-Suche, Icon-Buttons) automatisch hell auf dunkel erscheinen. */
+/* Waldmann-Layout: helle, klare Kopfleiste (wie hell/dunkel) mit rotem
+   Marken-Akzent — rotes Logo und eine schlanke rote Linie unter der Leiste.
+   Kein dunkler Balken: der wirkte unter der ohnehin dunklen Power-Apps-Kopfzeile
+   zu schwer. */
 [data-theme='waldmann'] .topbar {
-  background: #1c1f22;
-  border-bottom-color: #34383d;
-  --surface: #2a2e33;
-  --surface-2: #33373c;
-  --text: #ffffff;
-  --text-muted: #c3c9cf;
-  --border: #3c4147;
+  border-bottom: 2px solid var(--accent);
 }
 
 [data-theme='waldmann'] .topbar__logo {
