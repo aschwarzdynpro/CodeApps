@@ -1,5 +1,5 @@
-import { useMemo, useState, type CSSProperties } from 'react'
-import type { TileDef, ViewContext } from '../dashboard/types'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import type { ColumnDef, TileDef, ViewContext } from '../dashboard/types'
 import {
   buildChartData,
   matchesSelection,
@@ -9,6 +9,7 @@ import {
 import { RECORD_LINK_APP_ID } from '../config'
 import { DataGrid } from './DataGrid'
 import { RecordModal } from './RecordModal'
+import { ColumnChooser } from './ColumnChooser'
 import { TileIcon } from './TileIcon'
 import { ColumnChart } from './charts/ColumnChart'
 import { DonutChart } from './charts/DonutChart'
@@ -39,6 +40,42 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: Dashboar
   const [search, setSearch] = useState('')
   const [selection, setSelection] = useState<ChartSelection | null>(null)
   const [selectedRow, setSelectedRow] = useState<T | null>(null)
+
+  // Spaltenkonfiguration je Liste: sichtbare Spalten in Anzeigereihenfolge,
+  // persistiert in localStorage (pro Kachel).
+  const colsKey = `sales-dashboard-cols-${def.id}`
+  const defaultColumnKeys = useMemo(
+    () => def.columns.filter((c) => !c.defaultHidden).map((c) => c.key),
+    [def],
+  )
+  const [columnKeys, setColumnKeys] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(colsKey)
+      if (raw) {
+        const parsed = JSON.parse(raw) as unknown
+        if (Array.isArray(parsed)) {
+          const valid = parsed.filter(
+            (k): k is string => typeof k === 'string' && def.columns.some((c) => c.key === k),
+          )
+          if (valid.length) return valid
+        }
+      }
+    } catch {
+      /* defekter Eintrag → Standard */
+    }
+    return defaultColumnKeys
+  })
+  useEffect(() => {
+    localStorage.setItem(colsKey, JSON.stringify(columnKeys))
+  }, [colsKey, columnKeys])
+
+  const visibleColumns = useMemo(
+    () =>
+      columnKeys
+        .map((k) => def.columns.find((c) => c.key === k))
+        .filter((c): c is ColumnDef<T> => c !== undefined),
+    [columnKeys, def],
+  )
 
   const view = def.views.find((v) => v.id === viewId) ?? def.views[0]
   const chart = def.charts.find((c) => c.id === chartId) ?? def.charts[0]
@@ -158,6 +195,12 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: Dashboar
           onChange={(e) => setSearch(e.target.value)}
           aria-label={`In ${def.title} suchen`}
         />
+        <ColumnChooser
+          all={def.columns.map((c) => ({ key: c.key, label: c.label }))}
+          visibleKeys={columnKeys}
+          onChange={setColumnKeys}
+          onReset={() => setColumnKeys(defaultColumnKeys)}
+        />
       </div>
 
       <div className="tile__body">
@@ -207,7 +250,7 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: Dashboar
           )}
 
           <DataGrid
-            columns={def.columns}
+            columns={visibleColumns}
             rows={gridRows}
             rowId={def.rowId}
             recordHref={recordHref}

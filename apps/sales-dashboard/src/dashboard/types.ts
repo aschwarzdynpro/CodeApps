@@ -23,6 +23,11 @@ export interface ColumnDef<T> {
   value: (row: T) => string | number | undefined
   /** Farbton für kind = 'badge'. */
   tone?: (row: T) => BadgeTone
+  /**
+   * Spalte ist standardmäßig ausgeblendet — sie steht im Spalten-Konfigurator
+   * der Liste zum Hinzufügen bereit, erscheint aber nicht in der Erstansicht.
+   */
+  defaultHidden?: boolean
 }
 
 export interface ViewDef<T> {
