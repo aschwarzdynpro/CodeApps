@@ -523,6 +523,35 @@
   white-space: nowrap;
 }
 
+/* Überfällig-Badge im Kachelkopf */
+.tile__overdue {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 13%, transparent);
+  border-radius: 999px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+
+/* Überfällige Termin-Zelle (Grid & Detail-Modal) */
+.cell-overdue {
+  color: var(--red);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cell-overdue::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--red);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
 .tile__select,
 .tile__search {
   border: 1px solid var(--border);

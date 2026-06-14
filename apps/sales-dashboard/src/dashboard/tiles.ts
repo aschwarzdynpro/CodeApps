@@ -7,7 +7,7 @@ import type {
   SalesOrder,
 } from '../types/sales'
 import type { BadgeTone, TileDef } from './types'
-import { isLastMonth, isThisMonth, isWithinNextMonths, isoWeek, isoWeekSortKey } from '../utils/format'
+import { isBeforeToday, isLastMonth, isThisMonth, isWithinNextMonths, isoWeek, isoWeekSortKey } from '../utils/format'
 
 /**
  * Die sechs Kacheln des Legacy-Dashboards "Dashboard GVL"
@@ -145,7 +145,13 @@ export const activitiesTile: TileDef<Activity> = {
     { key: 'state', label: 'Status', kind: 'badge', value: (r) => r.state, tone: (r) => tone(r.state) },
     { key: 'priority', label: 'Priorität', kind: 'badge', value: (r) => r.priority, tone: (r) => tone(r.priority) },
     { key: 'start', label: 'Beginn', kind: 'date', value: (r) => r.scheduledStart },
-    { key: 'end', label: 'Fälligkeit', kind: 'date', value: (r) => r.scheduledEnd },
+    {
+      key: 'end',
+      label: 'Fälligkeit',
+      kind: 'date',
+      value: (r) => r.scheduledEnd,
+      overdue: (r, now) => r.open && isBeforeToday(r.scheduledEnd, now),
+    },
     { key: 'owner', label: 'Besitzer', value: (r) => r.owner.name },
     { key: 'created', label: 'Erstellt am', kind: 'date', value: (r) => r.createdOn, defaultHidden: true },
     { key: 'createdBy', label: 'Erstellt von', value: (r) => r.createdBy.name, defaultHidden: true },
@@ -232,7 +238,13 @@ export const opportunitiesTile: TileDef<Opportunity> = {
     { key: 'name', label: 'Name', value: (r) => r.name },
     { key: 'city', label: 'Ort', value: (r) => r.city },
     { key: 'account', label: 'Firma', value: (r) => r.account },
-    { key: 'decision', label: 'Entscheidung', kind: 'date', value: (r) => r.decisionDate },
+    {
+      key: 'decision',
+      label: 'Entscheidung',
+      kind: 'date',
+      value: (r) => r.decisionDate,
+      overdue: (r, now) => r.open && isBeforeToday(r.decisionDate, now),
+    },
     { key: 'value', label: 'Potential', kind: 'currency', value: (r) => r.estimatedValue },
     { key: 'stage', label: 'Phase', value: (r) => r.processStage },
     { key: 'forecast', label: 'Prognose', kind: 'badge', value: (r) => r.forecastCategory, tone: (r) => tone(r.forecastCategory) },
@@ -354,8 +366,20 @@ export const projectsTile: TileDef<Project> = {
     { key: 'endCustomer', label: 'Endkunde', value: (r) => r.endCustomer },
     { key: 'city', label: 'Ort', value: (r) => r.city },
     { key: 'type', label: 'Typ', value: (r) => r.type },
-    { key: 'followUp', label: 'Nachfass', kind: 'date', value: (r) => r.followUpDate },
-    { key: 'decision', label: 'Entscheidung', kind: 'date', value: (r) => r.decisionDate },
+    {
+      key: 'followUp',
+      label: 'Nachfass',
+      kind: 'date',
+      value: (r) => r.followUpDate,
+      overdue: (r, now) => r.statusCategory === 'open' && isBeforeToday(r.followUpDate, now),
+    },
+    {
+      key: 'decision',
+      label: 'Entscheidung',
+      kind: 'date',
+      value: (r) => r.decisionDate,
+      overdue: (r, now) => r.statusCategory === 'open' && isBeforeToday(r.decisionDate, now),
+    },
     { key: 'potential', label: 'Potential', kind: 'currency', value: (r) => r.potential },
     { key: 'status', label: 'Status', kind: 'badge', value: (r) => r.status, tone: (r) => tone(r.status) },
     { key: 'forecast', label: 'Prognose', kind: 'badge', value: (r) => r.forecastCategory, tone: (r) => tone(r.forecastCategory) },

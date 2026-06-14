@@ -17,10 +17,12 @@ interface RecordModalProps<T> {
   row: T
   /** Deep-Link ins Sales-Hub-Formular (nur bei Live-Daten); öffnet neuen Tab. */
   recordHref?: string
+  /** Bezugszeitpunkt für „überfällig"-Markierungen. */
+  now: Date
   onClose: () => void
 }
 
-export function RecordModal<T>({ def, row, recordHref, onClose }: RecordModalProps<T>) {
+export function RecordModal<T>({ def, row, recordHref, now, onClose }: RecordModalProps<T>) {
   const closeRef = useRef<HTMLButtonElement>(null)
 
   // Esc schließt; Hintergrund-Scroll sperren, solange das Modal offen ist.
@@ -76,7 +78,7 @@ export function RecordModal<T>({ def, row, recordHref, onClose }: RecordModalPro
             <div className="modal__field" key={col.key}>
               <dt className="modal__field-label">{col.label}</dt>
               <dd className="modal__field-value">
-                <GridCell column={col} row={row} />
+                <GridCell column={col} row={row} now={now} />
               </dd>
             </div>
           ))}

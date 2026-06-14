@@ -85,6 +85,17 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: Dashboar
     [rows, view, ctx],
   )
 
+  // Überfällige Termine in der Ansicht (für das Kopf-Badge) — über alle Spalten
+  // mit overdue-Prädikat, unabhängig davon, ob sie gerade eingeblendet sind.
+  const overdueColumns = useMemo(() => def.columns.filter((c) => c.overdue), [def])
+  const overdueCount = useMemo(
+    () =>
+      overdueColumns.length === 0
+        ? 0
+        : viewRows.filter((row) => overdueColumns.some((c) => c.overdue!(row, ctx.now))).length,
+    [viewRows, overdueColumns, ctx.now],
+  )
+
   const chartData = useMemo(() => buildChartData(viewRows, chart), [viewRows, chart])
 
   const gridRows = useMemo(() => {
@@ -150,6 +161,11 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: Dashboar
             ? viewRows.length
             : `${gridRows.length} / ${viewRows.length}`}
         </span>
+        {overdueCount > 0 && (
+          <span className="tile__overdue" title="Überfällige Termine in dieser Ansicht">
+            {overdueCount} überfällig
+          </span>
+        )}
         {def.charts.length > 1 && (
           <select
             className="tile__select tile__select--chart"
@@ -255,6 +271,7 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: Dashboar
             rowId={def.rowId}
             recordHref={recordHref}
             onRowClick={setSelectedRow}
+            now={ctx.now}
             emptyText="Keine Datensätze in dieser Ansicht"
           />
         </div>
@@ -265,6 +282,7 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: Dashboar
           def={def}
           row={selectedRow}
           recordHref={recordHref?.(selectedRow)}
+          now={ctx.now}
           onClose={() => setSelectedRow(null)}
         />
       )}

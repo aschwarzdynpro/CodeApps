@@ -71,6 +71,19 @@ export function isWithinNextMonths(
   return new Date(value).getTime() < limit.getTime()
 }
 
+/**
+ * Liegt das Datum (datumsgenau) strikt vor heute? Basis für „überfällig" —
+ * ein Termin „heute" gilt noch nicht als überfällig.
+ */
+export function isBeforeToday(value: string | undefined, now: Date): boolean {
+  if (!value) return false
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return false
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  return day.getTime() < today.getTime()
+}
+
 /** ISO-Kalenderwoche, z. B. für "Anzahl Termine nach Woche". */
 export function isoWeek(value: string): number {
   const d = new Date(value)

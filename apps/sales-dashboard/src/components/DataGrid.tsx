@@ -16,6 +16,8 @@ interface DataGridProps<T> {
   recordHref?: (row: T) => string | undefined
   /** Klick auf eine Zeile (öffnet das Detail-Modal); undefined → nicht klickbar. */
   onRowClick?: (row: T) => void
+  /** Bezugszeitpunkt für „überfällig"-Markierungen. */
+  now: Date
   emptyText: string
 }
 
@@ -41,6 +43,7 @@ export function DataGrid<T>({
   rowId,
   recordHref,
   onRowClick,
+  now,
   emptyText,
 }: DataGridProps<T>) {
   const [sort, setSort] = useState<SortState | null>(null)
@@ -118,7 +121,7 @@ export function DataGrid<T>({
                   key={col.key}
                   className={col.kind === 'currency' || col.kind === 'number' ? 'is-num' : undefined}
                 >
-                  <GridCell column={col} row={row} />
+                  <GridCell column={col} row={row} now={now} />
                 </td>
               ))}
             </tr>
@@ -149,21 +152,41 @@ function OpenRecordLink({ href }: { href: string | undefined }) {
   )
 }
 
-export function GridCell<T>({ column, row }: { column: ColumnDef<T>; row: T }) {
+export function GridCell<T>({
+  column,
+  row,
+  now,
+}: {
+  column: ColumnDef<T>
+  row: T
+  now: Date
+}) {
   const value = column.value(row)
-  switch (column.kind) {
-    case 'currency':
-      return <>{typeof value === 'number' ? fmtEur(value) : '–'}</>
-    case 'number':
-      return <>{typeof value === 'number' ? fmtNumber(value) : (value ?? '–')}</>
-    case 'date':
-      return <>{fmtDate(typeof value === 'string' ? value : undefined)}</>
-    case 'badge': {
-      if (value === undefined || value === '') return <>–</>
-      const toneName = column.tone?.(row) ?? 'gray'
-      return <span className={`badge badge--${toneName}`}>{value}</span>
+
+  const content = (() => {
+    switch (column.kind) {
+      case 'currency':
+        return <>{typeof value === 'number' ? fmtEur(value) : '–'}</>
+      case 'number':
+        return <>{typeof value === 'number' ? fmtNumber(value) : (value ?? '–')}</>
+      case 'date':
+        return <>{fmtDate(typeof value === 'string' ? value : undefined)}</>
+      case 'badge': {
+        if (value === undefined || value === '') return <>–</>
+        const toneName = column.tone?.(row) ?? 'gray'
+        return <span className={`badge badge--${toneName}`}>{value}</span>
+      }
+      default:
+        return <>{value === undefined || value === '' ? '–' : value}</>
     }
-    default:
-      return <>{value === undefined || value === '' ? '–' : value}</>
+  })()
+
+  if (column.overdue?.(row, now)) {
+    return (
+      <span className="cell-overdue" title="Überfällig">
+        {content}
+      </span>
+    )
   }
+  return content
 }
