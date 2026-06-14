@@ -22,11 +22,17 @@ interface HeaderProps {
   /** Lädt die GVL-Kandidaten für die Suche. */
   loadCandidates: () => Promise<UserRef[]>
   onGvlChange: (gvl: UserRef | null) => void
-  theme: 'light' | 'dark'
-  onThemeToggle: () => void
+  theme: 'light' | 'dark' | 'waldmann'
+  onThemeCycle: () => void
   onRefresh: () => void
   loading: boolean
   lastUpdated: Date | null
+}
+
+const THEME_LABEL: Record<'light' | 'dark' | 'waldmann', string> = {
+  light: 'Hell',
+  dark: 'Dunkel',
+  waldmann: 'Waldmann',
 }
 
 const TIME = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' })
@@ -59,7 +65,7 @@ export function Header({
   loadCandidates,
   onGvlChange,
   theme,
-  onThemeToggle,
+  onThemeCycle,
   onRefresh,
   loading,
   lastUpdated,
@@ -132,18 +138,24 @@ export function Header({
         <button
           type="button"
           className="icon-button"
-          onClick={onThemeToggle}
-          title={theme === 'light' ? 'Dunkles Design' : 'Helles Design'}
-          aria-label="Design umschalten"
+          onClick={onThemeCycle}
+          title={`Design: ${THEME_LABEL[theme]} – klicken zum Wechseln`}
+          aria-label={`Design wechseln (aktuell: ${THEME_LABEL[theme]})`}
         >
           {theme === 'light' ? (
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+          ) : theme === 'dark' ? (
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
             </svg>
           ) : (
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="4" />
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+              <path d="M9 18h6" />
+              <path d="M10 22h4" />
+              <path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1v.2h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2Z" />
             </svg>
           )}
         </button>

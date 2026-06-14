@@ -25,10 +25,13 @@ import { TileIcon } from './components/TileIcon'
  * Schnellsuche und Cross-Filter per Diagramm-Klick.
  */
 
-type Theme = 'light' | 'dark'
+type Theme = 'light' | 'dark' | 'waldmann'
 
 const THEME_KEY = 'sales-dashboard-theme'
 const DATA_MODE_KEY = 'sales-dashboard-data-mode'
+
+/** Reihenfolge des Design-Umschalters: Hell → Dunkel → Waldmann → … */
+const THEME_ORDER: Theme[] = ['light', 'dark', 'waldmann']
 
 /** Anzahl der Datensätze in der Standardansicht einer Kachel (Badge der Tableiste). */
 function defaultViewCount<T>(def: TileDef<T>, rows: T[], ctx: ViewContext): number {
@@ -40,7 +43,7 @@ function defaultViewCount<T>(def: TileDef<T>, rows: T[], ctx: ViewContext): numb
 
 function initialTheme(): Theme {
   const stored = localStorage.getItem(THEME_KEY)
-  if (stored === 'dark' || stored === 'light') return stored
+  if (stored === 'dark' || stored === 'light' || stored === 'waldmann') return stored
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches
     ? 'dark'
     : 'light'
@@ -133,7 +136,9 @@ export default function App() {
         loadCandidates={listSalesManagers}
         onGvlChange={setSelectedGvl}
         theme={theme}
-        onThemeToggle={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+        onThemeCycle={() =>
+          setTheme((t) => THEME_ORDER[(THEME_ORDER.indexOf(t) + 1) % THEME_ORDER.length])
+        }
         onRefresh={() => void refresh()}
         loading={loading}
         lastUpdated={lastUpdated}

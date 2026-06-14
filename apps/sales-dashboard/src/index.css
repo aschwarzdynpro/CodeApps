@@ -48,6 +48,32 @@
   color-scheme: dark;
 }
 
+/* Waldmann-Layout — abgeleitet vom Markenauftritt (waldmann.com): heller,
+   industriell-klarer Inhalt, Signalrot als Akzent, anthrazitfarbene Kopfleiste
+   (Letztere via lokaler Variablen-Overrides in .topbar, siehe App.css). */
+[data-theme='waldmann'] {
+  --bg: #eceeef;
+  --surface: #ffffff;
+  --surface-2: #f4f6f7;
+  --text: #1c1f22;
+  --text-muted: #5f676e;
+  --border: #dfe3e6;
+  --accent: #e2001a;
+  --rest-color: #9aa6b5;
+  --shadow:
+    0 1px 2px rgb(28 31 34 / 0.06),
+    0 6px 20px rgb(28 31 34 / 0.08);
+
+  --blue: #2e7cd6;
+  --green: #2f9e57;
+  --red: #d6452e;
+  --amber: #b97a13;
+  --violet: #8e5cd9;
+  --gray: #64748b;
+
+  color-scheme: light;
+}
+
 *,
 *::before,
 *::after {

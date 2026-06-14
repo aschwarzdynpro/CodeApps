@@ -98,6 +98,23 @@
   color: var(--text-muted);
 }
 
+/* Waldmann-Layout: anthrazitfarbene Kopfleiste. Die lokalen Variablen-Overrides
+   sorgen dafür, dass alle var()-basierten Bedienelemente (Badge, Schalter,
+   GVL-Suche, Icon-Buttons) automatisch hell auf dunkel erscheinen. */
+[data-theme='waldmann'] .topbar {
+  background: #1c1f22;
+  border-bottom-color: #34383d;
+  --surface: #2a2e33;
+  --surface-2: #33373c;
+  --text: #ffffff;
+  --text-muted: #c3c9cf;
+  --border: #3c4147;
+}
+
+[data-theme='waldmann'] .topbar__logo {
+  background: #e2001a;
+}
+
 .topbar__actions {
   display: flex;
   align-items: center;
