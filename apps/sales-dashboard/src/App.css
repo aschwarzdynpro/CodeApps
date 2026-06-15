@@ -406,6 +406,73 @@
   animation: spin 0.9s linear infinite;
 }
 
+/* ========================================================= Globale Filter */
+
+.gfilter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.gfilter__title {
+  font-size: 0.74rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.gfilter__field {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.gfilter__field select {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 0.82rem;
+}
+
+.gfilter__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.gfilter__check input {
+  cursor: pointer;
+}
+
+.gfilter__reset {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 4px 6px;
+  border-radius: 7px;
+}
+
+.gfilter__reset:hover {
+  text-decoration: underline;
+}
+
 /* ============================================================== KPI-Leiste */
 
 .kpis {
