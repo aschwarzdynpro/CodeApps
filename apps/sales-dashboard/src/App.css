@@ -445,41 +445,17 @@
   font-size: 0.82rem;
 }
 
-/* Segmented-Control (z. B. Status: Alle | Nur offene) */
-.seg {
+.gfilter__check {
   display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-}
-
-.seg__btn {
-  border: none;
-  background: none;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 4px 12px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.seg__btn:hover {
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
   color: var(--text);
+  cursor: pointer;
 }
 
-.seg__btn.is-active {
-  background: var(--accent);
-  color: #fff;
-}
-
-.seg__btn:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
-  outline-offset: 1px;
+.gfilter__check input {
+  cursor: pointer;
 }
 
 .gfilter__reset {
