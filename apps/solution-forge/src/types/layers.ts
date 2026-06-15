@@ -46,6 +46,13 @@ export interface ComponentLayerStack {
   layers: ComponentLayerInfo[]
 }
 
+/** One component-type's results, emitted as soon as that type is resolved. */
+export interface LayerSection {
+  typeCode: number
+  typeName: string
+  stacks: ComponentLayerStack[]
+}
+
 export interface LayerInspectionResult {
   envKey: Extract<EnvKey, 'uat' | 'prod'>
   stacks: ComponentLayerStack[]

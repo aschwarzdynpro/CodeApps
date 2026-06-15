@@ -92,74 +92,6 @@ const SEED: SeedRow[] = [
   },
 ]
 
-/**
- * Existence-only sample components (the types Compare now also covers):
- * present / missing / unmanaged per environment, no rich state.
- */
-interface ExistenceSeed {
-  typeCode: number
-  typeName: string
-  name: string
-  uat: 'present' | 'missing' | 'unmanaged'
-  prod: 'present' | 'missing' | 'unmanaged'
-}
-const EXISTENCE_SEED: ExistenceSeed[] = [
-  {
-    typeCode: 91,
-    typeName: 'Plugin Assembly',
-    name: 'HSO.Plugins.Calculation',
-    uat: 'present',
-    prod: 'present',
-  },
-  {
-    typeCode: 10021,
-    typeName: 'Custom API',
-    name: 'hso_RecalculatePositions',
-    uat: 'present',
-    prod: 'missing',
-  },
-  {
-    typeCode: 91,
-    typeName: 'Plugin Assembly',
-    name: '[DEPR] Legacy.Calculation.Plugins',
-    uat: 'unmanaged',
-    prod: 'missing',
-  },
-]
-
-function existenceRow(
-  solutionId: string,
-  i: number,
-  seed: ExistenceSeed,
-): ComparisonRow {
-  const cell = (s: ExistenceSeed['uat' | 'prod']): EnvComponentState | null =>
-    s === 'missing'
-      ? { present: false }
-      : { present: true, isManaged: s !== 'unmanaged' }
-  const byEnv: Record<EnvKey, EnvComponentState | null> = {
-    dev: { present: true, isManaged: false },
-    uat: cell(seed.uat),
-    prod: cell(seed.prod),
-  }
-  const deviations: DeviationKind[] = []
-  for (const key of ['uat', 'prod'] as EnvKey[]) {
-    const t = byEnv[key]
-    if (!t) continue
-    if (!t.present) deviations.push('missing')
-    else if (t.isManaged === false) deviations.push('unmanaged')
-  }
-  return {
-    ref: {
-      objectId: `mock-exist-${solutionId}-${i}`,
-      typeCode: seed.typeCode,
-      typeName: seed.typeName,
-      name: seed.name,
-    },
-    byEnv,
-    deviations: [...new Set(deviations)],
-  }
-}
-
 function baseState(seed: SeedRow, ageDays: number): EnvComponentState {
   return {
     present: true,
@@ -219,7 +151,6 @@ export class MockComparisonService {
         deviations: seed.deviations,
       }),
     )
-    rows.push(...EXISTENCE_SEED.map((s, i) => existenceRow(solutionId, i, s)))
     return { rows, envErrors: {} }
   }
 

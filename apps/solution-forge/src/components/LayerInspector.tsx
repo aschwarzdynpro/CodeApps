@@ -1,28 +1,53 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
+import type { AlmComponentRef, EnvKey } from '../types/comparison'
 import type {
   ComponentLayerStack,
-  LayerInspectionResult,
+  LayerSection,
+  LayerVerdict,
 } from '../types/layers'
 import { ENVIRONMENTS } from '../config'
 import { solutionService } from '../services/solutionService'
 import { SolutionSelect } from './SolutionSelect'
+import { ContentDiffModal } from './ContentDiffModal'
 
 interface Props {
   solutions: WorkingSolution[]
 }
 
+/** Component types whose definition can be diffed (workflow table / scripts). */
+const DIFFABLE_TYPES: Record<number, AlmComponentRef['kind']> = {
+  29: 'workflow', // cloud flows / workflows / business rules share the table
+  61: 'webresource',
+}
+
+/** Groups with at most this many components start expanded. */
+const AUTO_EXPAND_LIMIT = 12
+
+const VERDICT_BADGE: Record<LayerVerdict, { label: string; cls: string }> = {
+  overridden: { label: '⚠ Unmanaged over managed', cls: 'lv-badge--overridden' },
+  unmanagedOnly: { label: 'Unmanaged only', cls: 'lv-badge--unmanagedonly' },
+  absent: { label: 'Missing', cls: 'lv-badge--absent' },
+  clean: { label: 'Clean', cls: 'lv-badge--clean' },
+  unsupported: { label: 'No layer data', cls: 'lv-badge--unsupported' },
+  error: { label: 'Lookup failed', cls: 'lv-badge--error' },
+}
+
+/** Verdicts that count as an actionable issue (drive default-expand). */
+const ISSUE_VERDICTS = new Set<LayerVerdict>(['overridden', 'unmanagedOnly', 'absent'])
+
 /**
  * Layer inspector: for every component of a solution, the
- * msdyn_componentlayer stack in UAT/PROD is resolved. An unmanaged
- * "Active" layer on top of managed layers means someone customized the
- * target directly — those changes mask whatever the next import delivers.
+ * msdyn_componentlayer stack in the chosen target environment. Flags
+ * unmanaged "Active" layers over managed components (deployed changes
+ * masked) and components missing in the target. Sections appear per
+ * component type as they finish; diffable types offer a DEV-vs-target diff.
  */
 export function LayerInspector({ solutions }: Props) {
-  // Any real solution qualifies (releases before a deployment, features
-  // before a merge); duplicate-link rows must not show up twice.
+  // Release solutions only (consistent with the other ALM tabs).
   const candidates = solutions.filter(
     (s, index) =>
+      s.kind === 'deployment' &&
       !s.solutionMissing &&
       solutions.findIndex((o) => o.id === s.id) === index,
   )
@@ -34,24 +59,39 @@ export function LayerInspector({ solutions }: Props) {
   const [envKey, setEnvKey] = useState<'uat' | 'prod'>('uat')
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState<[number, number] | null>(null)
-  const [result, setResult] = useState<LayerInspectionResult | null>(null)
+  const [sections, setSections] = useState<LayerSection[]>([])
+  const [warnings, setWarnings] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [ran, setRan] = useState(false)
+  const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>(
+    {},
+  )
+  const [diffTarget, setDiffTarget] = useState<{
+    ref: AlmComponentRef
+    envs: EnvKey[]
+  } | null>(null)
 
   const solution = candidates.find((s) => s.id === solutionId) ?? null
+  const envLabel =
+    targetEnvs.find((e) => e.key === envKey)?.label ?? envKey.toUpperCase()
 
   const run = async () => {
     if (!solution) return
     setRunning(true)
-    setResult(null)
+    setSections([])
+    setWarnings([])
     setError(null)
     setProgress(null)
+    setGroupOverrides({})
+    setRan(true)
     try {
       const res = await solutionService.inspectLayers(
         solution,
         envKey,
         (done, total) => setProgress([done, total]),
+        (section) => setSections((prev) => [...prev, section]),
       )
-      setResult(res)
+      setWarnings(res.warnings)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -60,64 +100,111 @@ export function LayerInspector({ solutions }: Props) {
     }
   }
 
-  const envLabel =
-    targetEnvs.find((e) => e.key === envKey)?.label ?? envKey.toUpperCase()
-  const byVerdict = (verdict: ComponentLayerStack['verdict']) =>
-    result?.stacks.filter((s) => s.verdict === verdict) ?? []
-  const overridden = byVerdict('overridden')
-  const unmanagedOnly = byVerdict('unmanagedOnly')
-  const cleanCount = byVerdict('clean').length
-  const absentCount = byVerdict('absent').length
-  const unsupportedCount = byVerdict('unsupported').length
-  const errorCount = byVerdict('error').length
+  const counts = useMemo(() => {
+    const c: Record<LayerVerdict, number> = {
+      overridden: 0,
+      unmanagedOnly: 0,
+      absent: 0,
+      clean: 0,
+      unsupported: 0,
+      error: 0,
+    }
+    for (const s of sections) for (const st of s.stacks) c[st.verdict]++
+    return c
+  }, [sections])
 
-  const renderStack = (stack: ComponentLayerStack) => (
-    <li
-      key={`${stack.component.typeCode}-${stack.component.objectId}`}
-      className="dep-row"
-      title={stack.component.objectId}
-    >
-      <span className="merge-plan-type">{stack.component.typeName}</span>
-      <span className="dep-name">
-        {stack.component.displayName}
-        <span className="layer-stack">
-          {stack.layers.map((layer) => (
-            <span
-              key={layer.id}
-              className={`layer-chip ${
-                layer.solutionName === 'Active' ? 'layer-chip--active' : ''
-              }`}
-              title={[
-                layer.publisherName,
-                layer.solutionVersion ? `v${layer.solutionVersion}` : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            >
-              {layer.solutionName === 'Active'
-                ? '⚠ Active (unmanaged)'
-                : layer.solutionName}
+  const isExpanded = (typeName: string, stacks: ComponentLayerStack[]) =>
+    groupOverrides[typeName] ??
+    (stacks.length <= AUTO_EXPAND_LIMIT ||
+      stacks.some((s) => ISSUE_VERDICTS.has(s.verdict)))
+  const toggleGroup = (typeName: string, stacks: ComponentLayerStack[]) =>
+    setGroupOverrides((prev) => ({
+      ...prev,
+      [typeName]: !isExpanded(typeName, stacks),
+    }))
+
+  const openDiff = (stack: ComponentLayerStack) => {
+    const kind = DIFFABLE_TYPES[stack.component.typeCode]
+    if (!kind) return
+    setDiffTarget({
+      ref: {
+        objectId: stack.component.objectId,
+        kind,
+        typeCode: stack.component.typeCode,
+        typeName: stack.component.typeName,
+        name: stack.component.displayName,
+      },
+      envs: ['dev', envKey],
+    })
+  }
+
+  const renderStack = (stack: ComponentLayerStack) => {
+    const badge = VERDICT_BADGE[stack.verdict]
+    const diffable =
+      DIFFABLE_TYPES[stack.component.typeCode] &&
+      (stack.verdict === 'clean' ||
+        stack.verdict === 'overridden' ||
+        stack.verdict === 'unmanagedOnly')
+    return (
+      <li
+        key={`${stack.component.typeCode}-${stack.component.objectId}`}
+        className="dep-row"
+        title={stack.component.objectId}
+      >
+        <span className={`lv-badge ${badge.cls}`}>{badge.label}</span>
+        <span className="dep-name">
+          {stack.component.displayName}
+          {stack.layers.length > 0 && (
+            <span className="layer-stack">
+              {stack.layers.map((layer) => (
+                <span
+                  key={layer.id}
+                  className={`layer-chip ${
+                    layer.solutionName === 'Active' ? 'layer-chip--active' : ''
+                  }`}
+                  title={[
+                    layer.publisherName,
+                    layer.solutionVersion ? `v${layer.solutionVersion}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                >
+                  {layer.solutionName === 'Active'
+                    ? '⚠ Active (unmanaged)'
+                    : layer.solutionName}
+                </span>
+              ))}
             </span>
-          ))}
+          )}
         </span>
-      </span>
-    </li>
-  )
+        {diffable && (
+          <button
+            className="diff-link"
+            title={`Diff this definition: DEV vs ${envLabel}`}
+            onClick={() => openDiff(stack)}
+          >
+            ⇄ diff
+          </button>
+        )}
+      </li>
+    )
+  }
 
   return (
     <div>
       <div className="card compare-controls">
         <div className="compare-picker">
-          <span className="form-label">Solution</span>
+          <span className="form-label">Release solution</span>
           <SolutionSelect
             options={candidates}
             value={solutionId}
             onChange={(id) => {
               setSolutionId(id)
-              setResult(null)
+              setSections([])
+              setRan(false)
               setError(null)
             }}
-            placeholder="Select a solution…"
+            placeholder="Select a release solution"
           />
         </div>
         <div className="dep-controls">
@@ -137,87 +224,114 @@ export function LayerInspector({ solutions }: Props) {
             disabled={!solution || running}
             onClick={() => void run()}
           >
-            {running
-              ? progress
-                ? `Inspecting… ${progress[0]}/${progress[1]}`
-                : 'Inspecting…'
-              : 'Inspect Layers'}
+            {running ? 'Inspecting…' : 'Inspect Layers'}
           </button>
         </div>
       </div>
 
+      {running && (
+        <div className="sharing-progress" aria-live="polite">
+          <span className="sharing-progress-spinner" />
+          <span className="sharing-progress-text">
+            {progress
+              ? `Inspecting ${envLabel}… ${progress[0]}/${progress[1]} components`
+              : 'Starting…'}
+          </span>
+        </div>
+      )}
+
       {error && <div className="state state--error">{error}</div>}
-      {!!result?.warnings.length && (
+      {!!warnings.length && (
         <div className="state state--error">
           <ul className="merge-errors">
-            {result.warnings.map((w) => (
+            {warnings.map((w) => (
               <li key={w}>{w}</li>
             ))}
           </ul>
         </div>
       )}
 
-      {!running && result && (
-        <>
-          {overridden.length === 0 && unmanagedOnly.length === 0 && (
-            <div className="state state--success">
-              No unmanaged layers over this solution's components in{' '}
-              {envLabel} — imports take effect unmasked.
-            </div>
-          )}
+      {ran && (counts.overridden > 0 || counts.unmanagedOnly > 0) && (
+        <div className="state state--error">
+          {counts.overridden > 0 &&
+            `${counts.overridden} component${counts.overridden === 1 ? '' : 's'} with an unmanaged layer over managed state in ${envLabel} (deployed changes masked)`}
+          {counts.overridden > 0 && counts.unmanagedOnly > 0 && ' · '}
+          {counts.unmanagedOnly > 0 &&
+            `${counts.unmanagedOnly} unmanaged-only`}
+          . Remove active customizations in {envLabel} (maker portal: See
+          solution layers → Remove active customizations).
+        </div>
+      )}
+      {ran &&
+        !running &&
+        counts.overridden === 0 &&
+        counts.unmanagedOnly === 0 &&
+        sections.length > 0 && (
+          <div className="state state--success">
+            No unmanaged layers over this solution's components in {envLabel}.
+          </div>
+        )}
 
-          {overridden.length > 0 && (
-            <section className="card">
-              <h3 className="card-title">
-                Unmanaged layer over managed component in {envLabel} (
-                {overridden.length}) — imported changes are masked
-              </h3>
-              <p className="muted dep-hint">
-                Someone customized these components directly in {envLabel}.
-                The unmanaged "Active" layer wins over every managed layer —
-                remove the active customizations there (maker portal: See
-                solution layers → Remove active customizations) before
-                relying on a deployment.
-              </p>
-              <ul className="dep-list">{overridden.map(renderStack)}</ul>
-            </section>
-          )}
+      {sections.map((section) => {
+        const expanded = isExpanded(section.typeName, section.stacks)
+        const issues = section.stacks.filter((s) =>
+          ISSUE_VERDICTS.has(s.verdict),
+        ).length
+        return (
+          <section key={section.typeCode} className="card compare-group">
+            <button
+              className="component-group-toggle"
+              onClick={() => toggleGroup(section.typeName, section.stacks)}
+              aria-expanded={expanded}
+            >
+              <span
+                className={`component-group-chevron ${
+                  expanded ? 'component-group-chevron--open' : ''
+                }`}
+              >
+                ▸
+              </span>
+              <span className="component-group-title">{section.typeName}</span>
+              <span className="muted">({section.stacks.length})</span>
+              {issues > 0 && (
+                <span className="lv-badge lv-badge--overridden lv-section-flag">
+                  {issues} issue{issues === 1 ? '' : 's'}
+                </span>
+              )}
+            </button>
+            {expanded && (
+              <ul className="dep-list">{section.stacks.map(renderStack)}</ul>
+            )}
+          </section>
+        )
+      })}
 
-          {unmanagedOnly.length > 0 && (
-            <section className="card">
-              <h3 className="card-title">
-                Unmanaged-only in {envLabel} ({unmanagedOnly.length}) — created
-                directly in the target
-              </h3>
-              <p className="muted dep-hint">
-                These components exist in {envLabel} only as unmanaged
-                customizations — an import of the same component creates a
-                managed layer underneath, but the unmanaged version keeps
-                winning.
-              </p>
-              <ul className="dep-list">{unmanagedOnly.map(renderStack)}</ul>
-            </section>
-          )}
-
-          <p className="muted dep-hint">
-            {result.stacks.length} component
-            {result.stacks.length === 1 ? '' : 's'} checked in {envLabel}:{' '}
-            {cleanCount} without unmanaged layer, {absentCount} not present in
-            the target
-            {unsupportedCount > 0 &&
-              `, ${unsupportedCount} of a type without layer data`}
-            {errorCount > 0 && `, ${errorCount} failed`}
-            .
-          </p>
-        </>
+      {ran && !running && sections.length > 0 && (
+        <p className="muted dep-hint">
+          {Object.values(counts).reduce((a, b) => a + b, 0)} components checked
+          in {envLabel}: {counts.clean} clean, {counts.absent} missing
+          {counts.unsupported > 0 &&
+            `, ${counts.unsupported} without layer data`}
+          {counts.error > 0 && `, ${counts.error} failed`}
+          .
+        </p>
       )}
 
-      {!running && !result && !error && (
+      {!ran && !error && (
         <div className="state">
-          Pick a solution and a target environment — the inspector resolves
-          each component's solution layers there and flags unmanaged "Active"
-          layers masking managed (deployed) state.
+          Pick a release solution and a target environment — each component's
+          solution layers are resolved there; sections appear per component
+          type as they finish. Unmanaged "Active" layers over managed
+          components are flagged, and diffable types (flows, workflows,
+          business rules, scripts) offer a DEV-vs-target diff.
         </div>
+      )}
+
+      {diffTarget && (
+        <ContentDiffModal
+          target={diffTarget}
+          onClose={() => setDiffTarget(null)}
+        />
       )}
     </div>
   )

@@ -244,32 +244,42 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <h3>Layer Inspector</h3>
             <ul>
               <li>
-                Pick a solution and a target environment (UAT / PROD) — the
-                inspector resolves every component's{' '}
-                <strong>solution layers</strong> there (the same stack the
-                maker portal shows under “See solution layers”).
+                Pick a release solution and a target environment (UAT / PROD)
+                — every component's <strong>solution layers</strong> there
+                are resolved (the same stack the maker portal shows under
+                “See solution layers”). Results appear{' '}
+                <strong>per component type as each section finishes</strong>,
+                while the rest keep loading; each type group is collapsible.
               </li>
               <li>
-                <strong>Unmanaged layer over managed component</strong> =
-                someone customized the component directly in the target. The
-                unmanaged “Active” layer wins over all managed layers, so
-                deployed changes are masked until the active customizations
-                are removed in the target (maker portal: See solution layers
-                → Remove active customizations).
+                Per-component verdict:{' '}
+                <span className="lv-badge lv-badge--overridden">
+                  Unmanaged over managed
+                </span>{' '}
+                (customized directly in the target — the unmanaged “Active”
+                layer masks deployed changes),{' '}
+                <span className="lv-badge lv-badge--unmanagedonly">
+                  Unmanaged only
+                </span>
+                ,{' '}
+                <span className="lv-badge lv-badge--absent">Missing</span>{' '}
+                (not present in the target — this is where you see whether
+                plugin assemblies, custom APIs etc. were deployed),{' '}
+                <span className="lv-badge lv-badge--clean">Clean</span>. Fix
+                masked components in the maker portal: See solution layers →
+                Remove active customizations.
               </li>
               <li>
-                <strong>Unmanaged-only</strong> = the component exists in the
-                target only as an unmanaged customization — it was created
-                there directly, not deployed.
+                <strong>⇄ diff</strong> on a diffable component (flows,
+                workflows, business rules, scripts) opens a side-by-side
+                diff of its definition <strong>DEV vs the target</strong> —
+                cloud-flow JSON pretty-printed, web resources decoded, binary
+                web resources reduced to a size comparison.
               </li>
               <li>
-                The summary line counts clean components, components not
-                present in the target, and component types without layer
-                data (metadata-only types the virtual table doesn't serve).
-              </li>
-              <li>
-                One layer query per component — large solutions take a
-                moment; the button shows the progress.
+                Component types the layer provider doesn't expose stay “No
+                layer data”. One layer query per component, so large
+                solutions take a moment — the spinner shows progress.
               </li>
               <li>Requires the “INT | Deployment Manager” role.</li>
             </ul>
@@ -310,50 +320,28 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <h3>Compare (ALM)</h3>
             <ul>
               <li>
-                Pick a solution — its cloud flows, workflows, business
-                rules, plugin steps and scripts get a full state comparison
-                across the configured environments (current / UAT / PROD),
-                matched by their import-stable ids.
+                Pick a release solution — its cloud flows, workflows,
+                business rules, plugin steps and scripts are compared across
+                the configured environments (current / UAT / PROD), matched
+                by their import-stable ids. Components are grouped by type in
+                collapsible sections.
               </li>
               <li>
-                <strong>Every other component type</strong> (plugin
-                assemblies, custom APIs, roles, forms, …) is checked for{' '}
-                <strong>existence</strong> — present or{' '}
-                <span className="drift-tag drift-tag--missing">Missing</span>{' '}
-                per environment — via the component-layer table. Metadata
-                types the layer provider doesn't expose stay “?”.
+                Deviation tags: <strong>Missing</strong> (not in the target)
+                and <strong>Status drift</strong> (e.g. flow Draft in PROD,
+                plugin step disabled). The summary chips filter the matrix;
+                modified dates are shown for information only (solution
+                import rewrites them).
               </li>
               <li>
-                Deviation tags: <strong>Missing</strong> (not in the
-                target), <strong>Status drift</strong> (e.g. flow Draft in
-                PROD, plugin step disabled), <strong>Unmanaged in target</strong>{' '}
-                (unmanaged layer in UAT/PROD — classic ALM smell). The
-                summary chips filter the matrix.
+                “?” cells mean the environment could not be queried — the
+                banner shows the reason.
               </li>
               <li>
-                “?” cells mean the environment or table could not be
-                queried — the banner shows the reason. Modified dates are
-                shown for information only (solution import rewrites them).
-              </li>
-              <li>
-                <strong>Check content drift</strong> runs a second pass that
-                hashes each cloud flow / workflow / business rule / web
-                resource definition (<code>clientdata</code>, <code>xaml</code>,{' '}
-                <code>content</code>) in every environment and flags{' '}
-                <span className="drift-tag drift-tag--content">
-                  Content drift
-                </span>{' '}
-                when they differ — even when status and presence match.
-                Loaded on demand because the definitions can be large.
-              </li>
-              <li>
-                <strong>⇄ diff</strong> on a diffable row opens a
-                side-by-side diff of the definition between two environments
-                (env pickers at the top). Cloud-flow JSON is pretty-printed,
-                web resources are decoded; binary web resources show only
-                their size. Possible false positive: an import can rewrite{' '}
-                <code>clientdata</code> (embedded connection info) — the diff
-                shows whether the change is real.
+                <strong>Unmanaged layers</strong>, the <strong>existence of
+                every other component type</strong> (plugin assemblies,
+                custom APIs, …) and the <strong>definition diff</strong> now
+                live in the <strong>Layer Inspector</strong>.
               </li>
             </ul>
           </section>

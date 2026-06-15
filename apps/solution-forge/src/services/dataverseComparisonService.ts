@@ -12,11 +12,9 @@ import type {
 import { ALM_KIND_LABELS } from '../types/comparison'
 import type { ComparisonService } from './comparisonService'
 import { mockComparisonService } from './mockComparisonService'
-import { layerComponentNames } from './componentLayerNames'
 import { powerModeReady } from '../PowerProvider'
 import { ENVIRONMENTS } from '../config'
 import { SolutioncomponentsService } from '../generated/services/SolutioncomponentsService'
-import { Msdyn_solutioncomponentsummariesService } from '../generated/services/Msdyn_solutioncomponentsummariesService'
 import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
 
 /**
@@ -46,22 +44,6 @@ import { MicrosoftDataverseService } from '../generated/services/MicrosoftDatave
 const TYPE_WORKFLOW = 29
 const TYPE_SDK_STEP = 92
 const TYPE_WEB_RESOURCE = 61
-/** The rich-state types handled by the table snapshot; everything else
- *  gets an existence-only comparison via the component-layer table. */
-const RICH_TYPES = new Set([TYPE_WORKFLOW, TYPE_SDK_STEP, TYPE_WEB_RESOURCE])
-
-/** Strip "Customization.Type_X" resource keys and space out PascalCase. */
-function prettifyTypeName(name: string): string {
-  const match = /^Customization\.Type_(.+)$/.exec(name)
-  const base = match ? match[1] : name
-  return base
-    .replace(/_/g, ' ')
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
-    .replace(/\bSdk\b/g, 'SDK')
-    .replace(/\bApi\b/g, 'API')
-    .trim()
-}
 
 const WORKFLOW_KIND_BY_CATEGORY: Record<number, AlmComponentKind> = {
   0: 'workflow',
@@ -360,151 +342,12 @@ export class DataverseComparisonService implements ComparisonService {
       }
     }
 
-    // 4. Existence-only comparison for every OTHER component type (plugin
-    //    assemblies, custom APIs, roles, forms, …) via the component-layer
-    //    table: a component with any layer in the target exists there.
-    await this.appendExistenceRows(solutionId, rows, envErrors, onProgress)
-
     rows.sort(
       (a, b) =>
         a.ref.typeName.localeCompare(b.ref.typeName) ||
         a.ref.name.localeCompare(b.ref.name),
     )
     return { rows, envErrors }
-  }
-
-  /**
-   * Append existence-only rows for all non-rich component types. The
-   * solution's components are enumerated from the summary view (for display
-   * names + type names); presence in UAT/PROD comes from the
-   * `msdyn_componentlayer` table (objectId + solutioncomponentname). DEV is
-   * the source, so its members are present there by definition. Types the
-   * layer provider doesn't know stay "unknown" (shown as "?").
-   */
-  private async appendExistenceRows(
-    solutionId: string,
-    rows: ComparisonRow[],
-    envErrors: Partial<Record<EnvKey, string>>,
-    onProgress?: (message: string) => void,
-  ): Promise<void> {
-    onProgress?.('Resolving remaining components…')
-    const summary: Row[] = []
-    let skipToken: string | undefined
-    do {
-      const result = await Msdyn_solutioncomponentsummariesService.getAll({
-        select: [
-          'msdyn_objectid',
-          'msdyn_componenttype',
-          'msdyn_componenttypename',
-          'msdyn_displayname',
-          'msdyn_name',
-        ],
-        filter: `msdyn_solutionid eq '${solutionId}'`,
-        ...(skipToken ? { skipToken } : {}),
-      })
-      if (!result.success || !result.data) break
-      summary.push(...(result.data as unknown as Row[]))
-      skipToken = result.skipToken
-    } while (skipToken)
-
-    interface GenericComp {
-      objectId: string
-      typeCode: number
-      typeName: string
-      name: string
-    }
-    const seen = new Set<string>()
-    const generic: GenericComp[] = []
-    for (const row of summary) {
-      const objectId = str(row.msdyn_objectid)
-      const typeCode = Number(row.msdyn_componenttype ?? 0)
-      if (!objectId || RICH_TYPES.has(typeCode) || seen.has(objectId)) continue
-      seen.add(objectId)
-      generic.push({
-        objectId,
-        typeCode,
-        typeName: prettifyTypeName(
-          str(row.msdyn_componenttypename) || `Type ${typeCode}`,
-        ),
-        name: str(row.msdyn_displayname) || str(row.msdyn_name) || objectId,
-      })
-    }
-    if (generic.length === 0) return
-
-    const layerNames = await layerComponentNames()
-    const states = new Map<string, Record<EnvKey, EnvComponentState | null>>()
-    for (const c of generic)
-      states.set(c.objectId, { dev: { present: true }, uat: null, prod: null })
-
-    for (const env of ENVIRONMENTS) {
-      if (env.isCurrent) continue // DEV is the source — members are present
-      const orgUrl = env.url.replace(/\/+$/, '')
-      let done = 0
-      let failed = 0
-      for (const batch of chunks(generic, 6)) {
-        await Promise.all(
-          batch.map(async (c) => {
-            const componentName = layerNames.get(c.typeCode)
-            if (!componentName) return // unknown type — leave as null ("?")
-            const state = await this.componentExistsInEnv(
-              orgUrl,
-              c.objectId,
-              componentName,
-            )
-            if (state === null) failed++
-            states.get(c.objectId)![env.key] = state
-          }),
-        )
-        done += batch.length
-        onProgress?.(
-          `${env.label} · components ${Math.min(done, generic.length)}/${generic.length}`,
-        )
-      }
-      if (failed && !envErrors[env.key])
-        envErrors[env.key] = `${failed} component layer lookup(s) failed`
-    }
-
-    for (const c of generic) {
-      const byEnv = states.get(c.objectId)!
-      rows.push({
-        ref: {
-          objectId: c.objectId,
-          typeCode: c.typeCode,
-          typeName: c.typeName,
-          name: c.name,
-        },
-        byEnv,
-        deviations: this.deviationsOf(byEnv),
-      })
-    }
-  }
-
-  /**
-   * Existence of one component in one environment via the component-layer
-   * table. Present (with managed flag derived from whether an unmanaged
-   * "Active" layer sits on top) when it has any layer; absent when it has
-   * none; null when the lookup failed (rendered as "?").
-   */
-  private async componentExistsInEnv(
-    orgUrl: string,
-    objectId: string,
-    componentName: string,
-  ): Promise<EnvComponentState | null> {
-    try {
-      const rows = await this.queryRaw(
-        orgUrl,
-        'msdyn_componentlayers',
-        'msdyn_componentlayerid,msdyn_solutionname',
-        `msdyn_componentid eq '${objectId}' and ` +
-          `msdyn_solutioncomponentname eq '${componentName.replace(/'/g, "''")}'`,
-      )
-      if (rows.length === 0) return { present: false }
-      const hasActive = rows.some((r) => str(r.msdyn_solutionname) === 'Active')
-      return { present: true, isManaged: !hasActive }
-    } catch (err) {
-      console.warn(`[compare] layer existence ${objectId} failed:`, err)
-      return null
-    }
   }
 
   /** Workflow rows split into cloud flow / business rule / workflow. */
@@ -541,7 +384,8 @@ export class DataverseComparisonService implements ComparisonService {
       ) {
         deviations.add('state')
       }
-      if (target.isManaged === false) deviations.add('unmanaged')
+      // Unmanaged layers and content diffs are the Layer Inspector's job —
+      // Compare reports presence + status drift only.
     }
     return [...deviations]
   }

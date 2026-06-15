@@ -28,6 +28,7 @@ import type {
   ComponentLayerInfo,
   ComponentLayerStack,
   LayerInspectionResult,
+  LayerSection,
 } from '../types/layers'
 import { SolutionsService } from '../generated/services/SolutionsService'
 import { PublishersService } from '../generated/services/PublishersService'
@@ -1121,10 +1122,16 @@ export class DataverseSolutionService implements SolutionService {
     solution: WorkingSolution,
     envKey: 'uat' | 'prod',
     onProgress?: (done: number, total: number) => void,
+    onSection?: (section: LayerSection) => void,
   ): Promise<LayerInspectionResult> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockSolutionService.inspectLayers(solution, envKey, onProgress)
+      return mockSolutionService.inspectLayers(
+        solution,
+        envKey,
+        onProgress,
+        onSection,
+      )
     const env = ENVIRONMENTS.find((e) => e.key === envKey)
     if (!env) throw new Error(`Unknown environment ${envKey}`)
     const orgUrl = env.url.replace(/\/+$/, '')
@@ -1134,36 +1141,19 @@ export class DataverseSolutionService implements SolutionService {
       layerComponentNames(),
     ])
 
-    const stacks: ComponentLayerStack[] = []
-    const failedTypes = new Set<string>()
-    let done = 0
-    onProgress?.(0, components.length)
-    for (const batch of chunksOf(components, 4)) {
-      await Promise.all(
-        batch.map(async (component) => {
-          const componentName = typeNames.get(component.typeCode)
-          if (!componentName) {
-            stacks.push({ component, verdict: 'unsupported', layers: [] })
-          } else {
-            try {
-              stacks.push(
-                await this.fetchLayerStack(orgUrl, component, componentName),
-              )
-            } catch (err) {
-              console.warn(
-                `[layers] ${component.typeName} ${component.objectId} failed:`,
-                err,
-              )
-              failedTypes.add(component.typeName)
-              stacks.push({ component, verdict: 'error', layers: [] })
-            }
-          }
-          onProgress?.(++done, components.length)
-        }),
-      )
+    // Group by component type so each section can be emitted as soon as it
+    // finishes (the UI renders it while later types still load).
+    const byType = new Map<number, SolutionComponentInfo[]>()
+    for (const c of components) {
+      const list = byType.get(c.typeCode)
+      if (list) list.push(c)
+      else byType.set(c.typeCode, [c])
     }
+    const typeGroups = [...byType.values()].sort((a, b) =>
+      a[0].typeName.localeCompare(b[0].typeName),
+    )
 
-    const severity: Record<ComponentLayerStack['verdict'], number> = {
+    const verdictRank: Record<ComponentLayerStack['verdict'], number> = {
       overridden: 0,
       unmanagedOnly: 1,
       error: 2,
@@ -1171,17 +1161,56 @@ export class DataverseSolutionService implements SolutionService {
       unsupported: 4,
       clean: 5,
     }
-    stacks.sort(
-      (a, b) =>
-        severity[a.verdict] - severity[b.verdict] ||
-        a.component.typeName.localeCompare(b.component.typeName) ||
-        a.component.displayName.localeCompare(b.component.displayName),
-    )
+    const allStacks: ComponentLayerStack[] = []
+    const failedTypes = new Set<string>()
+    let done = 0
+    const total = components.length
+    onProgress?.(0, total)
+
+    for (const comps of typeGroups) {
+      const componentName = typeNames.get(comps[0].typeCode)
+      const sectionStacks: ComponentLayerStack[] = []
+      for (const batch of chunksOf(comps, 4)) {
+        await Promise.all(
+          batch.map(async (component) => {
+            if (!componentName) {
+              sectionStacks.push({ component, verdict: 'unsupported', layers: [] })
+            } else {
+              try {
+                sectionStacks.push(
+                  await this.fetchLayerStack(orgUrl, component, componentName),
+                )
+              } catch (err) {
+                console.warn(
+                  `[layers] ${component.typeName} ${component.objectId} failed:`,
+                  err,
+                )
+                failedTypes.add(component.typeName)
+                sectionStacks.push({ component, verdict: 'error', layers: [] })
+              }
+            }
+            onProgress?.(++done, total)
+          }),
+        )
+      }
+      sectionStacks.sort(
+        (a, b) =>
+          verdictRank[a.verdict] - verdictRank[b.verdict] ||
+          a.component.displayName.localeCompare(b.component.displayName),
+      )
+      allStacks.push(...sectionStacks)
+      onSection?.({
+        typeCode: comps[0].typeCode,
+        typeName: comps[0].typeName,
+        stacks: sectionStacks,
+      })
+    }
+
     const warnings = [...failedTypes].map(
       (typeName) =>
         `${typeName}: layer query failed for some components — their verdict is "error" (details in the browser console).`,
     )
-    return { envKey, stacks, warnings }
+    return { envKey, stacks: allStacks, warnings }
   }
 
   /** Pull one missing required component into the release solution. */

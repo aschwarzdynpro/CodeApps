@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
 import type {
   DependencyCheckResult,
@@ -36,6 +36,7 @@ export function DependencyCheck({ solutions }: Props) {
   const [addBusyId, setAddBusyId] = useState<string | null>(null)
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
   const [addError, setAddError] = useState<string | null>(null)
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
   const solution = releases.find((s) => s.id === solutionId) ?? null
 
@@ -84,6 +85,22 @@ export function DependencyCheck({ solutions }: Props) {
   const missing = result?.items.filter((i) => i.targetStatus === 'missing') ?? []
   const others = result?.items.filter((i) => i.targetStatus !== 'missing') ?? []
 
+  // Missing dependencies grouped by required component type — collapsible
+  // sections, like the Workbench component overview.
+  const missingByType = useMemo(() => {
+    const groups = new Map<string, DependencyItem[]>()
+    for (const item of result?.items ?? []) {
+      if (item.targetStatus !== 'missing') continue
+      const list = groups.get(item.requiredTypeName)
+      if (list) list.push(item)
+      else groups.set(item.requiredTypeName, [item])
+    }
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))
+  }, [result])
+  const isOpen = (typeName: string) => !collapsed[typeName]
+  const toggle = (typeName: string) =>
+    setCollapsed((prev) => ({ ...prev, [typeName]: isOpen(typeName) }))
+
   const renderItem = (item: DependencyItem) => {
     const added = addedIds.has(item.requiredObjectId)
     return (
@@ -92,7 +109,6 @@ export function DependencyCheck({ solutions }: Props) {
         className="dep-row"
         title={item.requiredObjectId}
       >
-        <span className="merge-plan-type">{item.requiredTypeName}</span>
         <span className="dep-name">
           {item.requiredName ?? shortGuid(item.requiredObjectId)}
           <span className="dep-required-by muted">
@@ -130,7 +146,7 @@ export function DependencyCheck({ solutions }: Props) {
               setResult(null)
               setError(null)
             }}
-            placeholder="Select a release solution…"
+            placeholder="Select a release solution"
           />
         </div>
         <div className="dep-controls">
@@ -183,7 +199,31 @@ export function DependencyCheck({ solutions }: Props) {
                 Missing in {envLabel} ({missing.length}) — import would fail
               </h3>
               {addError && <div className="state state--error">{addError}</div>}
-              <ul className="dep-list">{missing.map(renderItem)}</ul>
+              {missingByType.map(([typeName, items]) => {
+                const open = isOpen(typeName)
+                return (
+                  <div key={typeName} className="component-group">
+                    <button
+                      className="component-group-toggle"
+                      onClick={() => toggle(typeName)}
+                      aria-expanded={open}
+                    >
+                      <span
+                        className={`component-group-chevron ${
+                          open ? 'component-group-chevron--open' : ''
+                        }`}
+                      >
+                        ▸
+                      </span>
+                      <span className="component-group-title">{typeName}</span>
+                      <span className="muted">({items.length})</span>
+                    </button>
+                    {open && (
+                      <ul className="dep-list">{items.map(renderItem)}</ul>
+                    )}
+                  </div>
+                )
+              })}
             </section>
           )}
 

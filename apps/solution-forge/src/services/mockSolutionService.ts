@@ -11,6 +11,7 @@ import type { DependencyCheckResult } from '../types/dependency'
 import type {
   ComponentLayerStack,
   LayerInspectionResult,
+  LayerSection,
 } from '../types/layers'
 import { buildUniqueName } from '../utils/naming'
 import {
@@ -195,6 +196,7 @@ export class MockSolutionService {
     solution: WorkingSolution,
     envKey: 'uat' | 'prod',
     onProgress?: (done: number, total: number) => void,
+    onSection?: (section: LayerSection) => void,
   ): Promise<LayerInspectionResult> {
     const components = this.components.get(solution.id) ?? []
     const stacks: ComponentLayerStack[] = []
@@ -248,6 +250,21 @@ export class MockSolutionService {
         })
       }
       onProgress?.(index + 1, components.length)
+    }
+    // Emit one section per component type (progressive rendering demo).
+    const byType = new Map<string, ComponentLayerStack[]>()
+    for (const s of stacks) {
+      const list = byType.get(s.component.typeName)
+      if (list) list.push(s)
+      else byType.set(s.component.typeName, [s])
+    }
+    for (const [typeName, sectionStacks] of byType) {
+      await delay(120)
+      onSection?.({
+        typeCode: sectionStacks[0].component.typeCode,
+        typeName,
+        stacks: sectionStacks,
+      })
     }
     return { envKey, stacks, warnings: [] }
   }

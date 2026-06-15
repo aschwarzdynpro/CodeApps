@@ -8,7 +8,7 @@ import type {
   WorkingSolution,
 } from '../types/solution'
 import type { DependencyCheckResult } from '../types/dependency'
-import type { LayerInspectionResult } from '../types/layers'
+import type { LayerInspectionResult, LayerSection } from '../types/layers'
 import { dataverseSolutionService } from './dataverseSolutionService'
 
 /**
@@ -83,6 +83,8 @@ export interface SolutionService {
     solution: WorkingSolution,
     envKey: 'uat' | 'prod',
     onProgress?: (done: number, total: number) => void,
+    /** Fired per component type as soon as that section is resolved. */
+    onSection?: (section: LayerSection) => void,
   ): Promise<LayerInspectionResult>
   /**
    * Whether the signed-in user holds the given security role (direct

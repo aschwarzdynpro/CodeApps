@@ -56,43 +56,36 @@ Deployment-Status „Merged into Deployment Solution".
 - **Merge**: Deployment Solution als Ziel wählen, Feature-/Bug-Solutions
   ankreuzen, Komponenten-Plan prüfen (Konflikte markiert, Duplikate werden
   übersprungen) und mergen (`AddSolutionComponent` je Komponente).
-- **Compare (ALM)**: Solution wählen → Cloud Flows, Workflows, Business
-  Rules, Plugin Steps und Scripts werden über **DEV / UAT / PROD** voll
-  verglichen (Status, modifiedon, managed/unmanaged). **Alle anderen
-  Komponenten-Typen** (Plugin Assemblies, Custom APIs, Rollen, Forms, …)
-  werden auf **Existenz** (present / Missing je Umgebung) geprüft — über die
-  `msdyn_componentlayer`-Tabelle (Layer vorhanden ⇒ existiert); Typen ohne
-  Layer-Daten bleiben „?". Abweichungen sind markiert und filterbar:
-  *Missing*, *Status drift*, *Unmanaged in target*.
-  Cross-Env-Zugriff über den Microsoft-Dataverse-Konnektor
-  (`ListRecordsWithOrganization`, läuft mit den Rechten des angemeldeten
-  Benutzers in der jeweiligen Umgebung). Umgebungen sind aktuell hart in
-  `config.ts` hinterlegt (`ENVIRONMENTS`) — geplante Ausbaustufe ist eine
-  Steuertabelle. Hinweis: `modifiedon` wird bewusst nicht als Drift-Signal
-  gewertet (Solution-Import überschreibt es). Optionaler Zweitpass
-  **Inhalts-Drift**: hasht je Komponente die Definition
-  (`clientdata`/`xaml`/`content`) in allen Umgebungen und markiert
-  *Content drift*, wenn sie sich unterscheidet — mit **Side-by-side-Diff**
-  pro Zeile (⇄ diff) zwischen zwei wählbaren Umgebungen. Cloud-Flow-JSON
-  wird pretty-printed, Web Resources base64-dekodiert (binäre zeigen nur
-  die Größe). Wird on demand geladen, weil die Definitionen groß sein
-  können; mögliches False-Positive: ein Import kann `clientdata` umschreiben
-  (eingebettete Connection-Infos) — der Diff zeigt, ob die Änderung echt ist.
+- **Compare (ALM)**: Release-Solution wählen → Cloud Flows, Workflows,
+  Business Rules, Plugin Steps und Scripts werden über **DEV / UAT / PROD**
+  verglichen, gruppiert nach Typ in aufklappbaren Sektionen. Abweichungen
+  sind markiert und filterbar: *Missing* (nicht im Ziel) und *Status drift*
+  (z. B. Flow Draft in PROD, Plugin Step deaktiviert). Cross-Env-Zugriff
+  über den Microsoft-Dataverse-Konnektor (`ListRecordsWithOrganization`,
+  läuft mit den Rechten des angemeldeten Benutzers in der jeweiligen
+  Umgebung). Umgebungen aktuell hart in `config.ts` (`ENVIRONMENTS`).
+  Hinweis: `modifiedon` wird bewusst nicht als Drift-Signal gewertet
+  (Solution-Import überschreibt es). **Unmanaged Layer, die Existenz aller
+  übrigen Komponenten-Typen und der Definitions-Diff** sind in den
+  **Layer Inspector** gewandert.
 - **Dependency Check**: Release-Solution gegen UAT/PROD prüfen
   (`RetrieveMissingDependencies`) — listet benötigte Komponenten, die weder
   in der Solution noch im Ziel vorhanden sind (Import würde scheitern),
   inkl. **Add to Solution** je fehlender Komponente. Name-gematchte Typen
   (EnvVars, Connection References, Web Resources, Canvas Apps) zählen als
   vorhanden, wenn das Ziel sie unter gleichem Namen kennt.
-- **Layer Inspector**: Komponenten einer Solution gegen die Layer-Stacks
-  in UAT/PROD prüfen (virtuelle Tabelle `msdyn_componentlayer`, eine
-  Abfrage pro Komponente mit `msdyn_componentid` + 
-  `msdyn_solutioncomponentname`). Findet **unmanaged „Active"-Layer über
-  managed Komponenten** — direkte Customizations im Ziel, die jede
-  deployte Änderung maskieren — sowie Komponenten, die im Ziel nur
-  unmanaged existieren. Klassische Typnamen (Entity, Workflow, …) sind
-  statisch gemappt, solution-aware Typen kommen dynamisch aus
-  `solutioncomponentdefinition`.
+- **Layer Inspector**: **alle** Komponenten einer Release-Solution gegen die
+  Layer-Stacks im Ziel-Env (UAT/PROD) prüfen (virtuelle Tabelle
+  `msdyn_componentlayer`, eine Abfrage pro Komponente). Verdict je Komponente:
+  **unmanaged „Active"-Layer über managed** (direkte Customization, maskiert
+  Deployments), **unmanaged-only**, **Missing** (= Existenz-Check: zeigt, ob
+  Plugin Assemblies, Custom APIs etc. überhaupt deployed sind) oder *clean*.
+  Ergebnisse erscheinen **pro Komponententyp, sobald die Sektion fertig ist**
+  (Rest lädt im Hintergrund); Sektionen sind aufklappbar. Für diffbare Typen
+  (Flows/Workflows/Business Rules/Scripts) ein **⇄ diff DEV vs. Ziel**
+  (Side-by-side). Klassische Typnamen statisch gemappt, solution-aware Typen
+  dynamisch aus `solutioncomponentdefinition`; Typen ohne Layer-Daten bleiben
+  „No layer data".
 - **App Sharing**: Canvas Apps und Custom Pages einer Solution daraufhin
   prüfen, mit wem sie in DEV/UAT/PROD geteilt sind. Solution-Import
   überträgt **kein** User-Sharing — eine deployte Canvas App erreicht

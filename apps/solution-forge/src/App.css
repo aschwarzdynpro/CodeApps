@@ -1562,6 +1562,46 @@
   font-weight: 700;
 }
 
+/* Layer Inspector verdict badges */
+.lv-badge {
+  flex: none;
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.lv-badge--overridden {
+  background: #fdf2f3;
+  color: #b02a37;
+}
+.lv-badge--unmanagedonly {
+  background: #fdf6e7;
+  color: #b7791f;
+}
+.lv-badge--absent {
+  background: #f1f3f5;
+  color: #b02a37;
+}
+.lv-badge--clean {
+  background: #e7f4ee;
+  color: #1a8754;
+}
+.lv-badge--unsupported {
+  background: #f1f3f5;
+  color: var(--muted);
+}
+.lv-badge--error {
+  background: #fdf2f3;
+  color: #b02a37;
+}
+.lv-section-flag {
+  margin-left: auto;
+}
+
 /* App sharing */
 .card-subtitle {
   font-size: 12px;

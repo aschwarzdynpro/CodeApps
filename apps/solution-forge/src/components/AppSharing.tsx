@@ -106,7 +106,7 @@ export function AppSharing({ solutions }: Props) {
     <div>
       <div className="card compare-controls">
         <div className="compare-picker">
-          <span className="form-label">Solution</span>
+          <span className="form-label">Release solution</span>
           <SolutionSelect
             options={candidates}
             value={solutionId}
@@ -115,7 +115,7 @@ export function AppSharing({ solutions }: Props) {
               setResult(null)
               setError(null)
             }}
-            placeholder="Select a solution…"
+            placeholder="Select a release solution"
           />
         </div>
         <div className="compare-envs">
