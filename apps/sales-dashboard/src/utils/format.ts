@@ -84,33 +84,6 @@ export function isBeforeToday(value: string | undefined, now: Date): boolean {
   return day.getTime() < today.getTime()
 }
 
-/** Globaler Zeitraum-Filter (auf createdOn) für die Filterleiste. */
-export type DatePeriod = 'all' | 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'thisYear'
-
-export function inPeriod(value: string | undefined, period: DatePeriod, now: Date): boolean {
-  if (period === 'all') return true
-  if (!value) return false
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return false
-  switch (period) {
-    case 'thisMonth':
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
-    case 'lastMonth': {
-      const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      return d.getFullYear() === prev.getFullYear() && d.getMonth() === prev.getMonth()
-    }
-    case 'thisQuarter':
-      return (
-        d.getFullYear() === now.getFullYear() &&
-        Math.floor(d.getMonth() / 3) === Math.floor(now.getMonth() / 3)
-      )
-    case 'thisYear':
-      return d.getFullYear() === now.getFullYear()
-    default:
-      return true
-  }
-}
-
 /** ISO-Kalenderwoche, z. B. für "Anzahl Termine nach Woche". */
 export function isoWeek(value: string): number {
   const d = new Date(value)
