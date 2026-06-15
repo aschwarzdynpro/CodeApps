@@ -671,6 +671,35 @@
   flex: none;
 }
 
+/* Diagramm ein-/ausklappen (Toggle in der Steuerleiste) */
+.tile__chart-toggle {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 33px;
+  flex: none;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tile__chart-toggle:hover,
+.tile__chart-toggle.is-active {
+  border-color: var(--tile-accent);
+  color: var(--tile-accent);
+}
+
+.tile__chart-toggle.is-active {
+  background: color-mix(in srgb, var(--tile-accent) 12%, transparent);
+}
+
+.tile__chart-toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--tile-accent) 60%, transparent);
+  outline-offset: 1px;
+}
+
 .tile__chart {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -734,16 +763,37 @@
   min-width: 0;
 }
 
-/* Einzelansicht: Diagramm oberhalb, Tabelle darunter (gestapelt). */
+/* Einzelansicht: Diagramm links, Tabelle rechts (Diagramm einklappbar). */
 .tile--full .tile__body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: minmax(300px, 36%) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* Eingeklapptes Diagramm → Tabelle über die volle Breite. */
+.tile--full .tile__body.is-chart-collapsed {
+  grid-template-columns: 1fr;
 }
 
 /* In der Einzelansicht mehr Zeilen sichtbar. */
 .tile--full .grid-wrap {
   max-height: min(62vh, 640px);
+}
+
+/* Diagramm bleibt beim Scrollen der Tabelle sichtbar. */
+.tile--full .tile__chart {
+  position: sticky;
+  top: 12px;
+}
+
+@media (max-width: 900px) {
+  .tile--full .tile__body {
+    grid-template-columns: 1fr;
+  }
+  .tile--full .tile__chart {
+    position: static;
+  }
 }
 
 /* ================================================================ Diagramme */

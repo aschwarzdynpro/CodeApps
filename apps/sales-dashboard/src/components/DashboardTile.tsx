@@ -71,6 +71,15 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, appId, fullWidth }: D
     localStorage.setItem(colsKey, JSON.stringify(columnKeys))
   }, [colsKey, columnKeys])
 
+  // Diagramm ein-/ausklappbar (persistiert je Bereich).
+  const chartKey = `sales-dashboard-chart-collapsed-${def.id}`
+  const [chartCollapsed, setChartCollapsed] = useState(
+    () => localStorage.getItem(chartKey) === '1',
+  )
+  useEffect(() => {
+    localStorage.setItem(chartKey, chartCollapsed ? '1' : '0')
+  }, [chartKey, chartCollapsed])
+
   const visibleColumns = useMemo(
     () =>
       columnKeys
@@ -223,6 +232,21 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, appId, fullWidth }: D
           onChange={(e) => setSearch(e.target.value)}
           aria-label={`In ${def.title} suchen`}
         />
+        <button
+          type="button"
+          className={`tile__chart-toggle${chartCollapsed ? '' : ' is-active'}`}
+          onClick={() => setChartCollapsed((c) => !c)}
+          aria-pressed={!chartCollapsed}
+          title={chartCollapsed ? 'Diagramm einblenden' : 'Diagramm ausblenden'}
+          aria-label={chartCollapsed ? 'Diagramm einblenden' : 'Diagramm ausblenden'}
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 3v18h18" />
+            <rect x="7" y="12" width="3" height="6" />
+            <rect x="12.5" y="8" width="3" height="10" />
+            <rect x="18" y="5" width="3" height="13" />
+          </svg>
+        </button>
         <ColumnChooser
           all={def.columns.map((c) => ({ key: c.key, label: c.label }))}
           visibleKeys={columnKeys}
@@ -231,7 +255,8 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, appId, fullWidth }: D
         />
       </div>
 
-      <div className="tile__body">
+      <div className={`tile__body${chartCollapsed ? ' is-chart-collapsed' : ''}`}>
+        {!chartCollapsed && (
         <div className="tile__chart" data-chart={chart.kind}>
           <p className="tile__chart-title">{chart.label}</p>
           {chartEmpty ? (
@@ -259,6 +284,7 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, appId, fullWidth }: D
             />
           )}
         </div>
+        )}
 
         <div className="tile__data">
           {selection && (
