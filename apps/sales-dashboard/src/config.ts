@@ -24,33 +24,31 @@ export interface EnvironmentConfig {
 
 /**
  * Mapping Environment-ID → Umgebungs-Konfiguration. IDs/URLs autoritativ aus
- * `pac env list` (Waldmann-Tenant).
- *
- * `salesHubAppId` ist org-spezifisch (GUID je Umgebung) — daher vorerst nur für
- * DEV gepflegt. Für TEST/PROD/DMI bleibt sie leer: der Deep-Link öffnet den
- * Datensatz dann im Standard-App-Kontext der jeweiligen Org. Sobald die
- * Sales-Hub-App-ID je Umgebung bekannt ist, hier eintragen.
+ * `pac env list` (Waldmann-Tenant). Die Sales-Hub-App-ID ist über alle
+ * Waldmann-Umgebungen identisch und daher überall gleich gesetzt.
  */
+const SALES_HUB_APP_ID = '1273fbf5-a1ff-ee11-9f89-000d3aad2055'
+
 export const ENVIRONMENTS: Record<string, EnvironmentConfig> = {
   '33146d71-4fe8-e1d7-af2f-f80fe968fc47': {
     label: 'Waldmann · D365 DEV',
     orgUrl: 'https://waldmann-dev.crm4.dynamics.com',
-    salesHubAppId: '1273fbf5-a1ff-ee11-9f89-000d3aad2055',
+    salesHubAppId: SALES_HUB_APP_ID,
   },
   '9c5d0646-3303-e3ae-ba8f-07efe579c052': {
     label: 'Waldmann · D365 TEST',
     orgUrl: 'https://waldmann-test.crm4.dynamics.com',
-    // salesHubAppId: '<sales-hub-appid-test>',
+    salesHubAppId: SALES_HUB_APP_ID,
   },
   '286283ae-85c7-e9c5-adbc-4e53cbe7bb5b': {
     label: 'Waldmann · D365 PROD',
     orgUrl: 'https://waldmann.crm4.dynamics.com',
-    // salesHubAppId: '<sales-hub-appid-prod>',
+    salesHubAppId: SALES_HUB_APP_ID,
   },
   '930a2eba-b76d-edcd-a944-091b99c90851': {
     label: 'Waldmann · D365 DMI',
     orgUrl: 'https://waldmann-dmi.crm4.dynamics.com',
-    // salesHubAppId: '<sales-hub-appid-dmi>',
+    salesHubAppId: SALES_HUB_APP_ID,
   },
 }
 
