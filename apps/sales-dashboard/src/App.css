@@ -523,15 +523,32 @@
   white-space: nowrap;
 }
 
-/* Überfällig-Badge im Kachelkopf */
+/* Überfällig-Badge im Kachelkopf — zugleich Klick-Filter „nur überfällige" */
 .tile__overdue {
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--red);
   background: color-mix(in srgb, var(--red) 13%, transparent);
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: 2px 9px;
   white-space: nowrap;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.tile__overdue:hover {
+  border-color: color-mix(in srgb, var(--red) 45%, transparent);
+}
+
+.tile__overdue:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--red) 60%, transparent);
+  outline-offset: 1px;
+}
+
+.tile__overdue.is-active {
+  background: var(--red);
+  color: #fff;
 }
 
 /* Überfällige Termin-Zelle (Grid & Detail-Modal) */

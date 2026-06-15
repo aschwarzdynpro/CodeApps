@@ -40,6 +40,7 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: Dashboar
   const [search, setSearch] = useState('')
   const [selection, setSelection] = useState<ChartSelection | null>(null)
   const [selectedRow, setSelectedRow] = useState<T | null>(null)
+  const [overdueOnly, setOverdueOnly] = useState(false)
 
   // Spaltenkonfiguration je Liste: sichtbare Spalten in Anzeigereihenfolge,
   // persistiert in localStorage (pro Kachel).
@@ -101,14 +102,18 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: Dashboar
   const gridRows = useMemo(() => {
     let out = viewRows
     if (selection) out = out.filter((row) => matchesSelection(row, chart, selection))
+    if (overdueOnly && overdueColumns.length) {
+      out = out.filter((row) => overdueColumns.some((c) => c.overdue!(row, ctx.now)))
+    }
     const query = search.trim().toLowerCase()
     if (query) out = out.filter((row) => def.searchText(row).toLowerCase().includes(query))
     return out
-  }, [viewRows, selection, chart, search, def])
+  }, [viewRows, selection, chart, search, def, overdueOnly, overdueColumns, ctx.now])
 
   const changeView = (id: string) => {
     setViewId(id)
     setSelection(null)
+    setOverdueOnly(false)
   }
 
   const changeChart = (id: string) => {
@@ -162,9 +167,15 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: Dashboar
             : `${gridRows.length} / ${viewRows.length}`}
         </span>
         {overdueCount > 0 && (
-          <span className="tile__overdue" title="Überfällige Termine in dieser Ansicht">
+          <button
+            type="button"
+            className={`tile__overdue${overdueOnly ? ' is-active' : ''}`}
+            onClick={() => setOverdueOnly((v) => !v)}
+            aria-pressed={overdueOnly}
+            title={overdueOnly ? 'Überfällig-Filter aufheben' : 'Nur überfällige anzeigen'}
+          >
             {overdueCount} überfällig
-          </span>
+          </button>
         )}
         {def.charts.length > 1 && (
           <select
