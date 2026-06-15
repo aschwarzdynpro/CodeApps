@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
 import {
   ALM_KIND_LABELS,
@@ -52,7 +52,13 @@ export function CompareWorkbench({
       !s.solutionMissing &&
       allSolutions.findIndex((o) => o.id === s.id) === index,
   )
-  const [solutionId, setSolutionId] = useState<string>(initialSolutionId ?? '')
+  // Carry over the workbench selection (release solutions only); the user
+  // starts the comparison with the Compare button.
+  const [solutionId, setSolutionId] = useState<string>(
+    initialSolutionId && solutions.some((s) => s.id === initialSolutionId)
+      ? initialSolutionId
+      : '',
+  )
   const [result, setResult] = useState<ComparisonResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
@@ -102,16 +108,6 @@ export function CompareWorkbench({
         if (req === request.current) setLoading(false)
       })
   }
-
-  // Kick off the comparison for the solution carried over from the
-  // workbench when the tab opens. Mount-only by design.
-  useEffect(() => {
-    if (!initialSolutionId || !solutions.some((s) => s.id === initialSolutionId))
-      return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    run(initialSolutionId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const deviationCounts = useMemo(() => {
     const counts: Record<DeviationKind, number> = {
@@ -177,7 +173,13 @@ export function CompareWorkbench({
           <SolutionSelect
             options={solutions}
             value={solutionId}
-            onChange={(id) => run(id)}
+            onChange={(id) => {
+              setSolutionId(id)
+              setResult(null)
+              setError(null)
+              setDeviationFilter(null)
+              setGroupOverrides({})
+            }}
             placeholder="Select a release solution"
           />
         </div>
@@ -191,14 +193,23 @@ export function CompareWorkbench({
               {env.label}
             </span>
           ))}
-          {selectedSolution && !loading && (
-            <button
-              className="btn btn--small"
-              onClick={() => run(solutionId, true)}
-            >
-              Refresh
-            </button>
-          )}
+          {selectedSolution &&
+            !loading &&
+            (result ? (
+              <button
+                className="btn btn--small"
+                onClick={() => run(solutionId, true)}
+              >
+                Refresh
+              </button>
+            ) : (
+              <button
+                className="btn btn--primary"
+                onClick={() => run(solutionId)}
+              >
+                Compare
+              </button>
+            ))}
         </div>
       </div>
 

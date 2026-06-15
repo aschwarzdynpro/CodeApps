@@ -538,6 +538,20 @@ function App() {
           {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
         </button>
         <button
+          className={`tab ${tab === 'sharing' ? 'tab--active' : ''} ${
+            isDeploymentManager ? '' : 'tab--disabled'
+          }`}
+          title={
+            isDeploymentManager
+              ? undefined
+              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
+          }
+          onClick={() => isDeploymentManager && setTab('sharing')}
+        >
+          App Sharing
+          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
+        </button>
+        <button
           className={`tab ${tab === 'dependencies' ? 'tab--active' : ''} ${
             isDeploymentManager ? '' : 'tab--disabled'
           }`}
@@ -563,20 +577,6 @@ function App() {
           onClick={() => isDeploymentManager && setTab('layers')}
         >
           Layer Inspector
-          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
-        </button>
-        <button
-          className={`tab ${tab === 'sharing' ? 'tab--active' : ''} ${
-            isDeploymentManager ? '' : 'tab--disabled'
-          }`}
-          title={
-            isDeploymentManager
-              ? undefined
-              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
-          }
-          onClick={() => isDeploymentManager && setTab('sharing')}
-        >
-          App Sharing
           {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
         </button>
       </nav>
