@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 import type { SalesData } from '../types/sales'
-import type { ViewContext } from '../dashboard/types'
+import type { TileIconName, ViewContext } from '../dashboard/types'
+import { TileIcon } from './TileIcon'
 import {
   fmtEurCompact,
   fmtNumber,
@@ -14,12 +15,23 @@ import {
  * einen Blick, Angebots-/Auftragswerte mit Trend zum Vormonat.
  */
 
+/** Bereichs-Meta (Icon/Titel/Akzent/Anzahl) zum Verschmelzen mit der Kennzahl. */
+interface SectionMeta {
+  id: string
+  icon: TileIconName
+  title: string
+  accent: string
+  count: number
+}
+
 interface KpiBarProps {
   data: SalesData
   ctx: ViewContext
-  /** Aktuell gewählter Bereich — die zugehörige Kennzahl wird hervorgehoben. */
+  /** Bereichs-Metadaten je Kachel — verschmilzt Kennzahl + Menüpunkt. */
+  sections: SectionMeta[]
+  /** Aktuell gewählter Bereich — die zugehörige Karte wird hervorgehoben. */
   activeTileId: string
-  /** Klick auf eine Kennzahl wählt den zugehörigen Bereich (Vorauswahl). */
+  /** Klick auf eine Karte wählt den zugehörigen Bereich. */
   onSelectTile: (id: string) => void
 }
 
@@ -38,7 +50,7 @@ function pctDelta(current: number, previous: number): number | undefined {
   return ((current - previous) / previous) * 100
 }
 
-export function KpiBar({ data, ctx, activeTileId, onSelectTile }: KpiBarProps) {
+export function KpiBar({ data, ctx, sections, activeTileId, onSelectTile }: KpiBarProps) {
   const kpis = useMemo<Kpi[]>(() => {
     const { userId, now } = ctx
 
@@ -122,31 +134,45 @@ export function KpiBar({ data, ctx, activeTileId, onSelectTile }: KpiBarProps) {
   }, [data, ctx])
 
   return (
-    <section className="kpis" aria-label="Kennzahlen">
-      {kpis.map((kpi) => (
-        <button
-          type="button"
-          className={`kpi${activeTileId === kpi.tileId ? ' is-active' : ''}`}
-          key={kpi.tileId}
-          onClick={() => onSelectTile(kpi.tileId)}
-          aria-pressed={activeTileId === kpi.tileId}
-          title={`Bereich „${kpi.label}" anzeigen`}
-        >
-          <p className="kpi__label">{kpi.label}</p>
-          <p className="kpi__value">
-            {kpi.value}
-            {kpi.delta !== undefined && (
-              <span
-                className={`kpi__delta ${kpi.delta >= 0 ? 'kpi__delta--up' : 'kpi__delta--down'}`}
-                title="Veränderung zum Vormonat"
-              >
-                {kpi.delta >= 0 ? '▲' : '▼'} {Math.abs(Math.round(kpi.delta))} %
-              </span>
-            )}
-          </p>
-          <p className="kpi__sub">{kpi.sub}</p>
-        </button>
-      ))}
+    <section className="kpis" aria-label="Bereiche & Kennzahlen">
+      {kpis.map((kpi) => {
+        const section = sections.find((s) => s.id === kpi.tileId)
+        const active = activeTileId === kpi.tileId
+        return (
+          <button
+            type="button"
+            key={kpi.tileId}
+            className={`kpi${active ? ' is-active' : ''}`}
+            style={section ? ({ '--tile-accent': section.accent } as CSSProperties) : undefined}
+            onClick={() => onSelectTile(kpi.tileId)}
+            aria-pressed={active}
+            title={`Bereich „${section?.title ?? kpi.label}" anzeigen`}
+          >
+            <span className="kpi__head">
+              {section && (
+                <span className="kpi__icon">
+                  <TileIcon name={section.icon} />
+                </span>
+              )}
+              <span className="kpi__title">{section?.title ?? kpi.label}</span>
+              {section && <span className="kpi__count">{section.count}</span>}
+            </span>
+            <span className="kpi__label">{kpi.label}</span>
+            <span className="kpi__value">
+              {kpi.value}
+              {kpi.delta !== undefined && (
+                <span
+                  className={`kpi__delta ${kpi.delta >= 0 ? 'kpi__delta--up' : 'kpi__delta--down'}`}
+                  title="Veränderung zum Vormonat"
+                >
+                  {kpi.delta >= 0 ? '▲' : '▼'} {Math.abs(Math.round(kpi.delta))} %
+                </span>
+              )}
+            </span>
+            <span className="kpi__sub">{kpi.sub}</span>
+          </button>
+        )
+      })}
     </section>
   )
 }

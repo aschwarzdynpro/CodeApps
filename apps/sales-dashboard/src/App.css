@@ -410,8 +410,15 @@
 
 .kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
+}
+
+/* Auf schmalen Bildschirmen keine 6 winzigen Karten erzwingen. */
+@media (max-width: 700px) {
+  .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .kpi {
@@ -419,44 +426,85 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 13px 16px;
+  padding: 12px 14px;
   text-align: left;
   width: 100%;
+  min-width: 0;
   font: inherit;
   color: inherit;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .kpi:hover {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-color: color-mix(in srgb, var(--tile-accent, var(--accent)) 55%, var(--border));
 }
 
 .kpi:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--tile-accent, var(--accent));
   outline-offset: 1px;
 }
 
 .kpi.is-active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent), var(--shadow);
+  border-color: var(--tile-accent, var(--accent));
+  box-shadow: 0 0 0 1px var(--tile-accent, var(--accent)), var(--shadow);
 }
 
-.kpi.is-active .kpi__label {
-  color: var(--accent);
+.kpi.is-active .kpi__title {
+  color: var(--tile-accent, var(--accent));
+}
+
+.kpi__head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.kpi__icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 7px;
+  color: var(--tile-accent);
+  background: color-mix(in srgb, var(--tile-accent) 14%, transparent);
+}
+
+.kpi__title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.86rem;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kpi__count {
+  flex: none;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--tile-accent);
+  background: color-mix(in srgb, var(--tile-accent) 13%, transparent);
+  border-radius: 999px;
+  padding: 1px 8px;
 }
 
 .kpi__label {
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
 }
 
 .kpi__value {
-  margin-top: 4px;
-  font-size: 1.42rem;
+  font-size: 1.32rem;
   font-weight: 680;
   letter-spacing: -0.01em;
   display: flex;
@@ -465,7 +513,7 @@
 }
 
 .kpi__delta {
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 600;
 }
 
@@ -478,77 +526,8 @@
 }
 
 .kpi__sub {
-  margin-top: 2px;
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   color: var(--text-muted);
-}
-
-/* =========================================================== Bereichs-Tabs */
-
-.tile-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.tile-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1 1 auto;
-  justify-content: center;
-  min-width: 140px;
-  padding: 9px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 0.86rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
-}
-
-.tile-tab:hover {
-  border-color: color-mix(in srgb, var(--tile-accent) 55%, var(--border));
-  color: var(--text);
-}
-
-.tile-tab:focus-visible {
-  outline: 2px solid var(--tile-accent);
-  outline-offset: 1px;
-}
-
-.tile-tab.is-active {
-  color: var(--tile-accent);
-  border-color: var(--tile-accent);
-  background: color-mix(in srgb, var(--tile-accent) 12%, transparent);
-}
-
-.tile-tab__icon {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  flex: none;
-  color: var(--tile-accent);
-}
-
-.tile-tab__label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tile-tab__count {
-  flex: none;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--tile-accent);
-  background: color-mix(in srgb, var(--tile-accent) 14%, transparent);
-  border-radius: 999px;
-  padding: 1px 8px;
 }
 
 /* ================================================================= Kacheln */
@@ -755,32 +734,16 @@
   min-width: 0;
 }
 
+/* Einzelansicht: Diagramm oberhalb, Tabelle darunter (gestapelt). */
 .tile--full .tile__body {
-  display: grid;
-  grid-template-columns: minmax(300px, 36%) 1fr;
-  gap: 16px;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 /* In der Einzelansicht mehr Zeilen sichtbar. */
 .tile--full .grid-wrap {
   max-height: min(62vh, 640px);
-}
-
-/* Diagramm in der Einzelansicht nicht in die Höhe ziehen. */
-.tile--full .tile__chart {
-  position: sticky;
-  top: 12px;
-}
-
-@media (max-width: 900px) {
-  .tile--full .tile__body {
-    grid-template-columns: 1fr;
-  }
-
-  .tile--full .tile__chart {
-    position: static;
-  }
 }
 
 /* ================================================================ Diagramme */

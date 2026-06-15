@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { usePower } from './PowerProvider'
 import { useSalesData } from './hooks/useSalesData'
@@ -15,7 +15,6 @@ import {
 import { Header } from './components/Header'
 import { KpiBar } from './components/KpiBar'
 import { DashboardTile } from './components/DashboardTile'
-import { TileIcon } from './components/TileIcon'
 import { LoadingOverlay } from './components/LoadingOverlay'
 
 /**
@@ -150,28 +149,10 @@ export default function App() {
         <KpiBar
           data={data}
           ctx={ctx}
+          sections={tabs}
           activeTileId={activeTile}
           onSelectTile={setActiveTile}
         />
-
-        <nav className="tile-tabs" aria-label="Bereich wählen">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={`tile-tab${activeTile === tab.id ? ' is-active' : ''}`}
-              style={{ '--tile-accent': tab.accent } as CSSProperties}
-              onClick={() => setActiveTile(tab.id)}
-              aria-pressed={activeTile === tab.id}
-            >
-              <span className="tile-tab__icon">
-                <TileIcon name={tab.icon} />
-              </span>
-              <span className="tile-tab__label">{tab.title}</span>
-              <span className="tile-tab__count">{tab.count}</span>
-            </button>
-          ))}
-        </nav>
 
         {activeTile === 'activities' && (
           <DashboardTile def={activitiesTile} rows={data.activities} ctx={ctx} orgUrl={orgUrl} appId={recordLinkAppId} fullWidth />
