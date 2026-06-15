@@ -23,7 +23,7 @@
      * Web-API (relativer, same-origin Aufruf, Cookie-Auth) gelesen.
      */
     (function () {
-      var SCHEMA_NAME = 'wal_SalesDashboardUrl'; // Environment-Variable (anpassen)
+      var SCHEMA_NAME = 'wal_SalesDashboardGVLUrl'; // Environment-Variable (anpassen)
       var api = '/api/data/v9.2/environmentvariabledefinitions'
         + '?$select=defaultvalue,schemaname'
         + "&$filter=schemaname eq '" + SCHEMA_NAME + "'"
