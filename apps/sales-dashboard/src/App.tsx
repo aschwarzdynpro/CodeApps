@@ -16,6 +16,7 @@ import { Header } from './components/Header'
 import { KpiBar } from './components/KpiBar'
 import { DashboardTile } from './components/DashboardTile'
 import { LoadingOverlay } from './components/LoadingOverlay'
+import { ConversionFunnel } from './components/ConversionFunnel'
 
 /**
  * Moderne Code-App-Fassung des Legacy-Dashboards "Dashboard GVL":
@@ -153,6 +154,8 @@ export default function App() {
           activeTileId={activeTile}
           onSelectTile={setActiveTile}
         />
+
+        <ConversionFunnel data={data} ctx={ctx} />
 
         {activeTile === 'activities' && (
           <DashboardTile def={activitiesTile} rows={data.activities} ctx={ctx} orgUrl={orgUrl} appId={recordLinkAppId} fullWidth />
