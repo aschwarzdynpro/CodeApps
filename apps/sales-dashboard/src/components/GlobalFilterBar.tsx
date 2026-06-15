@@ -11,7 +11,9 @@ const PERIODS: { key: DatePeriod; label: string }[] = [
   { key: 'thisMonth', label: 'Dieser Monat' },
   { key: 'lastMonth', label: 'Letzter Monat' },
   { key: 'thisQuarter', label: 'Dieses Quartal' },
+  { key: 'lastQuarter', label: 'Letztes Quartal' },
   { key: 'thisYear', label: 'Dieses Jahr' },
+  { key: 'lastYear', label: 'Letztes Jahr' },
 ]
 
 interface GlobalFilterBarProps {
@@ -39,14 +41,27 @@ export function GlobalFilterBar({ value, onChange }: GlobalFilterBarProps) {
         </select>
       </label>
 
-      <label className="gfilter__check">
-        <input
-          type="checkbox"
-          checked={value.openOnly}
-          onChange={(e) => onChange({ ...value, openOnly: e.target.checked })}
-        />
-        Nur offene
-      </label>
+      <div className="gfilter__field">
+        <span>Status</span>
+        <div className="seg" role="group" aria-label="Status-Filter">
+          <button
+            type="button"
+            className={`seg__btn${!value.openOnly ? ' is-active' : ''}`}
+            onClick={() => onChange({ ...value, openOnly: false })}
+            aria-pressed={!value.openOnly}
+          >
+            Alle
+          </button>
+          <button
+            type="button"
+            className={`seg__btn${value.openOnly ? ' is-active' : ''}`}
+            onClick={() => onChange({ ...value, openOnly: true })}
+            aria-pressed={value.openOnly}
+          >
+            Nur offene
+          </button>
+        </div>
+      </div>
 
       {active && (
         <button

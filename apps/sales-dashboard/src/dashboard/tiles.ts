@@ -7,7 +7,7 @@ import type {
   SalesOrder,
 } from '../types/sales'
 import type { BadgeTone, TileDef } from './types'
-import { isBeforeToday, isLastMonth, isThisMonth, isWithinNextMonths, isoWeek, isoWeekSortKey } from '../utils/format'
+import { isBeforeToday, isoWeek, isoWeekSortKey } from '../utils/format'
 
 /**
  * Die sechs Kacheln des Legacy-Dashboards "Dashboard GVL"
@@ -86,12 +86,6 @@ const FORECAST_ORDER = [
 
 /* ------------------------------------------------------------- Aktivitäten */
 
-/** Zeitfenster der Legacy-Views: Fälligkeit dieser/letzter Monat oder leer. */
-const inActivityWindow = (row: Activity, now: Date) =>
-  !row.scheduledEnd ||
-  isThisMonth(row.scheduledEnd, now) ||
-  isLastMonth(row.scheduledEnd, now)
-
 export const activitiesTile: TileDef<Activity> = {
   id: 'activities',
   title: 'Aktivitäten',
@@ -103,18 +97,15 @@ export const activitiesTile: TileDef<Activity> = {
   views: [
     {
       id: 'meine-aktivitaeten',
-      label: 'Meine Aktivitäten – dieser & letzter Monat',
-      filter: (row, ctx) =>
-        row.participantIds.includes(ctx.userId) && inActivityWindow(row, ctx.now),
+      label: 'Meine Aktivitäten',
+      filter: (row, ctx) => row.participantIds.includes(ctx.userId),
       sort: dateAsc((row) => row.scheduledEnd),
     },
     {
       id: 'meine-termine',
-      label: 'Meine Termine – dieser & letzter Monat',
+      label: 'Meine Termine',
       filter: (row, ctx) =>
-        row.isAppointment &&
-        row.participantIds.includes(ctx.userId) &&
-        inActivityWindow(row, ctx.now),
+        row.isAppointment && row.participantIds.includes(ctx.userId),
       sort: dateAsc((row) => row.scheduledEnd),
     },
   ],
@@ -213,12 +204,9 @@ export const opportunitiesTile: TileDef<Opportunity> = {
   entityLogicalName: 'opportunity',
   views: [
     {
-      id: 'entscheidung-bald',
-      label: 'Offen, ich GVL – Entscheidung in ≤ 2 Monaten',
-      filter: (row, ctx) =>
-        row.open &&
-        row.areaSalesManager.id === ctx.userId &&
-        isWithinNextMonths(row.decisionDate, ctx.now, 2),
+      id: 'offen-gvl',
+      label: 'Offene Verkaufschancen – ich GVL',
+      filter: (row, ctx) => row.open && row.areaSalesManager.id === ctx.userId,
       sort: dateAsc((row) => row.decisionDate),
     },
   ],
@@ -278,26 +266,24 @@ export const projectsTile: TileDef<Project> = {
       sort: (a, b) => a.number - b.number,
     },
     {
-      id: 'nachfass-monat',
-      label: 'Offen – Nachfasstermin diesen Monat',
+      id: 'nachfass',
+      label: 'Offen – mit Nachfasstermin',
       filter: (row, ctx) =>
-        isOpenProject(row, ctx.userId) && isThisMonth(row.followUpDate, ctx.now),
+        isOpenProject(row, ctx.userId) && row.followUpDate !== undefined,
       sort: dateAsc((row) => row.followUpDate),
     },
     {
-      id: 'entscheidung-monat',
-      label: 'Offen – Entscheidungsdatum diesen Monat',
+      id: 'entscheidung',
+      label: 'Offen – mit Entscheidungsdatum',
       filter: (row, ctx) =>
-        isOpenProject(row, ctx.userId) && isThisMonth(row.decisionDate, ctx.now),
+        isOpenProject(row, ctx.userId) && row.decisionDate !== undefined,
       sort: dateAsc((row) => row.decisionDate),
     },
     {
-      id: 'gewonnen-monat',
-      label: 'Gewonnene Projekte in diesem Monat',
+      id: 'gewonnen',
+      label: 'Gewonnene Projekte',
       filter: (row, ctx) =>
-        row.statusCategory === 'won' &&
-        row.areaSalesManager.id === ctx.userId &&
-        isThisMonth(row.statusChangedOn, ctx.now),
+        row.statusCategory === 'won' && row.areaSalesManager.id === ctx.userId,
       sort: dateDesc((row) => row.statusChangedOn),
     },
     {
@@ -307,12 +293,10 @@ export const projectsTile: TileDef<Project> = {
       sort: (a, b) => a.number - b.number,
     },
     {
-      id: 'verloren-monat',
-      label: 'Verlorene / zurückgestellte Projekte diesen Monat',
+      id: 'verloren',
+      label: 'Verlorene / zurückgestellte Projekte',
       filter: (row, ctx) =>
-        row.statusCategory === 'lost' &&
-        row.areaSalesManager.id === ctx.userId &&
-        isThisMonth(row.statusChangedOn, ctx.now),
+        row.statusCategory === 'lost' && row.areaSalesManager.id === ctx.userId,
       sort: dateDesc((row) => row.statusChangedOn),
     },
   ],
@@ -407,30 +391,25 @@ export const quotesTile: TileDef<Quote> = {
   entityLogicalName: 'quote',
   views: [
     {
-      id: 'neu-monat',
-      label: 'Neue Angebote diesen Monat – ich GVL',
+      id: 'in-bearbeitung',
+      label: 'Angebote in Bearbeitung – ich GVL',
       filter: (row, ctx) =>
         row.areaSalesManager.id === ctx.userId &&
-        isThisMonth(row.creationDate, ctx.now) &&
         (row.status === 'In Bearbeitung' || row.status === 'Aktiv'),
       sort: dateDesc((row) => row.creationDate),
     },
     {
-      id: 'beauftragt-monat',
-      label: 'Beauftragte Angebote diesen Monat – ich GVL',
+      id: 'beauftragt',
+      label: 'Beauftragte Angebote – ich GVL',
       filter: (row, ctx) =>
-        row.areaSalesManager.id === ctx.userId &&
-        isThisMonth(row.creationDate, ctx.now) &&
-        row.status === 'Beauftragt',
+        row.areaSalesManager.id === ctx.userId && row.status === 'Beauftragt',
       sort: dateDesc((row) => row.creationDate),
     },
     {
-      id: 'abgesagt-monat',
-      label: 'Abgesagte Angebote diesen Monat – ich GVL',
+      id: 'abgesagt',
+      label: 'Abgesagte Angebote – ich GVL',
       filter: (row, ctx) =>
-        row.areaSalesManager.id === ctx.userId &&
-        isThisMonth(row.creationDate, ctx.now) &&
-        row.status === 'Abgesagt',
+        row.areaSalesManager.id === ctx.userId && row.status === 'Abgesagt',
       sort: dateDesc((row) => row.creationDate),
     },
   ],
@@ -476,27 +455,24 @@ export const ordersTile: TileDef<SalesOrder> = {
   entityLogicalName: 'salesorder',
   views: [
     {
-      id: 'meine-monat',
-      label: 'Meine Aufträge diesen Monat – ich GVL',
-      filter: (row, ctx) =>
-        row.areaSalesManager.id === ctx.userId && isThisMonth(row.creationDate, ctx.now),
+      id: 'meine',
+      label: 'Meine Aufträge – ich GVL',
+      filter: (row, ctx) => row.areaSalesManager.id === ctx.userId,
       sort: dateDesc((row) => row.creationDate),
     },
     {
-      id: 'projekt-monat',
-      label: 'Projektaufträge diesen Monat – ich GVL',
+      id: 'projekt',
+      label: 'Projektaufträge – ich GVL',
       // "Projektauftrag" = Auftrag mit verknüpftem Projekt (env-stabil,
       // statt auf die Schreibweise der Auftragsart zu vertrauen).
       filter: (row, ctx) =>
-        row.areaSalesManager.id === ctx.userId &&
-        isThisMonth(row.creationDate, ctx.now) &&
-        row.project !== undefined,
+        row.areaSalesManager.id === ctx.userId && row.project !== undefined,
       sort: dateDesc((row) => row.creationDate),
     },
     {
-      id: 'alle-monat',
-      label: 'Alle Aufträge diesen Monat',
-      filter: (row, ctx) => isThisMonth(row.creationDate, ctx.now),
+      id: 'alle',
+      label: 'Alle Aufträge',
+      filter: () => true,
       sort: dateDesc((row) => row.creationDate),
     },
   ],

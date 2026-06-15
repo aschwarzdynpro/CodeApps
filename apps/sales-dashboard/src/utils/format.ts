@@ -85,13 +85,21 @@ export function isBeforeToday(value: string | undefined, now: Date): boolean {
 }
 
 /** Globaler Zeitraum-Filter (auf createdOn) für die Filterleiste. */
-export type DatePeriod = 'all' | 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'thisYear'
+export type DatePeriod =
+  | 'all'
+  | 'thisMonth'
+  | 'lastMonth'
+  | 'thisQuarter'
+  | 'lastQuarter'
+  | 'thisYear'
+  | 'lastYear'
 
 export function inPeriod(value: string | undefined, period: DatePeriod, now: Date): boolean {
   if (period === 'all') return true
   if (!value) return false
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return false
+  const t = d.getTime()
   switch (period) {
     case 'thisMonth':
       return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
@@ -104,8 +112,15 @@ export function inPeriod(value: string | undefined, period: DatePeriod, now: Dat
         d.getFullYear() === now.getFullYear() &&
         Math.floor(d.getMonth() / 3) === Math.floor(now.getMonth() / 3)
       )
+    case 'lastQuarter': {
+      const curQuarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)
+      const start = new Date(curQuarterStart.getFullYear(), curQuarterStart.getMonth() - 3, 1)
+      return t >= start.getTime() && t < curQuarterStart.getTime()
+    }
     case 'thisYear':
       return d.getFullYear() === now.getFullYear()
+    case 'lastYear':
+      return d.getFullYear() === now.getFullYear() - 1
     default:
       return true
   }
