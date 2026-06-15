@@ -10,6 +10,13 @@ interface SalesDataState {
   lastUpdated: Date | null
 }
 
+/** Ladefortschritt fürs Overlay: `done` von `total` Bereichen, letzter Name. */
+export interface LoadProgressState {
+  done: number
+  total: number
+  label?: string
+}
+
 /**
  * Lädt den Dashboard-Datenbestand und stellt einen manuellen Refresh bereit.
  *
@@ -30,6 +37,9 @@ export function useSalesData(forceMock: boolean, gvlId?: string) {
 
   const service = forceMock ? mockSalesService : salesService
 
+  // Ladefortschritt je Bereich (treibt das Overlay beim GVL-Wechsel/Refresh).
+  const [progress, setProgress] = useState<LoadProgressState | null>(null)
+
   // Stale-Guard: nur die zuletzt gestartete Ladung darf den State setzen, damit
   // eine spät eintreffende ältere Antwort (schneller GVL-Wechsel) eine neuere
   // nicht überschreibt.
@@ -37,11 +47,15 @@ export function useSalesData(forceMock: boolean, gvlId?: string) {
 
   const load = useCallback(async () => {
     const seq = ++loadSeq.current
+    setProgress(null)
     setState((s) => ({ ...s, loading: true, error: null }))
     try {
-      const data = await service.load(gvlId)
+      const data = await service.load(gvlId, (done, total, label) => {
+        if (seq === loadSeq.current) setProgress({ done, total, label })
+      })
       if (seq !== loadSeq.current) return
       setState({ data, loading: false, error: null, lastUpdated: new Date() })
+      setProgress(null)
     } catch (err) {
       if (seq !== loadSeq.current) return
       setState((s) => ({
@@ -49,6 +63,7 @@ export function useSalesData(forceMock: boolean, gvlId?: string) {
         loading: false,
         error: err instanceof Error ? err.message : 'Unbekannter Fehler beim Laden',
       }))
+      setProgress(null)
     }
   }, [service, gvlId])
 
@@ -62,5 +77,5 @@ export function useSalesData(forceMock: boolean, gvlId?: string) {
     [service],
   )
 
-  return { ...state, refresh: load, listSalesManagers }
+  return { ...state, progress, refresh: load, listSalesManagers }
 }

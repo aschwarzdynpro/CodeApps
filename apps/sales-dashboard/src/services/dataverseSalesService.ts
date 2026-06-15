@@ -11,7 +11,7 @@ import type {
   SalesOrder,
   UserRef,
 } from '../types/sales'
-import type { SalesService } from './salesService'
+import type { SalesService, LoadProgress } from './salesService'
 import type { IGetAllOptions } from '../generated/models/CommonModels'
 import type { IOperationResult } from '@microsoft/power-apps/data'
 import { getContext } from '@microsoft/power-apps/app'
@@ -374,8 +374,20 @@ async function fetchAccountInfos(
 
 /* ----------------------------------------------------------------- Service */
 
+/** Anzeigenamen der nachgeladenen Bereiche (für das Fortschritts-Overlay). */
+const PROGRESS_LABELS: Record<string, string> = {
+  activities: 'Aktivitäten',
+  leads: 'Leads',
+  opportunities: 'Verkaufschancen',
+  projects: 'Projekte',
+  quotes: 'Angebote',
+  orders: 'Aufträge',
+}
+/** Anzahl der gemeldeten Lade-Schritte = die sechs Bereiche. */
+const PROGRESS_TOTAL = 6
+
 export class DataverseSalesService implements SalesService {
-  async load(gvlId?: string): Promise<SalesData> {
+  async load(gvlId?: string, onProgress?: LoadProgress): Promise<SalesData> {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return buildMockData()
 
@@ -398,6 +410,10 @@ export class DataverseSalesService implements SalesService {
     let anyFailed = false
     let anySucceeded = false
 
+    // Ladefortschritt: 0 von 6, dann je fertigem Bereich +1 (für das Overlay).
+    let progressDone = 0
+    onProgress?.(0, PROGRESS_TOTAL)
+
     /** Eine Entität laden; bei Fehlern den Fallback (Demo-Zeilen) behalten. */
     const part = async <R,>(label: string, loader: () => Promise<R>, fallback: R): Promise<R> => {
       try {
@@ -409,6 +425,9 @@ export class DataverseSalesService implements SalesService {
         anyFailed = true
         console.warn(`[sales] ${label}: Fallback auf Demo —`, err)
         return fallback
+      } finally {
+        progressDone += 1
+        onProgress?.(progressDone, PROGRESS_TOTAL, PROGRESS_LABELS[label])
       }
     }
 

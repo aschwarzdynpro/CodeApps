@@ -16,6 +16,7 @@ import { Header } from './components/Header'
 import { KpiBar } from './components/KpiBar'
 import { DashboardTile } from './components/DashboardTile'
 import { TileIcon } from './components/TileIcon'
+import { LoadingOverlay } from './components/LoadingOverlay'
 
 /**
  * Moderne Code-App-Fassung des Legacy-Dashboards "Dashboard GVL":
@@ -72,7 +73,7 @@ export default function App() {
     localStorage.setItem(DATA_MODE_KEY, value ? 'demo' : 'auto')
   }
 
-  const { data, loading, error, refresh, lastUpdated, listSalesManagers } =
+  const { data, loading, error, refresh, lastUpdated, listSalesManagers, progress } =
     useSalesData(forceMock, selectedGvl?.id)
 
   const [theme, setTheme] = useState<Theme>(initialTheme)
@@ -144,7 +145,8 @@ export default function App() {
         lastUpdated={lastUpdated}
       />
 
-      <main className="app__main">
+      <div className="app__stage">
+        <main className={`app__main${loading ? ' is-reloading' : ''}`}>
         <KpiBar
           data={data}
           ctx={ctx}
@@ -189,7 +191,9 @@ export default function App() {
         {activeTile === 'orders' && (
           <DashboardTile def={ordersTile} rows={data.orders} ctx={ctx} orgUrl={orgUrl} fullWidth />
         )}
-      </main>
+        </main>
+        {loading && <LoadingOverlay progress={progress} />}
+      </div>
     </div>
   )
 }
