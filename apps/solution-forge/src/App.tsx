@@ -757,10 +757,7 @@ function App() {
       )}
 
       {!loading && !error && tab === 'compare' && isDeploymentManager && (
-        <CompareWorkbench
-          solutions={allSolutions}
-          initialSolutionId={selectedId}
-        />
+        <CompareWorkbench solutions={allSolutions} />
       )}
 
       {!loading && !error && tab === 'dependencies' && isDeploymentManager && (

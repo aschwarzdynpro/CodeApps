@@ -15,8 +15,6 @@ import { SolutionSelect } from './SolutionSelect'
 
 interface Props {
   solutions: WorkingSolution[]
-  /** Solution preselected in the workbench, if any. */
-  initialSolutionId: string | null
 }
 
 // Rich ALM type names lead the group order.
@@ -40,10 +38,7 @@ const AUTO_EXPAND_LIMIT = 12
  * DEV / UAT / PROD. Compare reports presence (missing) and status drift;
  * unmanaged layers and content diffs live in the Layer Inspector.
  */
-export function CompareWorkbench({
-  solutions: allSolutions,
-  initialSolutionId,
-}: Props) {
+export function CompareWorkbench({ solutions: allSolutions }: Props) {
   // Release solutions only (consistent with the other ALM tabs); several
   // working-solution records pointing at the same solution collapse to one.
   const solutions = allSolutions.filter(
@@ -52,13 +47,9 @@ export function CompareWorkbench({
       !s.solutionMissing &&
       allSolutions.findIndex((o) => o.id === s.id) === index,
   )
-  // Carry over the workbench selection (release solutions only); the user
-  // starts the comparison with the Compare button.
-  const [solutionId, setSolutionId] = useState<string>(
-    initialSolutionId && solutions.some((s) => s.id === initialSolutionId)
-      ? initialSolutionId
-      : '',
-  )
+  // Nothing preselected — the user picks a release solution and clicks
+  // Compare.
+  const [solutionId, setSolutionId] = useState<string>('')
   const [result, setResult] = useState<ComparisonResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
@@ -193,23 +184,22 @@ export function CompareWorkbench({
               {env.label}
             </span>
           ))}
-          {selectedSolution &&
-            !loading &&
-            (result ? (
-              <button
-                className="btn btn--small"
-                onClick={() => run(solutionId, true)}
-              >
-                Refresh
-              </button>
-            ) : (
-              <button
-                className="btn btn--primary"
-                onClick={() => run(solutionId)}
-              >
-                Compare
-              </button>
-            ))}
+          {result && !loading ? (
+            <button
+              className="btn btn--small"
+              onClick={() => run(solutionId, true)}
+            >
+              Refresh
+            </button>
+          ) : (
+            <button
+              className="btn btn--primary"
+              disabled={!selectedSolution || loading}
+              onClick={() => run(solutionId)}
+            >
+              Compare
+            </button>
+          )}
         </div>
       </div>
 
