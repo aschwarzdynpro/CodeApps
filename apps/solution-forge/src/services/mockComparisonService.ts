@@ -7,8 +7,17 @@ import type {
   EnvComponentState,
   EnvKey,
 } from '../types/comparison'
-import { CONTENT_DIFFABLE_KINDS } from '../types/comparison'
+import { ALM_KIND_LABELS, CONTENT_DIFFABLE_KINDS } from '../types/comparison'
 import { ENVIRONMENTS } from '../config'
+
+/** Mock componenttype codes for the rich ALM kinds (display only). */
+const KIND_TO_CODE: Record<AlmComponentKind, number> = {
+  cloudflow: 29,
+  workflow: 29,
+  businessrule: 29,
+  pluginstep: 92,
+  webresource: 61,
+}
 
 /**
  * Mock implementation of {@link ComparisonService}: a deterministic sample
@@ -83,6 +92,74 @@ const SEED: SeedRow[] = [
   },
 ]
 
+/**
+ * Existence-only sample components (the types Compare now also covers):
+ * present / missing / unmanaged per environment, no rich state.
+ */
+interface ExistenceSeed {
+  typeCode: number
+  typeName: string
+  name: string
+  uat: 'present' | 'missing' | 'unmanaged'
+  prod: 'present' | 'missing' | 'unmanaged'
+}
+const EXISTENCE_SEED: ExistenceSeed[] = [
+  {
+    typeCode: 91,
+    typeName: 'Plugin Assembly',
+    name: 'HSO.Plugins.Calculation',
+    uat: 'present',
+    prod: 'present',
+  },
+  {
+    typeCode: 10021,
+    typeName: 'Custom API',
+    name: 'hso_RecalculatePositions',
+    uat: 'present',
+    prod: 'missing',
+  },
+  {
+    typeCode: 91,
+    typeName: 'Plugin Assembly',
+    name: '[DEPR] Legacy.Calculation.Plugins',
+    uat: 'unmanaged',
+    prod: 'missing',
+  },
+]
+
+function existenceRow(
+  solutionId: string,
+  i: number,
+  seed: ExistenceSeed,
+): ComparisonRow {
+  const cell = (s: ExistenceSeed['uat' | 'prod']): EnvComponentState | null =>
+    s === 'missing'
+      ? { present: false }
+      : { present: true, isManaged: s !== 'unmanaged' }
+  const byEnv: Record<EnvKey, EnvComponentState | null> = {
+    dev: { present: true, isManaged: false },
+    uat: cell(seed.uat),
+    prod: cell(seed.prod),
+  }
+  const deviations: DeviationKind[] = []
+  for (const key of ['uat', 'prod'] as EnvKey[]) {
+    const t = byEnv[key]
+    if (!t) continue
+    if (!t.present) deviations.push('missing')
+    else if (t.isManaged === false) deviations.push('unmanaged')
+  }
+  return {
+    ref: {
+      objectId: `mock-exist-${solutionId}-${i}`,
+      typeCode: seed.typeCode,
+      typeName: seed.typeName,
+      name: seed.name,
+    },
+    byEnv,
+    deviations: [...new Set(deviations)],
+  }
+}
+
 function baseState(seed: SeedRow, ageDays: number): EnvComponentState {
   return {
     present: true,
@@ -130,6 +207,8 @@ export class MockComparisonService {
         ref: {
           objectId: `mock-${solutionId}-${i}`,
           kind: seed.kind,
+          typeCode: KIND_TO_CODE[seed.kind],
+          typeName: ALM_KIND_LABELS[seed.kind],
           name: seed.name,
         },
         byEnv: {
@@ -140,6 +219,7 @@ export class MockComparisonService {
         deviations: seed.deviations,
       }),
     )
+    rows.push(...EXISTENCE_SEED.map((s, i) => existenceRow(solutionId, i, s)))
     return { rows, envErrors: {} }
   }
 
@@ -153,8 +233,10 @@ export class MockComparisonService {
   ): Promise<ComparisonResult> {
     const presentEnvs = (row: ComparisonRow): EnvKey[] =>
       ENVIRONMENTS.filter((e) => row.byEnv[e.key]?.present).map((e) => e.key)
+    const diffable = (row: ComparisonRow): boolean =>
+      row.ref.kind != null && CONTENT_DIFFABLE_KINDS.has(row.ref.kind)
     const targets = result.rows.filter(
-      (r) => CONTENT_DIFFABLE_KINDS.has(r.ref.kind) && presentEnvs(r).length >= 2,
+      (r) => diffable(r) && presentEnvs(r).length >= 2,
     )
     const driftId = targets[0]?.ref.objectId
     const total = targets.reduce((sum, r) => sum + presentEnvs(r).length, 0)
@@ -163,7 +245,7 @@ export class MockComparisonService {
 
     const rows: ComparisonRow[] = []
     for (const row of result.rows) {
-      if (!CONTENT_DIFFABLE_KINDS.has(row.ref.kind) || presentEnvs(row).length < 2) {
+      if (!diffable(row) || presentEnvs(row).length < 2) {
         rows.push(row)
         continue
       }

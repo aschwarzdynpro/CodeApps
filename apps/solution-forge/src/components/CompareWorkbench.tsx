@@ -5,7 +5,6 @@ import {
   ALM_KIND_LABELS,
   CONTENT_DIFFABLE_KINDS,
   DEVIATION_LABELS,
-  type AlmComponentKind,
   type AlmComponentRef,
   type ComparisonResult,
   type ComparisonRow,
@@ -24,12 +23,14 @@ interface Props {
   initialSolutionId: string | null
 }
 
-const KIND_ORDER: AlmComponentKind[] = [
-  'cloudflow',
-  'workflow',
-  'businessrule',
-  'pluginstep',
-  'webresource',
+// The rich ALM type names lead the group order; every other type
+// (Plugin Assembly, Custom API, …) follows, alphabetically.
+const RICH_TYPE_ORDER: string[] = [
+  ALM_KIND_LABELS.cloudflow,
+  ALM_KIND_LABELS.workflow,
+  ALM_KIND_LABELS.businessrule,
+  ALM_KIND_LABELS.pluginstep,
+  ALM_KIND_LABELS.webresource,
 ]
 
 /** Deviations surfaced by the first (state) pass — content is opt-in. */
@@ -192,10 +193,19 @@ export function CompareWorkbench({
   }, [result, deviationFilter, onlyDeviations])
 
   const grouped = useMemo(() => {
-    const groups = new Map<AlmComponentKind, ComparisonRow[]>()
-    for (const kind of KIND_ORDER) groups.set(kind, [])
-    for (const row of visibleRows) groups.get(row.ref.kind)?.push(row)
-    return [...groups.entries()].filter(([, rows]) => rows.length > 0)
+    const groups = new Map<string, ComparisonRow[]>()
+    for (const row of visibleRows) {
+      const list = groups.get(row.ref.typeName)
+      if (list) list.push(row)
+      else groups.set(row.ref.typeName, [row])
+    }
+    const rank = (typeName: string) => {
+      const i = RICH_TYPE_ORDER.indexOf(typeName)
+      return i === -1 ? RICH_TYPE_ORDER.length : i
+    }
+    return [...groups.entries()].sort(
+      ([a], [b]) => rank(a) - rank(b) || a.localeCompare(b),
+    )
   }, [visibleRows])
 
   const selectedSolution = solutions.find((s) => s.id === solutionId)
@@ -310,17 +320,13 @@ export function CompareWorkbench({
           </div>
 
           {result.rows.length === 0 && (
-            <div className="state">
-              This solution contains no cloud flows, workflows, business
-              rules, plugin steps or scripts.
-            </div>
+            <div className="state">This solution contains no components.</div>
           )}
 
-          {grouped.map(([kind, rows]) => (
-            <section key={kind} className="card compare-group">
+          {grouped.map(([typeName, rows]) => (
+            <section key={typeName} className="card compare-group">
               <h3 className="card-title">
-                {ALM_KIND_LABELS[kind]}{' '}
-                <span className="muted">({rows.length})</span>
+                {typeName} <span className="muted">({rows.length})</span>
               </h3>
               <table className="compare-table">
                 <thead>
@@ -334,6 +340,7 @@ export function CompareWorkbench({
                 <tbody>
                   {rows.map((row) => {
                     const diffable =
+                      row.ref.kind != null &&
                       CONTENT_DIFFABLE_KINDS.has(row.ref.kind) &&
                       presentEnvKeys(row).length >= 2
                     return (
@@ -383,8 +390,11 @@ export function CompareWorkbench({
 
       {!loading && !result && !error && (
         <div className="state">
-          Select a solution — its cloud flows, workflows, business rules,
-          plugin steps and scripts are compared across DEV, UAT and PROD.
+          Select a solution — its components are compared across DEV, UAT and
+          PROD. Cloud flows, workflows, business rules, plugin steps and
+          scripts get a full state comparison; every other component type
+          (plugin assemblies, custom APIs, …) is checked for existence
+          (present / missing) per environment.
         </div>
       )}
 

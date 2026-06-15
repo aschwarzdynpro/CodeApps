@@ -1,5 +1,4 @@
 import type { WorkingSolution } from '../types/solution'
-import { ALM_KIND_LABELS } from '../types/comparison'
 import type {
   DetectivePhaseKey,
   DetectiveResult,
@@ -125,7 +124,7 @@ async function runCompare(
   for (const row of result.rows) {
     const dev = row.byEnv.dev
     const target = row.byEnv[targetEnv]
-    const kindLabel = ALM_KIND_LABELS[row.ref.kind]
+    const kindLabel = row.ref.typeName
     if (!dev?.present || !target) continue
     if (!target.present) {
       add({

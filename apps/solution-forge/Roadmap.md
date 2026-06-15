@@ -75,7 +75,8 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       Re-Link, Typ-Pflege, Löschen mit Undo)
 - [x] Kollisions-Radar, Komponenten-Suche, Work-Item-Gruppierung
 - [x] Merge mit Plan, Konflikt-Markierung und Status-Logging
-- [x] Compare über INT-11 / UAT / PROD
+- [x] Compare über INT-11 / UAT / PROD (rich für ALM-Typen; Existenz-Check
+      für alle übrigen Komponenten-Typen via msdyn_componentlayer)
 - [x] Standard-Filter Open/Tracked/Mine, Rollen-Gating Merge & Compare
 - [x] Layer Inspector: unmanaged Active-Layer über managed Komponenten in
       UAT/PROD (`msdyn_componentlayer`)

@@ -19,6 +19,7 @@ import {
 import { shortGuid } from '../utils/format'
 import { DEVOPS_PANEL_ENABLED, ENVIRONMENTS, makerSolutionUrl } from '../config'
 import { RetrieveMissingDependenciesService } from './retrieveMissingDependenciesService'
+import { layerComponentNames } from './componentLayerNames'
 import type {
   DependencyCheckResult,
   DependencyItem,
@@ -272,40 +273,6 @@ const DEPENDENCY_SPECS: Record<number, DependencySpec> = {
     displayField: 'displayname',
     matchField: 'schemaname',
   },
-}
-
-/**
- * `msdyn_solutioncomponentname` values for the layer query, by
- * componenttype. The classic metadata types are NOT listed in
- * `solutioncomponentdefinition` (only solution-aware tables are), so this
- * static map covers them — values follow the platform SchemaName
- * convention; 'Entity' and 'Workflow' are wire-verified against INT-11.
- * Newer types (canvas apps, connection references, environment variables,
- * bots, …) are merged in dynamically from `solutioncomponentdefinition`.
- */
-const LAYER_COMPONENT_NAMES: Record<number, string> = {
-  1: 'Entity',
-  2: 'Attribute',
-  3: 'Relationship',
-  9: 'OptionSet',
-  10: 'EntityRelationship',
-  14: 'EntityKey',
-  20: 'Role',
-  26: 'SavedQuery',
-  29: 'Workflow',
-  31: 'Report',
-  50: 'RibbonCustomization',
-  59: 'SavedQueryVisualization',
-  60: 'SystemForm',
-  61: 'WebResource',
-  62: 'SiteMap',
-  66: 'CustomControl',
-  70: 'FieldSecurityProfile',
-  80: 'AppModule',
-  91: 'PluginAssembly',
-  92: 'SdkMessageProcessingStep',
-  95: 'ServiceEndpoint',
-  150: 'RoutingRule',
 }
 
 const SOLUTION_SELECT = [
@@ -1103,42 +1070,6 @@ export class DataverseSolutionService implements SolutionService {
     }
   }
 
-  private layerNamesPromise: Promise<Map<number, string>> | null = null
-
-  /**
-   * componenttype → msdyn_solutioncomponentname for the layer query: the
-   * static classic map, extended once per session with the solution-aware
-   * types from `solutioncomponentdefinition` (their `name` column is the
-   * value the layer provider expects, e.g. 'EnvironmentVariableDefinition').
-   */
-  private async layerComponentNames(): Promise<Map<number, string>> {
-    this.layerNamesPromise ??= (async () => {
-      const map = new Map<number, string>(
-        Object.entries(LAYER_COMPONENT_NAMES).map(([type, name]) => [
-          Number(type),
-          name,
-        ]),
-      )
-      try {
-        const rows = await this.queryRows(
-          null,
-          'solutioncomponentdefinitions',
-          'solutioncomponenttype,name',
-        )
-        for (const row of rows) {
-          const type = Number(row.solutioncomponenttype ?? 0)
-          const name = str(row.name)
-          if (type && name && !map.has(type)) map.set(type, name)
-        }
-      } catch (err) {
-        // The static map still covers the classic types — keep going.
-        console.warn('[layers] solutioncomponentdefinition lookup failed:', err)
-      }
-      return map
-    })()
-    return this.layerNamesPromise
-  }
-
   /**
    * Layer stack of one component in the target org. The virtual table
    * requires both filter conditions; the component id is the plain GUID
@@ -1200,7 +1131,7 @@ export class DataverseSolutionService implements SolutionService {
 
     const [components, typeNames] = await Promise.all([
       this.listComponents(solution.id),
-      this.layerComponentNames(),
+      layerComponentNames(),
     ])
 
     const stacks: ComponentLayerStack[] = []

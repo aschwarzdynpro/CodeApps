@@ -16,7 +16,11 @@ export interface EnvironmentDef {
   isCurrent?: boolean
 }
 
-/** Component kinds the comparison cares about. */
+/**
+ * Component kinds with rich, stateful comparison (status, managed flag,
+ * modifiedon, content hash). Every other solution component type is still
+ * compared, but for existence only (present / missing per environment).
+ */
 export type AlmComponentKind =
   | 'cloudflow'
   | 'workflow'
@@ -35,7 +39,12 @@ export const ALM_KIND_LABELS: Record<AlmComponentKind, string> = {
 /** Identity of one compared component (GUID is solution-import-stable). */
 export interface AlmComponentRef {
   objectId: string
-  kind: AlmComponentKind
+  /** Set for the rich-state ALM kinds; absent for existence-only types. */
+  kind?: AlmComponentKind
+  /** solutioncomponent componenttype code. */
+  typeCode: number
+  /** Display group label, e.g. "Cloud Flows" or "Plugin Assembly". */
+  typeName: string
   name: string
 }
 

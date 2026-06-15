@@ -311,9 +311,17 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <ul>
               <li>
                 Pick a solution — its cloud flows, workflows, business
-                rules, plugin steps and scripts are compared across the
-                configured environments (current / UAT / PROD), matched by
-                their import-stable ids.
+                rules, plugin steps and scripts get a full state comparison
+                across the configured environments (current / UAT / PROD),
+                matched by their import-stable ids.
+              </li>
+              <li>
+                <strong>Every other component type</strong> (plugin
+                assemblies, custom APIs, roles, forms, …) is checked for{' '}
+                <strong>existence</strong> — present or{' '}
+                <span className="drift-tag drift-tag--missing">Missing</span>{' '}
+                per environment — via the component-layer table. Metadata
+                types the layer provider doesn't expose stay “?”.
               </li>
               <li>
                 Deviation tags: <strong>Missing</strong> (not in the
