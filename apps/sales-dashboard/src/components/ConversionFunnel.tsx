@@ -66,6 +66,7 @@ export function ConversionFunnel({ data, ctx }: ConversionFunnelProps) {
     ]
   }, [data, ctx])
 
+  const max = Math.max(...stages.map((s) => s.count), 1)
   const overall = pct(stages[stages.length - 1].count, stages[0].count)
 
   return (
@@ -77,30 +78,36 @@ export function ConversionFunnel({ data, ctx }: ConversionFunnelProps) {
           </svg>
         </span>
         <h2 className="funnel__title">Pipeline · Conversion</h2>
-        <span className="funnel__overall">
-          Gesamt (Auftrag/Lead): <strong>{overall}</strong>
-        </span>
       </header>
 
-      <div className="funnel__chain">
+      <div className="funnel__body">
         {stages.map((s, i) => (
-          <div className="funnel__step" key={s.id}>
-            <div className="funnel-chip" style={{ '--row-accent': s.accent } as CSSProperties}>
-              <span className="funnel-chip__label">{s.label}</span>
-              <span className="funnel-chip__count">{fmtNumber(s.count)}</span>
-              <span className="funnel-chip__value">
-                {s.value !== undefined ? fmtEurCompact(s.value) : ' '}
+          <div key={s.id}>
+            <div className="funnel__row" style={{ '--row-accent': s.accent } as CSSProperties}>
+              <span className="funnel__label">{s.label}</span>
+              <span className="funnel__track">
+                <span
+                  className="funnel__fill"
+                  style={{ width: `${(s.count / max) * 100}%` }}
+                />
+              </span>
+              <span className="funnel__metric">
+                <span className="funnel__count">{fmtNumber(s.count)}</span>
+                {s.value !== undefined && (
+                  <span className="funnel__value">{fmtEurCompact(s.value)}</span>
+                )}
               </span>
             </div>
             {i < stages.length - 1 && (
-              <div className="funnel-arrow" aria-hidden="true">
-                <span className="funnel-arrow__pct">{pct(stages[i + 1].count, s.count)}</span>
-                <span className="funnel-arrow__line">→</span>
-              </div>
+              <div className="funnel__conv">↓ {pct(stages[i + 1].count, s.count)}</div>
             )}
           </div>
         ))}
       </div>
+
+      <p className="funnel__total">
+        Gesamt-Quote (Auftrag/Lead): <strong>{overall}</strong>
+      </p>
     </section>
   )
 }
