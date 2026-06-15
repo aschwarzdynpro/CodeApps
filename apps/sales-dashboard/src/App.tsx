@@ -51,7 +51,7 @@ function initialTheme(): Theme {
 }
 
 export default function App() {
-  const { mode, orgUrl } = usePower()
+  const { mode, orgUrl, recordLinkAppId } = usePower()
 
   // Demo-Schalter: erzwingt Demo-Daten auch im Power-Apps-Host (zum Testen).
   const [forceMock, setForceMock] = useState(
@@ -174,22 +174,22 @@ export default function App() {
         </nav>
 
         {activeTile === 'activities' && (
-          <DashboardTile def={activitiesTile} rows={data.activities} ctx={ctx} orgUrl={orgUrl} fullWidth />
+          <DashboardTile def={activitiesTile} rows={data.activities} ctx={ctx} orgUrl={orgUrl} appId={recordLinkAppId} fullWidth />
         )}
         {activeTile === 'leads' && (
-          <DashboardTile def={leadsTile} rows={data.leads} ctx={ctx} orgUrl={orgUrl} fullWidth />
+          <DashboardTile def={leadsTile} rows={data.leads} ctx={ctx} orgUrl={orgUrl} appId={recordLinkAppId} fullWidth />
         )}
         {activeTile === 'opportunities' && (
-          <DashboardTile def={opportunitiesTile} rows={data.opportunities} ctx={ctx} orgUrl={orgUrl} fullWidth />
+          <DashboardTile def={opportunitiesTile} rows={data.opportunities} ctx={ctx} orgUrl={orgUrl} appId={recordLinkAppId} fullWidth />
         )}
         {activeTile === 'projects' && (
-          <DashboardTile def={projectsTile} rows={data.projects} ctx={ctx} orgUrl={orgUrl} fullWidth />
+          <DashboardTile def={projectsTile} rows={data.projects} ctx={ctx} orgUrl={orgUrl} appId={recordLinkAppId} fullWidth />
         )}
         {activeTile === 'quotes' && (
-          <DashboardTile def={quotesTile} rows={data.quotes} ctx={ctx} orgUrl={orgUrl} fullWidth />
+          <DashboardTile def={quotesTile} rows={data.quotes} ctx={ctx} orgUrl={orgUrl} appId={recordLinkAppId} fullWidth />
         )}
         {activeTile === 'orders' && (
-          <DashboardTile def={ordersTile} rows={data.orders} ctx={ctx} orgUrl={orgUrl} fullWidth />
+          <DashboardTile def={ordersTile} rows={data.orders} ctx={ctx} orgUrl={orgUrl} appId={recordLinkAppId} fullWidth />
         )}
         </main>
         {loading && <LoadingOverlay progress={progress} />}

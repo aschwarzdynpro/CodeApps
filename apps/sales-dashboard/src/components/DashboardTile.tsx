@@ -6,7 +6,6 @@ import {
   type ChartCategory,
   type ChartSelection,
 } from '../utils/aggregate'
-import { RECORD_LINK_APP_ID } from '../config'
 import { DataGrid } from './DataGrid'
 import { RecordModal } from './RecordModal'
 import { ColumnChooser } from './ColumnChooser'
@@ -27,6 +26,8 @@ interface DashboardTileProps<T> {
   ctx: ViewContext
   /** Dataverse-Org-URL für Datensatz-Deep-Links (nur bei Live-Daten gesetzt). */
   orgUrl?: string
+  /** Sales-Hub-App-ID der Umgebung (appid im Deep-Link); leer → ohne appid. */
+  appId?: string
   /** Große Einzelansicht: Diagramm und Tabelle nebeneinander, höheres Grid. */
   fullWidth?: boolean
 }
@@ -34,7 +35,7 @@ interface DashboardTileProps<T> {
 const GUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: DashboardTileProps<T>) {
+export function DashboardTile<T>({ def, rows, ctx, orgUrl, appId, fullWidth }: DashboardTileProps<T>) {
   const [viewId, setViewId] = useState(def.views[0].id)
   const [chartId, setChartId] = useState(def.charts[0].id)
   const [search, setSearch] = useState('')
@@ -140,14 +141,14 @@ export function DashboardTile<T>({ def, rows, ctx, orgUrl, fullWidth }: Dashboar
   const recordHref = useMemo(() => {
     if (!orgUrl) return undefined
     const base = orgUrl.replace(/\/+$/, '')
-    const appParam = RECORD_LINK_APP_ID ? `appid=${RECORD_LINK_APP_ID}&` : ''
+    const appParam = appId ? `appid=${appId}&` : ''
     return (row: T): string | undefined => {
       const id = def.rowId(row)
       if (!GUID_RE.test(id)) return undefined
       const entity = def.recordEntity?.(row) ?? def.entityLogicalName
       return `${base}/main.aspx?${appParam}pagetype=entityrecord&etn=${entity}&id=${id}`
     }
-  }, [orgUrl, def])
+  }, [orgUrl, appId, def])
 
   const chartEmpty = chartData.categories.length === 0
 

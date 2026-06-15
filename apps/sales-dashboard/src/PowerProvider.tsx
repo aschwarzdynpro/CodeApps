@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from 'react'
 import { getContext } from '@microsoft/power-apps/app'
-import { FALLBACK_DATAVERSE_ORG_URL } from './config'
+import { environmentConfig } from './config'
 
 /**
  * PowerProvider detects whether the app is running inside a Power Apps host
@@ -26,8 +26,12 @@ export type PowerMode = 'power-platform' | 'local-mock'
 interface PowerContextValue {
   ready: boolean
   mode: PowerMode
+  /** Environment-ID der laufenden Umgebung. */
+  environmentId?: string
   /** Dataverse-Org-URL der Umgebung — Basis für Datensatz-Deep-Links. */
   orgUrl?: string
+  /** Sales-Hub-App-ID der Umgebung (appid im Deep-Link), sofern hinterlegt. */
+  recordLinkAppId?: string
 }
 
 const PowerContext = createContext<PowerContextValue>({
@@ -61,36 +65,46 @@ export function PowerProvider({ children }: { children: ReactNode }) {
 
     const init = async () => {
       let mode: PowerMode = 'local-mock'
+      let environmentId: string | undefined
       let orgUrl: string | undefined
+      let recordLinkAppId: string | undefined
       try {
         // Inside a Power Apps host, getContext() resolves quickly via the
         // PostMessage bridge to the parent iframe. Standalone there is no
         // parent listener, so the call hangs — cap it with a 1.5s race.
         const ctx = await Promise.race<
-          | { app?: { appId?: string; dataverseOrgUrl?: string } }
+          | { app?: { appId?: string; environmentId?: string; dataverseOrgUrl?: string } }
           | null
         >([
           getContext(),
           new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
         ])
         if (ctx?.app?.appId) mode = 'power-platform'
-        // dataverseOrgUrl ist laut SDK optional — nicht jeder Host befüllt
-        // es schon. Im Power-Apps-Host auf die konfigurierte URL zurückfallen,
-        // damit die Datensatz-Deep-Links der Listen funktionieren.
-        orgUrl =
-          ctx?.app?.dataverseOrgUrl ??
-          (mode === 'power-platform' ? FALLBACK_DATAVERSE_ORG_URL : undefined)
+        environmentId = ctx?.app?.environmentId
+
         if (mode === 'power-platform') {
+          const envCfg = environmentConfig(environmentId)
+          // dataverseOrgUrl ist laut SDK optional — passt aber, wenn gesetzt,
+          // automatisch zur laufenden Umgebung. Sonst Fallback aus dem
+          // Environment-Mapping (config.ts). Die Sales-Hub-App-ID kommt immer
+          // aus dem Mapping (der Kontext liefert sie nicht).
+          orgUrl = ctx?.app?.dataverseOrgUrl ?? envCfg?.orgUrl
+          recordLinkAppId = envCfg?.salesHubAppId
           console.info(
-            `[sales] Org-URL für Deep-Links: ${orgUrl} (${ctx?.app?.dataverseOrgUrl ? 'aus App-Kontext' : 'Fallback aus config.ts'})`,
+            `[sales] Umgebung ${environmentId ?? '?'} (${envCfg?.label ?? 'kein Mapping'}) — ` +
+              `Org-URL: ${orgUrl ?? '—'} (${ctx?.app?.dataverseOrgUrl ? 'App-Kontext' : 'Mapping'}), ` +
+              `Sales-Hub-AppId: ${recordLinkAppId ?? '—'}`,
           )
+          if (!orgUrl) {
+            console.warn('[sales] Keine Org-URL — Datensatz-Deep-Links sind deaktiviert.')
+          }
         }
       } catch {
         // Bridge threw — treat as standalone, use mock.
       }
       // Resolve regardless of cancellation so any pending service calls unblock.
       resolveMode(mode)
-      if (!cancelled) setState({ ready: true, mode, orgUrl })
+      if (!cancelled) setState({ ready: true, mode, environmentId, orgUrl, recordLinkAppId })
     }
 
     void init()
