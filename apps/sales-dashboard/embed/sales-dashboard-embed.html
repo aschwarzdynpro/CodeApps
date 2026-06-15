@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Sales Dashboard</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #fff;
+      font-family: 'Segoe UI', system-ui, sans-serif; }
+    #frame { border: 0; width: 100%; height: 100%; display: none; }
+    #msg { padding: 16px; color: #5d6b7e; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div id="msg">Sales Dashboard wird geladen…</div>
+  <iframe id="frame" title="Sales Dashboard" allow="clipboard-write"></iframe>
+  <script>
+    /*
+     * Sitemap-Web-Resource: bettet die Sales-Dashboard-Code-App per iframe ein.
+     * Die Play-URL je Umgebung steht in der Environment-Variable unten (per
+     * Pipeline-Deployment-Settings je Env befüllt). In einer Sitemap-Web-
+     * Resource ist Xrm/parent.Xrm nicht verfügbar — die URL wird daher über die
+     * Web-API (relativer, same-origin Aufruf, Cookie-Auth) gelesen.
+     */
+    (function () {
+      var SCHEMA_NAME = 'wal_SalesDashboardUrl'; // Environment-Variable (anpassen)
+      var api = '/api/data/v9.2/environmentvariabledefinitions'
+        + '?$select=defaultvalue,schemaname'
+        + "&$filter=schemaname eq '" + SCHEMA_NAME + "'"
+        + '&$expand=environmentvariabledefinition_environmentvariablevalue($select=value)';
+
+      fetch(api, {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json', 'OData-MaxVersion': '4.0', 'OData-Version': '4.0' }
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var def = data && data.value && data.value[0];
+          var values = def && def.environmentvariabledefinition_environmentvariablevalue;
+          var url = (values && values[0] && values[0].value) || (def && def.defaultvalue);
+          if (!url) throw new Error("Environment-Variable '" + SCHEMA_NAME + "' ist nicht gesetzt.");
+          var frame = document.getElementById('frame');
+          frame.src = url;
+          frame.style.display = 'block';
+          document.getElementById('msg').style.display = 'none';
+        })
+        .catch(function (err) {
+          document.getElementById('msg').textContent =
+            'Sales Dashboard konnte nicht geladen werden: ' + (err && err.message ? err.message : err);
+        });
+    })();
+  </script>
+</body>
+</html>
