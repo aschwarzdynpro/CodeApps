@@ -12,7 +12,12 @@ interface Props {
   /** Release solution + target env from the shared Validate selector. */
   solution: WorkingSolution
   envKey: 'uat' | 'prod'
+  onEnvChange: (envKey: 'uat' | 'prod') => void
 }
+
+const targetEnvs = ENVIRONMENTS.filter(
+  (e) => e.key === 'uat' || e.key === 'prod',
+)
 
 /**
  * Dependency check for a release solution: RetrieveMissingDependencies
@@ -20,7 +25,7 @@ interface Props {
  * checked for presence in the selected target environment. Missing ones
  * can be pulled into the solution directly.
  */
-export function DependencyCheck({ solution, envKey }: Props) {
+export function DependencyCheck({ solution, envKey, onEnvChange }: Props) {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState('')
   const [result, setResult] = useState<DependencyCheckResult | null>(null)
@@ -124,6 +129,17 @@ export function DependencyCheck({ solution, envKey }: Props) {
   return (
     <div>
       <div className="validate-toolbar">
+        <div className="chips" title="Target environment for the check">
+          {targetEnvs.map((env) => (
+            <button
+              key={env.key}
+              className={`chip ${envKey === env.key ? 'chip--active' : ''}`}
+              onClick={() => onEnvChange(env.key as 'uat' | 'prod')}
+            >
+              {env.label}
+            </button>
+          ))}
+        </div>
         <button
           className="btn btn--primary"
           disabled={running}

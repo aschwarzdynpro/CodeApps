@@ -1070,18 +1070,14 @@
   margin-bottom: 16px;
 }
 
-/* Command bar — a toolbar row of clearly-bordered action buttons (labelled,
-   icon + text). The spacer separates the "open externally" command on the
-   left from the item actions on the right. */
+/* Command bar — a left-packed toolbar row of clearly-bordered action buttons
+   (icon + short label); wraps when the pane is narrow. */
 .command-bar {
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 12px 0;
   flex-wrap: wrap;
-}
-.command-bar-spacer {
-  flex: 1;
 }
 .command-bar-item {
   display: inline-flex;

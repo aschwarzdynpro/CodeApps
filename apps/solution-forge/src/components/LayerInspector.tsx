@@ -19,7 +19,12 @@ interface Props {
   /** Release solution + target env from the shared Validate selector. */
   solution: WorkingSolution
   envKey: 'uat' | 'prod'
+  onEnvChange: (envKey: 'uat' | 'prod') => void
 }
+
+const TARGET_ENVS = ENVIRONMENTS.filter(
+  (e) => e.key === 'uat' || e.key === 'prod',
+)
 
 /** Component types whose definition can be diffed (workflow table / scripts). */
 const DIFFABLE_TYPES: Record<number, AlmComponentRef['kind']> = {
@@ -59,7 +64,7 @@ const matchesFilter = (verdict: LayerVerdict, filter: LayerFilter) =>
  * masked) and components missing in the target. Sections appear per
  * component type as they finish; diffable types offer a DEV-vs-target diff.
  */
-export function LayerInspector({ solution, envKey }: Props) {
+export function LayerInspector({ solution, envKey, onEnvChange }: Props) {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState<[number, number] | null>(null)
   const [sections, setSections] = useState<LayerSection[]>([])
@@ -266,6 +271,17 @@ export function LayerInspector({ solution, envKey }: Props) {
   return (
     <div>
       <div className="validate-toolbar">
+        <div className="chips" title="Target environment for the inspection">
+          {TARGET_ENVS.map((env) => (
+            <button
+              key={env.key}
+              className={`chip ${envKey === env.key ? 'chip--active' : ''}`}
+              onClick={() => onEnvChange(env.key as 'uat' | 'prod')}
+            >
+              {env.label}
+            </button>
+          ))}
+        </div>
         <button
           className="btn btn--primary"
           disabled={running}

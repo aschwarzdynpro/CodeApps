@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
-import { ENVIRONMENTS } from '../config'
 import { SolutionSelect } from './SolutionSelect'
 import { CompareWorkbench } from './CompareWorkbench'
 import { DependencyCheck } from './DependencyCheck'
@@ -14,19 +13,13 @@ interface Props {
   solutions: WorkingSolution[]
 }
 
-const targetEnvs = ENVIRONMENTS.filter(
-  (e) => e.key === 'uat' || e.key === 'prod',
-)
-
-/** Checks that target a single environment (UAT/PROD) — they show the toggle. */
-const ENV_TABS = new Set<ValidateTab>(['dependencies', 'layers'])
-
 /**
- * Shared selection for the Validate checks: one release-solution picker (plus
- * a target-env toggle for Dependencies / Layers) feeds whichever check is
- * active, so the selection stays put while switching between the tools. Each
- * check still runs on demand and keeps its own results; changing the selection
- * remounts the active check (via the key) so stale results clear.
+ * Shared selection for the Validate checks: one release-solution picker feeds
+ * whichever check is active, so the selection stays put while switching
+ * between the tools. The target-env toggle (Dependencies / Layers) lives in
+ * each check's own toolbar but is backed by the shared envKey here, so it's
+ * consistent across the two. Changing the solution or env remounts the active
+ * check (via the key) so stale results clear; each check runs on demand.
  */
 export function ValidateWorkspace({ tab, solutions }: Props) {
   const releases = solutions.filter(
@@ -39,7 +32,6 @@ export function ValidateWorkspace({ tab, solutions }: Props) {
   const [envKey, setEnvKey] = useState<'uat' | 'prod'>('uat')
 
   const solution = releases.find((s) => s.id === solutionId) ?? null
-  const usesEnv = ENV_TABS.has(tab)
   const selKey = `${solutionId}|${envKey}`
 
   return (
@@ -54,19 +46,6 @@ export function ValidateWorkspace({ tab, solutions }: Props) {
             placeholder="Select a release solution"
           />
         </div>
-        {usesEnv && (
-          <div className="chips" title="Target environment for this check">
-            {targetEnvs.map((env) => (
-              <button
-                key={env.key}
-                className={`chip ${envKey === env.key ? 'chip--active' : ''}`}
-                onClick={() => setEnvKey(env.key as 'uat' | 'prod')}
-              >
-                {env.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {!solution ? (
@@ -78,9 +57,19 @@ export function ValidateWorkspace({ tab, solutions }: Props) {
       ) : tab === 'compare' ? (
         <CompareWorkbench key={selKey} solution={solution} />
       ) : tab === 'dependencies' ? (
-        <DependencyCheck key={selKey} solution={solution} envKey={envKey} />
+        <DependencyCheck
+          key={selKey}
+          solution={solution}
+          envKey={envKey}
+          onEnvChange={setEnvKey}
+        />
       ) : tab === 'layers' ? (
-        <LayerInspector key={selKey} solution={solution} envKey={envKey} />
+        <LayerInspector
+          key={selKey}
+          solution={solution}
+          envKey={envKey}
+          onEnvChange={setEnvKey}
+        />
       ) : (
         <AppSharing key={selKey} solution={solution} />
       )}

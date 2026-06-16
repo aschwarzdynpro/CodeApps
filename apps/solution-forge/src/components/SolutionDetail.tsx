@@ -351,7 +351,7 @@ export function SolutionDetail({
             className="command-bar-item command-bar-item--disabled"
             title="No Dataverse solution matches this record's unique solution name."
           >
-            <span className="cmd-icon">↗</span> Open in Maker Portal
+            <span className="cmd-icon">↗</span> Maker Portal
           </span>
         ) : (
           <a
@@ -359,11 +359,11 @@ export function SolutionDetail({
             href={makerSolutionUrl(environmentId, solution.id)}
             target="_blank"
             rel="noreferrer"
+            title="Open this solution in the maker portal"
           >
-            <span className="cmd-icon">↗</span> Open in Maker Portal
+            <span className="cmd-icon">↗</span> Maker Portal
           </a>
         )}
-        <span className="command-bar-spacer" />
         {solution.recordId && isOpenStatus(solution) && (
           <button
             className={`command-bar-item ${
@@ -376,7 +376,7 @@ export function SolutionDetail({
             }
             onClick={() => onComplete(solution)}
           >
-            <span className="cmd-icon">✓</span> Mark completed
+            <span className="cmd-icon">✓</span> Complete
           </button>
         )}
         <button

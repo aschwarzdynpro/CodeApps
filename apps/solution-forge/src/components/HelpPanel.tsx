@@ -221,9 +221,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 to your user) — without it they appear locked.
               </li>
               <li>
-                In <strong>Validate</strong>, pick the release solution (and, for
-                Dependencies / Layers, the target environment) once at the top —
-                the selection stays put as you switch between the four checks.
+                In <strong>Validate</strong>, pick the release solution once at
+                the top; each check has its own row below it (target-env toggle
+                for Dependencies / Layers, environment status for Compare / App
+                Sharing) plus its run button. The selection stays put as you
+                switch between the four checks.
               </li>
               <li>
                 Only <strong>tracked</strong> feature / bug solutions can be
