@@ -8,10 +8,7 @@ import { SolutionList } from './components/SolutionList'
 import { SolutionDetail } from './components/SolutionDetail'
 import { CreateSolutionDialog } from './components/CreateSolutionDialog'
 import { MergeWorkbench } from './components/MergeWorkbench'
-import { CompareWorkbench } from './components/CompareWorkbench'
-import { DependencyCheck } from './components/DependencyCheck'
-import { LayerInspector } from './components/LayerInspector'
-import { AppSharing } from './components/AppSharing'
+import { ValidateWorkspace } from './components/ValidateWorkspace'
 // ALM Detective is temporarily hidden from the UI — component + service
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
 import { HelpPanel } from './components/HelpPanel'
@@ -869,21 +866,15 @@ function App() {
         <MergeWorkbench solutions={allSolutions} onMerged={handleMerged} />
       )}
 
-      {!loading && !error && tab === 'compare' && isDeploymentManager && (
-        <CompareWorkbench solutions={allSolutions} />
-      )}
-
-      {!loading && !error && tab === 'dependencies' && isDeploymentManager && (
-        <DependencyCheck solutions={allSolutions} />
-      )}
-
-      {!loading && !error && tab === 'layers' && isDeploymentManager && (
-        <LayerInspector solutions={allSolutions} />
-      )}
-
-      {!loading && !error && tab === 'sharing' && isDeploymentManager && (
-        <AppSharing solutions={allSolutions} />
-      )}
+      {!loading &&
+        !error &&
+        (tab === 'compare' ||
+          tab === 'dependencies' ||
+          tab === 'layers' ||
+          tab === 'sharing') &&
+        isDeploymentManager && (
+          <ValidateWorkspace tab={tab} solutions={allSolutions} />
+        )}
         </main>
       </div>
 

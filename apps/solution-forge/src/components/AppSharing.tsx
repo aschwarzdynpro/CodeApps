@@ -10,10 +10,10 @@ import {
 } from '../types/sharing'
 import { ENVIRONMENTS, makerCanvasAppUrl } from '../config'
 import { sharingService } from '../services/sharingService'
-import { SolutionSelect } from './SolutionSelect'
 
 interface Props {
-  solutions: WorkingSolution[]
+  /** The release solution chosen in the shared Validate selector. */
+  solution: WorkingSolution
 }
 
 const KIND_ORDER: CanvasAppKind[] = ['canvas', 'custompage']
@@ -27,27 +27,14 @@ const GAP_ENVS: EnvKey[] = ['uat', 'prod']
  * import never carries user sharing, a canvas app can land in UAT/PROD and
  * reach nobody — those gaps are called out.
  */
-export function AppSharing({ solutions }: Props) {
-  // Only release solutions — those are what gets deployed to UAT/PROD, so
-  // their canvas apps' sharing in the targets is what matters here.
-  const candidates = solutions.filter(
-    (s, index) =>
-      s.kind === 'deployment' &&
-      !s.solutionMissing &&
-      solutions.findIndex((o) => o.id === s.id) === index,
-  )
-
-  const [solutionId, setSolutionId] = useState('')
+export function AppSharing({ solution }: Props) {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState('')
   const [result, setResult] = useState<AppSharingResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
 
-  const solution = candidates.find((s) => s.id === solutionId) ?? null
-
   const run = async () => {
-    if (!solution) return
     setRunning(true)
     setResult(null)
     setError(null)
@@ -104,20 +91,7 @@ export function AppSharing({ solutions }: Props) {
 
   return (
     <div>
-      <div className="card compare-controls">
-        <div className="compare-picker">
-          <span className="form-label">Release solution</span>
-          <SolutionSelect
-            options={candidates}
-            value={solutionId}
-            onChange={(id) => {
-              setSolutionId(id)
-              setResult(null)
-              setError(null)
-            }}
-            placeholder="Select a release solution"
-          />
-        </div>
+      <div className="validate-toolbar">
         <div className="compare-envs">
           {ENVIRONMENTS.map((env) => (
             <span
@@ -128,14 +102,14 @@ export function AppSharing({ solutions }: Props) {
               {env.label}
             </span>
           ))}
-          <button
-            className="btn btn--primary"
-            disabled={!solution || running}
-            onClick={() => void run()}
-          >
-            {running ? 'Checking…' : 'Check Sharing'}
-          </button>
         </div>
+        <button
+          className="btn btn--primary"
+          disabled={running}
+          onClick={() => void run()}
+        >
+          {running ? 'Checking…' : 'Check Sharing'}
+        </button>
       </div>
 
       {running && (
@@ -260,10 +234,10 @@ export function AppSharing({ solutions }: Props) {
 
       {!running && !result && !error && (
         <div className="state">
-          Pick a solution — its canvas apps and custom pages are checked for
-          who they're shared with in DEV, UAT and PROD. Solution import never
-          carries sharing, so this reveals apps that are deployed but reach no
-          users yet.
+          Click <strong>Check Sharing</strong> — {solution.title}'s canvas apps
+          and custom pages are checked for who they're shared with in DEV, UAT
+          and PROD. Solution import never carries sharing, so this reveals apps
+          that are deployed but reach no users yet.
         </div>
       )}
     </div>

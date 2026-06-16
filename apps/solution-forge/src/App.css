@@ -1060,6 +1060,16 @@
   margin: 12px 0;
   line-height: 1.5;
 }
+/* Slim action row for a Validate check (run button + env-status chips); the
+   solution/env selection lives in the shared bar above it. */
+.validate-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
 /* Command bar — a toolbar row of clearly-bordered action buttons (labelled,
    icon + text). The spacer separates the "open externally" command on the
    left from the item actions on the right. */

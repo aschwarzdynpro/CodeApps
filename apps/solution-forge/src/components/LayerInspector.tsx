@@ -13,11 +13,12 @@ import {
   makerSolutionUrl,
 } from '../config'
 import { solutionService } from '../services/solutionService'
-import { SolutionSelect } from './SolutionSelect'
 import { ContentDiffModal } from './ContentDiffModal'
 
 interface Props {
-  solutions: WorkingSolution[]
+  /** Release solution + target env from the shared Validate selector. */
+  solution: WorkingSolution
+  envKey: 'uat' | 'prod'
 }
 
 /** Component types whose definition can be diffed (workflow table / scripts). */
@@ -58,20 +59,7 @@ const matchesFilter = (verdict: LayerVerdict, filter: LayerFilter) =>
  * masked) and components missing in the target. Sections appear per
  * component type as they finish; diffable types offer a DEV-vs-target diff.
  */
-export function LayerInspector({ solutions }: Props) {
-  // Release solutions only (consistent with the other ALM tabs).
-  const candidates = solutions.filter(
-    (s, index) =>
-      s.kind === 'deployment' &&
-      !s.solutionMissing &&
-      solutions.findIndex((o) => o.id === s.id) === index,
-  )
-  const targetEnvs = ENVIRONMENTS.filter(
-    (e) => e.key === 'uat' || e.key === 'prod',
-  )
-
-  const [solutionId, setSolutionId] = useState('')
-  const [envKey, setEnvKey] = useState<'uat' | 'prod'>('uat')
+export function LayerInspector({ solution, envKey }: Props) {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState<[number, number] | null>(null)
   const [sections, setSections] = useState<LayerSection[]>([])
@@ -91,12 +79,10 @@ export function LayerInspector({ solutions }: Props) {
   // for the precise solution-layers deep links; resolved per run.
   const [targetSolutionId, setTargetSolutionId] = useState<string | null>(null)
 
-  const solution = candidates.find((s) => s.id === solutionId) ?? null
-  const targetEnv = targetEnvs.find((e) => e.key === envKey)
+  const targetEnv = ENVIRONMENTS.find((e) => e.key === envKey)
   const envLabel = targetEnv?.label ?? envKey.toUpperCase()
 
   const run = async () => {
-    if (!solution) return
     setRunning(true)
     setSections([])
     setWarnings([])
@@ -279,43 +265,14 @@ export function LayerInspector({ solutions }: Props) {
 
   return (
     <div>
-      <div className="card compare-controls">
-        <div className="compare-picker">
-          <span className="form-label">Release solution</span>
-          <SolutionSelect
-            options={candidates}
-            value={solutionId}
-            onChange={(id) => {
-              setSolutionId(id)
-              setSections([])
-              setRan(false)
-              setError(null)
-              setLayerFilter(null)
-              setTargetSolutionId(null)
-            }}
-            placeholder="Select a release solution"
-          />
-        </div>
-        <div className="dep-controls">
-          <div className="chips">
-            {targetEnvs.map((env) => (
-              <button
-                key={env.key}
-                className={`chip ${envKey === env.key ? 'chip--active' : ''}`}
-                onClick={() => setEnvKey(env.key as 'uat' | 'prod')}
-              >
-                {env.label}
-              </button>
-            ))}
-          </div>
-          <button
-            className="btn btn--primary"
-            disabled={!solution || running}
-            onClick={() => void run()}
-          >
-            {running ? 'Inspecting…' : 'Inspect Layers'}
-          </button>
-        </div>
+      <div className="validate-toolbar">
+        <button
+          className="btn btn--primary"
+          disabled={running}
+          onClick={() => void run()}
+        >
+          {running ? 'Inspecting…' : 'Inspect Layers'}
+        </button>
       </div>
 
       {running && (
@@ -444,11 +401,12 @@ export function LayerInspector({ solutions }: Props) {
 
       {!ran && !error && (
         <div className="state">
-          Pick a release solution and a target environment — each component's
-          solution layers are resolved there; sections appear per component
-          type as they finish. Unmanaged "Active" layers over managed
-          components are flagged, and diffable types (flows, workflows,
-          business rules, scripts) offer a DEV-vs-target diff.
+          Click <strong>Inspect Layers</strong> — each component of{' '}
+          {solution.title} has its solution layers resolved in {envLabel};
+          sections appear per component type as they finish. Unmanaged "Active"
+          layers over managed components are flagged, and diffable types
+          (flows, workflows, business rules, scripts) offer a DEV-vs-target
+          diff.
         </div>
       )}
 

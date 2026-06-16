@@ -6,11 +6,12 @@ import type {
 } from '../types/dependency'
 import { ENVIRONMENTS } from '../config'
 import { solutionService } from '../services/solutionService'
-import { SolutionSelect } from './SolutionSelect'
 import { shortGuid } from '../utils/format'
 
 interface Props {
-  solutions: WorkingSolution[]
+  /** Release solution + target env from the shared Validate selector. */
+  solution: WorkingSolution
+  envKey: 'uat' | 'prod'
 }
 
 /**
@@ -19,16 +20,7 @@ interface Props {
  * checked for presence in the selected target environment. Missing ones
  * can be pulled into the solution directly.
  */
-export function DependencyCheck({ solutions }: Props) {
-  const releases = solutions.filter(
-    (s) => s.kind === 'deployment' && !s.solutionMissing && s.recordId,
-  )
-  const targetEnvs = ENVIRONMENTS.filter(
-    (e) => e.key === 'uat' || e.key === 'prod',
-  )
-
-  const [solutionId, setSolutionId] = useState('')
-  const [envKey, setEnvKey] = useState<'uat' | 'prod'>('uat')
+export function DependencyCheck({ solution, envKey }: Props) {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState('')
   const [result, setResult] = useState<DependencyCheckResult | null>(null)
@@ -38,10 +30,7 @@ export function DependencyCheck({ solutions }: Props) {
   const [addError, setAddError] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
-  const solution = releases.find((s) => s.id === solutionId) ?? null
-
   const run = async () => {
-    if (!solution) return
     setRunning(true)
     setResult(null)
     setError(null)
@@ -63,7 +52,6 @@ export function DependencyCheck({ solutions }: Props) {
   }
 
   const addToSolution = async (item: DependencyItem) => {
-    if (!solution) return
     setAddBusyId(item.requiredObjectId)
     setAddError(null)
     try {
@@ -81,7 +69,7 @@ export function DependencyCheck({ solutions }: Props) {
   }
 
   const envLabel =
-    targetEnvs.find((e) => e.key === envKey)?.label ?? envKey.toUpperCase()
+    ENVIRONMENTS.find((e) => e.key === envKey)?.label ?? envKey.toUpperCase()
   const missing = result?.items.filter((i) => i.targetStatus === 'missing') ?? []
   const others = result?.items.filter((i) => i.targetStatus !== 'missing') ?? []
 
@@ -135,40 +123,14 @@ export function DependencyCheck({ solutions }: Props) {
 
   return (
     <div>
-      <div className="card compare-controls">
-        <div className="compare-picker">
-          <span className="form-label">Release solution</span>
-          <SolutionSelect
-            options={releases}
-            value={solutionId}
-            onChange={(id) => {
-              setSolutionId(id)
-              setResult(null)
-              setError(null)
-            }}
-            placeholder="Select a release solution"
-          />
-        </div>
-        <div className="dep-controls">
-          <div className="chips">
-            {targetEnvs.map((env) => (
-              <button
-                key={env.key}
-                className={`chip ${envKey === env.key ? 'chip--active' : ''}`}
-                onClick={() => setEnvKey(env.key as 'uat' | 'prod')}
-              >
-                {env.label}
-              </button>
-            ))}
-          </div>
-          <button
-            className="btn btn--primary"
-            disabled={!solution || running}
-            onClick={() => void run()}
-          >
-            {running ? `Checking… ${progress}` : 'Dependency Check'}
-          </button>
-        </div>
+      <div className="validate-toolbar">
+        <button
+          className="btn btn--primary"
+          disabled={running}
+          onClick={() => void run()}
+        >
+          {running ? `Checking… ${progress}` : 'Dependency Check'}
+        </button>
       </div>
 
       {error && <div className="state state--error">{error}</div>}
@@ -247,9 +209,9 @@ export function DependencyCheck({ solutions }: Props) {
 
       {!running && !result && !error && (
         <div className="state">
-          Pick a release solution and a target environment — the check lists
-          required components the solution doesn't contain and whether they
-          exist in the target.
+          Click <strong>Dependency Check</strong> — required components{' '}
+          {solution.title} doesn't contain are listed and checked for presence
+          in {envLabel}.
         </div>
       )}
     </div>

@@ -11,10 +11,10 @@ import {
 import { ENVIRONMENTS } from '../config'
 import { comparisonService } from '../services/comparisonService'
 import { formatRelative } from '../utils/format'
-import { SolutionSelect } from './SolutionSelect'
 
 interface Props {
-  solutions: WorkingSolution[]
+  /** The release solution chosen in the shared Validate selector. */
+  solution: WorkingSolution
 }
 
 // Rich ALM type names lead the group order.
@@ -38,18 +38,7 @@ const AUTO_EXPAND_LIMIT = 12
  * DEV / UAT / PROD. Compare reports presence (missing) and status drift;
  * unmanaged layers and content diffs live in the Layer Inspector.
  */
-export function CompareWorkbench({ solutions: allSolutions }: Props) {
-  // Release solutions only (consistent with the other ALM tabs); several
-  // working-solution records pointing at the same solution collapse to one.
-  const solutions = allSolutions.filter(
-    (s, index) =>
-      s.kind === 'deployment' &&
-      !s.solutionMissing &&
-      allSolutions.findIndex((o) => o.id === s.id) === index,
-  )
-  // Nothing preselected — the user picks a release solution and clicks
-  // Compare.
-  const [solutionId, setSolutionId] = useState<string>('')
+export function CompareWorkbench({ solution }: Props) {
   const [result, setResult] = useState<ComparisonResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
@@ -65,13 +54,12 @@ export function CompareWorkbench({ solutions: allSolutions }: Props) {
   const cache = useRef(new Map<string, ComparisonResult>())
   const request = useRef(0)
 
-  const run = (id: string, force = false) => {
-    setSolutionId(id)
+  const run = (force = false) => {
     setResult(null)
     setError(null)
     setDeviationFilter(null)
     setGroupOverrides({})
-    if (!id) return
+    const id = solution.id
     if (!force) {
       const cached = cache.current.get(id)
       if (cached) {
@@ -154,26 +142,9 @@ export function CompareWorkbench({ solutions: allSolutions }: Props) {
       [typeName]: !isExpanded(typeName, count),
     }))
 
-  const selectedSolution = solutions.find((s) => s.id === solutionId)
-
   return (
     <div>
-      <div className="card compare-controls">
-        <div className="compare-picker">
-          <span className="form-label">Release solution</span>
-          <SolutionSelect
-            options={solutions}
-            value={solutionId}
-            onChange={(id) => {
-              setSolutionId(id)
-              setResult(null)
-              setError(null)
-              setDeviationFilter(null)
-              setGroupOverrides({})
-            }}
-            placeholder="Select a release solution"
-          />
-        </div>
+      <div className="validate-toolbar">
         <div className="compare-envs">
           {ENVIRONMENTS.map((env) => (
             <span
@@ -184,23 +155,20 @@ export function CompareWorkbench({ solutions: allSolutions }: Props) {
               {env.label}
             </span>
           ))}
-          {result && !loading ? (
-            <button
-              className="btn btn--small"
-              onClick={() => run(solutionId, true)}
-            >
-              Refresh
-            </button>
-          ) : (
-            <button
-              className="btn btn--primary"
-              disabled={!selectedSolution || loading}
-              onClick={() => run(solutionId)}
-            >
-              Compare
-            </button>
-          )}
         </div>
+        {result && !loading ? (
+          <button className="btn btn--small" onClick={() => run(true)}>
+            Refresh
+          </button>
+        ) : (
+          <button
+            className="btn btn--primary"
+            disabled={loading}
+            onClick={() => run()}
+          >
+            Compare
+          </button>
+        )}
       </div>
 
       {loading && <div className="state">Comparing… {progress}</div>}
@@ -320,9 +288,9 @@ export function CompareWorkbench({ solutions: allSolutions }: Props) {
 
       {!loading && !result && !error && (
         <div className="state">
-          Select a release solution — its cloud flows, workflows, business
-          rules, plugin steps and scripts are compared across DEV, UAT and
-          PROD for presence (missing) and status drift.
+          Click <strong>Compare</strong> — {solution.title}'s cloud flows,
+          workflows, business rules, plugin steps and scripts are compared
+          across DEV, UAT and PROD for presence (missing) and status drift.
         </div>
       )}
     </div>
