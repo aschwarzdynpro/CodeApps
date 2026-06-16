@@ -36,6 +36,16 @@ const VERDICT_BADGE: Record<LayerVerdict, { label: string; cls: string }> = {
 /** Verdicts that count as an actionable issue (drive default-expand). */
 const ISSUE_VERDICTS = new Set<LayerVerdict>(['overridden', 'unmanagedOnly', 'absent'])
 
+/** Filter chips above the result list: missing vs. unmanaged layers. */
+type LayerFilter = 'missing' | 'unmanaged' | null
+
+/** Verdicts that have an unmanaged "Active" layer (over managed or alone). */
+const UNMANAGED_VERDICTS = new Set<LayerVerdict>(['overridden', 'unmanagedOnly'])
+
+const matchesFilter = (verdict: LayerVerdict, filter: LayerFilter) =>
+  filter === null ||
+  (filter === 'missing' ? verdict === 'absent' : UNMANAGED_VERDICTS.has(verdict))
+
 /**
  * Layer inspector: for every component of a solution, the
  * msdyn_componentlayer stack in the chosen target environment. Flags
@@ -63,6 +73,8 @@ export function LayerInspector({ solutions }: Props) {
   const [warnings, setWarnings] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [ran, setRan] = useState(false)
+  // Filter the result list to one finding category (chips above the list).
+  const [layerFilter, setLayerFilter] = useState<LayerFilter>(null)
   const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>(
     {},
   )
@@ -70,6 +82,15 @@ export function LayerInspector({ solutions }: Props) {
     ref: AlmComponentRef
     envs: EnvKey[]
   } | null>(null)
+  // Active-layer removal: the row awaiting confirmation, the set of object
+  // ids currently being removed, and a per-component outcome note.
+  const [removeTarget, setRemoveTarget] = useState<ComponentLayerStack | null>(
+    null,
+  )
+  const [removing, setRemoving] = useState<Set<string>>(new Set())
+  const [removeNotes, setRemoveNotes] = useState<
+    Record<string, { ok: boolean; message: string }>
+  >({})
 
   const solution = candidates.find((s) => s.id === solutionId) ?? null
   const envLabel =
@@ -83,6 +104,8 @@ export function LayerInspector({ solutions }: Props) {
     setError(null)
     setProgress(null)
     setGroupOverrides({})
+    setLayerFilter(null)
+    setRemoveNotes({})
     setRan(true)
     try {
       const res = await solutionService.inspectLayers(
@@ -113,9 +136,26 @@ export function LayerInspector({ solutions }: Props) {
     return c
   }, [sections])
 
+  const missingCount = counts.absent
+  const unmanagedCount = counts.overridden + counts.unmanagedOnly
+
+  // Sections restricted to the active filter; sections with no matching
+  // component drop out entirely.
+  const visibleSections = useMemo(
+    () =>
+      sections
+        .map((s) => ({
+          ...s,
+          stacks: s.stacks.filter((st) => matchesFilter(st.verdict, layerFilter)),
+        }))
+        .filter((s) => s.stacks.length > 0),
+    [sections, layerFilter],
+  )
+
   const isExpanded = (typeName: string, stacks: ComponentLayerStack[]) =>
     groupOverrides[typeName] ??
-    (stacks.length <= AUTO_EXPAND_LIMIT ||
+    (layerFilter !== null ||
+      stacks.length <= AUTO_EXPAND_LIMIT ||
       stacks.some((s) => ISSUE_VERDICTS.has(s.verdict)))
   const toggleGroup = (typeName: string, stacks: ComponentLayerStack[]) =>
     setGroupOverrides((prev) => ({
@@ -138,6 +178,64 @@ export function LayerInspector({ solutions }: Props) {
     })
   }
 
+  /** Replace one component's stack in place after a removal attempt. */
+  const applyUpdatedStack = (updated: ComponentLayerStack) =>
+    setSections((prev) =>
+      prev.map((s) =>
+        s.typeCode === updated.component.typeCode
+          ? {
+              ...s,
+              stacks: s.stacks.map((st) =>
+                st.component.objectId === updated.component.objectId
+                  ? updated
+                  : st,
+              ),
+            }
+          : s,
+      ),
+    )
+
+  const performRemove = async (stack: ComponentLayerStack) => {
+    const id = stack.component.objectId
+    setRemoveTarget(null)
+    setRemoving((prev) => new Set(prev).add(id))
+    setRemoveNotes((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+    try {
+      const result = await solutionService.removeActiveLayer(
+        envKey,
+        stack.component,
+      )
+      applyUpdatedStack(result.stack)
+      setRemoveNotes((prev) => ({
+        ...prev,
+        [id]: result.removed
+          ? { ok: true, message: `Active layer removed in ${envLabel}.` }
+          : {
+              ok: false,
+              message: `No change in ${envLabel} — the service principal may lack customization rights, or this type can't be reverted here. Use the maker portal.`,
+            },
+      }))
+    } catch (err) {
+      setRemoveNotes((prev) => ({
+        ...prev,
+        [id]: {
+          ok: false,
+          message: err instanceof Error ? err.message : String(err),
+        },
+      }))
+    } finally {
+      setRemoving((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }
+
   const renderStack = (stack: ComponentLayerStack) => {
     const badge = VERDICT_BADGE[stack.verdict]
     const diffable =
@@ -145,6 +243,12 @@ export function LayerInspector({ solutions }: Props) {
       (stack.verdict === 'clean' ||
         stack.verdict === 'overridden' ||
         stack.verdict === 'unmanagedOnly')
+    // Removal reverts to the managed layer, so it's only offered where one
+    // exists beneath the Active layer (verdict "overridden").
+    const removable = stack.verdict === 'overridden'
+    const id = stack.component.objectId
+    const isRemoving = removing.has(id)
+    const note = removeNotes[id]
     return (
       <li
         key={`${stack.component.typeCode}-${stack.component.objectId}`}
@@ -176,6 +280,15 @@ export function LayerInspector({ solutions }: Props) {
               ))}
             </span>
           )}
+          {note && (
+            <span
+              className={`lv-remove-note ${
+                note.ok ? 'lv-remove-note--ok' : 'lv-remove-note--err'
+              }`}
+            >
+              {note.message}
+            </span>
+          )}
         </span>
         {diffable && (
           <button
@@ -184,6 +297,16 @@ export function LayerInspector({ solutions }: Props) {
             onClick={() => openDiff(stack)}
           >
             ⇄ diff
+          </button>
+        )}
+        {removable && (
+          <button
+            className="btn btn--small btn--danger"
+            disabled={isRemoving}
+            title={`Remove the unmanaged Active layer in ${envLabel} (reverts to the managed layer)`}
+            onClick={() => setRemoveTarget(stack)}
+          >
+            {isRemoving ? 'Removing…' : 'Remove layer'}
           </button>
         )}
       </li>
@@ -203,6 +326,8 @@ export function LayerInspector({ solutions }: Props) {
               setSections([])
               setRan(false)
               setError(null)
+              setLayerFilter(null)
+              setRemoveNotes({})
             }}
             placeholder="Select a release solution"
           />
@@ -272,7 +397,43 @@ export function LayerInspector({ solutions }: Props) {
           </div>
         )}
 
-      {sections.map((section) => {
+      {sections.length > 0 && (
+        <div className="compare-summary">
+          <button
+            className={`chip chip--deviation-missing ${
+              layerFilter === 'missing' ? 'chip--active' : ''
+            }`}
+            onClick={() =>
+              setLayerFilter((prev) => (prev === 'missing' ? null : 'missing'))
+            }
+          >
+            Missing<span className="chip-count">{missingCount}</span>
+          </button>
+          <button
+            className={`chip chip--deviation-unmanaged ${
+              layerFilter === 'unmanaged' ? 'chip--active' : ''
+            }`}
+            onClick={() =>
+              setLayerFilter((prev) =>
+                prev === 'unmanaged' ? null : 'unmanaged',
+              )
+            }
+          >
+            Unmanaged layer<span className="chip-count">{unmanagedCount}</span>
+          </button>
+          <span className="chip chip--static">
+            Clean<span className="chip-count">{counts.clean}</span>
+          </span>
+        </div>
+      )}
+
+      {sections.length > 0 && visibleSections.length === 0 && (
+        <div className="state">
+          No components match the {layerFilter} filter in {envLabel}.
+        </div>
+      )}
+
+      {visibleSections.map((section) => {
         const expanded = isExpanded(section.typeName, section.stacks)
         const issues = section.stacks.filter((s) =>
           ISSUE_VERDICTS.has(s.verdict),
@@ -332,6 +493,50 @@ export function LayerInspector({ solutions }: Props) {
           target={diffTarget}
           onClose={() => setDiffTarget(null)}
         />
+      )}
+
+      {removeTarget && (
+        <div className="modal-backdrop" onClick={() => setRemoveTarget(null)}>
+          <div
+            className="modal card"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 className="diff-title">Remove active layer</h2>
+              <button
+                className="modal-close"
+                onClick={() => setRemoveTarget(null)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <p>
+              Remove the unmanaged <strong>Active</strong> layer over{' '}
+              <strong>{removeTarget.component.displayName}</strong> in{' '}
+              <strong>{envLabel}</strong>?
+            </p>
+            <p className="muted">
+              This reverts the component to its managed layer there — local
+              customizations on top are discarded and the next solution import
+              is no longer masked. It runs against {envLabel} as the connector
+              service principal and can't be undone from here.
+            </p>
+            <div className="modal-footer">
+              <button className="btn" onClick={() => setRemoveTarget(null)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn--danger"
+                onClick={() => void performRemove(removeTarget)}
+              >
+                Remove from {envLabel}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

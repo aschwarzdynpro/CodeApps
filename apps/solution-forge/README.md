@@ -81,11 +81,22 @@ Deployment-Status „Merged into Deployment Solution".
   Deployments), **unmanaged-only**, **Missing** (= Existenz-Check: zeigt, ob
   Plugin Assemblies, Custom APIs etc. überhaupt deployed sind) oder *clean*.
   Ergebnisse erscheinen **pro Komponententyp, sobald die Sektion fertig ist**
-  (Rest lädt im Hintergrund); Sektionen sind aufklappbar. Für diffbare Typen
+  (Rest lädt im Hintergrund); Sektionen sind aufklappbar. Zwei Filter-Chips
+  über der Liste (**Missing** / **Unmanaged layer**) blenden die Ergebnisse
+  auf die jeweilige Kategorie ein. Für diffbare Typen
   (Flows/Workflows/Business Rules/Scripts) ein **⇄ diff DEV vs. Ziel**
   (Side-by-side). Klassische Typnamen statisch gemappt, solution-aware Typen
   dynamisch aus `solutioncomponentdefinition`; Typen ohne Layer-Daten bleiben
-  „No layer data".
+  „No layer data". **Remove layer** auf einer *unmanaged-über-managed*-
+  Komponente entfernt nach Bestätigung den unmanaged „Active"-Layer im Ziel
+  (`BulkRemoveActiveCustomizations` via `PerformUnboundActionWithOrganization`,
+  läuft als Konnektor-SP) und prüft direkt nach — die Action liefert keinen
+  Erfolgs-Payload (HTTP 200 egal ob entfernt oder nicht), daher wird der
+  Layer-Stack neu abgefragt; `removed` ist nur true, wenn der Active-Layer
+  wirklich weg ist. Nur angeboten, wo ein managed Layer darunter liegt
+  (unmanaged-only hat nichts zum Zurückfallen — bleibt dem Maker-Portal
+  überlassen). `RemoveActiveCustomizations` selbst ist im Web API nicht
+  erreichbar (weder GET noch POST → nur SOAP), daher die Bulk-Variante.
 - **App Sharing**: Canvas Apps und Custom Pages einer Solution daraufhin
   prüfen, mit wem sie in DEV/UAT/PROD geteilt sind. Solution-Import
   überträgt **kein** User-Sharing — eine deployte Canvas App erreicht

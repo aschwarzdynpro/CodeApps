@@ -265,9 +265,27 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 <span className="lv-badge lv-badge--absent">Missing</span>{' '}
                 (not present in the target — this is where you see whether
                 plugin assemblies, custom APIs etc. were deployed),{' '}
-                <span className="lv-badge lv-badge--clean">Clean</span>. Fix
-                masked components in the maker portal: See solution layers →
-                Remove active customizations.
+                <span className="lv-badge lv-badge--clean">Clean</span>.
+              </li>
+              <li>
+                Two chips above the list —{' '}
+                <strong>Missing</strong> and <strong>Unmanaged layer</strong>{' '}
+                — filter the results to that category (e.g. show only the
+                components carrying an unmanaged layer); click again to clear.
+              </li>
+              <li>
+                <strong>Remove layer</strong> on an{' '}
+                <span className="lv-badge lv-badge--overridden">
+                  Unmanaged over managed
+                </span>{' '}
+                component reverts it to its managed layer in the target
+                (Dataverse <code>BulkRemoveActiveCustomizations</code>, run as
+                the connector service principal). After a confirmation it
+                strips the “Active” layer and re-checks — the row flips to{' '}
+                <span className="lv-badge lv-badge--clean">Clean</span> when it
+                worked. Offered only where a managed layer exists beneath;
+                <em>unmanaged-only</em> components have nothing to revert to and
+                are left to the maker portal.
               </li>
               <li>
                 <strong>⇄ diff</strong> on a diffable component (flows,

@@ -11,6 +11,7 @@ import type { DependencyCheckResult } from '../types/dependency'
 import type {
   ComponentLayerStack,
   LayerInspectionResult,
+  LayerRemovalResult,
   LayerSection,
 } from '../types/layers'
 import { buildUniqueName } from '../utils/naming'
@@ -267,6 +268,31 @@ export class MockSolutionService {
       })
     }
     return { envKey, stacks, warnings: [] }
+  }
+
+  async removeActiveLayer(
+    _envKey: 'uat' | 'prod',
+    component: SolutionComponentInfo,
+  ): Promise<LayerRemovalResult> {
+    await delay(500)
+    // Pretend the Active layer was stripped — the component now resolves to
+    // its managed layer only.
+    return {
+      removed: true,
+      stack: {
+        component,
+        verdict: 'clean',
+        layers: [
+          {
+            id: `l-${component.objectId}-m`,
+            solutionName: 'deploy_2026_06',
+            publisherName: 'DynPro GmbH',
+            solutionVersion: '1.3.0.0',
+            order: 1,
+          },
+        ],
+      },
+    }
   }
 
   async hasRole(): Promise<boolean> {

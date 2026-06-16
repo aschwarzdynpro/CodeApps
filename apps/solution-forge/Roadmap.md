@@ -78,7 +78,9 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 - [x] Compare über INT-11 / UAT / PROD (Missing + Status drift; Gruppen
       collapsible; Picker release-gefiltert)
 - [x] Layer Inspector: alle Komponenten-Typen, progressive Sektionen,
-      DEV-vs-Ziel-Diff, Existenz/Missing für alle Typen (vom Compare hierher)
+      DEV-vs-Ziel-Diff, Existenz/Missing für alle Typen (vom Compare hierher);
+      Missing/Unmanaged-Filter-Chips; „Remove layer" entfernt den unmanaged
+      Active-Layer im Ziel (`BulkRemoveActiveCustomizations`, mit Re-Check)
 - [x] Standard-Filter Open/Tracked/Mine, Rollen-Gating Merge & Compare
 - [x] Layer Inspector: unmanaged Active-Layer über managed Komponenten in
       UAT/PROD (`msdyn_componentlayer`)

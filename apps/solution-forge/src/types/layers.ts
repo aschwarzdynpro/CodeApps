@@ -59,3 +59,15 @@ export interface LayerInspectionResult {
   /** Aggregated query problems (deduplicated, human-readable). */
   warnings: string[]
 }
+
+/**
+ * Outcome of removing the unmanaged "Active" layer over a managed component
+ * (BulkRemoveActiveCustomizations). The action returns no payload — success
+ * is verified by re-querying the layer stack, so {@link removed} reflects
+ * whether the Active layer is actually gone, and {@link stack} is the
+ * re-resolved stack to render in its place.
+ */
+export interface LayerRemovalResult {
+  removed: boolean
+  stack: ComponentLayerStack
+}

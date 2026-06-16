@@ -1601,6 +1601,17 @@
 .lv-section-flag {
   margin-left: auto;
 }
+.lv-remove-note {
+  font-size: 11px;
+  margin-top: 3px;
+}
+.lv-remove-note--ok {
+  color: #1a8754;
+  font-weight: 600;
+}
+.lv-remove-note--err {
+  color: #b02a37;
+}
 
 /* App sharing */
 .card-subtitle {
