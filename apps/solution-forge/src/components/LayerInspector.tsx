@@ -6,7 +6,12 @@ import type {
   LayerSection,
   LayerVerdict,
 } from '../types/layers'
-import { ENVIRONMENTS, makerEnvSolutionsUrl } from '../config'
+import {
+  ENVIRONMENTS,
+  makerComponentLayersUrl,
+  makerEnvSolutionsUrl,
+  makerSolutionUrl,
+} from '../config'
 import { solutionService } from '../services/solutionService'
 import { SolutionSelect } from './SolutionSelect'
 import { ContentDiffModal } from './ContentDiffModal'
@@ -19,6 +24,17 @@ interface Props {
 const DIFFABLE_TYPES: Record<number, AlmComponentRef['kind']> = {
   29: 'workflow', // cloud flows / workflows / business rules share the table
   61: 'webresource',
+}
+
+/**
+ * Maker-portal route segment per component type, for the precise
+ * "…/solutions/{id}/{segment}/{objectId}/layers" deep link. Only types whose
+ * segment is verified are listed; everything else falls back to the target
+ * solution's objects list (one click from the component's layers). Extend as
+ * more segments are confirmed from real maker-portal URLs.
+ */
+const LAYER_ROUTE_SEGMENT: Record<number, string> = {
+  1: 'entities', // tables / entities (confirmed)
 }
 
 /** Groups with at most this many components start expanded. */
@@ -82,6 +98,9 @@ export function LayerInspector({ solutions }: Props) {
     ref: AlmComponentRef
     envs: EnvKey[]
   } | null>(null)
+  // The picked solution's id in the target env (ids diverge per env) — used
+  // for the precise solution-layers deep links; resolved per run.
+  const [targetSolutionId, setTargetSolutionId] = useState<string | null>(null)
 
   const solution = candidates.find((s) => s.id === solutionId) ?? null
   const targetEnv = targetEnvs.find((e) => e.key === envKey)
@@ -96,7 +115,14 @@ export function LayerInspector({ solutions }: Props) {
     setProgress(null)
     setGroupOverrides({})
     setLayerFilter(null)
+    setTargetSolutionId(null)
     setRan(true)
+    // Resolve the solution's id in the target env for the layer deep links
+    // (best-effort, non-blocking — the link falls back without it).
+    void solutionService
+      .resolveSolutionIdInEnv(solution.uniqueName, envKey)
+      .then((id) => setTargetSolutionId(id))
+      .catch(() => setTargetSolutionId(null))
     try {
       const res = await solutionService.inspectLayers(
         solution,
@@ -175,10 +201,39 @@ export function LayerInspector({ solutions }: Props) {
       (stack.verdict === 'clean' ||
         stack.verdict === 'overridden' ||
         stack.verdict === 'unmanagedOnly')
-    // Rows carrying an unmanaged Active layer get a jump to the target
-    // environment's solutions, where the layer can be inspected/removed
-    // (Advanced → See solution layers → Remove active customizations).
+    // Rows carrying an unmanaged Active layer get a jump into the maker
+    // portal of the target env, where the layer can be removed (See solution
+    // layers → Remove active customizations). The precise layers view needs
+    // both the target-env solution id and a known per-type route segment;
+    // otherwise we degrade to the solution's objects list, then the env's
+    // solutions area.
     const hasUnmanagedLayer = UNMANAGED_VERDICTS.has(stack.verdict)
+    const segment = LAYER_ROUTE_SEGMENT[stack.component.typeCode]
+    const layerLink =
+      targetEnv && targetSolutionId && segment
+        ? {
+            href: makerComponentLayersUrl(
+              targetEnv.environmentId,
+              targetSolutionId,
+              segment,
+              stack.component.objectId,
+            ),
+            label: `↗ layers in ${envLabel}`,
+            title: `Open this component's solution layers in ${envLabel} (then Remove active customizations)`,
+          }
+        : targetEnv && targetSolutionId
+          ? {
+              href: makerSolutionUrl(targetEnv.environmentId, targetSolutionId),
+              label: `↗ solution in ${envLabel}`,
+              title: `Open the solution in ${envLabel}, select this component, then Advanced → See solution layers → Remove active customizations`,
+            }
+          : targetEnv
+            ? {
+                href: makerEnvSolutionsUrl(targetEnv.environmentId),
+                label: `↗ solutions in ${envLabel}`,
+                title: `Open ${envLabel} solutions to find this component's layers (Advanced → See solution layers → Remove active customizations)`,
+              }
+            : null
     return (
       <li
         key={`${stack.component.typeCode}-${stack.component.objectId}`}
@@ -220,15 +275,15 @@ export function LayerInspector({ solutions }: Props) {
             ⇄ diff
           </button>
         )}
-        {hasUnmanagedLayer && targetEnv && (
+        {hasUnmanagedLayer && layerLink && (
           <a
             className="diff-link"
-            href={makerEnvSolutionsUrl(targetEnv.environmentId)}
+            href={layerLink.href}
             target="_blank"
             rel="noreferrer"
-            title={`Open ${envLabel} solutions to inspect this component's layers (Advanced → See solution layers → Remove active customizations)`}
+            title={layerLink.title}
           >
-            ↗ layers in {envLabel}
+            {layerLink.label}
           </a>
         )}
       </li>
@@ -249,6 +304,7 @@ export function LayerInspector({ solutions }: Props) {
               setRan(false)
               setError(null)
               setLayerFilter(null)
+              setTargetSolutionId(null)
             }}
             placeholder="Select a release solution"
           />

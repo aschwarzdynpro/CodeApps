@@ -1213,6 +1213,36 @@ export class DataverseSolutionService implements SolutionService {
     return { envKey, stacks: allStacks, warnings }
   }
 
+  /**
+   * Resolve a solution's id in the target environment by unique name (ids
+   * diverge per environment). Non-fatal — returns null on miss or error so
+   * the deep link can fall back gracefully.
+   */
+  async resolveSolutionIdInEnv(
+    uniqueName: string,
+    envKey: 'uat' | 'prod',
+  ): Promise<string | null> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.resolveSolutionIdInEnv(uniqueName, envKey)
+    const env = ENVIRONMENTS.find((e) => e.key === envKey)
+    if (!env) return null
+    const orgUrl = env.url.replace(/\/+$/, '')
+    try {
+      const rows = await this.queryRows(
+        orgUrl,
+        'solutions',
+        'solutionid,uniquename',
+        `uniquename eq '${uniqueName.replace(/'/g, "''")}'`,
+      )
+      const id = rows[0]?.solutionid
+      return typeof id === 'string' ? id : null
+    } catch (err) {
+      console.warn('[layers] target solution id lookup failed:', err)
+      return null
+    }
+  }
+
   /** Pull one missing required component into the release solution. */
   async addDependencyToSolution(
     targetUniqueName: string,

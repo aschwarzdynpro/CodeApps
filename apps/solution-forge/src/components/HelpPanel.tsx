@@ -274,14 +274,16 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 components carrying an unmanaged layer); click again to clear.
               </li>
               <li>
-                Rows with an unmanaged layer get an{' '}
-                <strong>↗ layers in {'{env}'}</strong> link that opens the
-                target environment's Solutions in the maker portal — from
-                there, open the solution, select the component, and use{' '}
-                <strong>Advanced → See solution layers → Remove active
-                customizations</strong> to strip the Active layer. (Removal is
-                deliberately done in the portal, not in this app — it can't be
-                undone.)
+                Rows with an unmanaged layer get a jump into the target
+                environment's maker portal. For tables it opens the
+                component's <strong>solution layers</strong> page directly
+                (<strong>↗ layers in {'{env}'}</strong>); for other types it
+                opens the solution there (<strong>↗ solution in {'{env}'}</strong>)
+                — select the component, then{' '}
+                <strong>Advanced → See solution layers</strong>. Either way,
+                use <strong>Remove active customizations</strong> to strip the
+                Active layer. Removal is deliberately done in the portal, not
+                in this app — it can't be undone.
               </li>
               <li>
                 <strong>⇄ diff</strong> on a diffable component (flows,

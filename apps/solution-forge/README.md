@@ -88,14 +88,20 @@ Deployment-Status „Merged into Deployment Solution".
   (Side-by-side). Klassische Typnamen statisch gemappt, solution-aware Typen
   dynamisch aus `solutioncomponentdefinition`; Typen ohne Layer-Daten bleiben
   „No layer data". Zeilen mit unmanaged Layer
-  bekommen einen **↗ layers in {env}**-Link in die Solutions des
-  Ziel-Environments (Maker-Portal) — dort Solution öffnen, Komponente wählen,
-  „Advanced → See solution layers → Remove active customizations". Das
-  Entfernen passiert bewusst im Portal, nicht in der App (nicht umkehrbar).
-  Eine in-app-Variante über `BulkRemoveActiveCustomizations` wäre technisch
-  möglich, liefert aber keinen Erfolgs-Payload und ist destruktiv cross-env
-  (`RemoveActiveCustomizations` ist im Web API gar nicht erreichbar — nur
-  SOAP); Details in CLAUDE.md gotcha #8.
+  bekommen einen Absprung ins Maker-Portal des Ziel-Environments: für Tabellen
+  direkt auf die **solution layers**-Seite der Komponente
+  (`…/solutions/{id}/entities/{objectId}/layers`, **↗ layers in {env}**), für
+  andere Typen auf die Solution (**↗ solution in {env}**) → Komponente wählen
+  → „Advanced → See solution layers". Die Ziel-Env-Solution-ID wird per
+  `uniquename` aufgelöst (IDs divergieren je Env); der per-Typ-Routensegment-
+  Mapping (`LAYER_ROUTE_SEGMENT`) deckt aktuell Tabellen ab und wird erweitert,
+  sobald weitere Segmente verifiziert sind — unbekannte Typen fallen auf die
+  Solution-Objektliste zurück. Das Entfernen passiert bewusst im Portal, nicht
+  in der App (nicht umkehrbar). Eine in-app-Variante über
+  `BulkRemoveActiveCustomizations` wäre technisch möglich, liefert aber keinen
+  Erfolgs-Payload und ist destruktiv cross-env (`RemoveActiveCustomizations`
+  ist im Web API gar nicht erreichbar — nur SOAP); Details in CLAUDE.md
+  gotcha #8.
 - **App Sharing**: Canvas Apps und Custom Pages einer Solution daraufhin
   prüfen, mit wem sie in DEV/UAT/PROD geteilt sind. Solution-Import
   überträgt **kein** User-Sharing — eine deployte Canvas App erreicht

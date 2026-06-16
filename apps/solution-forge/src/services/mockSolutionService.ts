@@ -269,6 +269,15 @@ export class MockSolutionService {
     return { envKey, stacks, warnings: [] }
   }
 
+  async resolveSolutionIdInEnv(
+    uniqueName: string,
+    envKey: 'uat' | 'prod',
+  ): Promise<string | null> {
+    await delay(120)
+    // Demo-only placeholder id so the deep-link structure is visible offline.
+    return uniqueName && envKey ? '11111111-1111-1111-1111-111111111111' : null
+  }
+
   async hasRole(): Promise<boolean> {
     await delay(150)
     return true // keep the full feature set demoable offline

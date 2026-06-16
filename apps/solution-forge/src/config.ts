@@ -90,13 +90,32 @@ export function makerSolutionUrl(
 /** Maker-portal deep link to the Solutions area of a specific environment —
  *  the entry point for inspecting a component's solution layers there
  *  (open the solution → select the component → Advanced → See solution
- *  layers). There is no documented stable per-component layers URL, so the
- *  env-scoped solutions list is the reliable jump-off point. */
+ *  layers). Used as the last-resort fallback when neither the target
+ *  solution nor a known per-type route segment is available. */
 export function makerEnvSolutionsUrl(environmentId: string): string {
   const envId = environmentId || FALLBACK_ENVIRONMENT_ID
   return envId
     ? `https://make.powerapps.com/environments/${envId}/solutions`
     : 'https://make.powerapps.com'
+}
+
+/**
+ * Maker-portal deep link straight into a component's **solution layers** view
+ * in a specific environment, e.g.
+ * `…/environments/{env}/solutions/{solutionId}/entities/{objectId}/layers`.
+ * `segment` is the maker portal's per-type route segment (e.g. `entities`);
+ * `objectId` is the component's id in that environment. Only emit this when
+ * the segment is known and the target solution id has been resolved — there
+ * is no documented universal layers URL, so unknown types fall back to the
+ * solution's objects list (makerSolutionUrl) instead.
+ */
+export function makerComponentLayersUrl(
+  environmentId: string,
+  solutionId: string,
+  segment: string,
+  objectId: string,
+): string {
+  return `https://make.powerapps.com/environments/${environmentId}/solutions/${solutionId}/${segment}/${objectId}/layers`
 }
 
 /** Maker-portal deep link to a canvas app's details page (where the Share

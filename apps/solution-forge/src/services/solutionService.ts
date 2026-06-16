@@ -87,6 +87,16 @@ export interface SolutionService {
     onSection?: (section: LayerSection) => void,
   ): Promise<LayerInspectionResult>
   /**
+   * Resolves a solution's id in a target environment by its unique name
+   * (solution ids differ per environment). Used to build maker-portal deep
+   * links into a component's solution layers there. Null when the solution
+   * isn't present in the target (or the lookup fails).
+   */
+  resolveSolutionIdInEnv(
+    uniqueName: string,
+    envKey: 'uat' | 'prod',
+  ): Promise<string | null>
+  /**
    * Whether the signed-in user holds the given security role (direct
    * assignment; team-inherited roles are not considered). Used to gate
    * the Merge and Compare tabs.
