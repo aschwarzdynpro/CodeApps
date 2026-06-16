@@ -8,6 +8,7 @@ import type {
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
+import { CLOSED_STATUS_CODES, isClosedWorkItemState } from '../types/solution'
 import type { SolutionService } from './solutionService'
 import { mockSolutionService } from './mockSolutionService'
 import { hostUserHints, powerModeReady } from '../PowerProvider'
@@ -167,6 +168,7 @@ const WORKING_ROW_SELECT = [
   'ssid_uniquesolutionname',
   'sst_type_opt',
   'sst_devopsworkitemtype',
+  'sst_devopsworkitemstatus',
   'ssid_deploymentstatus',
   '_ownerid_value',
   'createdon',
@@ -499,6 +501,11 @@ export class DataverseSolutionService implements SolutionService {
             raw.ssid_deploymentstatus !== undefined
               ? Number(raw.ssid_deploymentstatus)
               : undefined,
+          // Open entry + closed DevOps work item → ready to be completed.
+          toBeCompleted:
+            (raw.ssid_deploymentstatus === undefined ||
+              !CLOSED_STATUS_CODES.has(Number(raw.ssid_deploymentstatus))) &&
+            isClosedWorkItemState(raw.sst_devopsworkitemstatus),
           ...(solution ? {} : { solutionMissing: true as const }),
         })
       }

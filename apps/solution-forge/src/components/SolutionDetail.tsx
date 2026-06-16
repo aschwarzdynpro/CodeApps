@@ -345,41 +345,48 @@ export function SolutionDetail({
         <p className="detail-description">{solution.description}</p>
       )}
 
-      <div className="detail-actions">
+      <div className="command-bar">
         {solution.solutionMissing ? (
           <span
-            className="btn btn--primary btn--disabled"
+            className="command-bar-item command-bar-item--disabled"
             title="No Dataverse solution matches this record's unique solution name."
           >
-            Open in Maker Portal
+            <span className="cmd-icon">↗</span> Open in Maker Portal
           </span>
         ) : (
           <a
-            className="btn btn--primary"
+            className="command-bar-item"
             href={makerSolutionUrl(environmentId, solution.id)}
             target="_blank"
             rel="noreferrer"
           >
-            Open in Maker Portal ↗
+            <span className="cmd-icon">↗</span> Open in Maker Portal
           </a>
         )}
+        <span className="command-bar-spacer" />
         {solution.recordId && isOpenStatus(solution) && (
           <button
-            className="btn btn--icon"
-            title="Mark completed… (set deployment status to completed, optionally delete the solution)"
+            className={`command-bar-item command-bar-item--icon ${
+              solution.toBeCompleted ? 'command-bar-item--accent' : ''
+            }`}
+            title={
+              solution.toBeCompleted
+                ? 'Work item is closed — mark completed… (optionally delete the solution)'
+                : 'Mark completed… (set deployment status to completed, optionally delete the solution)'
+            }
             aria-label="Mark completed"
             onClick={() => onComplete(solution)}
           >
-            ✓
+            <span className="cmd-icon">✓</span>
           </button>
         )}
         <button
-          className="btn btn--danger btn--icon detail-delete"
+          className="command-bar-item command-bar-item--icon command-bar-item--danger"
           title="Delete… (remove the record / solution, with a 5-second undo)"
           aria-label="Delete"
           onClick={() => onDelete(solution)}
         >
-          🗑
+          <span className="cmd-icon">🗑</span>
         </button>
       </div>
 

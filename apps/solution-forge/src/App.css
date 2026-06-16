@@ -135,17 +135,6 @@
   background: #fdf2f3;
   border-color: #b02a37;
 }
-/* Icon-only button (composes with .btn / .btn--danger) — square, glyph
-   centered, meaning conveyed via title tooltip. */
-.btn--icon {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  justify-content: center;
-  font-size: 15px;
-  line-height: 1;
-}
-
 /* Help */
 .icon-btn {
   width: 28px;
@@ -656,9 +645,6 @@
   border-radius: 4px;
   padding: 1px 5px;
 }
-.detail-delete {
-  margin-left: auto;
-}
 .undo-stack {
   position: fixed;
   right: 20px;
@@ -910,6 +896,19 @@
   margin-left: 8px;
   vertical-align: 1px;
 }
+/* "To be completed" — work item closed but solution still open. */
+.tbc-chip {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1a8754;
+  background: #e7f4ee;
+  border: 1px solid #b7e0cd;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 8px;
+  vertical-align: 1px;
+}
 .solution-row-when {
   font-size: 12px;
   color: var(--muted);
@@ -1003,11 +1002,61 @@
   margin: 12px 0;
   line-height: 1.5;
 }
-.detail-actions {
+/* Command bar — flat toolbar of actions (Dataverse-style): labelled commands
+   on the left, icon-only utilities pushed right. */
+.command-bar {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
   margin: 12px 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.command-bar-spacer {
+  flex: 1;
+}
+.command-bar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+}
+.command-bar-item:hover {
+  background: var(--bg);
+}
+.command-bar-item--icon {
+  padding: 7px;
+}
+.command-bar-item--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.command-bar-item--danger {
+  color: #b02a37;
+}
+.command-bar-item--danger:hover {
+  background: #fdf2f3;
+}
+/* Highlights "Mark completed" when the work item is closed (to-be-completed). */
+.command-bar-item--accent {
+  color: #1a8754;
+}
+.command-bar-item--accent:hover {
+  background: #e7f4ee;
+}
+.cmd-icon {
+  font-size: 14px;
+  line-height: 1;
 }
 /* Azure DevOps work item card */
 .devops-card {

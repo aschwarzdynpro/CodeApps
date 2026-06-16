@@ -48,11 +48,17 @@ Deployment-Status „Merged into Deployment Solution".
 - **Anlegen**: Dialog mit Typ, ADO-ID, Titel, Beschreibung, Publisher und
   Live-Preview des Unique Name inkl. Duplikat-Prüfung. Die Solution wird
   real in Dataverse erzeugt und ist sofort im Maker-Portal sichtbar.
-- **Detail**: Metadaten, Komponenten der Solution gruppiert nach Typ in
-  aufklappbaren Gruppen (Anzeigenamen via `msdyn_solutioncomponentsummary`,
-  derselben Quelle wie im Maker-Portal), Deep-Link **Open in Maker Portal**
-  (Environment-ID kommt zur Laufzeit aus dem Host-Kontext) sowie ein
-  Azure-DevOps-Link zum Work Item.
+- **Detail**: **Command Bar** mit den Aktionen (Open in Maker Portal links,
+  Mark completed / Delete als Icons rechts), Metadaten, Komponenten der
+  Solution gruppiert nach Typ in aufklappbaren Gruppen (Anzeigenamen via
+  `msdyn_solutioncomponentsummary`, derselben Quelle wie im Maker-Portal),
+  Deep-Link **Open in Maker Portal** (Environment-ID kommt zur Laufzeit aus dem
+  Host-Kontext) sowie ein Azure-DevOps-Link zum Work Item.
+- **„To be completed"-Check**: Beim Laden wird je offener Working Solution der
+  synchronisierte DevOps-Work-Item-Status (`sst_devopsworkitemstatus`) geprüft;
+  ist er *Closed/Done*, wird der Eintrag in der Liste als **„to be completed"**
+  markiert und die Mark-completed-Aktion hervorgehoben (abgeleitetes Flag,
+  nicht persistiert).
 - **Mark completed**: offene getrackte Einträge auf
   `ssid_deploymentstatus = Deployment completed` (500870003) setzen → sie
   fallen aus dem Open-Filter. Im Dialog wird gefragt, ob die unterliegende

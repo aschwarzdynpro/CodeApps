@@ -49,8 +49,11 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 
 ## DevOps-Synergien (sobald der Service Principal steht, siehe TODO.md)
 
-- [ ] **Work-Item-Sync**: `sst_devopsworkitemstatus/-type`, Area/Iteration
-      Path automatisch aktuell halten; „WI: Done, Solution: offen" markieren.
+- [~] **Work-Item-Sync**: `sst_devopsworkitemstatus/-type`, Area/Iteration
+      Path automatisch aktuell halten. „WI: Done, Solution: offen" wird bereits
+      markiert (Badge „to be completed", liest den synchronisierten
+      `sst_devopsworkitemstatus`); das aktive Zurückschreiben/Sync steht noch
+      aus (SP, siehe TODO.md).
 - [ ] **Working Solution aus Work Item anlegen**: „Meine zugewiesenen Work
       Items" listen, Klick → Dialog vorbefüllt.
 - [ ] **Branch/PR-Verknüpfung**: PRs zur Branch-Konvention `feature/<id>` am

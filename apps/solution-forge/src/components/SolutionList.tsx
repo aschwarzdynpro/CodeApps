@@ -95,6 +95,14 @@ export function SolutionList({
         <span className="solution-row-main">
           <span className="solution-row-title">
             {s.title}
+            {s.toBeCompleted && (
+              <span
+                className="tbc-chip"
+                title="The DevOps work item is closed but this solution is still open — ready to mark completed."
+              >
+                ✓ to be completed
+              </span>
+            )}
             {duplicateLink && (
               <span
                 className="dup-chip"

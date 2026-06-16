@@ -45,6 +45,12 @@ export interface WorkingSolution {
   deploymentStatusCode?: number
   /** True when the row's ssid_uniquesolutionname matches no real solution. */
   solutionMissing?: boolean
+  /**
+   * Derived flag: the entry is still open but its DevOps work item is closed
+   * (sst_devopsworkitemstatus), so it's ready to be marked completed. Not
+   * persisted — computed when the list loads.
+   */
+  toBeCompleted?: boolean
   /** uniquename, e.g. "feature_4711" */
   uniqueName: string
   /** friendlyname — the title entered by the developer. */
@@ -127,6 +133,18 @@ export function isOpenStatus(s: WorkingSolution): boolean {
     s.deploymentStatusCode === undefined ||
     !CLOSED_STATUS_CODES.has(s.deploymentStatusCode)
   )
+}
+
+/**
+ * DevOps work-item states (sst_devopsworkitemstatus, lower-cased) that count
+ * as closed/done — an open working solution in one of these is "to be
+ * completed". Extend if the process adds other terminal states.
+ */
+export const CLOSED_WORK_ITEM_STATES = new Set(['closed', 'done'])
+
+/** Whether a stored DevOps work-item status string is a closed state. */
+export function isClosedWorkItemState(status?: string): boolean {
+  return CLOSED_WORK_ITEM_STATES.has((status ?? '').trim().toLowerCase())
 }
 
 /** Attach a working-solution record to an already existing solution. */

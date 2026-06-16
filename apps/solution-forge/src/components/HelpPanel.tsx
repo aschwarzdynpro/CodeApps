@@ -153,8 +153,19 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <h3>Detail pane</h3>
             <ul>
               <li>
-                Metadata (version, publisher, owner, deployment status) and
-                the <strong>Open in Maker Portal</strong> deep link.
+                A <strong>command bar</strong> with the entry's actions —{' '}
+                <strong>Open in Maker Portal</strong> on the left, and{' '}
+                <strong>Mark completed</strong> / <strong>Delete</strong> as
+                icons on the right (hover for their tooltips) — above the
+                metadata (version, publisher, owner, deployment status).
+              </li>
+              <li>
+                When an open entry's DevOps work item is <strong>Closed</strong>,
+                it's flagged{' '}
+                <span className="tbc-chip">✓ to be completed</span> in the list
+                and its <strong>Mark completed</strong> command is highlighted —
+                a startup check over the synced work-item status
+                (<code>sst_devopsworkitemstatus</code>).
               </li>
               <li>
                 For tracked entries the type badge has a <strong>✎</strong>{' '}
@@ -402,6 +413,10 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 <span className="ado-chip">#13388</span> Azure DevOps work
                 item number
+              </li>
+              <li>
+                <span className="tbc-chip">✓ to be completed</span> open, but
+                its DevOps work item is closed — ready to mark completed
               </li>
               <li>
                 <span className="dup-chip">duplicate link</span> several
