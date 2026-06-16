@@ -26,11 +26,6 @@
   font-size: 14px;
   margin-top: 2px;
 }
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
 .mode-badge {
   font-size: 12px;
   font-weight: 600;
@@ -326,6 +321,13 @@
   border-color: #a9d8be;
   background: #e7f4ee;
   color: #1a8754;
+}
+/* DevOps-sync success bar: fades out before it auto-clears (~10s). */
+.sync-banner {
+  transition: opacity 0.6s ease;
+}
+.sync-banner--fading {
+  opacity: 0;
 }
 .creation-banner {
   display: flex;

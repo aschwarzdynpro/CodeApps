@@ -104,6 +104,17 @@ function App() {
     ok: boolean
     text: string
   } | null>(null)
+  // The success bar fades out and clears itself ~10s after a sync.
+  const [syncFading, setSyncFading] = useState(false)
+  useEffect(() => {
+    if (!syncMessage?.ok) return
+    const fade = window.setTimeout(() => setSyncFading(true), 9400)
+    const clear = window.setTimeout(() => setSyncMessage(null), 10000)
+    return () => {
+      window.clearTimeout(fade)
+      window.clearTimeout(clear)
+    }
+  }, [syncMessage])
 
   // Soft delete / completion: confirmed entries disappear immediately and
   // wait in pendingDeletes for the 5-second undo window; only then the hard
@@ -480,6 +491,7 @@ function App() {
   const syncDevOps = async () => {
     setSyncingDevOps(true)
     setSyncMessage(null)
+    setSyncFading(false)
     try {
       const count = await solutionService.syncDevOpsWorkItemStatus()
       setSyncMessage({
@@ -580,15 +592,6 @@ function App() {
             Working solutions for feature &amp; bug development — create,
             inspect, merge.
           </p>
-        </div>
-        <div className="header-right">
-          <button
-            className="btn btn--primary"
-            onClick={() => setShowCreate(true)}
-            disabled={loading}
-          >
-            + New Working Solution
-          </button>
         </div>
       </header>
 
@@ -722,6 +725,13 @@ function App() {
 
           <div className="collision-bar">
             <button
+              className="btn btn--small btn--primary"
+              onClick={() => setShowCreate(true)}
+              disabled={loading}
+            >
+              + New Working Solution
+            </button>
+            <button
               className="btn btn--small"
               onClick={() => void scanCollisions()}
               disabled={!!collisionProgress}
@@ -804,7 +814,9 @@ function App() {
           )}
           {syncMessage && !syncingDevOps && (
             <div
-              className={`state ${syncMessage.ok ? 'state--success' : 'state--error'}`}
+              className={`state ${
+                syncMessage.ok ? 'state--success sync-banner' : 'state--error'
+              } ${syncFading ? 'sync-banner--fading' : ''}`}
             >
               {syncMessage.text}
             </div>
