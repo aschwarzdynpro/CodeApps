@@ -40,6 +40,44 @@ type Tab =
   | 'layers'
   | 'sharing'
 
+interface NavItem {
+  key: Tab
+  label: string
+  icon: string
+  /** Requires the deployment-manager role. */
+  gated: boolean
+}
+
+/** Sidebar navigation, grouped by purpose. */
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  {
+    label: 'Manage',
+    items: [
+      { key: 'workbench', label: 'Workbench', icon: '🧰', gated: false },
+      { key: 'merge', label: 'Merge', icon: '⇉', gated: true },
+    ],
+  },
+  {
+    label: 'Validate',
+    items: [
+      { key: 'compare', label: 'Compare', icon: '⇄', gated: true },
+      { key: 'dependencies', label: 'Dependencies', icon: '🔗', gated: true },
+      { key: 'layers', label: 'Layers', icon: '🧱', gated: true },
+      { key: 'sharing', label: 'App Sharing', icon: '👥', gated: true },
+    ],
+  },
+]
+
+/** Heading shown in the content header per section. */
+const TAB_TITLES: Record<Tab, string> = {
+  workbench: 'Workbench',
+  merge: 'Merge',
+  compare: 'Compare',
+  dependencies: 'Dependency Check',
+  layers: 'Layer Inspector',
+  sharing: 'App Sharing',
+}
+
 function App() {
   const { environmentId } = usePower()
   const { solutions, publishers, loading, error, reload } = useSolutions()
@@ -575,104 +613,56 @@ function App() {
 
   return (
     <div className="app">
-      <header className="app-header">
-        <div>
-          <div className="title-row">
-            <h1>Solution Administration Console</h1>
-            <button
-              className="icon-btn"
-              title="Help & feature guide"
-              aria-label="Help"
-              onClick={() => setShowHelp(true)}
-            >
-              ?
+      <div className="app-shell">
+        <aside className="sidebar">
+          <div className="sidebar-brand">
+            <span className="brand-mark">⬣</span>
+            <span className="brand-name">
+              Solution
+              <br />
+              Admin Console
+            </span>
+          </div>
+          <nav className="sidebar-nav">
+            {NAV_GROUPS.map((group) => (
+              <div className="nav-group" key={group.label}>
+                <span className="nav-group-label">{group.label}</span>
+                {group.items.map((item) => {
+                  const locked = item.gated && !isDeploymentManager
+                  return (
+                    <button
+                      key={item.key}
+                      className={`nav-item ${tab === item.key ? 'nav-item--active' : ''} ${locked ? 'nav-item--locked' : ''}`}
+                      title={
+                        locked
+                          ? `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
+                          : undefined
+                      }
+                      onClick={() => {
+                        if (!locked) setTab(item.key)
+                      }}
+                    >
+                      <span className="nav-icon">{item.icon}</span>
+                      <span className="nav-label">{item.label}</span>
+                      {locked && <span className="nav-lock">ⓘ</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
+          </nav>
+          <div className="sidebar-footer">
+            <button className="nav-item" onClick={() => setShowHelp(true)}>
+              <span className="nav-icon">?</span>
+              <span className="nav-label">Help</span>
             </button>
           </div>
-          <p className="subtitle">
-            Working solutions for feature &amp; bug development — create,
-            inspect, merge.
-          </p>
-        </div>
-      </header>
+        </aside>
 
-      <nav className="tabs">
-        <button
-          className={`tab ${tab === 'workbench' ? 'tab--active' : ''}`}
-          onClick={() => setTab('workbench')}
-        >
-          Workbench
-        </button>
-        <button
-          className={`tab ${tab === 'merge' ? 'tab--active' : ''} ${
-            isDeploymentManager ? '' : 'tab--disabled'
-          }`}
-          title={
-            isDeploymentManager
-              ? undefined
-              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
-          }
-          onClick={() => isDeploymentManager && setTab('merge')}
-        >
-          Merge
-          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
-        </button>
-        <button
-          className={`tab ${tab === 'compare' ? 'tab--active' : ''} ${
-            isDeploymentManager ? '' : 'tab--disabled'
-          }`}
-          title={
-            isDeploymentManager
-              ? undefined
-              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
-          }
-          onClick={() => isDeploymentManager && setTab('compare')}
-        >
-          Compare
-          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
-        </button>
-        <button
-          className={`tab ${tab === 'sharing' ? 'tab--active' : ''} ${
-            isDeploymentManager ? '' : 'tab--disabled'
-          }`}
-          title={
-            isDeploymentManager
-              ? undefined
-              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
-          }
-          onClick={() => isDeploymentManager && setTab('sharing')}
-        >
-          App Sharing
-          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
-        </button>
-        <button
-          className={`tab ${tab === 'dependencies' ? 'tab--active' : ''} ${
-            isDeploymentManager ? '' : 'tab--disabled'
-          }`}
-          title={
-            isDeploymentManager
-              ? undefined
-              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
-          }
-          onClick={() => isDeploymentManager && setTab('dependencies')}
-        >
-          Dependency Check
-          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
-        </button>
-        <button
-          className={`tab ${tab === 'layers' ? 'tab--active' : ''} ${
-            isDeploymentManager ? '' : 'tab--disabled'
-          }`}
-          title={
-            isDeploymentManager
-              ? undefined
-              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
-          }
-          onClick={() => isDeploymentManager && setTab('layers')}
-        >
-          Layer Inspector
-          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
-        </button>
-      </nav>
+        <main className="content">
+          <header className="content-header">
+            <h1>{TAB_TITLES[tab]}</h1>
+          </header>
 
       {loading && <div className="state">Loading solutions…</div>}
       {error && <div className="state state--error">{error}</div>}
@@ -894,6 +884,8 @@ function App() {
       {!loading && !error && tab === 'sharing' && isDeploymentManager && (
         <AppSharing solutions={allSolutions} />
       )}
+        </main>
+      </div>
 
       {showHelp && <HelpPanel onClose={() => setShowHelp(false)} />}
 
