@@ -128,6 +128,12 @@ export function makerLayerPath(
       return `objects/plugin%20assemblies/${objectId}`
     case 92: // SDK message processing step
       return `objects/plugin%20steps/${objectId}`
+    case 10021: // Custom API
+      return `objects/customapis/${objectId}`
+    case 10022: // Custom API request parameter
+      return `objects/customapirequestparameters/${objectId}`
+    case 10023: // Custom API response property
+      return `objects/customapiresponseproperties/${objectId}`
     case 300: // Canvas app vs. custom page
       if (opts.canvasAppType === undefined) return undefined
       return opts.canvasAppType === 2

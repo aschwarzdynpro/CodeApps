@@ -14,6 +14,7 @@ import type {
   LayerSection,
 } from '../types/layers'
 import { buildUniqueName } from '../utils/naming'
+import { LAYER_IGNORED_TYPES } from './componentLayerNames'
 import {
   mockComponentsBySolutionId,
   mockPublishers,
@@ -198,10 +199,10 @@ export class MockSolutionService {
     onProgress?: (done: number, total: number) => void,
     onSection?: (section: LayerSection) => void,
   ): Promise<LayerInspectionResult> {
-    // Environment variables always carry an Active layer by design — skip
-    // their definition (380) and value (381) types (matches the real impl).
+    // Skip the by-design Active-layer types (env vars, connection refs) —
+    // matches the real impl.
     const components = (this.components.get(solution.id) ?? []).filter(
-      (c) => c.typeCode !== 380 && c.typeCode !== 381,
+      (c) => !LAYER_IGNORED_TYPES.has(c.typeCode),
     )
     const stacks: ComponentLayerStack[] = []
     onProgress?.(0, components.length)

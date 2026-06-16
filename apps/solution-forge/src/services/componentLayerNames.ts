@@ -38,6 +38,15 @@ const LAYER_COMPONENT_NAMES: Record<number, string> = {
   150: 'RoutingRule',
 }
 
+/**
+ * Component types the Layer Inspector skips outright: their unmanaged
+ * "Active" layer is by design, not drift, so inspecting them only yields
+ * false positives. Environment variable definition (380) / value (381) keep
+ * their current value in the unmanaged layer; connection references (10064)
+ * bind unmanaged the same way. (Values verified from solutioncomponentdefinition.)
+ */
+export const LAYER_IGNORED_TYPES = new Set<number>([380, 381, 10064])
+
 let cache: Promise<Map<number, string>> | null = null
 
 /**

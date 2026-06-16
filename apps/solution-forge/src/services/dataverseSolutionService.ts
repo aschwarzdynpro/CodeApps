@@ -24,7 +24,7 @@ import {
   makerSolutionUrl,
 } from '../config'
 import { RetrieveMissingDependenciesService } from './retrieveMissingDependenciesService'
-import { layerComponentNames } from './componentLayerNames'
+import { LAYER_IGNORED_TYPES, layerComponentNames } from './componentLayerNames'
 import type {
   DependencyCheckResult,
   DependencyItem,
@@ -1145,12 +1145,10 @@ export class DataverseSolutionService implements SolutionService {
       this.listComponents(solution.id),
       layerComponentNames(),
     ])
-    // Environment variables always carry an unmanaged (Active) layer by
-    // design — their current value lives there — so inspecting them only
-    // produces false positives. Skip the definition (380) and value (381)
-    // component types entirely.
+    // Environment variables and connection references carry an unmanaged
+    // (Active) layer by design, so they'd only be false positives — skip them.
     const components = allComponents.filter(
-      (c) => c.typeCode !== 380 && c.typeCode !== 381,
+      (c) => !LAYER_IGNORED_TYPES.has(c.typeCode),
     )
 
     // Maker-portal "solution layers" deep-link path per component (needs a

@@ -82,8 +82,9 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       Missing/Unmanaged-Filter-Chips; „↗ layers"-Absprung ins Maker-Portal des
       Ziel-Env (direkt auf die solution-layers-Seite bei Tabellen, Canvas Apps,
       Custom Pages, Cloud Flows, Workflows, Web Resources, Plugin Assemblies,
-      Plugin Steps; sonst auf die Solution; Remove active customizations
-      bewusst dort, nicht in-app); EnvVars (380/381) ausgeblendet
+      Plugin Steps, Custom APIs; sonst auf die Solution; Remove active
+      customizations bewusst dort, nicht in-app); EnvVars (380/381) +
+      Connection References (10064) ausgeblendet
 - [x] Standard-Filter Open/Tracked/Mine, Rollen-Gating Merge & Compare
 - [x] Layer Inspector: unmanaged Active-Layer über managed Komponenten in
       UAT/PROD (`msdyn_componentlayer`)

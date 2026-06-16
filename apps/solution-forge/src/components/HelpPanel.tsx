@@ -276,8 +276,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 Rows with an unmanaged layer get a jump into the target
                 environment's maker portal. For tables, canvas apps, custom
-                pages, cloud flows, workflows, web resources, plugin assemblies
-                and plugin steps it opens the component's{' '}
+                pages, cloud flows, workflows, web resources, plugin assemblies,
+                plugin steps and custom APIs (incl. their request/response
+                parameters) it opens the component's{' '}
                 <strong>solution layers</strong> page directly (<strong>↗
                 layers in {'{env}'}</strong>); for entity sub-components
                 (forms, views, columns, business rules) and other types it
@@ -289,9 +290,10 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 in this app — it can't be undone.
               </li>
               <li>
-                <strong>Environment variables</strong> are skipped — by design
-                their current value sits in an unmanaged (Active) layer, so
-                they'd only show up as false positives.
+                <strong>Environment variables</strong> and{' '}
+                <strong>connection references</strong> are skipped — by design
+                they bind their current value/connection in an unmanaged
+                (Active) layer, so they'd only show up as false positives.
               </li>
               <li>
                 <strong>⇄ diff</strong> on a diffable component (flows,

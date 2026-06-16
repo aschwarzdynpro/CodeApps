@@ -80,9 +80,9 @@ Deployment-Status „Merged into Deployment Solution".
   **unmanaged „Active"-Layer über managed** (direkte Customization, maskiert
   Deployments), **unmanaged-only**, **Missing** (= Existenz-Check: zeigt, ob
   Plugin Assemblies, Custom APIs etc. überhaupt deployed sind) oder *clean*.
-  **Environment Variables (Typ 380/381) werden übersprungen** — sie tragen per
-  Definition einen Active-Layer (der aktuelle Wert) und wären sonst nur
-  False Positives.
+  **Environment Variables (380/381) und Connection References (10064) werden
+  übersprungen** — sie tragen per Definition einen Active-Layer (Wert bzw.
+  Connection) und wären sonst nur False Positives (`LAYER_IGNORED_TYPES`).
   Ergebnisse erscheinen **pro Komponententyp, sobald die Sektion fertig ist**
   (Rest lädt im Hintergrund); Sektionen sind aufklappbar. Zwei Filter-Chips
   über der Liste (**Missing** / **Unmanaged layer**) blenden die Ergebnisse
@@ -93,9 +93,10 @@ Deployment-Status „Merged into Deployment Solution".
   „No layer data". Zeilen mit unmanaged Layer
   bekommen einen Absprung ins Maker-Portal des Ziel-Environments: für
   Tabellen, Canvas Apps, Custom Pages, Cloud Flows, Workflows/BPF/Actions,
-  Web Resources, Plugin Assemblies und Plugin Steps direkt auf die **solution
-  layers**-Seite der Komponente (**↗ layers in {env}**), sonst auf die
-  Solution (**↗ solution in {env}**) →
+  Web Resources, Plugin Assemblies, Plugin Steps und Custom APIs (inkl.
+  Request-/Response-Parameter) direkt auf die **solution layers**-Seite der
+  Komponente (**↗ layers in {env}**), sonst auf die Solution
+  (**↗ solution in {env}**) →
   Komponente wählen → „Advanced → See solution layers". Die Ziel-Env-Solution-
   ID wird per `uniquename` aufgelöst (IDs divergieren je Env); die Maker-Route
   je Typ baut `config.makerLayerPath` (Canvas App vs. Custom Page über
