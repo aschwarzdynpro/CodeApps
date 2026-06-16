@@ -274,18 +274,14 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 components carrying an unmanaged layer); click again to clear.
               </li>
               <li>
-                <strong>Remove layer</strong> on an{' '}
-                <span className="lv-badge lv-badge--overridden">
-                  Unmanaged over managed
-                </span>{' '}
-                component reverts it to its managed layer in the target
-                (Dataverse <code>BulkRemoveActiveCustomizations</code>, run as
-                the connector service principal). After a confirmation it
-                strips the “Active” layer and re-checks — the row flips to{' '}
-                <span className="lv-badge lv-badge--clean">Clean</span> when it
-                worked. Offered only where a managed layer exists beneath;
-                <em>unmanaged-only</em> components have nothing to revert to and
-                are left to the maker portal.
+                Rows with an unmanaged layer get an{' '}
+                <strong>↗ layers in {'{env}'}</strong> link that opens the
+                target environment's Solutions in the maker portal — from
+                there, open the solution, select the component, and use{' '}
+                <strong>Advanced → See solution layers → Remove active
+                customizations</strong> to strip the Active layer. (Removal is
+                deliberately done in the portal, not in this app — it can't be
+                undone.)
               </li>
               <li>
                 <strong>⇄ diff</strong> on a diffable component (flows,

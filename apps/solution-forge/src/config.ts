@@ -87,6 +87,18 @@ export function makerSolutionUrl(
     : 'https://make.powerapps.com'
 }
 
+/** Maker-portal deep link to the Solutions area of a specific environment —
+ *  the entry point for inspecting a component's solution layers there
+ *  (open the solution → select the component → Advanced → See solution
+ *  layers). There is no documented stable per-component layers URL, so the
+ *  env-scoped solutions list is the reliable jump-off point. */
+export function makerEnvSolutionsUrl(environmentId: string): string {
+  const envId = environmentId || FALLBACK_ENVIRONMENT_ID
+  return envId
+    ? `https://make.powerapps.com/environments/${envId}/solutions`
+    : 'https://make.powerapps.com'
+}
+
 /** Maker-portal deep link to a canvas app's details page (where the Share
  *  command lives) in a specific environment. `appName` is the canvas app's
  *  import-stable logical name (`canvasapp.name`) — the id the maker portal

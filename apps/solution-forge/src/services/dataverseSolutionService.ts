@@ -28,7 +28,6 @@ import type {
   ComponentLayerInfo,
   ComponentLayerStack,
   LayerInspectionResult,
-  LayerRemovalResult,
   LayerSection,
 } from '../types/layers'
 import { SolutionsService } from '../generated/services/SolutionsService'
@@ -1212,90 +1211,6 @@ export class DataverseSolutionService implements SolutionService {
         `${typeName}: layer query failed for some components — their verdict is "error" (details in the browser console).`,
     )
     return { envKey, stacks: allStacks, warnings }
-  }
-
-  /**
-   * Reverts a component to its managed layer in the target environment by
-   * removing the unmanaged "Active" layer (BulkRemoveActiveCustomizations,
-   * the programmatic "Remove active customizations"). Runs as the connector
-   * service principal, which needs customization privileges in the target.
-   *
-   * The action returns HTTP 200 with no body whether it removed anything or
-   * not, and the casing its LogicalName parameter expects can't be confirmed
-   * from the wire (the server accepts both the entity logical name and the
-   * Pascal-case solution-component name). So we try each candidate form and
-   * re-query the layer stack to confirm the Active layer is actually gone —
-   * which also turns the action's silent no-op into a reportable failure.
-   */
-  async removeActiveLayer(
-    envKey: 'uat' | 'prod',
-    component: SolutionComponentInfo,
-  ): Promise<LayerRemovalResult> {
-    const mode = await powerModeReady
-    if (mode !== 'power-platform')
-      return mockSolutionService.removeActiveLayer(envKey, component)
-    const env = ENVIRONMENTS.find((e) => e.key === envKey)
-    if (!env) throw new Error(`Unknown environment ${envKey}`)
-    const orgUrl = env.url.replace(/\/+$/, '')
-
-    const componentName = (await layerComponentNames()).get(component.typeCode)
-    if (!componentName)
-      throw new Error(
-        `${component.typeName}: no layer mapping — removal is not supported for this component type.`,
-      )
-
-    // Distinct LogicalName candidates: the Pascal-case solution-component
-    // name first, then its lowercase entity-logical-name form.
-    const candidates = [componentName, componentName.toLowerCase()].filter(
-      (v, i, a) => a.indexOf(v) === i,
-    )
-
-    let stack = await this.fetchLayerStack(orgUrl, component, componentName)
-    for (const logicalName of candidates) {
-      if (!stack.layers.some((l) => l.solutionName === 'Active')) break
-      await this.bulkRemoveActiveCustomizations(
-        orgUrl,
-        component.objectId,
-        logicalName,
-      )
-      stack = await this.fetchLayerStack(orgUrl, component, componentName)
-    }
-    const removed = !stack.layers.some((l) => l.solutionName === 'Active')
-    return { removed, stack }
-  }
-
-  /** One BulkRemoveActiveCustomizations POST against the target org. */
-  private async bulkRemoveActiveCustomizations(
-    orgUrl: string,
-    objectId: string,
-    logicalName: string,
-  ): Promise<void> {
-    const result =
-      await MicrosoftDataverseService.PerformUnboundActionWithOrganization(
-        orgUrl,
-        'BulkRemoveActiveCustomizations',
-        {
-          Parameters: {
-            '@odata.type':
-              'Microsoft.Dynamics.CRM.BulkRemoveActiveCustomizationsParameters',
-            SolutionComponentReferences: [
-              {
-                '@odata.type':
-                  'Microsoft.Dynamics.CRM.SolutionComponentReference',
-                Id: objectId,
-                LogicalName: logicalName,
-              },
-            ],
-          },
-        },
-      )
-    if (!result.success) {
-      console.warn('[layers] BulkRemoveActiveCustomizations failed:', result)
-      const detail = (result as { error?: { message?: string } }).error?.message
-      throw new Error(
-        `Removing the active layer failed${detail ? ` — ${detail}` : ''}.`,
-      )
-    }
   }
 
   /** Pull one missing required component into the release solution. */

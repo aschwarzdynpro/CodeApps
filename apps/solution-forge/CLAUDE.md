@@ -96,20 +96,21 @@ aus erstem `ssid_workbenchsettings`-Datensatz aufgelöst. Status-Codes:
    → `principalid` + `principaltypecode` (8 User/9 Team) + `accessrightsmask`
    (Bitmaske). Läuft als SP — POA-Leserecht im Ziel nötig. Canvas Apps
    cross-env per `canvasapp.name` matchen (IDs divergieren).
-   **Layer entfernen (Remove active customizations):**
-   `RemoveActiveCustomizations` ist im Web API **gar nicht** erreichbar
-   (weder GET noch POST → HTTP 404 / `0x8006088a`, nur SOAP). Stattdessen die
-   POST-Action `BulkRemoveActiveCustomizations` (`isprivate:true`, fehlt im
-   `$metadata`, ist aber per `PerformUnboundActionWithOrganization` cross-env
-   aufrufbar). Body: `{ Parameters: { '@odata.type':
+   **Layer entfernen (Remove active customizations):** Bewusst NICHT in-app —
+   der Layer Inspector verlinkt stattdessen ins Maker-Portal des Ziel-Env
+   (`makerEnvSolutionsUrl`, „↗ layers in {env}"); Entfernen ist destruktiv und
+   nicht umkehrbar. Recherche-Stand, falls in-app je gewünscht:
+   `RemoveActiveCustomizations` ist im Web API **gar nicht** erreichbar (weder
+   GET noch POST → HTTP 404 / `0x8006088a`, nur SOAP). Die POST-Action
+   `BulkRemoveActiveCustomizations` (`isprivate:true`, fehlt im `$metadata`,
+   aber per `PerformUnboundActionWithOrganization` cross-env aufrufbar) ginge —
+   Body `{ Parameters: { '@odata.type':
    '…BulkRemoveActiveCustomizationsParameters', SolutionComponentReferences:
    [{ '@odata.type': '…SolutionComponentReference', Id: <objectId>,
-   LogicalName: <name> }] } }`. **Achtung:** liefert IMMER HTTP 200 mit leerem
-   Body — egal ob entfernt oder No-op; LogicalName wird auf HTTP-Ebene NICHT
-   validiert (Pascal „Workflow" wie lowercase „workflow" beide 200). ⇒
-   `dataverseSolutionService.removeActiveLayer` probiert beide LogicalName-
-   Formen und **fragt den Layer-Stack danach neu ab** (`removed` = kein
-   Active-Layer mehr). Läuft als SP — Customizing-Recht im Ziel nötig.
+   LogicalName: <name> }] } }`. **Achtung:** liefert IMMER HTTP 200 leer — egal
+   ob entfernt oder No-op; LogicalName wird auf HTTP-Ebene NICHT validiert. ⇒
+   ohne Re-Query des Layer-Stacks kein Erfolgssignal; läuft als SP, braucht
+   Customizing-Recht im Ziel.
 9. **DevOps-Konnektor:** kein PAT; EntraOAuth-Token kommt aus dem
    Heimat-Tenant des Kontos (HSO-Konto ⇒ TF400813 in Schulz-Org, Gast
    hilft nicht) ⇒ Lösung ist SP (TODO.md). EntraOAuth-Connections sind

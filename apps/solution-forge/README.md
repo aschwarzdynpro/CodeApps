@@ -87,16 +87,15 @@ Deployment-Status „Merged into Deployment Solution".
   (Flows/Workflows/Business Rules/Scripts) ein **⇄ diff DEV vs. Ziel**
   (Side-by-side). Klassische Typnamen statisch gemappt, solution-aware Typen
   dynamisch aus `solutioncomponentdefinition`; Typen ohne Layer-Daten bleiben
-  „No layer data". **Remove layer** auf einer *unmanaged-über-managed*-
-  Komponente entfernt nach Bestätigung den unmanaged „Active"-Layer im Ziel
-  (`BulkRemoveActiveCustomizations` via `PerformUnboundActionWithOrganization`,
-  läuft als Konnektor-SP) und prüft direkt nach — die Action liefert keinen
-  Erfolgs-Payload (HTTP 200 egal ob entfernt oder nicht), daher wird der
-  Layer-Stack neu abgefragt; `removed` ist nur true, wenn der Active-Layer
-  wirklich weg ist. Nur angeboten, wo ein managed Layer darunter liegt
-  (unmanaged-only hat nichts zum Zurückfallen — bleibt dem Maker-Portal
-  überlassen). `RemoveActiveCustomizations` selbst ist im Web API nicht
-  erreichbar (weder GET noch POST → nur SOAP), daher die Bulk-Variante.
+  „No layer data". Zeilen mit unmanaged Layer
+  bekommen einen **↗ layers in {env}**-Link in die Solutions des
+  Ziel-Environments (Maker-Portal) — dort Solution öffnen, Komponente wählen,
+  „Advanced → See solution layers → Remove active customizations". Das
+  Entfernen passiert bewusst im Portal, nicht in der App (nicht umkehrbar).
+  Eine in-app-Variante über `BulkRemoveActiveCustomizations` wäre technisch
+  möglich, liefert aber keinen Erfolgs-Payload und ist destruktiv cross-env
+  (`RemoveActiveCustomizations` ist im Web API gar nicht erreichbar — nur
+  SOAP); Details in CLAUDE.md gotcha #8.
 - **App Sharing**: Canvas Apps und Custom Pages einer Solution daraufhin
   prüfen, mit wem sie in DEV/UAT/PROD geteilt sind. Solution-Import
   überträgt **kein** User-Sharing — eine deployte Canvas App erreicht

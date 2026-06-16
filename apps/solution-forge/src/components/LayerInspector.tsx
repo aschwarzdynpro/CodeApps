@@ -6,7 +6,7 @@ import type {
   LayerSection,
   LayerVerdict,
 } from '../types/layers'
-import { ENVIRONMENTS } from '../config'
+import { ENVIRONMENTS, makerEnvSolutionsUrl } from '../config'
 import { solutionService } from '../services/solutionService'
 import { SolutionSelect } from './SolutionSelect'
 import { ContentDiffModal } from './ContentDiffModal'
@@ -82,19 +82,10 @@ export function LayerInspector({ solutions }: Props) {
     ref: AlmComponentRef
     envs: EnvKey[]
   } | null>(null)
-  // Active-layer removal: the row awaiting confirmation, the set of object
-  // ids currently being removed, and a per-component outcome note.
-  const [removeTarget, setRemoveTarget] = useState<ComponentLayerStack | null>(
-    null,
-  )
-  const [removing, setRemoving] = useState<Set<string>>(new Set())
-  const [removeNotes, setRemoveNotes] = useState<
-    Record<string, { ok: boolean; message: string }>
-  >({})
 
   const solution = candidates.find((s) => s.id === solutionId) ?? null
-  const envLabel =
-    targetEnvs.find((e) => e.key === envKey)?.label ?? envKey.toUpperCase()
+  const targetEnv = targetEnvs.find((e) => e.key === envKey)
+  const envLabel = targetEnv?.label ?? envKey.toUpperCase()
 
   const run = async () => {
     if (!solution) return
@@ -105,7 +96,6 @@ export function LayerInspector({ solutions }: Props) {
     setProgress(null)
     setGroupOverrides({})
     setLayerFilter(null)
-    setRemoveNotes({})
     setRan(true)
     try {
       const res = await solutionService.inspectLayers(
@@ -178,64 +168,6 @@ export function LayerInspector({ solutions }: Props) {
     })
   }
 
-  /** Replace one component's stack in place after a removal attempt. */
-  const applyUpdatedStack = (updated: ComponentLayerStack) =>
-    setSections((prev) =>
-      prev.map((s) =>
-        s.typeCode === updated.component.typeCode
-          ? {
-              ...s,
-              stacks: s.stacks.map((st) =>
-                st.component.objectId === updated.component.objectId
-                  ? updated
-                  : st,
-              ),
-            }
-          : s,
-      ),
-    )
-
-  const performRemove = async (stack: ComponentLayerStack) => {
-    const id = stack.component.objectId
-    setRemoveTarget(null)
-    setRemoving((prev) => new Set(prev).add(id))
-    setRemoveNotes((prev) => {
-      const next = { ...prev }
-      delete next[id]
-      return next
-    })
-    try {
-      const result = await solutionService.removeActiveLayer(
-        envKey,
-        stack.component,
-      )
-      applyUpdatedStack(result.stack)
-      setRemoveNotes((prev) => ({
-        ...prev,
-        [id]: result.removed
-          ? { ok: true, message: `Active layer removed in ${envLabel}.` }
-          : {
-              ok: false,
-              message: `No change in ${envLabel} — the service principal may lack customization rights, or this type can't be reverted here. Use the maker portal.`,
-            },
-      }))
-    } catch (err) {
-      setRemoveNotes((prev) => ({
-        ...prev,
-        [id]: {
-          ok: false,
-          message: err instanceof Error ? err.message : String(err),
-        },
-      }))
-    } finally {
-      setRemoving((prev) => {
-        const next = new Set(prev)
-        next.delete(id)
-        return next
-      })
-    }
-  }
-
   const renderStack = (stack: ComponentLayerStack) => {
     const badge = VERDICT_BADGE[stack.verdict]
     const diffable =
@@ -243,12 +175,10 @@ export function LayerInspector({ solutions }: Props) {
       (stack.verdict === 'clean' ||
         stack.verdict === 'overridden' ||
         stack.verdict === 'unmanagedOnly')
-    // Removal reverts to the managed layer, so it's only offered where one
-    // exists beneath the Active layer (verdict "overridden").
-    const removable = stack.verdict === 'overridden'
-    const id = stack.component.objectId
-    const isRemoving = removing.has(id)
-    const note = removeNotes[id]
+    // Rows carrying an unmanaged Active layer get a jump to the target
+    // environment's solutions, where the layer can be inspected/removed
+    // (Advanced → See solution layers → Remove active customizations).
+    const hasUnmanagedLayer = UNMANAGED_VERDICTS.has(stack.verdict)
     return (
       <li
         key={`${stack.component.typeCode}-${stack.component.objectId}`}
@@ -280,15 +210,6 @@ export function LayerInspector({ solutions }: Props) {
               ))}
             </span>
           )}
-          {note && (
-            <span
-              className={`lv-remove-note ${
-                note.ok ? 'lv-remove-note--ok' : 'lv-remove-note--err'
-              }`}
-            >
-              {note.message}
-            </span>
-          )}
         </span>
         {diffable && (
           <button
@@ -299,15 +220,16 @@ export function LayerInspector({ solutions }: Props) {
             ⇄ diff
           </button>
         )}
-        {removable && (
-          <button
-            className="btn btn--small btn--danger"
-            disabled={isRemoving}
-            title={`Remove the unmanaged Active layer in ${envLabel} (reverts to the managed layer)`}
-            onClick={() => setRemoveTarget(stack)}
+        {hasUnmanagedLayer && targetEnv && (
+          <a
+            className="diff-link"
+            href={makerEnvSolutionsUrl(targetEnv.environmentId)}
+            target="_blank"
+            rel="noreferrer"
+            title={`Open ${envLabel} solutions to inspect this component's layers (Advanced → See solution layers → Remove active customizations)`}
           >
-            {isRemoving ? 'Removing…' : 'Remove layer'}
-          </button>
+            ↗ layers in {envLabel}
+          </a>
         )}
       </li>
     )
@@ -327,7 +249,6 @@ export function LayerInspector({ solutions }: Props) {
               setRan(false)
               setError(null)
               setLayerFilter(null)
-              setRemoveNotes({})
             }}
             placeholder="Select a release solution"
           />
@@ -493,50 +414,6 @@ export function LayerInspector({ solutions }: Props) {
           target={diffTarget}
           onClose={() => setDiffTarget(null)}
         />
-      )}
-
-      {removeTarget && (
-        <div className="modal-backdrop" onClick={() => setRemoveTarget(null)}>
-          <div
-            className="modal card"
-            role="dialog"
-            aria-modal="true"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <h2 className="diff-title">Remove active layer</h2>
-              <button
-                className="modal-close"
-                onClick={() => setRemoveTarget(null)}
-                aria-label="Close"
-              >
-                ✕
-              </button>
-            </div>
-            <p>
-              Remove the unmanaged <strong>Active</strong> layer over{' '}
-              <strong>{removeTarget.component.displayName}</strong> in{' '}
-              <strong>{envLabel}</strong>?
-            </p>
-            <p className="muted">
-              This reverts the component to its managed layer there — local
-              customizations on top are discarded and the next solution import
-              is no longer masked. It runs against {envLabel} as the connector
-              service principal and can't be undone from here.
-            </p>
-            <div className="modal-footer">
-              <button className="btn" onClick={() => setRemoveTarget(null)}>
-                Cancel
-              </button>
-              <button
-                className="btn btn--danger"
-                onClick={() => void performRemove(removeTarget)}
-              >
-                Remove from {envLabel}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   )

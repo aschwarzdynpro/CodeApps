@@ -8,11 +8,7 @@ import type {
   WorkingSolution,
 } from '../types/solution'
 import type { DependencyCheckResult } from '../types/dependency'
-import type {
-  LayerInspectionResult,
-  LayerRemovalResult,
-  LayerSection,
-} from '../types/layers'
+import type { LayerInspectionResult, LayerSection } from '../types/layers'
 import { dataverseSolutionService } from './dataverseSolutionService'
 
 /**
@@ -90,18 +86,6 @@ export interface SolutionService {
     /** Fired per component type as soon as that section is resolved. */
     onSection?: (section: LayerSection) => void,
   ): Promise<LayerInspectionResult>
-  /**
-   * Removes the unmanaged "Active" layer over a managed component in the
-   * target environment (BulkRemoveActiveCustomizations), reverting it to the
-   * managed layer the next import delivers. Only meaningful for components
-   * whose verdict is "overridden". The action returns no success payload, so
-   * the layer stack is re-queried afterwards — `removed` is true only when
-   * the Active layer is actually gone.
-   */
-  removeActiveLayer(
-    envKey: 'uat' | 'prod',
-    component: SolutionComponentInfo,
-  ): Promise<LayerRemovalResult>
   /**
    * Whether the signed-in user holds the given security role (direct
    * assignment; team-inherited roles are not considered). Used to gate
