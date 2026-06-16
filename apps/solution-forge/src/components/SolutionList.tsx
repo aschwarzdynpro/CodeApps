@@ -1,3 +1,4 @@
+import { Fragment, type ReactNode } from 'react'
 import type {
   ComponentCollision,
   SolutionComponentInfo,
@@ -16,6 +17,12 @@ interface Props {
   collisions?: Map<string, ComponentCollision[]> | null
   /** Group entries sharing the same Azure DevOps work item number. */
   groupByWorkItem?: boolean
+  /** Detail pane for the active row, rendered inline beneath it. */
+  detail?: ReactNode
+  /** True while the inline detail plays its fade-out before unmounting. */
+  detailClosing?: boolean
+  /** Fired when the fade-out animation ends so the parent can drop selection. */
+  onDetailClosed?: () => void
 }
 
 const MAX_SHOWN_MATCHES = 2
@@ -65,6 +72,9 @@ export function SolutionList({
   componentMatches,
   collisions,
   groupByWorkItem,
+  detail,
+  detailClosing,
+  onDetailClosed,
 }: Props) {
   // Several working-solution records pointing at the same real solution is
   // a data smell worth surfacing (e.g. duplicate tracking rows).
@@ -82,70 +92,96 @@ export function SolutionList({
     )
   }
 
+  // The detail pane is rendered inline directly beneath the active row, so the
+  // list can use the full page width. A click on the active row collapses it
+  // (the parent drives the fade-out via `detailClosing`).
+  const renderInlineDetail = (s: WorkingSolution) =>
+    s.id === activeId && detail ? (
+      <div
+        className={`inline-detail ${
+          detailClosing ? 'inline-detail--closing' : ''
+        }`}
+        onAnimationEnd={
+          detailClosing
+            ? (e) => {
+                // Ignore animationend bubbling up from nested elements.
+                if (e.target === e.currentTarget) onDetailClosed?.()
+              }
+            : undefined
+        }
+      >
+        {detail}
+      </div>
+    ) : null
+
   const renderRow = (s: WorkingSolution) => {
     const hits = componentMatches?.get(s.id) ?? []
     const duplicateLink = (linkCounts.get(s.id) ?? 0) > 1
     return (
-      <button
-        key={s.recordId ?? s.id}
-        className={`solution-row ${s.id === activeId ? 'solution-row--active' : ''}`}
-        onClick={() => onOpen(s.id)}
-      >
-        <KindBanner kind={s.kind} />
-        <span className="solution-row-main">
-          <span className="solution-row-title">
-            {s.title}
-            {s.toBeCompleted && (
-              <span
-                className="tbc-chip"
-                title="The DevOps work item is closed but this solution is still open — ready to mark completed."
-              >
-                ✓ to be completed
-              </span>
-            )}
-            {duplicateLink && (
-              <span
-                className="dup-chip"
-                title="Multiple working-solution records link to this solution — consider cleaning up."
-              >
-                duplicate link
-              </span>
-            )}
-            {(collisions?.get(s.id)?.length ?? 0) > 0 && (
-              <span
-                className="coll-chip"
-                title="This solution shares components with other open working solutions — see the detail pane."
-              >
-                ⚠ {collisions!.get(s.id)!.length} shared
-              </span>
-            )}
-          </span>
-          <span className="solution-row-meta">
-            <code>{s.uniqueName}</code>
-            {s.devOpsId && <span className="ado-chip">#{s.devOpsId}</span>}
-            {s.version && <span>v{s.version}</span>}
-            {s.owner && <span className="solution-row-owner">👤 {s.owner}</span>}
-            <span className="solution-row-when">
-              {formatRelative(s.modifiedOn)}
-            </span>
-          </span>
-          {hits.length > 0 && (
-            <span className="solution-row-hits">
-              {hits.slice(0, MAX_SHOWN_MATCHES).map((c) => (
-                <span key={c.id} className="hit-chip" title={c.typeName}>
-                  {c.displayName}
+      <Fragment key={s.recordId ?? s.id}>
+        <button
+          className={`solution-row ${s.id === activeId ? 'solution-row--active' : ''}`}
+          onClick={() => onOpen(s.id)}
+        >
+          <KindBanner kind={s.kind} />
+          <span className="solution-row-main">
+            <span className="solution-row-title">
+              {s.title}
+              {s.toBeCompleted && (
+                <span
+                  className="tbc-chip"
+                  title="The DevOps work item is closed but this solution is still open — ready to mark completed."
+                >
+                  ✓ to be completed
                 </span>
-              ))}
-              {hits.length > MAX_SHOWN_MATCHES && (
-                <span className="hit-more">
-                  +{hits.length - MAX_SHOWN_MATCHES} more
+              )}
+              {duplicateLink && (
+                <span
+                  className="dup-chip"
+                  title="Multiple working-solution records link to this solution — consider cleaning up."
+                >
+                  duplicate link
+                </span>
+              )}
+              {(collisions?.get(s.id)?.length ?? 0) > 0 && (
+                <span
+                  className="coll-chip"
+                  title="This solution shares components with other open working solutions — see the detail pane."
+                >
+                  ⚠ {collisions!.get(s.id)!.length} shared
                 </span>
               )}
             </span>
-          )}
-        </span>
-        <StateBanner solution={s} />
-      </button>
+            <span className="solution-row-meta">
+              <code>{s.uniqueName}</code>
+              {s.devOpsId && <span className="ado-chip">#{s.devOpsId}</span>}
+              {s.version && <span>v{s.version}</span>}
+              {s.owner && (
+                <span className="solution-row-owner">👤 {s.owner}</span>
+              )}
+              <span className="solution-row-when">
+                {formatRelative(s.modifiedOn)}
+              </span>
+            </span>
+            {hits.length > 0 && (
+              <span className="solution-row-hits">
+                {hits.slice(0, MAX_SHOWN_MATCHES).map((c) => (
+                  <span key={c.id} className="hit-chip" title={c.typeName}>
+                    {c.displayName}
+                  </span>
+                ))}
+                {hits.length > MAX_SHOWN_MATCHES && (
+                  <span className="hit-more">
+                    +{hits.length - MAX_SHOWN_MATCHES} more
+                  </span>
+                )}
+              </span>
+            )}
+          </span>
+          <StateBanner solution={s} />
+        </button>
+        {renderInlineDetail(s)}
+      </Fragment>
     )
   }
 

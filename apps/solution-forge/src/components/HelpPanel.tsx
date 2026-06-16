@@ -162,6 +162,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <h3>Detail pane</h3>
             <ul>
               <li>
+                Click a row to <strong>expand its details inline</strong>,
+                directly beneath the entry — it fades in; clicking the same row
+                again fades it back out. This keeps the table at full width.
+              </li>
+              <li>
                 A <strong>command bar</strong> with the entry's actions —{' '}
                 <strong>Open in Maker Portal</strong> on the left, and{' '}
                 <strong>Mark completed</strong> / <strong>Delete</strong> as

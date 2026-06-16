@@ -107,6 +107,9 @@ function App() {
     { id: string | null; name: string | null } | 'loading' | undefined
   >(undefined)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // While the inline detail plays its fade-out, the row stays selected so the
+  // pane keeps rendering in place; cleared once the animation ends.
+  const [detailClosing, setDetailClosing] = useState(false)
   const [components, setComponents] = useState<SolutionComponentInfo[]>([])
   const [componentsLoading, setComponentsLoading] = useState(false)
   // Components loaded once per solution and reused on re-selection; only the
@@ -445,6 +448,12 @@ function App() {
   }
 
   const openSolution = (id: string) => {
+    // Clicking the open row again collapses the inline detail (fade-out).
+    if (id === selectedId) {
+      setDetailClosing(true)
+      return
+    }
+    setDetailClosing(false)
     setSelectedId(id)
     setJustCreated(null)
     const solution = allSolutions.find((s) => s.id === id)
@@ -457,6 +466,13 @@ function App() {
     }
     if (DEVOPS_PANEL_ENABLED && solution?.devOpsId)
       loadWorkItem(solution.devOpsId)
+  }
+
+  // Called when the fade-out finishes — only now do we drop the selection so
+  // the pane unmounts after it has visually collapsed.
+  const finishCloseDetail = () => {
+    setDetailClosing(false)
+    setSelectedId(null)
   }
 
   const handleCreated = (solution: WorkingSolution) => {
@@ -822,52 +838,52 @@ function App() {
               componentMatches={componentMatches}
               collisions={collisions}
               groupByWorkItem={groupByWorkItem}
+              detailClosing={detailClosing}
+              onDetailClosed={finishCloseDetail}
+              detail={
+                selected ? (
+                  <SolutionDetail
+                    key={selected.id}
+                    solution={selected}
+                    environmentId={environmentId}
+                    components={components}
+                    loadingComponents={componentsLoading}
+                    onRefreshComponents={() => loadComponents(selected.id, true)}
+                    collisions={collisions?.get(selected.id) ?? null}
+                    onTrack={handleTrack}
+                    onDelete={(s) => setConfirmDelete(s)}
+                    onComplete={(s) => setCompleteTarget(s)}
+                    onChangeType={async (s, kind) => {
+                      if (!s.recordId) return
+                      await solutionService.updateSolutionType(s.recordId, kind)
+                      reload()
+                    }}
+                    linkCandidates={linkCandidates}
+                    onLink={async (record, target) => {
+                      if (!record.recordId) return
+                      await solutionService.linkSolution(record.recordId, {
+                        id: target.id,
+                        uniqueName: target.uniqueName,
+                      })
+                      // Follow the record to its now-linked solution entry.
+                      setSelectedId(target.id)
+                      loadComponents(target.id)
+                      reload()
+                    }}
+                    workItem={
+                      selected.devOpsId
+                        ? (workItems.get(selected.devOpsId) ?? null)
+                        : null
+                    }
+                    workItemLoading={
+                      workItemLoading &&
+                      !!selected.devOpsId &&
+                      !workItems.has(selected.devOpsId)
+                    }
+                  />
+                ) : null
+              }
             />
-            {selected ? (
-              <SolutionDetail
-                key={selected.id}
-                solution={selected}
-                environmentId={environmentId}
-                components={components}
-                loadingComponents={componentsLoading}
-                onRefreshComponents={() => loadComponents(selected.id, true)}
-                collisions={collisions?.get(selected.id) ?? null}
-                onTrack={handleTrack}
-                onDelete={(s) => setConfirmDelete(s)}
-                onComplete={(s) => setCompleteTarget(s)}
-                onChangeType={async (s, kind) => {
-                  if (!s.recordId) return
-                  await solutionService.updateSolutionType(s.recordId, kind)
-                  reload()
-                }}
-                linkCandidates={linkCandidates}
-                onLink={async (record, target) => {
-                  if (!record.recordId) return
-                  await solutionService.linkSolution(record.recordId, {
-                    id: target.id,
-                    uniqueName: target.uniqueName,
-                  })
-                  // Follow the record to its now-linked solution entry.
-                  setSelectedId(target.id)
-                  loadComponents(target.id)
-                  reload()
-                }}
-                workItem={
-                  selected.devOpsId
-                    ? (workItems.get(selected.devOpsId) ?? null)
-                    : null
-                }
-                workItemLoading={
-                  workItemLoading &&
-                  !!selected.devOpsId &&
-                  !workItems.has(selected.devOpsId)
-                }
-              />
-            ) : (
-              <aside className="card detail detail--empty">
-                Select a solution to see its details and components.
-              </aside>
-            )}
           </div>
         </>
       )}

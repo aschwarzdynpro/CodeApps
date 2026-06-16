@@ -56,7 +56,10 @@ Deployment-Status „Merged into Deployment Solution".
 - **Anlegen**: Dialog mit Typ, ADO-ID, Titel, Beschreibung, Publisher und
   Live-Preview des Unique Name inkl. Duplikat-Prüfung. Die Solution wird
   real in Dataverse erzeugt und ist sofort im Maker-Portal sichtbar.
-- **Detail**: **Command Bar** mit den Aktionen (Open in Maker Portal links,
+- **Detail**: Klick auf eine Zeile blendet die Details **inline direkt unter
+  dem Eintrag** ein (Fade-in); erneuter Klick auf dieselbe Zeile blendet sie
+  wieder aus — so bleibt die Tabelle über die volle Breite. **Command Bar**
+  mit den Aktionen (Open in Maker Portal links,
   Mark completed / Delete als Icons rechts), Metadaten, Komponenten der
   Solution gruppiert nach Typ in aufklappbaren Gruppen (Anzeigenamen via
   `msdyn_solutioncomponentsummary`, derselben Quelle wie im Maker-Portal),
