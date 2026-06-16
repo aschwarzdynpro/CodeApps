@@ -20,3 +20,18 @@ export function KindBadge({ kind }: { kind: SolutionKind }) {
 export function KindBanner({ kind }: { kind: SolutionKind }) {
   return <span className={`kind-banner kind-${kind}`}>{LABELS[kind]}</span>
 }
+
+/**
+ * Minimal colored dot for the kind, used where the text badge would be too
+ * heavy (e.g. the merge source picker). The label rides along as a tooltip /
+ * aria-label.
+ */
+export function KindIcon({ kind }: { kind: SolutionKind }) {
+  return (
+    <span
+      className={`kind-icon kind-${kind}`}
+      title={LABELS[kind]}
+      aria-label={LABELS[kind]}
+    />
+  )
+}

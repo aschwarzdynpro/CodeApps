@@ -21,11 +21,6 @@ interface Props {
   /** Default-on: only entries with a working-solution record. */
   trackedOnly: boolean
   onTrackedOnlyChange: (enabled: boolean) => void
-  /** Only working solutions owned by the signed-in user. */
-  mineOnly: boolean
-  onMineOnlyChange: (enabled: boolean) => void
-  /** Resolved name of the signed-in user, when known. */
-  mineUserName?: string | null
   /** Distinct owners for the owner filter. */
   owners: string[]
   /** Selected owner, or '' for all. */
@@ -44,9 +39,6 @@ export function SolutionFilterBar({
   onOpenOnlyChange,
   trackedOnly,
   onTrackedOnlyChange,
-  mineOnly,
-  onMineOnlyChange,
-  mineUserName,
   owners,
   ownerFilter,
   onOwnerChange,
@@ -86,17 +78,6 @@ export function SolutionFilterBar({
           onClick={() => onTrackedOnlyChange(!trackedOnly)}
         >
           Tracked
-        </button>
-        <button
-          className={`chip ${mineOnly ? 'chip--active' : ''}`}
-          title={
-            mineUserName
-              ? `Only working solutions owned by ${mineUserName}`
-              : 'Only working solutions owned by you'
-          }
-          onClick={() => onMineOnlyChange(!mineOnly)}
-        >
-          👤 Mine
         </button>
         <OwnerFilter
           owners={owners}

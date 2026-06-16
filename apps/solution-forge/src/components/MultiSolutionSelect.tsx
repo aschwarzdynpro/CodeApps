@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
-import { KindBadge } from './KindBadge'
+import { KindIcon } from './KindBadge'
 
 interface Props {
   /** Selectable solutions (already owner-scoped by the caller). */
@@ -15,9 +15,9 @@ interface Props {
 /**
  * Multi-select dropdown over working solutions: a trigger summarising the
  * count, opening a panel with an inline text filter and checkbox option rows.
- * Each row shows the kind badge, title, owner and Azure DevOps id (instead of
- * the unique name). Unlike {@link SolutionSelect} the panel stays open while
- * ticking, so several solutions can be added in one go.
+ * Each row shows the kind as a colored dot, the title, the owner, the unique
+ * name and the Azure DevOps id. Unlike {@link SolutionSelect} the panel stays
+ * open while ticking, so several solutions can be added in one go.
  */
 export function MultiSolutionSelect({
   options,
@@ -114,11 +114,12 @@ export function MultiSolutionSelect({
                       checked={checked}
                       onChange={() => onToggle(o.id)}
                     />
-                    <KindBadge kind={o.kind} />
+                    <KindIcon kind={o.kind} />
                     <span className="sselect-title">{o.title}</span>
                     {o.owner && (
                       <span className="msselect-owner muted">{o.owner}</span>
                     )}
+                    <code>{o.uniqueName}</code>
                     {o.devOpsId && <code>#{o.devOpsId}</code>}
                   </label>
                 </li>

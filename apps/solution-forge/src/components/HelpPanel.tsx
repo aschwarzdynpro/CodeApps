@@ -92,10 +92,8 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 untracked entries.
               </li>
               <li>
-                <strong>👤 Mine</strong> — only working solutions you own
-                (matched via the owner of the working-solution record). The{' '}
-                <strong>owner dropdown</strong> next to it filters the list to
-                any single owner.
+                The <strong>owner dropdown</strong> filters the list to a
+                single owner (or all owners).
               </li>
               <li>
                 <strong>incl. components</strong> — builds a one-time index
@@ -241,11 +239,12 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 solution.
               </li>
               <li>
-                Sections <strong>1 / 2 / 3</strong> are stacked. Pick the
-                sources from the <strong>multi-select dropdown</strong> (each
-                option shows kind, title, owner and the Azure DevOps id); an{' '}
-                <strong>owner filter</strong> narrows the options. The
-                selection survives filter changes and shows as removable chips.
+                Sections <strong>1 / 2 / 3</strong> are stacked full width.
+                Pick the sources from the{' '}
+                <strong>multi-select dropdown</strong> — each option shows the
+                kind as a colored dot, the title, owner, unique name and the
+                Azure DevOps id. The selection survives filter changes and
+                shows as removable chips.
               </li>
               <li>
                 The <strong>component plan</strong> shows the distinct

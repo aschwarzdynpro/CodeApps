@@ -100,14 +100,8 @@ function App() {
   // can be unticked to reach finished or untracked entries.
   const [openOnly, setOpenOnly] = useState(true)
   const [trackedOnly, setTrackedOnly] = useState(true)
-  // "Mine" filter: resolved lazily on first activation. undefined = not
-  // resolved yet, 'loading' = lookup running.
-  const [mineOnly, setMineOnly] = useState(false)
   // Owner filter — '' = all owners.
   const [ownerFilter, setOwnerFilter] = useState('')
-  const [currentUser, setCurrentUser] = useState<
-    { id: string | null; name: string | null } | 'loading' | undefined
-  >(undefined)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // While the inline detail plays its fade-out, the row stays selected so the
   // pane keeps rendering in place; cleared once the animation ends.
@@ -196,16 +190,9 @@ function App() {
     return merged.filter((s) => !pendingKeys.has(s.recordId ?? s.id))
   }, [solutions, created, pendingDeletes])
 
-  // Structural filters (open / tracked / mine) applied before kind and
+  // Structural filters (open / tracked / owner) applied before kind and
   // search — the kind counts reflect this base set.
   const baseFiltered = useMemo(() => {
-    const isMine = (s: WorkingSolution): boolean => {
-      if (!currentUser || currentUser === 'loading') return true // still resolving
-      if (currentUser.id && s.ownerId) return s.ownerId === currentUser.id
-      if (currentUser.name && s.owner)
-        return s.owner.toLowerCase() === currentUser.name.toLowerCase()
-      return false
-    }
     return allSolutions
       .filter(
         (s) =>
@@ -214,9 +201,8 @@ function App() {
           !CLOSED_STATUS_CODES.has(s.deploymentStatusCode),
       )
       .filter((s) => !trackedOnly || !!s.recordId)
-      .filter((s) => !mineOnly || isMine(s))
       .filter((s) => !ownerFilter || s.owner === ownerFilter)
-  }, [allSolutions, openOnly, trackedOnly, mineOnly, ownerFilter, currentUser])
+  }, [allSolutions, openOnly, trackedOnly, ownerFilter])
 
   // Distinct owners across all solutions, for the workbench owner filter.
   const owners = useMemo(
@@ -265,17 +251,6 @@ function App() {
           componentMatches.has(s.id),
       )
   }, [baseFiltered, kindFilter, search, componentMatches])
-
-  const toggleMineOnly = (enabled: boolean) => {
-    setMineOnly(enabled)
-    if (enabled && currentUser === undefined) {
-      setCurrentUser('loading')
-      solutionService
-        .getCurrentUser()
-        .then((u) => setCurrentUser(u))
-        .catch(() => setCurrentUser({ id: null, name: null }))
-    }
-  }
 
   const selected = allSolutions.find((s) => s.id === selectedId) ?? null
 
@@ -731,29 +706,12 @@ function App() {
             onOpenOnlyChange={setOpenOnly}
             trackedOnly={trackedOnly}
             onTrackedOnlyChange={setTrackedOnly}
-            mineOnly={mineOnly}
-            onMineOnlyChange={toggleMineOnly}
-            mineUserName={
-              currentUser && currentUser !== 'loading' ? currentUser.name : null
-            }
             owners={owners}
             ownerFilter={ownerFilter}
             onOwnerChange={setOwnerFilter}
             groupByWorkItem={groupByWorkItem}
             onGroupByChange={setGroupByWorkItem}
           />
-
-          {mineOnly &&
-            currentUser &&
-            currentUser !== 'loading' &&
-            !currentUser.id &&
-            !currentUser.name && (
-              <div className="state state--error">
-                Could not determine the signed-in user — the “Mine” filter
-                has nothing to match. Check the browser console for the
-                identity lookup details.
-              </div>
-            )}
 
           <div className="collision-bar">
             <button

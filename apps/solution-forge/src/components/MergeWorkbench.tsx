@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type {
   MergePlanItem,
   MergeResult,
@@ -7,7 +7,6 @@ import type {
 } from '../types/solution'
 import { solutionService } from '../services/solutionService'
 import { MultiSolutionSelect } from './MultiSolutionSelect'
-import { OwnerFilter } from './OwnerFilter'
 import { SolutionSelect } from './SolutionSelect'
 
 interface Props {
@@ -36,10 +35,9 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
   )
 
   const [targetId, setTargetId] = useState<string>('')
+  // The selection is keyed by id and survives any filter change inside the
+  // picker; selected entries stay visible as removable chips.
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  // Owner filter for the source picker — the selection is keyed by id and
-  // survives any filter change; selected entries stay visible as chips.
-  const [ownerFilter, setOwnerFilter] = useState('')
   const [plan, setPlan] = useState<MergePlanItem[] | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
   const [progress, setProgress] = useState<[number, number] | null>(null)
@@ -125,17 +123,6 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
     }
   }
 
-  // Distinct owners across the mergeable sources, for the owner filter.
-  const sourceOwners = useMemo(
-    () =>
-      [...new Set(sources.map((s) => s.owner).filter((o): o is string => !!o))].sort(
-        (a, b) => a.localeCompare(b),
-      ),
-    [sources],
-  )
-  const ownerScopedSources = ownerFilter
-    ? sources.filter((s) => s.owner === ownerFilter)
-    : sources
   const selectedSolutions = sources.filter((s) => selected.has(s.id))
 
   return (
@@ -155,22 +142,12 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
           </div>
         ) : (
           <>
-            <div className="merge-source-controls">
-              <OwnerFilter
-                owners={sourceOwners}
-                value={ownerFilter}
-                onChange={setOwnerFilter}
-                className="merge-owner-filter"
-              />
-              <div className="merge-source-picker">
-                <MultiSolutionSelect
-                  options={ownerScopedSources}
-                  selected={selected}
-                  onToggle={toggleSource}
-                  placeholder="Select working solutions to merge…"
-                />
-              </div>
-            </div>
+            <MultiSolutionSelect
+              options={sources}
+              selected={selected}
+              onToggle={toggleSource}
+              placeholder="Select working solutions to merge…"
+            />
             {selectedSolutions.length > 0 && (
               <div className="merge-selected">
                 {selectedSolutions.map((s) => (
