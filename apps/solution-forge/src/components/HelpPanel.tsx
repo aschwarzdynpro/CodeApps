@@ -11,8 +11,18 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="modal-header">
-          <h2>Help — feature guide</h2>
+        <div className="modal-header help-header">
+          <div className="help-title">
+            <span className="help-title-icon" aria-hidden="true">
+              ?
+            </span>
+            <div className="help-title-text">
+              <h2>Feature guide</h2>
+              <p className="help-subtitle">
+                How the Solution Administration Console works — tab by tab.
+              </p>
+            </div>
+          </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">
             ✕
           </button>
