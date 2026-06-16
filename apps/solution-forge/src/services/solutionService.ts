@@ -119,6 +119,13 @@ export interface SolutionService {
    */
   deleteUnderlyingSolution(solutionId: string): Promise<void>
   /**
+   * Runs the "Sync DevOps Work Item Status" cloud flow, which refreshes each
+   * working solution's sst_devopsworkitemstatus from Azure DevOps. Returns the
+   * count the flow reports. Callers should reload the list afterwards so the
+   * "to be completed" reconciliation re-runs.
+   */
+  syncDevOpsWorkItemStatus(): Promise<number>
+  /**
    * Re-links an orphaned working-solution record to an existing solution
    * (updates ssid_uniquesolutionname and the maker link).
    */

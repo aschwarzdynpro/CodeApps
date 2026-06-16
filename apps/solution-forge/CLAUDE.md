@@ -59,6 +59,13 @@ aus erstem `ssid_workbenchsettings`-Datensatz aufgelöst. Status-Codes:
    benutzen (macht Workaround + Re-Insert automatisch).
    `pac code delete-data-source` löscht zusätzlich handgepflegte Dateien
    in `src/generated/` (AddSolutionComponentService!) → wiederherstellen.
+   **Auch `power-apps add-flow` (npm-CLI) regeneriert `dataSourcesInfo.ts`**
+   und kann handgepflegte Blöcke droppen — beobachtet: `retrievemissingdepen-
+   dencies` weg, `addsolutioncomponent` blieb (das Re-Insert im Script feuert
+   nur, wenn `addsolutioncomponent` fehlt → hier NICHT, also manuell den
+   `retrievemissingdependencies`-Block oben in `dataSourcesInfo.ts` wieder
+   einsetzen, Vorlage steht im Script). Nach jedem add-flow prüfen:
+   `grep '"retrievemissingdependencies"' .power/schemas/appschemas/dataSourcesInfo.ts`.
 2. **`publisherid@odata.bind` lowercase** — das generierte Modell behauptet
    `PublisherId@odata.bind`, Dataverse lehnt das ab (0x80048d19).
 3. Entity-Set der Webressourcen heißt **`webresourceset`** (nicht
@@ -139,6 +146,21 @@ aus erstem `ssid_workbenchsettings`-Datensatz aufgelöst. Status-Codes:
     `console.warn('[solutions]/[compare]/[deps]'…)` + `pac env fetch
     --xmlFile <fetchxml>` (Read-only-Reproduktion als User). Lookup-Fehler
     im Dependency-Check erscheinen zusätzlich in der UI.
+12. **Cloud Flow aufrufen (Sync with DevOps):** Code Apps rufen Flows nur
+    über die **npm-CLI** `power-apps add-flow` (NICHT `pac code`) auf — nur
+    Flows mit **Power Apps (V2)-Trigger** + solution-aware (sonst nicht in
+    `power-apps list-flows`). Generiert `src/generated/services/<Flow>Service`
+    mit `Run(input)` und registriert den Flow in `power.config.json`
+    (`shared_logicflows`, `workflowDetails`). **Achtung Auth:** die npm-CLI
+    macht Silent-SSO über die Browser-Session und greift gern den FALSCHEN
+    Tenant ab (404 „environment … not found in tenant …") — Browser vorher auf
+    das Schulz-Konto bringen, dann `power-apps logout` + erneut. `src/generated`
+    und `power.config.json` sind gitignored ⇒ Flow-Service + Registrierung
+    leben nur lokal, beim Frischklon `add-flow` erneut laufen lassen (danach
+    gotcha #1 beachten). Aufruf gekapselt in
+    `dataverseSolutionService.syncDevOpsWorkItemStatus()`; danach `reload()` →
+    `toBeCompleted`-Abgleich. Flow „PA | MANUAL | Working Solution | Sync
+    DevOps Work Item Status" (workflowId `6253ef0c-…`).
 
 ## Offen / Nächstes
 

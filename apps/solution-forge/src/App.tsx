@@ -97,6 +97,13 @@ function App() {
   const [workItemLoading, setWorkItemLoading] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  // "Sync with DevOps": runs the cloud flow, then reloads so the
+  // to-be-completed reconciliation re-runs.
+  const [syncingDevOps, setSyncingDevOps] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<{
+    ok: boolean
+    text: string
+  } | null>(null)
 
   // Soft delete / completion: confirmed entries disappear immediately and
   // wait in pendingDeletes for the 5-second undo window; only then the hard
@@ -466,6 +473,32 @@ function App() {
     setPendingDeletes((prev) => prev.filter((p) => p.key !== key))
   }
 
+  /**
+   * Run the "Sync DevOps Work Item Status" cloud flow, then reload so the
+   * to-be-completed reconciliation runs against the refreshed statuses.
+   */
+  const syncDevOps = async () => {
+    setSyncingDevOps(true)
+    setSyncMessage(null)
+    try {
+      const count = await solutionService.syncDevOpsWorkItemStatus()
+      setSyncMessage({
+        ok: true,
+        text: `DevOps work item status synced${
+          count ? ` — ${count} record${count === 1 ? '' : 's'}` : ''
+        }.`,
+      })
+      reload()
+    } catch (err) {
+      setSyncMessage({
+        ok: false,
+        text: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setSyncingDevOps(false)
+    }
+  }
+
   const finalizeDelete = async (
     key: string,
     solution: WorkingSolution,
@@ -706,6 +739,14 @@ function App() {
             >
               Group by work item
             </button>
+            <button
+              className="btn btn--small"
+              title="Run the 'Sync DevOps Work Item Status' cloud flow, then refresh the to-be-completed check."
+              onClick={() => void syncDevOps()}
+              disabled={syncingDevOps}
+            >
+              {syncingDevOps ? 'Syncing with DevOps…' : '⟳ Sync with DevOps'}
+            </button>
             <div className="search-group">
               <input
                 className="search"
@@ -751,6 +792,23 @@ function App() {
                 </span>
               ))}
           </div>
+
+          {syncingDevOps && (
+            <div className="sharing-progress" aria-live="polite">
+              <span className="sharing-progress-spinner" />
+              <span className="sharing-progress-text">
+                Sync with DevOps in progress — the cloud flow is updating each
+                working solution's work item status…
+              </span>
+            </div>
+          )}
+          {syncMessage && !syncingDevOps && (
+            <div
+              className={`state ${syncMessage.ok ? 'state--success' : 'state--error'}`}
+            >
+              {syncMessage.text}
+            </div>
+          )}
 
           <div className="layout">
             <SolutionList

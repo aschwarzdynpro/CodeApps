@@ -331,6 +331,20 @@ export class MockSolutionService {
       statusCode === 500870003 ? 'Deployment completed' : 'None'
   }
 
+  async syncDevOpsWorkItemStatus(): Promise<number> {
+    await delay(1500)
+    // Demo: pretend the sync closed one more open entry's work item, so the
+    // reconciliation lights up another "to be completed" after reload.
+    const candidate = this.solutions.find(
+      (s) => s.recordId && !s.solutionMissing && !s.toBeCompleted,
+    )
+    if (candidate) {
+      candidate.toBeCompleted = true
+      return 1
+    }
+    return 0
+  }
+
   async deleteUnderlyingSolution(solutionId: string): Promise<void> {
     await delay(300)
     // The record stays; only the real solution is gone → now "WS only".

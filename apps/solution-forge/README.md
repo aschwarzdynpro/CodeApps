@@ -59,6 +59,12 @@ Deployment-Status „Merged into Deployment Solution".
   ist er *Closed/Done*, wird der Eintrag in der Liste als **„to be completed"**
   markiert und die Mark-completed-Aktion hervorgehoben (abgeleitetes Flag,
   nicht persistiert).
+- **Sync with DevOps**: Button in der Workbench-Toolbar ruft den Cloud Flow
+  *PA | MANUAL | Working Solution | Sync DevOps Work Item Status* auf (Power-
+  Apps-Trigger, via `power-apps add-flow` generierter Service → `shared_logic-
+  flows`). Während der Laufzeit eine In-Progress-Anzeige; nach Abschluss
+  `reload()`, sodass der „to be completed"-Abgleich gegen die frisch
+  synchronisierten Status neu rechnet.
 - **Mark completed**: offene getrackte Einträge auf
   `ssid_deploymentstatus = Deployment completed` (500870003) setzen → sie
   fallen aus dem Open-Filter. Im Dialog wird gefragt, ob die unterliegende

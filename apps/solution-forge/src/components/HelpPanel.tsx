@@ -120,6 +120,14 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 one working-solution record points at the same solution;
                 deactivate the redundant record in the table to clean up.
               </li>
+              <li>
+                <strong>⟳ Sync with DevOps</strong> — runs the cloud flow that
+                refreshes each working solution's work item status from Azure
+                DevOps. An in-progress note shows while it runs; when it
+                finishes the list reloads and the{' '}
+                <span className="tbc-chip">✓ to be completed</span> check
+                re-evaluates against the new statuses.
+              </li>
             </ul>
           </section>
 

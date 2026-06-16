@@ -42,6 +42,7 @@ import { SolutioncomponentsService } from '../generated/services/Solutioncompone
 import { Msdyn_solutioncomponentsummariesService } from '../generated/services/Msdyn_solutioncomponentsummariesService'
 import type { Msdyn_solutioncomponentsummaries } from '../generated/models/Msdyn_solutioncomponentsummariesModel'
 import { AddSolutionComponentService } from '../generated/services/AddSolutionComponentService'
+import { PA_MANUAL_WorkingSolution_SyncDevOpsWorkItemStatusService } from '../generated/services/PA_MANUAL_WorkingSolution_SyncDevOpsWorkItemStatusService'
 import { Ssid_workingsolutionsService } from '../generated/services/Ssid_workingsolutionsService'
 import type {
   Ssid_workingsolutions,
@@ -713,6 +714,29 @@ export class DataverseSolutionService implements SolutionService {
       console.warn('[solutions] deployment status update failed:', result)
       throw new Error('Updating the deployment status failed.')
     }
+  }
+
+  /**
+   * Trigger the "Sync DevOps Work Item Status" cloud flow (Power Apps trigger,
+   * invoked through the generated flow service). The flow writes the latest
+   * DevOps work-item state onto each working solution's
+   * sst_devopsworkitemstatus; the caller then reloads to re-derive the
+   * "to be completed" flags.
+   */
+  async syncDevOpsWorkItemStatus(): Promise<number> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.syncDevOpsWorkItemStatus()
+    const result =
+      await PA_MANUAL_WorkingSolution_SyncDevOpsWorkItemStatusService.Run({})
+    if (!result.success) {
+      console.warn('[devops] sync flow failed:', result)
+      const detail = (result as { error?: { message?: string } }).error?.message
+      throw new Error(
+        `The DevOps sync flow failed${detail ? ` — ${detail}` : ''}.`,
+      )
+    }
+    return result.data?.count ?? 0
   }
 
   /** Delete only the real solution (container), keeping the record. */
