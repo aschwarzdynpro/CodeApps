@@ -135,6 +135,16 @@
   background: #fdf2f3;
   border-color: #b02a37;
 }
+/* Icon-only button (composes with .btn / .btn--danger) — square, glyph
+   centered, meaning conveyed via title tooltip. */
+.btn--icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  justify-content: center;
+  font-size: 15px;
+  line-height: 1;
+}
 
 /* Help */
 .icon-btn {

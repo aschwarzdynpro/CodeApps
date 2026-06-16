@@ -365,18 +365,21 @@ export function SolutionDetail({
         )}
         {solution.recordId && isOpenStatus(solution) && (
           <button
-            className="btn"
-            title="Set this working solution to Deployment completed (optionally deleting its solution)."
+            className="btn btn--icon"
+            title="Mark completed… (set deployment status to completed, optionally delete the solution)"
+            aria-label="Mark completed"
             onClick={() => onComplete(solution)}
           >
-            Mark completed…
+            ✓
           </button>
         )}
         <button
-          className="btn btn--danger detail-delete"
+          className="btn btn--danger btn--icon detail-delete"
+          title="Delete… (remove the record / solution, with a 5-second undo)"
+          aria-label="Delete"
           onClick={() => onDelete(solution)}
         >
-          Delete…
+          🗑
         </button>
       </div>
 
