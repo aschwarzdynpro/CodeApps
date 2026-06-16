@@ -1,6 +1,8 @@
 import type {
   CreateWorkingSolutionInput,
   MergeResult,
+  MergeRun,
+  MergeRunComponent,
   PublisherInfo,
   SolutionComponentInfo,
   TrackSolutionInput,
@@ -75,6 +77,29 @@ export class MockSolutionService {
       rows.map((r) => ({ ...r })),
     ]),
   )
+  // Merge-run history keyed by the target's working-solution record id. Seed
+  // one earlier run so the release solution's history is demoable offline.
+  private mergeRuns = new Map<string, MergeRun[]>([
+    [
+      'ws-0005',
+      [
+        {
+          id: 'mr-0001',
+          createdOn: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+          createdBy: 'Niels Bohr',
+          added: 3,
+          skipped: 0,
+          errors: 0,
+          sources: ['Customer onboarding wizard'],
+          components: [
+            { t: 'Table', n: 'dyn_onboardingcase' },
+            { t: 'Form', n: 'Onboarding Case – Main' },
+            { t: 'Process', n: 'Onboarding approval flow' },
+          ],
+        },
+      ],
+    ],
+  ])
 
   async listSolutions(): Promise<WorkingSolution[]> {
     await delay(350)
@@ -400,6 +425,7 @@ export class MockSolutionService {
       (id) => this.components.get(id) ?? [],
     )
     const result: MergeResult = { added: 0, skipped: 0, errors: [] }
+    const added: MergeRunComponent[] = []
     let done = 0
     for (const component of queue) {
       await delay(120)
@@ -408,6 +434,7 @@ export class MockSolutionService {
       } else {
         existing.add(component.objectId)
         targetComponents.push({ ...component, id: `c-merged-${++mockIdCounter}` })
+        added.push({ t: component.typeName, n: component.displayName })
         result.added++
       }
       onProgress?.(++done, queue.length)
@@ -421,7 +448,31 @@ export class MockSolutionService {
         source.deploymentStatusCode = 867520001
       }
     }
+    // …and the merge-run history row on the target.
+    if (target.recordId && (result.added > 0 || result.skipped > 0)) {
+      const runs = this.mergeRuns.get(target.recordId) ?? []
+      runs.unshift({
+        id: `mr-${++mockIdCounter}`,
+        createdOn: new Date().toISOString(),
+        createdBy: 'Marie Curie',
+        added: result.added,
+        skipped: result.skipped,
+        errors: result.errors.length,
+        sources: this.solutions
+          .filter((s) => sourceSolutionIds.includes(s.id))
+          .map((s) => s.title),
+        components: added,
+      })
+      this.mergeRuns.set(target.recordId, runs)
+    }
     return result
+  }
+
+  async listMergeRuns(targetRecordId: string): Promise<MergeRun[]> {
+    await delay(250)
+    return (this.mergeRuns.get(targetRecordId) ?? [])
+      .map((r) => ({ ...r, components: r.components.map((c) => ({ ...c })) }))
+      .sort((a, b) => b.createdOn.localeCompare(a.createdOn))
   }
 }
 

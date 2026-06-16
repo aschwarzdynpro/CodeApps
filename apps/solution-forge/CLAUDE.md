@@ -50,6 +50,19 @@ Pflichtfeld bekommt `'N/A'`. Pflicht-Lookup `ssid_WorkbenchSetting` wird
 aus erstem `ssid_workbenchsettings`-Datensatz aufgelöst. Status-Codes:
 `CLOSED_STATUS_CODES` in types/solution.ts.
 
+**Merge-Historie:** Tabelle `sst_mergerun` (1 Zeile je Merge) — Counts
+(`sst_added_int`/`sst_skipped_int`/`sst_errors_int`), Quell-Titel
+(`sst_sources_txt`, `\n`-getrennt), Ziel via Lookup `sst_targetsolution_ref`
+→ `ssid_workingsolution`. **Welche Komponenten** hinzugefügt wurden, liegen
+bewusst denormalisiert als kompaktes JSON-Array (`[{t:Typ,n:Name}]`) in der
+Multiline-Spalte `sst_addedcomponents_txt` — eine Spalte statt Kind-Tabelle,
+defensiv geparst (`toMergeRun`). Schreiben in
+`dataverseSolutionService.logMergeRun` (best-effort, scheitert nie den Merge);
+Lesen via `listMergeRuns(targetRecordId)` (Filter
+`_sst_targetsolution_ref_value eq <id>`). UI: ausklappbare Tabelle im
+`SolutionDetail` nur für Release-Solutions (lädt sich selbst, Remount je
+Solution).
+
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 1. **Generator-Bug:** Jedes `pac code add-data-source` bricht an

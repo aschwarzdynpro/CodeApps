@@ -63,8 +63,9 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 
 ## Team & Komfort
 
-- [ ] **Merge-Historie als Tabelle** (statt nur „letzter Merge") — Grundlage
-      für die Release Notes.
+- [x] **Merge-Historie als Tabelle** (statt nur „letzter Merge") — Grundlage
+      für die Release Notes. *(Tabelle `sst_mergerun`, Detail-Panel der
+      Release-Solution)*
 - [ ] **Teams-Benachrichtigungen**: neuer Konflikt im Radar / Merge fertig →
       Post in den Dev-Channel.
 - [ ] **Notizen am Eintrag** (Annotations im Detail-Panel).
@@ -82,6 +83,10 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       (Restore + Wieder-Öffnen); erster Baustein Richtung Deployment-Kanban
 - [x] Kollisions-Radar, Komponenten-Suche, Work-Item-Gruppierung
 - [x] Merge mit Plan, Konflikt-Markierung und Status-Logging
+- [x] Merge-Historie: jeder Merge schreibt eine `sst_mergerun`-Zeile (Counts +
+      Quell-Solutions + hinzugefügte Komponenten als kompaktes JSON in einer
+      Multiline-Spalte, keine Kind-Tabelle); im Detail der Release-Solution als
+      ausklappbare Tabelle (pro Lauf die Komponenten nach Typ gruppiert)
 - [x] Compare über INT-11 / UAT / PROD (Missing + Status drift; Gruppen
       collapsible; Picker release-gefiltert)
 - [x] Layer Inspector: alle Komponenten-Typen, progressive Sektionen,

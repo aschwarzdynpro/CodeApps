@@ -29,7 +29,11 @@ Findet sich zur Row keine echte Solution, wird das im Detail markiert
 
 Nach einem Merge setzt die App auf den Quell-Datensätzen automatisch
 `sst_mergeintodeploymentsolution`, den Zeitstempel und den
-Deployment-Status „Merged into Deployment Solution".
+Deployment-Status „Merged into Deployment Solution". Zusätzlich wird je
+Merge eine **Historien-Zeile** in der Tabelle `sst_mergerun` geschrieben
+(Counts, Quell-Solutions und die hinzugefügten Komponenten als kompaktes
+JSON in einer Multiline-Spalte — keine Kind-Tabelle). Im Detail einer
+Release-Solution erscheint sie als ausklappbare **Merge-Historie**-Tabelle.
 
 ## Features
 
@@ -180,7 +184,11 @@ Die UI hängt nur am Interface `SolutionService` in
   `rootcomponentbehavior` (Fallback auf die Roh-Tabelle, falls die Summary
   nichts liefert)
 - `mergeIntoDeployment(target, sources)` – `AddSolutionComponent` pro
-  Komponente, bereits vorhandene Objekte werden übersprungen
+  Komponente, bereits vorhandene Objekte werden übersprungen; schreibt
+  anschließend eine `sst_mergerun`-Historien-Zeile
+- `listMergeRuns(targetRecordId)` – Merge-Historie einer Release-Solution
+  (`sst_mergerun`-Zeilen, neueste zuerst; hinzugefügte Komponenten aus dem
+  JSON-Feld geparst)
 
 Implementierungen:
 

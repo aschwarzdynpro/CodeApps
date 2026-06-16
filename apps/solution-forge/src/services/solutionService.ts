@@ -1,6 +1,7 @@
 import type {
   CreateWorkingSolutionInput,
   MergeResult,
+  MergeRun,
   PublisherInfo,
   SolutionComponentInfo,
   TrackSolutionInput,
@@ -150,6 +151,12 @@ export interface SolutionService {
     sourceSolutionIds: string[],
     onProgress?: (done: number, total: number) => void,
   ): Promise<MergeResult>
+  /**
+   * Merge history of a release solution: the logged merge runs (counts,
+   * source solutions and the components added each time) for the given
+   * working-solution record id, newest first.
+   */
+  listMergeRuns(targetRecordId: string): Promise<MergeRun[]>
 }
 
 export const solutionService: SolutionService = dataverseSolutionService

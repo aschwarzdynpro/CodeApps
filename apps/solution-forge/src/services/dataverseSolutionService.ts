@@ -1,6 +1,8 @@
 import type {
   CreateWorkingSolutionInput,
   MergeResult,
+  MergeRun,
+  MergeRunComponent,
   PublisherInfo,
   SolutionComponentInfo,
   SolutionKind,
@@ -48,6 +50,11 @@ import type {
   Ssid_workingsolutions,
   Ssid_workingsolutionsBase,
 } from '../generated/models/Ssid_workingsolutionsModel'
+import { Sst_mergerunsService } from '../generated/services/Sst_mergerunsService'
+import type {
+  Sst_mergeruns,
+  Sst_mergerunsBase,
+} from '../generated/models/Sst_mergerunsModel'
 import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
 import { SystemusersService } from '../generated/services/SystemusersService'
 import { RolesService } from '../generated/services/RolesService'
@@ -388,6 +395,44 @@ function toComponentInfo(raw: Solutioncomponents): SolutionComponentInfo {
     // wired, show the type plus a shortened object id.
     displayName: `${typeName} ${shortGuid(objectId)}`,
     ...(rootBehavior !== undefined ? { rootBehavior } : {}),
+  }
+}
+
+/**
+ * Map one `sst_mergerun` row to the domain {@link MergeRun}. The added
+ * components live denormalized as a compact JSON array in
+ * sst_addedcomponents_txt — parsed defensively so a malformed/legacy value
+ * just yields an empty component list instead of throwing.
+ */
+function toMergeRun(raw: Sst_mergeruns): MergeRun {
+  const row = raw as Sst_mergeruns & Record<string, unknown>
+  let components: MergeRunComponent[] = []
+  const json = raw.sst_addedcomponents_txt
+  if (json) {
+    try {
+      const parsed = JSON.parse(json)
+      if (Array.isArray(parsed)) {
+        components = parsed.filter(
+          (c): c is MergeRunComponent =>
+            !!c && typeof c.t === 'string' && typeof c.n === 'string',
+        )
+      }
+    } catch {
+      // Tolerate non-JSON text — the counts still tell the story.
+    }
+  }
+  return {
+    id: raw.sst_mergerunid,
+    createdOn: raw.createdon ?? '',
+    createdBy: formatted(row, '_createdby_value') ?? raw.createdbyname,
+    added: Number(raw.sst_added_int ?? 0),
+    skipped: Number(raw.sst_skipped_int ?? 0),
+    errors: Number(raw.sst_errors_int ?? 0),
+    sources: (raw.sst_sources_txt ?? '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    components,
   }
 }
 
@@ -1598,6 +1643,9 @@ export class DataverseSolutionService implements SolutionService {
     }
 
     const result: MergeResult = { added: 0, skipped: 0, errors: [] }
+    // The concrete components actually added in this run — logged to the
+    // merge-run row so the history can show what each merge contributed.
+    const added: SolutionComponentInfo[] = []
     let done = 0
     for (const component of queue) {
       if (existing.has(component.objectId)) {
@@ -1619,6 +1667,7 @@ export class DataverseSolutionService implements SolutionService {
           )
           if (res.success) {
             existing.add(component.objectId)
+            added.push(component)
             result.added++
           } else {
             console.warn('[solutions] AddSolutionComponent failed:', res)
@@ -1639,8 +1688,11 @@ export class DataverseSolutionService implements SolutionService {
     // carries dedicated fields for exactly this.
     if (result.added > 0 || result.skipped > 0) {
       const mergedAt = new Date().toISOString()
-      for (const source of solutions) {
-        if (!sourceSolutionIds.includes(source.id) || !source.recordId) continue
+      const sourceSolutions = solutions.filter((s) =>
+        sourceSolutionIds.includes(s.id),
+      )
+      for (const source of sourceSolutions) {
+        if (!source.recordId) continue
         try {
           await Ssid_workingsolutionsService.update(
             source.recordId,
@@ -1657,8 +1709,87 @@ export class DataverseSolutionService implements SolutionService {
           console.warn('[solutions] merge log update failed:', err)
         }
       }
+
+      // Append one merge-run history row on the target. The added components
+      // ride along as a compact JSON array in a single multiline column
+      // (sst_addedcomponents_txt) — no child table to keep the schema lean.
+      try {
+        await this.logMergeRun(target, sourceSolutions, result, added, mergedAt)
+      } catch (err) {
+        // History is best-effort — never fail the merge over it.
+        console.warn('[solutions] merge-run history write failed:', err)
+      }
     }
     return result
+  }
+
+  /** Create the sst_mergerun row for one completed merge. */
+  private async logMergeRun(
+    target: WorkingSolution,
+    sourceSolutions: WorkingSolution[],
+    result: MergeResult,
+    added: SolutionComponentInfo[],
+    mergedAt: string,
+  ): Promise<void> {
+    const components: MergeRunComponent[] = added.map((c) => ({
+      t: c.typeName,
+      n: c.displayName,
+    }))
+    const record = {
+      sst_name_str: `${target.title} · ${mergedAt.slice(0, 10)}`,
+      sst_added_int: result.added,
+      sst_skipped_int: result.skipped,
+      sst_errors_int: result.errors.length,
+      sst_sources_txt: sourceSolutions.map((s) => s.title).join('\n'),
+      sst_addedcomponents_txt: components.length
+        ? JSON.stringify(components)
+        : '',
+      // Link back to the target's working-solution record so the history can
+      // be queried per release. Skip the bind when the target is untracked.
+      ...(target.recordId
+        ? {
+            'sst_targetsolution_ref@odata.bind': `/ssid_workingsolutions(${target.recordId})`,
+          }
+        : {}),
+    } as unknown as Omit<Sst_mergerunsBase, 'sst_mergerunid'>
+    const created = await Sst_mergerunsService.create(record)
+    if (!created.success) {
+      console.warn('[solutions] sst_mergerun create rejected:', created)
+      throw new Error('Merge-run history record was rejected.')
+    }
+  }
+
+  /**
+   * Merge history of one release solution — the sst_mergerun rows linked to
+   * its working-solution record, newest first. Best-effort: returns an empty
+   * list on miss or error so the detail view degrades gracefully.
+   */
+  async listMergeRuns(targetRecordId: string): Promise<MergeRun[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.listMergeRuns(targetRecordId)
+    if (!targetRecordId) return []
+    try {
+      const rows = await fetchAll((o) => Sst_mergerunsService.getAll(o), {
+        select: [
+          'sst_mergerunid',
+          'sst_added_int',
+          'sst_skipped_int',
+          'sst_errors_int',
+          'sst_sources_txt',
+          'sst_addedcomponents_txt',
+          '_createdby_value',
+          'createdon',
+        ],
+        filter: `_sst_targetsolution_ref_value eq ${targetRecordId}`,
+        orderBy: ['createdon desc'],
+      })
+      if (!rows) return []
+      return rows.map(toMergeRun)
+    } catch (err) {
+      console.warn('[solutions] listMergeRuns() threw:', err)
+      return []
+    }
   }
 }
 

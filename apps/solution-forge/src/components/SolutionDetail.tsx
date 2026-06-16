@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import {
   isOpenStatus,
   type ComponentCollision,
+  type MergeRun,
+  type MergeRunComponent,
   type SolutionComponentInfo,
   type TrackSolutionInput,
   type WorkItemInfo,
@@ -12,6 +14,7 @@ import {
   devOpsWorkItemUrl,
   makerSolutionUrl,
 } from '../config'
+import { solutionService } from '../services/solutionService'
 import { formatDateTime, groupBy } from '../utils/format'
 import { KindBadge } from './KindBadge'
 
@@ -233,6 +236,143 @@ function TrackPanel({
       >
         {busy ? 'Creating…' : 'Create working-solution record'}
       </button>
+    </section>
+  )
+}
+
+/** Added components of one merge run, grouped by component type. */
+function ComponentBreakdown({
+  components,
+}: {
+  components: MergeRunComponent[]
+}) {
+  const byType = [...groupBy(components, (c) => c.t).entries()].sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  )
+  return (
+    <ul className="merge-history-components">
+      {byType.map(([type, items]) => (
+        <li key={type}>
+          <span className="merge-plan-type">{type}</span>
+          <span className="merge-history-component-names">
+            {items.map((c) => c.n).join(', ')}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * Merge history of a release solution: the logged sst_mergerun rows, newest
+ * first, as a table. Each row expands to the concrete components that merge
+ * added (stored compactly on the row, so no extra query). Loads itself on
+ * mount — the parent remounts the detail per solution, so a record-id effect
+ * stays correct.
+ */
+function MergeHistoryPanel({ recordId }: { recordId: string }) {
+  const [runs, setRuns] = useState<MergeRun[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+
+  // The parent remounts the detail per solution (key={solution.id}), so this
+  // loads once per opened release — no in-effect state reset needed.
+  useEffect(() => {
+    let cancelled = false
+    solutionService
+      .listMergeRuns(recordId)
+      .then((r) => {
+        if (!cancelled) setRuns(r)
+      })
+      .catch((err) => {
+        if (!cancelled)
+          setError(err instanceof Error ? err.message : String(err))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [recordId])
+
+  const toggle = (id: string) =>
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
+
+  return (
+    <section className="merge-history">
+      <h3 className="card-title">
+        Merge history{runs && runs.length > 0 && ` (${runs.length})`}
+      </h3>
+      {error && <div className="state state--error">{error}</div>}
+      {!error && runs === null && (
+        <div className="state">Loading merge history…</div>
+      )}
+      {!error && runs?.length === 0 && (
+        <div className="state">No merges logged for this release yet.</div>
+      )}
+      {!error && !!runs?.length && (
+        <table className="merge-history-table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>By</th>
+              <th className="num">Added</th>
+              <th className="num">Skipped</th>
+              <th className="num">Errors</th>
+              <th>Sources</th>
+            </tr>
+          </thead>
+          <tbody>
+            {runs.map((run) => {
+              const open = !!expanded[run.id]
+              const canExpand = run.components.length > 0
+              return (
+                <Fragment key={run.id}>
+                  <tr
+                    className={`merge-history-row ${
+                      canExpand ? 'merge-history-row--clickable' : ''
+                    }`}
+                    onClick={canExpand ? () => toggle(run.id) : undefined}
+                  >
+                    <td>{formatDateTime(run.createdOn)}</td>
+                    <td>{run.createdBy ?? '—'}</td>
+                    <td className="num">
+                      {canExpand ? (
+                        <span className="merge-history-added">
+                          <span
+                            className={`component-group-chevron ${
+                              open ? 'component-group-chevron--open' : ''
+                            }`}
+                          >
+                            ▸
+                          </span>
+                          {run.added}
+                        </span>
+                      ) : (
+                        run.added
+                      )}
+                    </td>
+                    <td className="num">{run.skipped}</td>
+                    <td
+                      className={`num ${
+                        run.errors ? 'merge-history-errors' : ''
+                      }`}
+                    >
+                      {run.errors}
+                    </td>
+                    <td>{run.sources.join(', ') || '—'}</td>
+                  </tr>
+                  {open && canExpand && (
+                    <tr className="merge-history-detail-row">
+                      <td colSpan={6}>
+                        <ComponentBreakdown components={run.components} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
     </section>
   )
 }
@@ -508,6 +648,12 @@ export function SolutionDetail({
           </ul>
         </section>
       )}
+
+      {solution.kind === 'deployment' &&
+        solution.recordId &&
+        !solution.solutionMissing && (
+          <MergeHistoryPanel recordId={solution.recordId} />
+        )}
 
       {!solution.solutionMissing && (
         <div className="detail-components-header">

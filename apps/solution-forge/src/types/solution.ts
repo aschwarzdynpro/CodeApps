@@ -181,3 +181,37 @@ export interface MergeResult {
   skipped: number
   errors: string[]
 }
+
+/**
+ * One added component captured in a merge run. Stored compactly (type + name,
+ * short keys) so the whole list fits in a single multiline column on the
+ * `sst_mergerun` row — no child table. The type label drives grouping/icons
+ * in the UI; the name is what the release notes need.
+ */
+export interface MergeRunComponent {
+  /** Component type label, e.g. "Web Resource". */
+  t: string
+  /** Component display name. */
+  n: string
+}
+
+/**
+ * One logged merge into a release/deployment solution (a row of the
+ * `sst_mergerun` table). Counts plus the source solution titles and the
+ * concrete components that were added in that run.
+ */
+export interface MergeRun {
+  /** sst_mergerunid */
+  id: string
+  /** createdon (ISO date-time) — when the merge ran. */
+  createdOn: string
+  /** createdby display name, when resolvable. */
+  createdBy?: string
+  added: number
+  skipped: number
+  errors: number
+  /** Titles of the source solutions merged in this run. */
+  sources: string[]
+  /** Components added in this run (parsed from sst_addedcomponents_txt). */
+  components: MergeRunComponent[]
+}
