@@ -25,6 +25,9 @@ interface Props {
   onMineOnlyChange: (enabled: boolean) => void
   /** Resolved name of the signed-in user, when known. */
   mineUserName?: string | null
+  /** View toggle: group entries by their Azure DevOps work item number. */
+  groupByWorkItem: boolean
+  onGroupByChange: (enabled: boolean) => void
 }
 
 export function SolutionFilterBar({
@@ -38,6 +41,8 @@ export function SolutionFilterBar({
   mineOnly,
   onMineOnlyChange,
   mineUserName,
+  groupByWorkItem,
+  onGroupByChange,
 }: Props) {
   return (
     <div className="filter-bar">
@@ -83,6 +88,14 @@ export function SolutionFilterBar({
           onClick={() => onMineOnlyChange(!mineOnly)}
         >
           👤 Mine
+        </button>
+        <span className="chip-divider" />
+        <button
+          className={`chip ${groupByWorkItem ? 'chip--active' : ''}`}
+          title="Group solutions sharing the same Azure DevOps work item number."
+          onClick={() => onGroupByChange(!groupByWorkItem)}
+        >
+          Group by work item
         </button>
       </div>
     </div>

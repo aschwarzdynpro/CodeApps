@@ -114,14 +114,6 @@
   padding: 5px 10px;
   font-size: 12px;
 }
-.btn--toggled {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: #fff;
-}
-.btn--toggled:hover {
-  filter: brightness(1.07);
-}
 .btn--danger {
   color: #b02a37;
   border-color: #f1aeb5;
@@ -214,12 +206,14 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+/* Filter chips: flat, soft-gray pills (a toggle look) — deliberately
+   distinct from the white, raised, rectangular action buttons. */
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: #e7e9f4;
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: 6px 14px;
   font-size: 13px;
@@ -227,12 +221,15 @@
   color: var(--text);
 }
 .chip:hover {
-  border-color: var(--brand);
+  background: #daddec;
 }
 .chip--active {
   background: var(--brand);
   border-color: var(--brand);
   color: #fff;
+}
+.chip--active:hover {
+  background: var(--brand);
 }
 .chip-count {
   font-size: 11px;
@@ -348,6 +345,11 @@
 }
 .collision-bar .search-group {
   margin-left: auto;
+}
+/* Action buttons read as raised, white, rectangular buttons — the visual
+   counterpart to the flat filter pills above. */
+.collision-bar .btn {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
 }
 .chip-divider {
   width: 1px;
