@@ -33,6 +33,12 @@ Deployment-Status „Merged into Deployment Solution".
 
 ## Features
 
+- **Navigation**: linke Sidebar, gruppiert in **Manage** (Workbench, Merge)
+  und **Validate** (Compare, Dependencies, Layers, App Sharing); Merge + die
+  Validate-Gruppe sind rollen-gated (Deployment Manager). Im Validate-Bereich
+  wird die **Release-Solution (+ Ziel-Env für Dependencies/Layers) einmal oben
+  gewählt** und über alle vier Checks geteilt (`ValidateWorkspace`); jeder
+  Check startet selbst und behält seine Ergebnisse.
 - **Kollisions-Radar**: „Scan collisions" lädt die Komponenten aller
   getrackten Working Solutions (ohne Releases) und markiert Komponenten,
   die in **mehr als einer** offenen Working Solution stecken — wer zuletzt

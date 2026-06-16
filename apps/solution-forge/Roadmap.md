@@ -92,6 +92,9 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       Plugin Steps, Custom APIs; sonst auf die Solution; Remove active
       customizations bewusst dort, nicht in-app); EnvVars (380/381) +
       Connection References (10064) ausgeblendet
+- [x] Navigation: Sidebar (Gruppen Manage/Validate) statt Tabs; geteilte
+      Validate-Auswahl (Solution + Ziel-Env) über Compare/Dependencies/Layers/
+      App Sharing (`ValidateWorkspace`)
 - [x] Standard-Filter Open/Tracked/Mine, Rollen-Gating Merge & Compare
 - [x] Layer Inspector: unmanaged Active-Layer über managed Komponenten in
       UAT/PROD (`msdyn_componentlayer`)

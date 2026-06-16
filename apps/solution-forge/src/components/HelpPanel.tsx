@@ -213,9 +213,17 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <h3>Merge</h3>
             <ul>
               <li>
-                The Merge and Compare tabs require the security role{' '}
-                <strong>“INT | Deployment Manager”</strong> (assigned
-                directly to your user) — without it they appear grayed out.
+                Navigation is a left sidebar grouped into <strong>Manage</strong>{' '}
+                (Workbench, Merge) and <strong>Validate</strong> (Compare,
+                Dependencies, Layers, App Sharing). Merge and the whole Validate
+                group require the security role{' '}
+                <strong>“INT | Deployment Manager”</strong> (assigned directly
+                to your user) — without it they appear locked.
+              </li>
+              <li>
+                In <strong>Validate</strong>, pick the release solution (and, for
+                Dependencies / Layers, the target environment) once at the top —
+                the selection stays put as you switch between the four checks.
               </li>
               <li>
                 Only <strong>tracked</strong> feature / bug solutions can be
@@ -270,8 +278,10 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <h3>Layer Inspector</h3>
             <ul>
               <li>
-                Pick a release solution and a target environment (UAT / PROD)
-                — every component's <strong>solution layers</strong> there
+                With the release solution and target environment (UAT / PROD)
+                chosen in the shared Validate selector, click{' '}
+                <strong>Inspect Layers</strong> — every component's{' '}
+                <strong>solution layers</strong> there
                 are resolved (the same stack the maker portal shows under
                 “See solution layers”). Results appear{' '}
                 <strong>per component type as each section finishes</strong>,
@@ -372,9 +382,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <h3>Compare (ALM)</h3>
             <ul>
               <li>
-                Pick a release solution — its cloud flows, workflows,
-                business rules, plugin steps and scripts are compared across
-                the configured environments (current / UAT / PROD), matched
+                With the release solution chosen in the shared Validate
+                selector, click <strong>Compare</strong> — its cloud flows,
+                workflows, business rules, plugin steps and scripts are compared
+                across the configured environments (current / UAT / PROD),
+                matched
                 by their import-stable ids. Components are grouped by type in
                 collapsible sections.
               </li>
