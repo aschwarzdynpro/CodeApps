@@ -118,6 +118,17 @@ export interface CreateWorkingSolutionInput {
  */
 export const CLOSED_STATUS_CODES = new Set([500870003, 867520001, 867520002])
 
+/** ssid_deploymentstatus value for "Deployment completed". */
+export const DEPLOYMENT_COMPLETED_CODE = 500870003
+
+/** Returns true when a working solution counts as open (not closed). */
+export function isOpenStatus(s: WorkingSolution): boolean {
+  return (
+    s.deploymentStatusCode === undefined ||
+    !CLOSED_STATUS_CODES.has(s.deploymentStatusCode)
+  )
+}
+
 /** Attach a working-solution record to an already existing solution. */
 export interface TrackSolutionInput {
   /** solutionid of the real solution to track. */

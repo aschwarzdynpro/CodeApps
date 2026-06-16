@@ -319,6 +319,26 @@ export class MockSolutionService {
     solution.kind = kind
   }
 
+  async setDeploymentStatus(
+    recordId: string,
+    statusCode: number,
+  ): Promise<void> {
+    await delay(250)
+    const solution = this.solutions.find((s) => s.recordId === recordId)
+    if (!solution) throw new Error('Unknown working-solution record.')
+    solution.deploymentStatusCode = statusCode
+    solution.deploymentStatus =
+      statusCode === 500870003 ? 'Deployment completed' : 'None'
+  }
+
+  async deleteUnderlyingSolution(solutionId: string): Promise<void> {
+    await delay(300)
+    // The record stays; only the real solution is gone → now "WS only".
+    const solution = this.solutions.find((s) => s.id === solutionId)
+    if (solution) solution.solutionMissing = true
+    this.components.delete(solutionId)
+  }
+
   async deleteSolution(solution: WorkingSolution): Promise<void> {
     await delay(300)
     this.solutions = this.solutions.filter(

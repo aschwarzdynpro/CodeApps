@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import type {
-  ComponentCollision,
-  SolutionComponentInfo,
-  TrackSolutionInput,
-  WorkItemInfo,
-  WorkingSolution,
+import {
+  isOpenStatus,
+  type ComponentCollision,
+  type SolutionComponentInfo,
+  type TrackSolutionInput,
+  type WorkItemInfo,
+  type WorkingSolution,
 } from '../types/solution'
 import {
   DEVOPS_PANEL_ENABLED,
@@ -29,6 +30,8 @@ interface Props {
   onTrack: (input: TrackSolutionInput) => Promise<void>
   /** Opens the delete confirmation for this entry. */
   onDelete: (solution: WorkingSolution) => void
+  /** Opens the "mark completed" dialog for an open tracked entry. */
+  onComplete: (solution: WorkingSolution) => void
   /** Persists a new type (sst_type_opt) for a tracked entry. */
   onChangeType: (
     solution: WorkingSolution,
@@ -256,6 +259,7 @@ export function SolutionDetail({
   collisions,
   onTrack,
   onDelete,
+  onComplete,
   onChangeType,
   linkCandidates,
   onLink,
@@ -358,6 +362,15 @@ export function SolutionDetail({
           >
             Open in Maker Portal ↗
           </a>
+        )}
+        {solution.recordId && isOpenStatus(solution) && (
+          <button
+            className="btn"
+            title="Set this working solution to Deployment completed (optionally deleting its solution)."
+            onClick={() => onComplete(solution)}
+          >
+            Mark completed…
+          </button>
         )}
         <button
           className="btn btn--danger detail-delete"

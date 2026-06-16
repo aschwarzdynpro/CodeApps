@@ -16,6 +16,7 @@ import { AppSharing } from './components/AppSharing'
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
 import { HelpPanel } from './components/HelpPanel'
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog'
+import { CompleteSolutionDialog } from './components/CompleteSolutionDialog'
 import {
   DEPLOYMENT_MANAGER_ROLE,
   DEVOPS_PANEL_ENABLED,
@@ -23,6 +24,7 @@ import {
 } from './config'
 import {
   CLOSED_STATUS_CODES,
+  DEPLOYMENT_COMPLETED_CODE,
   type ComponentCollision,
   type SolutionComponentInfo,
   type TrackSolutionInput,
@@ -96,14 +98,19 @@ function App() {
   const [showCreate, setShowCreate] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
 
-  // Soft delete: confirmed entries disappear immediately and wait in
-  // pendingDeletes for the 5-second undo window; only then the hard
-  // delete runs. Undo just cancels the timer and re-shows the entry.
+  // Soft delete / completion: confirmed entries disappear immediately and
+  // wait in pendingDeletes for the 5-second undo window; only then the hard
+  // action runs server-side. Undo just cancels the timer and re-shows the
+  // entry (nothing happened server-side yet, so completing reverts to open
+  // simply by not committing). `mode` selects the finalize action.
   const [confirmDelete, setConfirmDelete] = useState<WorkingSolution | null>(
     null,
   )
+  const [completeTarget, setCompleteTarget] = useState<WorkingSolution | null>(
+    null,
+  )
   const [pendingDeletes, setPendingDeletes] = useState<
-    { key: string; solution: WorkingSolution }[]
+    { key: string; solution: WorkingSolution; mode: 'delete' | 'complete' }[]
   >([])
   const deleteTimers = useRef(new Map<string, number>())
   const [justCreated, setJustCreated] = useState<WorkingSolution | null>(null)
@@ -398,20 +405,57 @@ function App() {
     reload()
   }
 
-  /** Confirmed in the dialog: hide the entry and start the undo window. */
-  const startDelete = (solution: WorkingSolution) => {
-    setConfirmDelete(null)
+  /**
+   * Hide the entry and start the 5-second undo window for a deferred action.
+   * mode 'delete' removes the whole entry; 'complete' marks it completed and
+   * deletes the underlying solution.
+   */
+  const startPending = (
+    solution: WorkingSolution,
+    mode: 'delete' | 'complete',
+  ) => {
     const key = solution.recordId ?? solution.id
     if (selectedId === solution.id) {
       setSelectedId(null)
       setComponents([])
       setComponentsLoading(false)
     }
-    setPendingDeletes((prev) => [...prev, { key, solution }])
+    setPendingDeletes((prev) => [...prev, { key, solution, mode }])
     const timeout = window.setTimeout(() => {
-      void finalizeDelete(key, solution)
+      void finalizeDelete(key, solution, mode)
     }, 5000)
     deleteTimers.current.set(key, timeout)
+  }
+
+  /** Confirmed in the delete dialog. */
+  const startDelete = (solution: WorkingSolution) => {
+    setConfirmDelete(null)
+    startPending(solution, 'delete')
+  }
+
+  /**
+   * Confirmed in the complete dialog. Without deleting the solution it's a
+   * plain status update; with deletion it goes through the undo window.
+   */
+  const handleComplete = async (
+    solution: WorkingSolution,
+    deleteUnderlying: boolean,
+  ) => {
+    setCompleteTarget(null)
+    if (!solution.recordId) return
+    if (deleteUnderlying) {
+      startPending(solution, 'complete')
+      return
+    }
+    try {
+      await solutionService.setDeploymentStatus(
+        solution.recordId,
+        DEPLOYMENT_COMPLETED_CODE,
+      )
+    } catch (err) {
+      console.warn('[solutions] complete failed:', err)
+    }
+    reload()
   }
 
   const undoDelete = (key: string) => {
@@ -422,12 +466,25 @@ function App() {
     setPendingDeletes((prev) => prev.filter((p) => p.key !== key))
   }
 
-  const finalizeDelete = async (key: string, solution: WorkingSolution) => {
+  const finalizeDelete = async (
+    key: string,
+    solution: WorkingSolution,
+    mode: 'delete' | 'complete',
+  ) => {
     deleteTimers.current.delete(key)
     try {
-      await solutionService.deleteSolution(solution)
+      if (mode === 'complete') {
+        if (solution.recordId)
+          await solutionService.setDeploymentStatus(
+            solution.recordId,
+            DEPLOYMENT_COMPLETED_CODE,
+          )
+        await solutionService.deleteUnderlyingSolution(solution.id)
+      } else {
+        await solutionService.deleteSolution(solution)
+      }
     } catch (err) {
-      console.warn('[solutions] delete failed:', err)
+      console.warn(`[solutions] ${mode} failed:`, err)
     }
     setPendingDeletes((prev) => prev.filter((p) => p.key !== key))
     setComponentCache((prev) => {
@@ -715,6 +772,7 @@ function App() {
                 collisions={collisions?.get(selected.id) ?? null}
                 onTrack={handleTrack}
                 onDelete={(s) => setConfirmDelete(s)}
+                onComplete={(s) => setCompleteTarget(s)}
                 onChangeType={async (s, kind) => {
                   if (!s.recordId) return
                   await solutionService.updateSolutionType(s.recordId, kind)
@@ -782,12 +840,24 @@ function App() {
         />
       )}
 
+      {completeTarget && (
+        <CompleteSolutionDialog
+          solution={completeTarget}
+          onConfirm={(deleteUnderlying) =>
+            void handleComplete(completeTarget, deleteUnderlying)
+          }
+          onCancel={() => setCompleteTarget(null)}
+        />
+      )}
+
       {pendingDeletes.length > 0 && (
         <div className="undo-stack">
           {pendingDeletes.map((p) => (
             <div key={p.key} className="undo-card">
               <span className="undo-text">
-                Deleted <strong>{p.solution.title}</strong>
+                {p.mode === 'complete' ? 'Completed' : 'Deleted'}{' '}
+                <strong>{p.solution.title}</strong>
+                {p.mode === 'complete' && ' — deleting solution'}
               </span>
               <button
                 className="undo-button"

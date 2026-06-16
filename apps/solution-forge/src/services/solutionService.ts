@@ -108,6 +108,17 @@ export interface SolutionService {
     kind: TrackSolutionInput['kind'],
   ): Promise<void>
   /**
+   * Sets ssid_deploymentstatus on a working-solution record — e.g. to mark
+   * it completed (DEPLOYMENT_COMPLETED_CODE) or to reopen it.
+   */
+  setDeploymentStatus(recordId: string, statusCode: number): Promise<void>
+  /**
+   * Deletes only the real unmanaged solution (the container — components
+   * stay), leaving the working-solution record intact. Used when completing
+   * a working solution and cleaning up its solution.
+   */
+  deleteUnderlyingSolution(solutionId: string): Promise<void>
+  /**
    * Re-links an orphaned working-solution record to an existing solution
    * (updates ssid_uniquesolutionname and the maker link).
    */

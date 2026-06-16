@@ -686,6 +686,37 @@ export class DataverseSolutionService implements SolutionService {
     }
   }
 
+  /** Set the deployment status (e.g. completed / reopened) on a record. */
+  async setDeploymentStatus(
+    recordId: string,
+    statusCode: number,
+  ): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.setDeploymentStatus(recordId, statusCode)
+    const result = await Ssid_workingsolutionsService.update(
+      recordId,
+      {
+        ssid_deploymentstatus: statusCode,
+      } as unknown as Partial<
+        Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+      >,
+    )
+    if (result && result.success === false) {
+      console.warn('[solutions] deployment status update failed:', result)
+      throw new Error('Updating the deployment status failed.')
+    }
+  }
+
+  /** Delete only the real solution (container), keeping the record. */
+  async deleteUnderlyingSolution(solutionId: string): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.deleteUnderlyingSolution(solutionId)
+    if (!solutionId || solutionId.startsWith('missing-')) return
+    await SolutionsService.delete(solutionId)
+  }
+
   /** Point an orphaned record at an existing solution. */
   async linkSolution(
     recordId: string,

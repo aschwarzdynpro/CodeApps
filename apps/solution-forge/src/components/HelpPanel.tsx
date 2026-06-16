@@ -172,6 +172,14 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 appears here once the DevOps connection is active.
               </li>
               <li>
+                <strong>Mark completed…</strong> (open tracked entries) sets
+                the deployment status to <strong>Deployment completed</strong>,
+                so the entry leaves the Open list. You're asked whether to also
+                delete the underlying solution; if so, a card pops up for 5
+                seconds to <strong>undo</strong> — undoing keeps the solution
+                and reopens the working solution.
+              </li>
+              <li>
                 <strong>Delete…</strong> removes the entry after a
                 confirmation: the working-solution record, the solution
                 container, or both — depending on what exists. A card pops
