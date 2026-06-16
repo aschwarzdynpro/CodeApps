@@ -2355,6 +2355,73 @@
   font-size: 11px;
   color: var(--muted);
 }
+
+/* Single-column merge layout: sections 1 / 2 / 3 stacked. */
+.merge-layout--single {
+  display: flex;
+  flex-direction: column;
+  max-width: 820px;
+}
+.merge-source-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.merge-source-picker {
+  flex: 1;
+  min-width: 0;
+}
+.merge-owner-filter {
+  flex: none;
+  border-radius: var(--radius);
+  padding: 5px 8px 5px 12px;
+}
+
+/* Owner filter (workbench filter bar + merge picker) */
+.owner-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 6px 2px 10px;
+}
+.owner-filter:focus-within {
+  border-color: var(--brand);
+}
+.owner-filter-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+.owner-filter-select {
+  border: none;
+  background: none;
+  font-size: 13px;
+  color: var(--text);
+  padding: 4px 2px;
+  max-width: 180px;
+}
+.owner-filter-select:focus {
+  outline: none;
+}
+
+/* Multi-select option rows (merge source picker) */
+.msselect-option {
+  cursor: pointer;
+}
+.msselect-option .sselect-title {
+  flex: 1;
+}
+.msselect-owner {
+  font-size: 11px;
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .merge-plan-summary {
   font-size: 12px;
   margin-bottom: 10px;

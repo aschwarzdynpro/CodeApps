@@ -103,6 +103,8 @@ function App() {
   // "Mine" filter: resolved lazily on first activation. undefined = not
   // resolved yet, 'loading' = lookup running.
   const [mineOnly, setMineOnly] = useState(false)
+  // Owner filter — '' = all owners.
+  const [ownerFilter, setOwnerFilter] = useState('')
   const [currentUser, setCurrentUser] = useState<
     { id: string | null; name: string | null } | 'loading' | undefined
   >(undefined)
@@ -213,7 +215,19 @@ function App() {
       )
       .filter((s) => !trackedOnly || !!s.recordId)
       .filter((s) => !mineOnly || isMine(s))
-  }, [allSolutions, openOnly, trackedOnly, mineOnly, currentUser])
+      .filter((s) => !ownerFilter || s.owner === ownerFilter)
+  }, [allSolutions, openOnly, trackedOnly, mineOnly, ownerFilter, currentUser])
+
+  // Distinct owners across all solutions, for the workbench owner filter.
+  const owners = useMemo(
+    () =>
+      [
+        ...new Set(
+          allSolutions.map((s) => s.owner).filter((o): o is string => !!o),
+        ),
+      ].sort((a, b) => a.localeCompare(b)),
+    [allSolutions],
+  )
 
   const counts = useMemo(() => {
     const c: Partial<Record<KindFilter, number>> = {}
@@ -722,6 +736,9 @@ function App() {
             mineUserName={
               currentUser && currentUser !== 'loading' ? currentUser.name : null
             }
+            owners={owners}
+            ownerFilter={ownerFilter}
+            onOwnerChange={setOwnerFilter}
             groupByWorkItem={groupByWorkItem}
             onGroupByChange={setGroupByWorkItem}
           />

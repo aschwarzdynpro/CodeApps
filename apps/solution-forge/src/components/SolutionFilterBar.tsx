@@ -1,4 +1,5 @@
 import type { SolutionKind } from '../types/solution'
+import { OwnerFilter } from './OwnerFilter'
 
 export type KindFilter = SolutionKind | 'All'
 
@@ -25,6 +26,11 @@ interface Props {
   onMineOnlyChange: (enabled: boolean) => void
   /** Resolved name of the signed-in user, when known. */
   mineUserName?: string | null
+  /** Distinct owners for the owner filter. */
+  owners: string[]
+  /** Selected owner, or '' for all. */
+  ownerFilter: string
+  onOwnerChange: (owner: string) => void
   /** View toggle: group entries by their Azure DevOps work item number. */
   groupByWorkItem: boolean
   onGroupByChange: (enabled: boolean) => void
@@ -41,6 +47,9 @@ export function SolutionFilterBar({
   mineOnly,
   onMineOnlyChange,
   mineUserName,
+  owners,
+  ownerFilter,
+  onOwnerChange,
   groupByWorkItem,
   onGroupByChange,
 }: Props) {
@@ -89,6 +98,11 @@ export function SolutionFilterBar({
         >
           👤 Mine
         </button>
+        <OwnerFilter
+          owners={owners}
+          value={ownerFilter}
+          onChange={onOwnerChange}
+        />
         <span className="chip-divider" />
         <button
           className={`chip ${groupByWorkItem ? 'chip--active' : ''}`}

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type {
   MergePlanItem,
   MergeResult,
@@ -6,7 +6,8 @@ import type {
   WorkingSolution,
 } from '../types/solution'
 import { solutionService } from '../services/solutionService'
-import { KindBadge } from './KindBadge'
+import { MultiSolutionSelect } from './MultiSolutionSelect'
+import { OwnerFilter } from './OwnerFilter'
 import { SolutionSelect } from './SolutionSelect'
 
 interface Props {
@@ -36,9 +37,9 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
 
   const [targetId, setTargetId] = useState<string>('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  // Source filter — the selection is keyed by id and survives any search
-  // change; selected entries stay visible as removable chips.
-  const [sourceSearch, setSourceSearch] = useState('')
+  // Owner filter for the source picker — the selection is keyed by id and
+  // survives any filter change; selected entries stay visible as chips.
+  const [ownerFilter, setOwnerFilter] = useState('')
   const [plan, setPlan] = useState<MergePlanItem[] | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
   const [progress, setProgress] = useState<[number, number] | null>(null)
@@ -124,94 +125,88 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
     }
   }
 
-  const query = sourceSearch.trim().toLowerCase()
-  const filteredSources = query
-    ? sources.filter(
-        (s) =>
-          s.title.toLowerCase().includes(query) ||
-          s.uniqueName.toLowerCase().includes(query) ||
-          (s.devOpsId ?? '').toLowerCase().includes(query),
-      )
+  // Distinct owners across the mergeable sources, for the owner filter.
+  const sourceOwners = useMemo(
+    () =>
+      [...new Set(sources.map((s) => s.owner).filter((o): o is string => !!o))].sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    [sources],
+  )
+  const ownerScopedSources = ownerFilter
+    ? sources.filter((s) => s.owner === ownerFilter)
     : sources
   const selectedSolutions = sources.filter((s) => selected.has(s.id))
 
   return (
-    <div className="merge-layout">
-      <div className="card merge-pane merge-sources-pane">
+    <div className="merge-layout merge-layout--single">
+      <div className="card merge-pane">
         <h3 className="card-title">
           1 · Working solutions to merge
           {selected.size > 0 && (
             <span className="muted"> — {selected.size} selected</span>
           )}
         </h3>
-        <input
-          className="search merge-source-search"
-          type="search"
-          placeholder="Filter by name, unique name, ADO id…"
-          value={sourceSearch}
-          onChange={(e) => setSourceSearch(e.target.value)}
-        />
-        {selectedSolutions.length > 0 && (
-          <div className="merge-selected">
-            {selectedSolutions.map((s) => (
-              <button
-                key={s.id}
-                className="merge-selected-chip"
-                onClick={() => toggleSource(s.id)}
-                title="Remove from selection"
-              >
-                {s.title} ✕
-              </button>
-            ))}
-          </div>
-        )}
-        {sources.length === 0 && (
+        {sources.length === 0 ? (
           <div className="state">
             No tracked feature / bug solutions available — only solutions
             with a working-solution record can be merged (create one in the
             Workbench detail pane).
           </div>
-        )}
-        {sources.length > 0 && filteredSources.length === 0 && (
-          <div className="state">No solution matches “{sourceSearch}”.</div>
-        )}
-        <ul className="merge-source-list merge-source-list--scroll">
-          {filteredSources.map((s) => (
-            <li key={s.recordId ?? s.id}>
-              <label className="merge-source">
-                <input
-                  type="checkbox"
-                  checked={selected.has(s.id)}
-                  onChange={() => toggleSource(s.id)}
+        ) : (
+          <>
+            <div className="merge-source-controls">
+              <OwnerFilter
+                owners={sourceOwners}
+                value={ownerFilter}
+                onChange={setOwnerFilter}
+                className="merge-owner-filter"
+              />
+              <div className="merge-source-picker">
+                <MultiSolutionSelect
+                  options={ownerScopedSources}
+                  selected={selected}
+                  onToggle={toggleSource}
+                  placeholder="Select working solutions to merge…"
                 />
-                <KindBadge kind={s.kind} />
-                <span className="merge-source-title">{s.title}</span>
-                <code>{s.uniqueName}</code>
-              </label>
-            </li>
-          ))}
-        </ul>
+              </div>
+            </div>
+            {selectedSolutions.length > 0 && (
+              <div className="merge-selected">
+                {selectedSolutions.map((s) => (
+                  <button
+                    key={s.id}
+                    className="merge-selected-chip"
+                    onClick={() => toggleSource(s.id)}
+                    title="Remove from selection"
+                  >
+                    {s.title} ✕
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
-      <div className="merge-right">
-        <div className="card merge-pane">
-          <h3 className="card-title">2 · Target deployment solution</h3>
-          {targets.length === 0 ? (
-            <div className="state">
-              No deployment solution yet — create one via “New Working
-              Solution” with type <strong>Release</strong>.
-            </div>
-          ) : (
-            <SolutionSelect
-              options={targets}
-              value={targetId}
-              onChange={setTargetId}
-            />
-          )}
-        </div>
+      <div className="card merge-pane">
+        <h3 className="card-title">2 · Target deployment solution</h3>
+        {targets.length === 0 ? (
+          <div className="state">
+            No deployment solution yet — create one via “New Working
+            Solution” with type <strong>Release</strong>.
+          </div>
+        ) : (
+          <SolutionSelect
+            options={targets}
+            value={targetId}
+            onChange={setTargetId}
+          />
+        )}
+      </div>
 
-        <div className="card merge-pane">
-          <h3 className="card-title">3 · Component plan</h3>
+      <div className="card merge-pane">
+        <h3 className="card-title">3 · Component plan</h3>
         {planLoading && <div className="state">Building plan…</div>}
         {!planLoading && !plan && (
           <div className="state">Select working solutions to see the plan.</div>
@@ -268,7 +263,6 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
           </div>
         )}
         {error && <div className="state state--error">{error}</div>}
-        </div>
       </div>
     </div>
   )
