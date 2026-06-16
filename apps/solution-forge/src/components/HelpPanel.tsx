@@ -26,12 +26,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               the <code>ssid_workingsolution</code> table (title, DevOps id,
               type, owner, deployment status, merge log) and the{' '}
               <strong>real unmanaged solution</strong> carrying the
-              components, linked by its unique name. The{' '}
-              <span className="link-badge link-badge--both">
-                <span className="lb-seg lb-ws">WS</span>
-                <span className="lb-seg lb-sol">SOL</span>
-              </span>{' '}
-              badge on every row shows which of the two parts exist.
+              components, linked by its unique name. A banner at the right edge
+              of every row (<span className="sol-state sol-state--both">Synced</span>{' '}
+              / <span className="sol-state sol-state--record-only">WS only</span>{' '}
+              / <span className="sol-state sol-state--solution-only">Sol only</span>)
+              shows which of the two parts exist — hover it for details.
             </p>
           </section>
 
@@ -376,26 +375,21 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <h3>Chips at a glance</h3>
             <ul className="help-legend">
               <li>
-                <span className="link-badge link-badge--both">
-                  <span className="lb-seg lb-ws">WS</span>
-                  <span className="lb-seg lb-sol">SOL</span>
-                </span>{' '}
-                tracked — record and solution linked
+                <span className="sol-state sol-state--both">Synced</span>{' '}
+                fully synced — record and solution linked
               </li>
               <li>
-                <span className="link-badge link-badge--record-only">
-                  <span className="lb-seg lb-ws">WS</span>
-                  <span className="lb-seg lb-sol">SOL</span>
+                <span className="sol-state sol-state--record-only">
+                  WS only
                 </span>{' '}
-                record without solution (orphaned — re-link in the detail
-                pane)
+                working solution only — no deployed solution (re-link in the
+                detail pane)
               </li>
               <li>
-                <span className="link-badge link-badge--solution-only">
-                  <span className="lb-seg lb-ws">WS</span>
-                  <span className="lb-seg lb-sol">SOL</span>
+                <span className="sol-state sol-state--solution-only">
+                  Sol only
                 </span>{' '}
-                solution without record (track it in the detail pane)
+                solution only — not tracked yet (track it in the detail pane)
               </li>
               <li>
                 <span className="ado-chip">#13388</span> Azure DevOps work

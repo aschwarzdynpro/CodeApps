@@ -4,7 +4,7 @@ import type {
   WorkingSolution,
 } from '../types/solution'
 import { formatRelative } from '../utils/format'
-import { KindBadge } from './KindBadge'
+import { KindBanner } from './KindBadge'
 
 interface Props {
   solutions: WorkingSolution[]
@@ -24,27 +24,36 @@ const MAX_SHOWN_MATCHES = 2
 const NO_WORK_ITEM = ''
 
 /**
- * Two-segment badge showing what an entry consists of: working-solution
- * record (WS) and/or real solution (SOL). Present halves are colored,
- * missing ones grayed out — a record without its solution is flagged red.
+ * Right-edge banner summarising what an entry consists of: a working-solution
+ * record and/or the real solution. Kept short, with the full explanation on
+ * hover; subtle colour per state.
  */
-function LinkStateBadge({ solution }: { solution: WorkingSolution }) {
+function StateBanner({ solution }: { solution: WorkingSolution }) {
   const state = solution.recordId
     ? solution.solutionMissing
       ? 'record-only'
       : 'both'
     : 'solution-only'
-  const titles: Record<string, string> = {
-    both: 'Tracked — working-solution record and solution are linked.',
-    'record-only':
-      'Working-solution record without a solution — re-link it in the detail pane.',
-    'solution-only':
-      'Solution without a working-solution record — track it in the detail pane.',
+  const meta: Record<string, { label: string; title: string }> = {
+    both: {
+      label: 'Synced',
+      title: 'Fully synced — working-solution record and solution are linked.',
+    },
+    'record-only': {
+      label: 'WS only',
+      title:
+        'Working solution only — no deployed solution. Re-link it in the detail pane.',
+    },
+    'solution-only': {
+      label: 'Sol only',
+      title:
+        'Solution only — no working-solution record yet. Track it in the detail pane.',
+    },
   }
+  const m = meta[state]
   return (
-    <span className={`link-badge link-badge--${state}`} title={titles[state]}>
-      <span className="lb-seg lb-ws">WS</span>
-      <span className="lb-seg lb-sol">SOL</span>
+    <span className={`sol-state sol-state--${state}`} title={m.title}>
+      {m.label}
     </span>
   )
 }
@@ -82,11 +91,10 @@ export function SolutionList({
         className={`solution-row ${s.id === activeId ? 'solution-row--active' : ''}`}
         onClick={() => onOpen(s.id)}
       >
-        <KindBadge kind={s.kind} />
+        <KindBanner kind={s.kind} />
         <span className="solution-row-main">
           <span className="solution-row-title">
             {s.title}
-            <LinkStateBadge solution={s} />
             {duplicateLink && (
               <span
                 className="dup-chip"
@@ -109,6 +117,9 @@ export function SolutionList({
             {s.devOpsId && <span className="ado-chip">#{s.devOpsId}</span>}
             {s.version && <span>v{s.version}</span>}
             {s.owner && <span className="solution-row-owner">👤 {s.owner}</span>}
+            <span className="solution-row-when">
+              {formatRelative(s.modifiedOn)}
+            </span>
           </span>
           {hits.length > 0 && (
             <span className="solution-row-hits">
@@ -125,7 +136,7 @@ export function SolutionList({
             </span>
           )}
         </span>
-        <span className="solution-row-when">{formatRelative(s.modifiedOn)}</span>
+        <StateBanner solution={s} />
       </button>
     )
   }

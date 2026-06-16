@@ -12,3 +12,11 @@ const LABELS: Record<SolutionKind, string> = {
 export function KindBadge({ kind }: { kind: SolutionKind }) {
   return <span className={`kind-badge kind-${kind}`}>{LABELS[kind]}</span>
 }
+
+/**
+ * Fixed-width, full-height variant used as the left banner of a solution-list
+ * row, so the rows line up in a clean left column.
+ */
+export function KindBanner({ kind }: { kind: SolutionKind }) {
+  return <span className={`kind-banner kind-${kind}`}>{LABELS[kind]}</span>
+}
