@@ -276,16 +276,22 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 Rows with an unmanaged layer get a jump into the target
                 environment's maker portal. For tables, canvas apps, custom
-                pages, cloud flows, workflows and web resources it opens the
-                component's <strong>solution layers</strong> page directly
-                (<strong>↗ layers in {'{env}'}</strong>); for entity
-                sub-components (forms, views, columns, business rules) and
-                other types it opens the solution there (<strong>↗ solution in{' '}
-                {'{env}'}</strong>) — select the component, then{' '}
+                pages, cloud flows, workflows, web resources, plugin assemblies
+                and plugin steps it opens the component's{' '}
+                <strong>solution layers</strong> page directly (<strong>↗
+                layers in {'{env}'}</strong>); for entity sub-components
+                (forms, views, columns, business rules) and other types it
+                opens the solution there (<strong>↗ solution in {'{env}'}</strong>)
+                — select the component, then{' '}
                 <strong>Advanced → See solution layers</strong>. Either way,
                 use <strong>Remove active customizations</strong> to strip the
                 Active layer. Removal is deliberately done in the portal, not
                 in this app — it can't be undone.
+              </li>
+              <li>
+                <strong>Environment variables</strong> are skipped — by design
+                their current value sits in an unmanaged (Active) layer, so
+                they'd only show up as false positives.
               </li>
               <li>
                 <strong>⇄ diff</strong> on a diffable component (flows,

@@ -124,6 +124,10 @@ export function makerLayerPath(
       return `entities/${objectId}`
     case 61: // Web resource (the maker groups them under "web resources/code")
       return `web%20resources/code/${objectId}`
+    case 91: // Plugin assembly
+      return `objects/plugin%20assemblies/${objectId}`
+    case 92: // SDK message processing step
+      return `objects/plugin%20steps/${objectId}`
     case 300: // Canvas app vs. custom page
       if (opts.canvasAppType === undefined) return undefined
       return opts.canvasAppType === 2

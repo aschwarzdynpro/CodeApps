@@ -1141,10 +1141,17 @@ export class DataverseSolutionService implements SolutionService {
     if (!env) throw new Error(`Unknown environment ${envKey}`)
     const orgUrl = env.url.replace(/\/+$/, '')
 
-    const [components, typeNames] = await Promise.all([
+    const [allComponents, typeNames] = await Promise.all([
       this.listComponents(solution.id),
       layerComponentNames(),
     ])
+    // Environment variables always carry an unmanaged (Active) layer by
+    // design — their current value lives there — so inspecting them only
+    // produces false positives. Skip the definition (380) and value (381)
+    // component types entirely.
+    const components = allComponents.filter(
+      (c) => c.typeCode !== 380 && c.typeCode !== 381,
+    )
 
     // Maker-portal "solution layers" deep-link path per component (needs a
     // couple of sub-type lookups for canvas apps / processes).

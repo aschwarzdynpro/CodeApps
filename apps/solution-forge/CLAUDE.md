@@ -102,9 +102,12 @@ aus erstem `ssid_workbenchsettings`-Datensatz aufgelöst. Status-Codes:
    nicht umkehrbar. Maker-Deeplink-Route (`config.makerLayerPath`, aus echten
    URLs verifiziert): `…/solutions/{solId}/<path>/layers` mit `<path>` je Typ —
    Entity(1) `entities/{id}`; WebResource(61) `web%20resources/code/{id}`;
-   CanvasApp(300) `objects/apps/{id}` bzw. Custom Page (canvasapptype 2)
-   `objects/pages/{id}`; Process(29) `objects/cloudflows/{id}` (category 5)
-   bzw. `objects/processes/{id}` (0/3/4). Entity-Sub-Komponenten brauchen die
+   PluginAssembly(91) `objects/plugin%20assemblies/{id}`; SdkStep(92)
+   `objects/plugin%20steps/{id}`; CanvasApp(300) `objects/apps/{id}` bzw.
+   Custom Page (canvasapptype 2) `objects/pages/{id}`; Process(29)
+   `objects/cloudflows/{id}` (category 5) bzw. `objects/processes/{id}` (0/3/4).
+   **EnvVars (380/381) werden im Layer Inspector komplett übersprungen** — sie
+   haben per Definition einen Active-Layer (der Wert). Entity-Sub-Komponenten brauchen die
    Tabellen-MetadataId: `objects/entities/{entityId}/{forms|views|fields|
    business%20rules}/{id}/layers` (noch nicht umgesetzt → Fallback auf
    Solution-Objektliste). `solId` = Ziel-Env-Solution-ID (per `uniquename`

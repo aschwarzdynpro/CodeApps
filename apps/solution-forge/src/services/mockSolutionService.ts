@@ -198,7 +198,11 @@ export class MockSolutionService {
     onProgress?: (done: number, total: number) => void,
     onSection?: (section: LayerSection) => void,
   ): Promise<LayerInspectionResult> {
-    const components = this.components.get(solution.id) ?? []
+    // Environment variables always carry an Active layer by design — skip
+    // their definition (380) and value (381) types (matches the real impl).
+    const components = (this.components.get(solution.id) ?? []).filter(
+      (c) => c.typeCode !== 380 && c.typeCode !== 381,
+    )
     const stacks: ComponentLayerStack[] = []
     onProgress?.(0, components.length)
     for (const [index, component] of components.entries()) {
