@@ -161,6 +161,11 @@ aus erstem `ssid_workbenchsettings`-Datensatz aufgelöst. Status-Codes:
     `dataverseSolutionService.syncDevOpsWorkItemStatus()`; danach `reload()` →
     `toBeCompleted`-Abgleich. Flow „PA | MANUAL | Working Solution | Sync
     DevOps Work Item Status" (workflowId `6253ef0c-…`).
+    **Deploy ab jetzt nur noch `power-apps push`** (npm-CLI): `pac code push`
+    bricht mit HTTP 400 ab („Could not find member 'workflowDetails' on object
+    of type 'AppConnectionReference'") — die ältere pac-Push-API kennt den von
+    add-flow geschriebenen `workflowDetails`-Block in `power.config.json` nicht.
+    `power-apps push` braucht die npm-CLI im Schulz-Tenant angemeldet (s. o.).
 
 ## Offen / Nächstes
 
