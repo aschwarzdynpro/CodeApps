@@ -2356,10 +2356,13 @@
   color: var(--muted);
 }
 
-/* Single-column merge layout: sections 1 / 2 / 3 stacked, full width. */
+/* Single-column merge layout: sections 1 / 2 / 3 stacked, each filling the
+   full content width (override the base grid's align-items: start, which
+   would otherwise shrink-wrap the cards to their content). */
 .merge-layout--single {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
 }
 .merge-layout--single .merge-selected {
   margin-top: 10px;
