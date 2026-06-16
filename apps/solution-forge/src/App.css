@@ -1002,17 +1002,15 @@
   margin: 12px 0;
   line-height: 1.5;
 }
-/* Command bar — flat toolbar of actions (Dataverse-style): labelled commands
-   on the left, icon-only utilities pushed right. */
+/* Command bar — a toolbar row of clearly-bordered action buttons (labelled,
+   icon + text). The spacer separates the "open externally" command on the
+   left from the item actions on the right. */
 .command-bar {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 8px;
   margin: 12px 0;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
+  flex-wrap: wrap;
 }
 .command-bar-spacer {
   flex: 1;
@@ -1021,38 +1019,45 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 7px 10px;
-  border: none;
-  background: none;
-  border-radius: 6px;
+  padding: 8px 13px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text);
   text-decoration: none;
   cursor: pointer;
 }
 .command-bar-item:hover {
+  border-color: var(--brand);
   background: var(--bg);
 }
-.command-bar-item--icon {
-  padding: 7px;
-}
 .command-bar-item--disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
+}
+.command-bar-item--disabled:hover {
+  border-color: var(--border);
+  background: var(--surface);
 }
 .command-bar-item--danger {
   color: #b02a37;
+  border-color: #f1aeb5;
 }
 .command-bar-item--danger:hover {
   background: #fdf2f3;
+  border-color: #b02a37;
 }
 /* Highlights "Mark completed" when the work item is closed (to-be-completed). */
 .command-bar-item--accent {
   color: #1a8754;
+  border-color: #b7e0cd;
+  background: #e7f4ee;
 }
 .command-bar-item--accent:hover {
-  background: #e7f4ee;
+  background: #d8ecdf;
+  border-color: #1a8754;
 }
 .cmd-icon {
   font-size: 14px;

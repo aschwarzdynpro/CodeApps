@@ -366,27 +366,25 @@ export function SolutionDetail({
         <span className="command-bar-spacer" />
         {solution.recordId && isOpenStatus(solution) && (
           <button
-            className={`command-bar-item command-bar-item--icon ${
+            className={`command-bar-item ${
               solution.toBeCompleted ? 'command-bar-item--accent' : ''
             }`}
             title={
               solution.toBeCompleted
-                ? 'Work item is closed — mark completed… (optionally delete the solution)'
-                : 'Mark completed… (set deployment status to completed, optionally delete the solution)'
+                ? 'Work item is closed — set deployment status to completed (optionally delete the solution)'
+                : 'Set deployment status to completed (optionally delete the solution)'
             }
-            aria-label="Mark completed"
             onClick={() => onComplete(solution)}
           >
-            <span className="cmd-icon">✓</span>
+            <span className="cmd-icon">✓</span> Mark completed
           </button>
         )}
         <button
-          className="command-bar-item command-bar-item--icon command-bar-item--danger"
-          title="Delete… (remove the record / solution, with a 5-second undo)"
-          aria-label="Delete"
+          className="command-bar-item command-bar-item--danger"
+          title="Remove the record / solution, with a 5-second undo"
           onClick={() => onDelete(solution)}
         >
-          <span className="cmd-icon">🗑</span>
+          <span className="cmd-icon">🗑</span> Delete
         </button>
       </div>
 
