@@ -40,7 +40,7 @@ Deployment-Status „Merged into Deployment Solution".
   geteilt (`ValidateWorkspace`); jeder Check hat darunter eine eigene Reihe
   (Ziel-Env-Toggle bei Dependencies/Layers — geteilter `envKey` —, Env-Status
   bei Compare/App Sharing) plus Run-Button und behält seine Ergebnisse.
-- **Kollisions-Radar**: „Scan collisions" lädt die Komponenten aller
+- **Kollisions-Radar**: „Scan collisions" lädt die Komponenten der **offenen**
   getrackten Working Solutions (ohne Releases) und markiert Komponenten,
   die in **mehr als einer** offenen Working Solution stecken — wer zuletzt
   deployt, überschreibt. Betroffene Solutions bekommen einen ⚠-Chip; die
@@ -48,10 +48,11 @@ Deployment-Status „Merged into Deployment Solution".
 - **Workbench**: Liste aller Working Solutions mit Typ-Filter (Feature /
   Bug / Deployment), Suche über Titel, Unique Name und ADO-ID. Mit dem
   Schalter **incl. components** durchsucht die Suche zusätzlich die
-  Komponenten-Anzeigenamen aller Solutions („welche Solutions enthalten
-  ‚SST | Monteur'?") — dafür wird beim Aktivieren einmalig ein
-  Komponenten-Index aufgebaut; Treffer werden als Chips an der Solution
-  angezeigt.
+  Komponenten-Anzeigenamen der **offenen** Working Solutions („welche
+  enthalten ‚SST | Monteur'?") — dafür wird beim Aktivieren einmalig ein
+  Komponenten-Index über die offenen Working Solutions aufgebaut; Treffer
+  werden als Chips an der Solution angezeigt. Beide Funktionen sind damit auf
+  den aktiven Satz beschränkt (nicht alle Solutions der Umgebung).
 - **Anlegen**: Dialog mit Typ, ADO-ID, Titel, Beschreibung, Publisher und
   Live-Preview des Unique Name inkl. Duplikat-Prüfung. Die Solution wird
   real in Dataverse erzeugt und ist sofort im Maker-Portal sichtbar.

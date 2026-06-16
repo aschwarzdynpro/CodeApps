@@ -97,9 +97,10 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               </li>
               <li>
                 <strong>incl. components</strong> — builds a one-time index
-                so the search also matches component display names (e.g.
-                find every solution containing a specific security role).
-                Matches appear as yellow chips on the rows.
+                (across the <strong>open</strong> working solutions) so the
+                search also matches component display names (e.g. find every
+                open solution containing a specific security role). Matches
+                appear as yellow chips on the rows.
               </li>
               <li>
                 <strong>group by work item</strong> — groups the list by
@@ -108,9 +109,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               </li>
               <li>
                 <strong>⚠ Scan collisions</strong> — loads the components of
-                all tracked working solutions (releases excluded) and flags
-                components contained in more than one of them: whoever
-                deploys last overwrites the others. Affected rows get a{' '}
+                the <strong>open</strong> tracked working solutions (releases
+                excluded) and flags components contained in more than one of
+                them: whoever deploys last overwrites the others. Affected rows get a{' '}
                 <span className="coll-chip">⚠ shared</span> chip; the detail
                 pane lists each shared component and the other solutions
                 carrying it.

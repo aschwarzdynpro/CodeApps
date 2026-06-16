@@ -22,6 +22,7 @@ import {
 import {
   CLOSED_STATUS_CODES,
   DEPLOYMENT_COMPLETED_CODE,
+  isOpenStatus,
   type ComponentCollision,
   type SolutionComponentInfo,
   type TrackSolutionInput,
@@ -296,12 +297,19 @@ function App() {
   }
 
   /**
-   * Load every solution's components into the search index, a few solutions
-   * at a time. Runs once per toggle activation; results are kept until the
-   * toggle is switched off (turning it back on re-indexes fresh data).
+   * Load components into the search index, a few solutions at a time. Scoped
+   * to open working solutions and their linked solutions (the active set, not
+   * every solution in the environment). Runs once per toggle activation;
+   * results are kept until the toggle is switched off.
    */
   const buildComponentIndex = async (allTargets: WorkingSolution[]) => {
-    const targets = allTargets.filter((s) => !s.solutionMissing)
+    const targets = allTargets.filter(
+      (s, index) =>
+        isOpenStatus(s) &&
+        !!s.recordId &&
+        !s.solutionMissing &&
+        allTargets.findIndex((o) => o.id === s.id) === index,
+    )
     setIndexProgress([0, targets.length])
     const index = new Map<string, SolutionComponentInfo[]>()
     let done = 0
@@ -330,15 +338,17 @@ function App() {
   }
 
   /**
-   * Collision radar: load the components of every tracked, non-release
+   * Collision radar: load the components of every open, tracked, non-release
    * working solution (component cache is reused and seeded), then flag
    * every component that appears in more than one of them.
    */
   const scanCollisions = async () => {
-    // Tracked working set only — releases collect merges by design and
-    // duplicate-link rows must not count as two solutions.
+    // Open tracked working set only — completed/merged entries are done,
+    // releases collect merges by design, and duplicate-link rows must not
+    // count as two solutions.
     const targets = allSolutions.filter(
       (s, index) =>
+        isOpenStatus(s) &&
         s.recordId &&
         !s.solutionMissing &&
         s.kind !== 'deployment' &&
@@ -753,7 +763,7 @@ function App() {
               />
               <label
                 className="search-scope"
-                title="Also match component display names (builds a one-time index across all solutions)."
+                title="Also match component display names (builds a one-time index across the open working solutions)."
               >
                 <input
                   type="checkbox"
