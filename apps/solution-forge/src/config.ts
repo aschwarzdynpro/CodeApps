@@ -100,22 +100,58 @@ export function makerEnvSolutionsUrl(environmentId: string): string {
 }
 
 /**
+ * Relative maker-portal path (the bit between `/solutions/{id}/` and
+ * `/layers`) for a component's solution-layers view, by component type.
+ * Verified from real maker-portal URLs. Returns undefined for types we can't
+ * build a route for (entity-nested forms/views/columns/business rules, which
+ * need the owning table's id; or unmapped types) — the caller then falls back
+ * to the solution's objects list.
+ *
+ * Two types need a sub-type discriminator:
+ *  - Canvas App (300): `canvasAppType` 2 = custom page (`objects/pages`),
+ *    otherwise an app (`objects/apps`).
+ *  - Process (29): `workflowCategory` 5 = cloud flow (`objects/cloudflows`);
+ *    0/3/4 = workflow/action/BPF (`objects/processes`); 2 (business rule) is
+ *    entity-nested → undefined.
+ */
+export function makerLayerPath(
+  typeCode: number,
+  objectId: string,
+  opts: { canvasAppType?: number; workflowCategory?: number } = {},
+): string | undefined {
+  switch (typeCode) {
+    case 1: // Entity / table
+      return `entities/${objectId}`
+    case 61: // Web resource (the maker groups them under "web resources/code")
+      return `web%20resources/code/${objectId}`
+    case 300: // Canvas app vs. custom page
+      if (opts.canvasAppType === undefined) return undefined
+      return opts.canvasAppType === 2
+        ? `objects/pages/${objectId}`
+        : `objects/apps/${objectId}`
+    case 29: // Process family — split by workflow category
+      if (opts.workflowCategory === 5) return `objects/cloudflows/${objectId}`
+      if ([0, 3, 4].includes(opts.workflowCategory ?? -1))
+        return `objects/processes/${objectId}`
+      return undefined // business rule (2) etc. are entity-nested
+    default:
+      return undefined
+  }
+}
+
+/**
  * Maker-portal deep link straight into a component's **solution layers** view
  * in a specific environment, e.g.
  * `…/environments/{env}/solutions/{solutionId}/entities/{objectId}/layers`.
- * `segment` is the maker portal's per-type route segment (e.g. `entities`);
- * `objectId` is the component's id in that environment. Only emit this when
- * the segment is known and the target solution id has been resolved — there
- * is no documented universal layers URL, so unknown types fall back to the
- * solution's objects list (makerSolutionUrl) instead.
+ * `layerPath` comes from {@link makerLayerPath}; only emit this when both the
+ * path and the target solution id are known.
  */
 export function makerComponentLayersUrl(
   environmentId: string,
   solutionId: string,
-  segment: string,
-  objectId: string,
+  layerPath: string,
 ): string {
-  return `https://make.powerapps.com/environments/${environmentId}/solutions/${solutionId}/${segment}/${objectId}/layers`
+  return `https://make.powerapps.com/environments/${environmentId}/solutions/${solutionId}/${layerPath}/layers`
 }
 
 /** Maker-portal deep link to a canvas app's details page (where the Share

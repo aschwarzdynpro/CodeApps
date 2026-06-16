@@ -88,20 +88,22 @@ Deployment-Status „Merged into Deployment Solution".
   (Side-by-side). Klassische Typnamen statisch gemappt, solution-aware Typen
   dynamisch aus `solutioncomponentdefinition`; Typen ohne Layer-Daten bleiben
   „No layer data". Zeilen mit unmanaged Layer
-  bekommen einen Absprung ins Maker-Portal des Ziel-Environments: für Tabellen
-  direkt auf die **solution layers**-Seite der Komponente
-  (`…/solutions/{id}/entities/{objectId}/layers`, **↗ layers in {env}**), für
-  andere Typen auf die Solution (**↗ solution in {env}**) → Komponente wählen
-  → „Advanced → See solution layers". Die Ziel-Env-Solution-ID wird per
-  `uniquename` aufgelöst (IDs divergieren je Env); der per-Typ-Routensegment-
-  Mapping (`LAYER_ROUTE_SEGMENT`) deckt aktuell Tabellen ab und wird erweitert,
-  sobald weitere Segmente verifiziert sind — unbekannte Typen fallen auf die
-  Solution-Objektliste zurück. Das Entfernen passiert bewusst im Portal, nicht
-  in der App (nicht umkehrbar). Eine in-app-Variante über
-  `BulkRemoveActiveCustomizations` wäre technisch möglich, liefert aber keinen
-  Erfolgs-Payload und ist destruktiv cross-env (`RemoveActiveCustomizations`
-  ist im Web API gar nicht erreichbar — nur SOAP); Details in CLAUDE.md
-  gotcha #8.
+  bekommen einen Absprung ins Maker-Portal des Ziel-Environments: für
+  Tabellen, Canvas Apps, Custom Pages, Cloud Flows, Workflows/BPF/Actions und
+  Web Resources direkt auf die **solution layers**-Seite der Komponente
+  (**↗ layers in {env}**), sonst auf die Solution (**↗ solution in {env}**) →
+  Komponente wählen → „Advanced → See solution layers". Die Ziel-Env-Solution-
+  ID wird per `uniquename` aufgelöst (IDs divergieren je Env); die Maker-Route
+  je Typ baut `config.makerLayerPath` (Canvas App vs. Custom Page über
+  `canvasapptype`, Cloud Flow vs. Process über Workflow-`category` — dafür je
+  ein Bulk-Lookup auf `canvasapps`/`workflows`). Entity-Sub-Komponenten
+  (Forms/Views/Columns/Business Rules) brauchen die Tabellen-ID in der Route
+  und fallen vorerst auf die Solution-Objektliste zurück, ebenso ungemappte
+  Typen. Das Entfernen passiert bewusst im Portal, nicht in der App (nicht
+  umkehrbar). Eine in-app-Variante über `BulkRemoveActiveCustomizations` wäre
+  technisch möglich, liefert aber keinen Erfolgs-Payload und ist destruktiv
+  cross-env (`RemoveActiveCustomizations` ist im Web API gar nicht erreichbar —
+  nur SOAP); Details in CLAUDE.md gotcha #8.
 - **App Sharing**: Canvas Apps und Custom Pages einer Solution daraufhin
   prüfen, mit wem sie in DEV/UAT/PROD geteilt sind. Solution-Import
   überträgt **kein** User-Sharing — eine deployte Canvas App erreicht

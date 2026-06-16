@@ -208,6 +208,8 @@ export class MockSolutionService {
         stacks.push({
           component,
           verdict: 'overridden',
+          // Demo-only: show the precise canvas-app layers deep link.
+          makerLayerPath: `objects/apps/${component.objectId}`,
           layers: [
             { id: `l-${index}-a`, solutionName: 'Active', order: 3 },
             {
@@ -230,6 +232,7 @@ export class MockSolutionService {
         stacks.push({
           component,
           verdict: 'unmanagedOnly',
+          makerLayerPath: `entities/${component.objectId}`,
           layers: [{ id: `l-${index}-a`, solutionName: 'Active', order: 1 }],
         })
       } else if (index === 2) {

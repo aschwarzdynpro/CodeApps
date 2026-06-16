@@ -80,7 +80,8 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 - [x] Layer Inspector: alle Komponenten-Typen, progressive Sektionen,
       DEV-vs-Ziel-Diff, Existenz/Missing für alle Typen (vom Compare hierher);
       Missing/Unmanaged-Filter-Chips; „↗ layers"-Absprung ins Maker-Portal des
-      Ziel-Env (direkt auf die solution-layers-Seite bei Tabellen, sonst auf die
+      Ziel-Env (direkt auf die solution-layers-Seite bei Tabellen, Canvas Apps,
+      Custom Pages, Cloud Flows, Workflows, Web Resources; sonst auf die
       Solution; Remove active customizations bewusst dort, nicht in-app)
 - [x] Standard-Filter Open/Tracked/Mine, Rollen-Gating Merge & Compare
 - [x] Layer Inspector: unmanaged Active-Layer über managed Komponenten in

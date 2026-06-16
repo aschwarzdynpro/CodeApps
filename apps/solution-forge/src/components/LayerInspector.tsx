@@ -26,17 +26,6 @@ const DIFFABLE_TYPES: Record<number, AlmComponentRef['kind']> = {
   61: 'webresource',
 }
 
-/**
- * Maker-portal route segment per component type, for the precise
- * "…/solutions/{id}/{segment}/{objectId}/layers" deep link. Only types whose
- * segment is verified are listed; everything else falls back to the target
- * solution's objects list (one click from the component's layers). Extend as
- * more segments are confirmed from real maker-portal URLs.
- */
-const LAYER_ROUTE_SEGMENT: Record<number, string> = {
-  1: 'entities', // tables / entities (confirmed)
-}
-
 /** Groups with at most this many components start expanded. */
 const AUTO_EXPAND_LIMIT = 12
 
@@ -208,15 +197,13 @@ export function LayerInspector({ solutions }: Props) {
     // otherwise we degrade to the solution's objects list, then the env's
     // solutions area.
     const hasUnmanagedLayer = UNMANAGED_VERDICTS.has(stack.verdict)
-    const segment = LAYER_ROUTE_SEGMENT[stack.component.typeCode]
     const layerLink =
-      targetEnv && targetSolutionId && segment
+      targetEnv && targetSolutionId && stack.makerLayerPath
         ? {
             href: makerComponentLayersUrl(
               targetEnv.environmentId,
               targetSolutionId,
-              segment,
-              stack.component.objectId,
+              stack.makerLayerPath,
             ),
             label: `↗ layers in ${envLabel}`,
             title: `Open this component's solution layers in ${envLabel} (then Remove active customizations)`,

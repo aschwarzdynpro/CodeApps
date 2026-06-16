@@ -44,6 +44,13 @@ export interface ComponentLayerStack {
   verdict: LayerVerdict
   /** Layers top-first (highest order first); empty unless present. */
   layers: ComponentLayerInfo[]
+  /**
+   * Relative maker-portal path (between `/solutions/{id}/` and `/layers`) for
+   * this component's solution-layers view, e.g. `entities/{id}` or
+   * `objects/apps/{id}`. Undefined for types whose maker route we can't build
+   * (entity-nested or unmapped) — the UI then falls back to the solution list.
+   */
+  makerLayerPath?: string
 }
 
 /** One component-type's results, emitted as soon as that type is resolved. */

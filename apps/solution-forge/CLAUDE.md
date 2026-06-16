@@ -97,9 +97,19 @@ aus erstem `ssid_workbenchsettings`-Datensatz aufgelöst. Status-Codes:
    (Bitmaske). Läuft als SP — POA-Leserecht im Ziel nötig. Canvas Apps
    cross-env per `canvasapp.name` matchen (IDs divergieren).
    **Layer entfernen (Remove active customizations):** Bewusst NICHT in-app —
-   der Layer Inspector verlinkt stattdessen ins Maker-Portal des Ziel-Env
-   (`makerEnvSolutionsUrl`, „↗ layers in {env}"); Entfernen ist destruktiv und
-   nicht umkehrbar. Recherche-Stand, falls in-app je gewünscht:
+   der Layer Inspector verlinkt stattdessen tief ins Maker-Portal des Ziel-Env
+   auf die solution-layers-Seite der Komponente; Entfernen ist destruktiv und
+   nicht umkehrbar. Maker-Deeplink-Route (`config.makerLayerPath`, aus echten
+   URLs verifiziert): `…/solutions/{solId}/<path>/layers` mit `<path>` je Typ —
+   Entity(1) `entities/{id}`; WebResource(61) `web%20resources/code/{id}`;
+   CanvasApp(300) `objects/apps/{id}` bzw. Custom Page (canvasapptype 2)
+   `objects/pages/{id}`; Process(29) `objects/cloudflows/{id}` (category 5)
+   bzw. `objects/processes/{id}` (0/3/4). Entity-Sub-Komponenten brauchen die
+   Tabellen-MetadataId: `objects/entities/{entityId}/{forms|views|fields|
+   business%20rules}/{id}/layers` (noch nicht umgesetzt → Fallback auf
+   Solution-Objektliste). `solId` = Ziel-Env-Solution-ID (per `uniquename`
+   auflösen, `resolveSolutionIdInEnv`). Recherche-Stand zum in-app-Entfernen,
+   falls je gewünscht:
    `RemoveActiveCustomizations` ist im Web API **gar nicht** erreichbar (weder
    GET noch POST → HTTP 404 / `0x8006088a`, nur SOAP). Die POST-Action
    `BulkRemoveActiveCustomizations` (`isprivate:true`, fehlt im `$metadata`,

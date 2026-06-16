@@ -17,7 +17,12 @@ import {
   extractDevOpsId,
 } from '../utils/naming'
 import { shortGuid } from '../utils/format'
-import { DEVOPS_PANEL_ENABLED, ENVIRONMENTS, makerSolutionUrl } from '../config'
+import {
+  DEVOPS_PANEL_ENABLED,
+  ENVIRONMENTS,
+  makerLayerPath,
+  makerSolutionUrl,
+} from '../config'
 import { RetrieveMissingDependenciesService } from './retrieveMissingDependenciesService'
 import { layerComponentNames } from './componentLayerNames'
 import type {
@@ -1141,6 +1146,10 @@ export class DataverseSolutionService implements SolutionService {
       layerComponentNames(),
     ])
 
+    // Maker-portal "solution layers" deep-link path per component (needs a
+    // couple of sub-type lookups for canvas apps / processes).
+    const layerPaths = await this.resolveLayerPaths(components)
+
     // Group by component type so each section can be emitted as soon as it
     // finishes (the UI renders it while later types still load).
     const byType = new Map<number, SolutionComponentInfo[]>()
@@ -1173,20 +1182,34 @@ export class DataverseSolutionService implements SolutionService {
       for (const batch of chunksOf(comps, 4)) {
         await Promise.all(
           batch.map(async (component) => {
+            const makerLayerPath = layerPaths.get(component.objectId)
             if (!componentName) {
-              sectionStacks.push({ component, verdict: 'unsupported', layers: [] })
+              sectionStacks.push({
+                component,
+                verdict: 'unsupported',
+                layers: [],
+                makerLayerPath,
+              })
             } else {
               try {
-                sectionStacks.push(
-                  await this.fetchLayerStack(orgUrl, component, componentName),
+                const stack = await this.fetchLayerStack(
+                  orgUrl,
+                  component,
+                  componentName,
                 )
+                sectionStacks.push({ ...stack, makerLayerPath })
               } catch (err) {
                 console.warn(
                   `[layers] ${component.typeName} ${component.objectId} failed:`,
                   err,
                 )
                 failedTypes.add(component.typeName)
-                sectionStacks.push({ component, verdict: 'error', layers: [] })
+                sectionStacks.push({
+                  component,
+                  verdict: 'error',
+                  layers: [],
+                  makerLayerPath,
+                })
               }
             }
             onProgress?.(++done, total)
@@ -1211,6 +1234,68 @@ export class DataverseSolutionService implements SolutionService {
         `${typeName}: layer query failed for some components — their verdict is "error" (details in the browser console).`,
     )
     return { envKey, stacks: allStacks, warnings }
+  }
+
+  /**
+   * Build the maker-portal "solution layers" path per component. Canvas apps
+   * (300) and processes (29) need a sub-type discriminator (canvasapptype /
+   * workflow category) the solution-component summary doesn't carry, so those
+   * are read in bulk from the current environment (the props are
+   * env-independent). Best-effort: a component without a resolvable path just
+   * falls back to the solution list in the UI.
+   */
+  private async resolveLayerPaths(
+    components: SolutionComponentInfo[],
+  ): Promise<Map<string, string>> {
+    const canvasType = new Map<string, number>()
+    const workflowCategory = new Map<string, number>()
+    const canvasIds = components
+      .filter((c) => c.typeCode === 300)
+      .map((c) => c.objectId)
+    const workflowIds = components
+      .filter((c) => c.typeCode === 29)
+      .map((c) => c.objectId)
+    try {
+      for (const chunk of chunksOf(canvasIds, 20)) {
+        const filter = chunk.map((id) => `canvasappid eq ${id}`).join(' or ')
+        for (const row of await this.queryRows(
+          null,
+          'canvasapps',
+          'canvasappid,canvasapptype',
+          filter,
+        )) {
+          const id = str(row.canvasappid)
+          if (id) canvasType.set(id.toLowerCase(), Number(row.canvasapptype ?? -1))
+        }
+      }
+    } catch (err) {
+      console.warn('[layers] canvasapptype lookup failed:', err)
+    }
+    try {
+      for (const chunk of chunksOf(workflowIds, 20)) {
+        const filter = chunk.map((id) => `workflowid eq ${id}`).join(' or ')
+        for (const row of await this.queryRows(
+          null,
+          'workflows',
+          'workflowid,category',
+          filter,
+        )) {
+          const id = str(row.workflowid)
+          if (id) workflowCategory.set(id.toLowerCase(), Number(row.category ?? -1))
+        }
+      }
+    } catch (err) {
+      console.warn('[layers] workflow category lookup failed:', err)
+    }
+    const paths = new Map<string, string>()
+    for (const c of components) {
+      const path = makerLayerPath(c.typeCode, c.objectId, {
+        canvasAppType: canvasType.get(c.objectId.toLowerCase()),
+        workflowCategory: workflowCategory.get(c.objectId.toLowerCase()),
+      })
+      if (path) paths.set(c.objectId, path)
+    }
+    return paths
   }
 
   /**
