@@ -76,6 +76,33 @@ const TAB_TITLES: Record<Tab, string> = {
   sharing: 'App Sharing',
 }
 
+/**
+ * Pull a readable message out of an unknown error. Handles the OData error
+ * shape ({ error: { message } }) and messages that embed the batch/OData JSON
+ * (e.g. a failed DELETE returns the whole multipart body) by extracting the
+ * inner "message" — so the user sees "Cannot start the requested operation
+ * [Uninstall] …" rather than a raw batch dump.
+ */
+function describeError(err: unknown): string {
+  const odata = (err as { error?: { message?: string } } | undefined)?.error
+    ?.message
+  if (odata) return odata
+  const raw =
+    err instanceof Error ? err.message : typeof err === 'string' ? err : ''
+  if (raw) {
+    const match = raw.match(/"message"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+    if (match) {
+      try {
+        return JSON.parse(`"${match[1]}"`) as string
+      } catch {
+        return match[1]
+      }
+    }
+    return raw
+  }
+  return String(err)
+}
+
 function App() {
   const { environmentId } = usePower()
   const { solutions, publishers, loading, error, reload } = useSolutions()
@@ -179,6 +206,20 @@ function App() {
       window.clearTimeout(clear)
     }
   }, [justCreated])
+  // Transient error from a background action (e.g. a delete/complete that
+  // failed server-side after the undo window) — shown as a banner that fades
+  // out and clears itself after 5s.
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [actionErrorFading, setActionErrorFading] = useState(false)
+  useEffect(() => {
+    if (!actionError) return
+    const fade = window.setTimeout(() => setActionErrorFading(true), 4400)
+    const clear = window.setTimeout(() => setActionError(null), 5000)
+    return () => {
+      window.clearTimeout(fade)
+      window.clearTimeout(clear)
+    }
+  }, [actionError])
   // Locally created solutions show up immediately, even before reload() lands.
   const [created, setCreated] = useState<WorkingSolution[]>([])
 
@@ -588,6 +629,10 @@ function App() {
       }
     } catch (err) {
       console.warn(`[solutions] ${mode} failed:`, err)
+      setActionErrorFading(false)
+      setActionError(
+        `${mode === 'complete' ? 'Completing' : 'Deleting'} “${solution.title}” failed: ${describeError(err)}`,
+      )
     }
     setPendingDeletes((prev) => prev.filter((p) => p.key !== key))
     setComponentCache((prev) => {
@@ -687,6 +732,16 @@ function App() {
           <header className="content-header">
             <h1>{TAB_TITLES[tab]}</h1>
           </header>
+
+      {actionError && (
+        <div
+          className={`state state--error creation-banner ${
+            actionErrorFading ? 'creation-banner--fading' : ''
+          }`}
+        >
+          <span>{actionError}</span>
+        </div>
+      )}
 
       {loading && <div className="state">Loading solutions…</div>}
       {error && <div className="state state--error">{error}</div>}

@@ -222,7 +222,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 container, or both — depending on what exists. A card pops
                 up for 5 seconds to <strong>undo</strong>; only after that
                 the deletion becomes final. Components inside a deleted
-                solution stay in the system.
+                solution stay in the system. If the final delete fails
+                server-side (e.g. another solution import/uninstall is running),
+                an error banner explains why and the entry reappears.
               </li>
             </ul>
           </section>
