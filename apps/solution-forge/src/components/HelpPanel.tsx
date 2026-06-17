@@ -97,9 +97,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 <strong>Open</strong> and <strong>Tracked</strong> are on by
                 default — they narrow the list to working solutions whose
-                deployment status is not Completed/Merged and that have a
-                working-solution record. Untick them to reach finished or
-                untracked entries.
+                record is still <strong>active</strong> (statecode 0) and that
+                have a working-solution record. The deployment status (e.g.
+                “Merged into Deployment Solution”) does not close an entry —
+                only deactivating its record does. Untick the filters to reach
+                closed or untracked entries.
               </li>
               <li>
                 The <strong>owner dropdown</strong> filters the list to a
@@ -207,12 +209,12 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 appears here once the DevOps connection is active.
               </li>
               <li>
-                <strong>Mark completed…</strong> (open tracked entries) sets
-                the deployment status to <strong>Deployment completed</strong>,
-                so the entry leaves the Open list. You're asked whether to also
-                delete the underlying solution; if so, a card pops up for 5
-                seconds to <strong>undo</strong> — undoing keeps the solution
-                and reopens the working solution.
+                <strong>Mark completed…</strong> (active tracked entries) sets
+                the deployment status to <strong>Deployment completed</strong>{' '}
+                (a label — open/closed is driven by the record's statecode, not
+                this). You're asked whether to also delete the underlying
+                solution; if so, a card pops up for 5 seconds to{' '}
+                <strong>undo</strong> — undoing keeps the solution.
               </li>
               <li>
                 <strong>Delete…</strong> removes the entry after a

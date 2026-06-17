@@ -10,7 +10,7 @@ import type {
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
-import { CLOSED_STATUS_CODES, isClosedWorkItemState } from '../types/solution'
+import { isClosedWorkItemState } from '../types/solution'
 import type { SolutionService } from './solutionService'
 import { mockSolutionService } from './mockSolutionService'
 import { hostUserHints, powerModeReady } from '../PowerProvider'
@@ -178,6 +178,7 @@ const WORKING_ROW_SELECT = [
   'sst_devopsworkitemtype',
   'sst_devopsworkitemstatus',
   'ssid_deploymentstatus',
+  'statecode',
   '_ownerid_value',
   'createdon',
   'modifiedon',
@@ -459,15 +460,15 @@ async function fetchAll<T>(
 }
 
 export class DataverseSolutionService implements SolutionService {
-  /** Active rows of the ssid_workingsolution presentation table. */
+  /**
+   * Rows of the ssid_workingsolution presentation table — active AND inactive.
+   * Open/closed is derived from statecode (0 = open, 1 = closed), so inactive
+   * rows are loaded too and just filtered out by the workbench's Open toggle.
+   */
   private async fetchWorkingRows(): Promise<Ssid_workingsolutions[]> {
-    const rows = await fetchAll(
-      (o) => Ssid_workingsolutionsService.getAll(o),
-      {
-        select: WORKING_ROW_SELECT,
-        filter: 'statecode eq 0',
-      },
-    )
+    const rows = await fetchAll((o) => Ssid_workingsolutionsService.getAll(o), {
+      select: WORKING_ROW_SELECT,
+    })
     return rows ?? []
   }
 
@@ -547,10 +548,12 @@ export class DataverseSolutionService implements SolutionService {
             raw.ssid_deploymentstatus !== undefined
               ? Number(raw.ssid_deploymentstatus)
               : undefined,
-          // Open entry + closed DevOps work item → ready to be completed.
+          // 0 = active/open, 1 = inactive/closed — drives the Open filter.
+          recordStateCode:
+            raw.statecode !== undefined ? Number(raw.statecode) : undefined,
+          // Open record + closed DevOps work item → ready to be completed.
           toBeCompleted:
-            (raw.ssid_deploymentstatus === undefined ||
-              !CLOSED_STATUS_CODES.has(Number(raw.ssid_deploymentstatus))) &&
+            Number(raw.statecode) === 0 &&
             isClosedWorkItemState(raw.sst_devopsworkitemstatus),
           ...(solution ? {} : { solutionMissing: true as const }),
         })

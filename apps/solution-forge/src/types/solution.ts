@@ -41,8 +41,14 @@ export interface WorkingSolution {
   ownerId?: string
   /** Formatted ssid_deploymentstatus label, e.g. "Deployment completed". */
   deploymentStatus?: string
-  /** Raw ssid_deploymentstatus option value (see CLOSED_STATUS_CODES). */
+  /** Raw ssid_deploymentstatus option value (informational only). */
   deploymentStatusCode?: number
+  /**
+   * statecode of the working-solution record: 0 = active (open), 1 = inactive
+   * (closed). Undefined for untracked solutions (no record). This — not the
+   * deployment status — determines whether an entry counts as open.
+   */
+  recordStateCode?: number
   /** True when the row's ssid_uniquesolutionname matches no real solution. */
   solutionMissing?: boolean
   /**
@@ -127,12 +133,14 @@ export const CLOSED_STATUS_CODES = new Set([500870003, 867520001, 867520002])
 /** ssid_deploymentstatus value for "Deployment completed". */
 export const DEPLOYMENT_COMPLETED_CODE = 500870003
 
-/** Returns true when a working solution counts as open (not closed). */
+/**
+ * Returns true when a working solution counts as open. Open ⇔ the
+ * working-solution record is active (statecode 0); the deployment status is
+ * informational only and does NOT affect this. Untracked solutions (no record,
+ * hence no statecode) count as open.
+ */
 export function isOpenStatus(s: WorkingSolution): boolean {
-  return (
-    s.deploymentStatusCode === undefined ||
-    !CLOSED_STATUS_CODES.has(s.deploymentStatusCode)
-  )
+  return s.recordStateCode === undefined || s.recordStateCode === 0
 }
 
 /**

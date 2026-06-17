@@ -21,7 +21,6 @@ import {
   makerSolutionUrl,
 } from './config'
 import {
-  CLOSED_STATUS_CODES,
   DEPLOYMENT_COMPLETED_CODE,
   isOpenStatus,
   type ComponentCollision,
@@ -207,12 +206,7 @@ function App() {
   // search — the kind counts reflect this base set.
   const baseFiltered = useMemo(() => {
     return allSolutions
-      .filter(
-        (s) =>
-          !openOnly ||
-          s.deploymentStatusCode === undefined ||
-          !CLOSED_STATUS_CODES.has(s.deploymentStatusCode),
-      )
+      .filter((s) => !openOnly || isOpenStatus(s))
       .filter((s) => !trackedOnly || !!s.recordId)
       .filter((s) => !ownerFilter || s.owner === ownerFilter)
   }, [allSolutions, openOnly, trackedOnly, ownerFilter])

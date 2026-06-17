@@ -47,8 +47,12 @@ ohne eigenen Mock (erbt die Mock-Fallbacks der genutzten Services). Caches
 (Bug→Bug, CR/Feature/Backlog→Feature) → Namenskonvention
 (`feature_|bug_|deploy_`) → Other. Releases: keine DevOps-ID anzeigen,
 Pflichtfeld bekommt `'N/A'`. Pflicht-Lookup `ssid_WorkbenchSetting` wird
-aus erstem `ssid_workbenchsettings`-Datensatz aufgelöst. Status-Codes:
-`CLOSED_STATUS_CODES` in types/solution.ts.
+aus erstem `ssid_workbenchsettings`-Datensatz aufgelöst. **Offen/Geschlossen
+richtet sich allein nach dem `statecode` des Records** (0 = offen, 1 =
+geschlossen), NICHT nach dem Deployment-Status (`isOpenStatus`); `listSolutions`
+lädt daher auch inaktive Records (kein `statecode eq 0`-Filter mehr) und der
+Open-Toggle blendet sie aus. „Mark completed" setzt nur das Status-Label
+`ssid_deploymentstatus`, deaktiviert den Record (noch) nicht.
 
 **Merge-Historie:** Tabelle `sst_mergerun` (1 Zeile je Merge) — Counts
 (`sst_added_int`/`sst_skipped_int`/`sst_errors_int`), Quell-Titel

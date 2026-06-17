@@ -86,12 +86,17 @@ nach Typ.
   flows`). Während der Laufzeit eine In-Progress-Anzeige; nach Abschluss
   `reload()`, sodass der „to be completed"-Abgleich gegen die frisch
   synchronisierten Status neu rechnet.
-- **Mark completed**: offene getrackte Einträge auf
-  `ssid_deploymentstatus = Deployment completed` (500870003) setzen → sie
-  fallen aus dem Open-Filter. Im Dialog wird gefragt, ob die unterliegende
-  Solution gelöscht werden soll; falls ja, läuft das (wie beim Delete) über
-  das 5-Sekunden-Undo — der Statuswechsel und das Solution-Delete werden erst
-  nach Ablauf committed, Undo lässt beides aus (Working Solution bleibt offen).
+- **Offen/Geschlossen**: Der **Open-Filter** richtet sich nach dem `statecode`
+  des Working-Solution-Records (0 = offen, 1 = geschlossen) — der
+  Deployment-Status (z. B. „Merged into Deployment Solution") spielt dafür
+  **keine** Rolle. Inaktive Records werden mitgeladen und nur vom Open-Toggle
+  ausgeblendet.
+- **Mark completed**: aktive getrackte Einträge auf
+  `ssid_deploymentstatus = Deployment completed` (500870003) setzen (reines
+  Status-Label — schließt den Eintrag nicht, das macht der statecode). Im
+  Dialog wird gefragt, ob die unterliegende Solution gelöscht werden soll;
+  falls ja, läuft das (wie beim Delete) über das 5-Sekunden-Undo — Statuswechsel
+  und Solution-Delete werden erst nach Ablauf committed, Undo lässt beides aus.
 - **Löschen mit Undo**: Eintrag entfernen (Record, Solution oder beides) mit
   5-Sekunden-Restore-Fenster, bevor der harte Delete läuft.
 - **Merge**: Deployment Solution als Ziel wählen, Feature-/Bug-Solutions
