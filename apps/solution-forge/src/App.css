@@ -196,7 +196,7 @@
   border-color: #b02a37;
 }
 .modal--wide {
-  max-width: 780px;
+  max-width: 920px;
 }
 
 /* Help: title bar */
@@ -1454,7 +1454,7 @@
 
 /* Merge-run "added components" overlay — grouped by component type. */
 .merge-components-modal {
-  max-width: 860px;
+  max-width: 1040px;
 }
 .merge-components-sub {
   margin: 4px 0 0;
