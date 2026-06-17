@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import sacLogo from './assets/sac-logo.png'
+// Inlined as a data URI: the code-app player only serves the assets listed in
+// index.html, so a separate /assets/*.png request 404s — embedding it in the
+// bundle sidesteps that entirely.
+import sacLogo from './assets/sac-logo.png?inline'
 import { usePower } from './PowerProvider'
 import { useSolutions } from './hooks/useSolutions'
 import { solutionService } from './services/solutionService'
