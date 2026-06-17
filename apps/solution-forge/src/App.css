@@ -195,8 +195,11 @@
   background: #fdf2f3;
   border-color: #b02a37;
 }
-.modal--wide {
-  max-width: 920px;
+/* Wide overlays span ~80% of the page (the .modal rule below sets a 520px
+   cap, so these need the extra .modal specificity to win regardless of order). */
+.modal.modal--wide {
+  width: 80%;
+  max-width: 1080px;
 }
 
 /* Help: title bar */
@@ -1453,8 +1456,8 @@
 }
 
 /* Merge-run "added components" overlay — grouped by component type. */
-.merge-components-modal {
-  max-width: 1040px;
+.modal.merge-components-modal {
+  max-width: 1200px;
 }
 .merge-components-sub {
   margin: 4px 0 0;
