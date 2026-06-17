@@ -2669,6 +2669,23 @@
   font-size: 12px;
   font-weight: 600;
 }
+.merge-rules-group {
+  margin-bottom: 14px;
+}
+.merge-rules-group-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 2px;
+}
+/* Exclude chips: active = red (vs. brand for allow). */
+.chip--exclude-active {
+  background: #b02a37;
+  border-color: #b02a37;
+  color: #fff;
+}
+.chip--exclude-active:hover {
+  background: #b02a37;
+}
 /* Workbench read-only summary of a release's allow-list */
 .merge-allowed-summary {
   display: flex;

@@ -103,14 +103,16 @@ nach Typ.
 - **Merge**: Deployment Solution als Ziel wählen, Feature-/Bug-Solutions
   ankreuzen, Komponenten-Plan prüfen (Konflikte markiert, Duplikate werden
   übersprungen) und mergen (`AddSolutionComponent` je Komponente).
-- **Erlaubte Komponententypen je Release** (optional): Multi-Select-Choice
-  `sst_allowedmergetypes` (Optionswerte = `componenttype`-Codes) am
-  Release-Record schränkt ein, welche Typen gemergt werden dürfen — leer = alle.
-  Verwaltet im eigenen **Merge-Rules**-Tab (Deployment-Manager-gated, Chips je
-  Release); die Workbench-Detailansicht zeigt nur eine **Read-only-Übersicht**.
-  Nicht erlaubte Komponenten werden im Plan ausgegraut und beim Merge als
-  „excluded by allowed types" gezählt. Das App-Array
-  `MERGEABLE_COMPONENT_TYPES` spiegelt die Choice-Optionen.
+- **Merge-Regeln je Release** (optional): zwei Multi-Select-Choices am
+  Release-Record (Optionswerte = `componenttype`-Codes) — **Allow-Liste**
+  `sst_allowedmergetypes` (leer = alle) und **Exclude-Liste**
+  `sst_excludedmergetypes`. Mergebar ist ein Typ, wenn (Allow leer ODER drin)
+  UND nicht in Exclude. Verwaltet im eigenen **Merge-Rules**-Tab
+  (Deployment-Manager-gated, Allow-/Exclude-Chips je Release); die
+  Workbench-Detailansicht zeigt nur eine **Read-only-Übersicht**. Blockierte
+  Komponenten werden im Plan ausgegraut und beim Merge als „excluded by merge
+  rules" gezählt. Das App-Array `MERGEABLE_COMPONENT_TYPES` spiegelt die
+  Choice-Optionen.
 - **Compare (ALM)**: Release-Solution wählen → Cloud Flows, Workflows,
   Business Rules, Plugin Steps und Scripts werden über **DEV / UAT / PROD**
   verglichen, gruppiert nach Typ in aufklappbaren Sektionen. Abweichungen

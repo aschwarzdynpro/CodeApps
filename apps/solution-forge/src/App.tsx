@@ -960,8 +960,8 @@ function App() {
       {!loading && !error && tab === 'mergeRules' && isDeploymentManager && (
         <MergeRules
           solutions={allSolutions}
-          onSave={async (recordId, codes) => {
-            await solutionService.setAllowedMergeTypes(recordId, codes)
+          onSave={async (recordId, allowed, excluded) => {
+            await solutionService.setMergeTypeRules(recordId, allowed, excluded)
             reload()
           }}
         />

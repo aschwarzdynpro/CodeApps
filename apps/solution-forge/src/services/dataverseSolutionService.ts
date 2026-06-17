@@ -180,6 +180,7 @@ const WORKING_ROW_SELECT = [
   'ssid_deploymentstatus',
   'statecode',
   'sst_allowedmergetypes',
+  'sst_excludedmergetypes',
   '_ownerid_value',
   'createdon',
   'modifiedon',
@@ -562,6 +563,7 @@ export class DataverseSolutionService implements SolutionService {
           recordStateCode:
             raw.statecode !== undefined ? Number(raw.statecode) : undefined,
           allowedMergeTypes: parseTypeCodes(row.sst_allowedmergetypes),
+          excludedMergeTypes: parseTypeCodes(row.sst_excludedmergetypes),
           // Open record + closed DevOps work item → ready to be completed.
           toBeCompleted:
             Number(raw.statecode) === 0 &&
@@ -776,28 +778,31 @@ export class DataverseSolutionService implements SolutionService {
   }
 
   /**
-   * Set a release's merge allow-list (component-type codes) on its record.
-   * An empty list clears the column → no restriction (all types allowed).
+   * Set a release's merge rules on its record: the allow-list and the
+   * exclude-list (component-type codes). An empty list clears that column.
+   * A type is mergeable when (allow empty or in allow) AND not in exclude.
    */
-  async setAllowedMergeTypes(
+  async setMergeTypeRules(
     recordId: string,
-    typeCodes: number[],
+    allowed: number[],
+    excluded: number[],
   ): Promise<void> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockSolutionService.setAllowedMergeTypes(recordId, typeCodes)
+      return mockSolutionService.setMergeTypeRules(recordId, allowed, excluded)
     const result = await Ssid_workingsolutionsService.update(
       recordId,
       {
         // Multi-select choice: comma-separated values, or null to clear.
-        sst_allowedmergetypes: typeCodes.length ? typeCodes.join(',') : null,
+        sst_allowedmergetypes: allowed.length ? allowed.join(',') : null,
+        sst_excludedmergetypes: excluded.length ? excluded.join(',') : null,
       } as unknown as Partial<
         Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
       >,
     )
     if (result && result.success === false) {
-      console.warn('[solutions] allowed merge types update failed:', result)
-      throw new Error('Updating the allowed component types failed.')
+      console.warn('[solutions] merge type rules update failed:', result)
+      throw new Error('Updating the merge type rules failed.')
     }
   }
 
@@ -1927,10 +1932,13 @@ export class DataverseSolutionService implements SolutionService {
       queue.push(...(await this.listMergeComponents(id)))
     }
 
-    // The release may restrict which component types it accepts (empty = all).
+    // The release may restrict which component types it accepts: an allow-list
+    // (empty = all) and an exclude-list applied on top.
     const allowed = target.allowedMergeTypes ?? []
+    const excluded = target.excludedMergeTypes ?? []
     const isAllowed = (typeCode: number) =>
-      allowed.length === 0 || allowed.includes(typeCode)
+      (allowed.length === 0 || allowed.includes(typeCode)) &&
+      !excluded.includes(typeCode)
 
     const result: MergeResult = { added: 0, skipped: 0, excluded: 0, errors: [] }
     // The concrete components actually added in this run — logged to the

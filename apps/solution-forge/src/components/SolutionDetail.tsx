@@ -311,25 +311,23 @@ function MergeRunComponentsModal({
 }
 
 /**
- * Read-only summary of a release's merge allow-list (managed in the Merge
- * Rules tab). Narrow line: the allowed type labels, or "All types allowed".
+ * Read-only summary of a release's merge rules (managed in the Merge Rules
+ * tab): the allow-list and exclude-list, or "All types allowed".
  */
-function AllowedTypesSummary({ solution }: { solution: WorkingSolution }) {
-  const codes = solution.allowedMergeTypes ?? []
-  const text =
-    codes.length === 0
-      ? 'All component types allowed'
-      : codes
-          .map(
-            (c) =>
-              MERGEABLE_COMPONENT_TYPES.find((t) => t.code === c)?.label ??
-              `Type ${c}`,
-          )
-          .join(', ')
+function MergeRulesSummary({ solution }: { solution: WorkingSolution }) {
+  const labelFor = (c: number) =>
+    MERGEABLE_COMPONENT_TYPES.find((t) => t.code === c)?.label ?? `Type ${c}`
+  const allow = solution.allowedMergeTypes ?? []
+  const exclude = solution.excludedMergeTypes ?? []
   return (
     <div className="merge-allowed-summary">
-      <span className="merge-allowed-summary-label">Allowed merge types</span>
-      <span className="muted">{text}</span>
+      <span className="merge-allowed-summary-label">Merge rules</span>
+      <span className="muted">
+        {allow.length === 0
+          ? 'All types allowed'
+          : `Allow: ${allow.map(labelFor).join(', ')}`}
+        {exclude.length > 0 && ` · Exclude: ${exclude.map(labelFor).join(', ')}`}
+      </span>
       <span className="merge-allowed-summary-hint muted">
         manage in Merge Rules
       </span>
@@ -717,7 +715,7 @@ export function SolutionDetail({
       )}
 
       {solution.kind === 'deployment' && solution.recordId && (
-        <AllowedTypesSummary solution={solution} />
+        <MergeRulesSummary solution={solution} />
       )}
 
       {solution.kind === 'deployment' &&

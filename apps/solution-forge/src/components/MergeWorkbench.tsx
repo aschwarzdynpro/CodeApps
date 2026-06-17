@@ -114,16 +114,23 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
   }
 
   const target = targets.find((s) => s.id === targetId) ?? null
-  // Release allow-list (empty = all types allowed).
+  // Release merge rules: allow-list (empty = all) + exclude-list on top.
   const allowedTypes = target?.allowedMergeTypes ?? []
+  const excludedTypes = target?.excludedMergeTypes ?? []
   const isAllowed = (typeCode: number) =>
-    allowedTypes.length === 0 || allowedTypes.includes(typeCode)
-  const allowedLabels = allowedTypes
-    .map(
-      (c) =>
-        MERGEABLE_COMPONENT_TYPES.find((t) => t.code === c)?.label ?? `Type ${c}`,
-    )
-    .sort((a, b) => a.localeCompare(b))
+    (allowedTypes.length === 0 || allowedTypes.includes(typeCode)) &&
+    !excludedTypes.includes(typeCode)
+  const labelsOf = (codes: number[]) =>
+    codes
+      .map(
+        (c) =>
+          MERGEABLE_COMPONENT_TYPES.find((t) => t.code === c)?.label ??
+          `Type ${c}`,
+      )
+      .sort((a, b) => a.localeCompare(b))
+  const allowedLabels = labelsOf(allowedTypes)
+  const excludedLabels = labelsOf(excludedTypes)
+  const hasRules = allowedTypes.length > 0 || excludedTypes.length > 0
   const excludedCount = plan
     ? plan.filter((p) => !isAllowed(p.component.typeCode)).length
     : 0
@@ -171,7 +178,7 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
             {result.added === 1 ? '' : 's'} added
             {result.skipped > 0 ? `, ${result.skipped} already in target` : ''}
             {result.excluded > 0
-              ? `, ${result.excluded} excluded by allowed types`
+              ? `, ${result.excluded} excluded by merge rules`
               : ''}
             {result.errors.length > 0
               ? `, ${result.errors.length} failed:`
@@ -239,10 +246,18 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
             onChange={setTargetId}
           />
         )}
-        {target && allowedTypes.length > 0 && (
+        {target && hasRules && (
           <p className="muted merge-allowed-note">
-            This release accepts only: <strong>{allowedLabels.join(', ')}</strong>.
-            Other component types are excluded from the merge.
+            {allowedTypes.length > 0 && (
+              <>
+                Accepts only: <strong>{allowedLabels.join(', ')}</strong>.{' '}
+              </>
+            )}
+            {excludedTypes.length > 0 && (
+              <>
+                Excludes: <strong>{excludedLabels.join(', ')}</strong>.
+              </>
+            )}
           </p>
         )}
       </div>
@@ -260,7 +275,7 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
               {plan.some((p) => p.conflict) &&
                 ' — conflicts are contributed by several solutions and applied once.'}
               {excludedCount > 0 &&
-                ` · ${excludedCount} excluded by this release's allowed types`}
+                ` · ${excludedCount} excluded by this release's merge rules`}
             </p>
             <ul className="merge-plan">
               {plan.map((item) => {

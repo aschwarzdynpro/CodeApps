@@ -364,14 +364,16 @@ export class MockSolutionService {
       statusCode === 500870003 ? 'Deployment completed' : 'None'
   }
 
-  async setAllowedMergeTypes(
+  async setMergeTypeRules(
     recordId: string,
-    typeCodes: number[],
+    allowed: number[],
+    excluded: number[],
   ): Promise<void> {
     await delay(200)
     const solution = this.solutions.find((s) => s.recordId === recordId)
     if (!solution) throw new Error('Unknown working-solution record.')
-    solution.allowedMergeTypes = [...typeCodes]
+    solution.allowedMergeTypes = [...allowed]
+    solution.excludedMergeTypes = [...excluded]
   }
 
   async syncDevOpsWorkItemStatus(): Promise<number> {
@@ -443,8 +445,9 @@ export class MockSolutionService {
       (id) => this.components.get(id) ?? [],
     )
     const allowed = target.allowedMergeTypes ?? []
+    const excluded = target.excludedMergeTypes ?? []
     const isAllowed = (tc: number) =>
-      allowed.length === 0 || allowed.includes(tc)
+      (allowed.length === 0 || allowed.includes(tc)) && !excluded.includes(tc)
     const result: MergeResult = { added: 0, skipped: 0, excluded: 0, errors: [] }
     const added: MergeRunComponent[] = []
     let done = 0

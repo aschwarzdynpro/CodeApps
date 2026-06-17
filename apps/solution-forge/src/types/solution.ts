@@ -55,6 +55,12 @@ export interface WorkingSolution {
    * means no restriction (all types allowed). See {@link MERGEABLE_COMPONENT_TYPES}.
    */
   allowedMergeTypes?: number[]
+  /**
+   * Release solutions only: component-type codes blocked on merge
+   * (sst_excludedmergetypes). Applied on top of the allow-list — a type is
+   * mergeable when (allow empty or in allow) AND not in exclude.
+   */
+  excludedMergeTypes?: number[]
   /** True when the row's ssid_uniquesolutionname matches no real solution. */
   solutionMissing?: boolean
   /**

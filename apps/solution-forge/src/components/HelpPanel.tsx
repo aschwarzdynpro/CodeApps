@@ -269,12 +269,15 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 the target are skipped.
               </li>
               <li>
-                <strong>Allowed component types</strong> (optional): each
-                Release can restrict which component types it accepts. Manage
-                it in the <strong>Merge Rules</strong> tab (Deployment Manager
-                only); the Workbench detail shows a read-only summary. None set
-                = all allowed. Disallowed components are greyed in the plan and
-                reported as “excluded by allowed types” on merge.
+                <strong>Merge rules</strong> (optional): each Release can
+                restrict which component types it accepts — an{' '}
+                <strong>allow-list</strong> (none = all allowed) and an{' '}
+                <strong>exclude-list</strong> applied on top (a type is
+                mergeable when it's allowed AND not excluded). Manage them in
+                the <strong>Merge Rules</strong> tab (Deployment Manager only);
+                the Workbench detail shows a read-only summary. Blocked
+                components are greyed in the plan and reported as “excluded by
+                merge rules” on merge.
               </li>
               <li>
                 After a merge the source records get the “Merged into

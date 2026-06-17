@@ -54,13 +54,15 @@ lädt daher auch inaktive Records (kein `statecode eq 0`-Filter mehr) und der
 Open-Toggle blendet sie aus. „Mark completed" setzt nur das Status-Label
 `ssid_deploymentstatus`, deaktiviert den Record (noch) nicht.
 
-**Erlaubte Merge-Typen je Release:** Multi-Select-Choice
-`sst_allowedmergetypes` auf `ssid_workingsolution`, **Optionswerte = die
-`componenttype`-Codes** (1, 2, 26, 61, …) → kein Mapping nötig. Gelesen als
-`allowedMergeTypes?: number[]` (Comma-Values-Parse in `parseTypeCodes`; leer =
-alle erlaubt), gesetzt via `setAllowedMergeTypes(recordId, codes)`
-(Comma-String, `null` = leeren). `mergeIntoDeployment` filtert die Queue auf
-die erlaubten Typen (`result.excluded`); der Plan graut Nicht-Erlaubtes aus.
+**Merge-Regeln je Release:** zwei Multi-Select-Choices auf
+`ssid_workingsolution` — `sst_allowedmergetypes` (Allow) + `sst_excludedmergetypes`
+(Exclude), **Optionswerte = die `componenttype`-Codes** (1, 2, 26, 61, …) → kein
+Mapping nötig. Gelesen als `allowedMergeTypes`/`excludedMergeTypes` (`number[]`,
+Comma-Values-Parse in `parseTypeCodes`), gesetzt via
+`setMergeTypeRules(recordId, allowed, excluded)` (Comma-String, `null` =
+leeren). Mergebar: `(allow leer || in allow) && !in exclude`.
+`mergeIntoDeployment` filtert die Queue entsprechend (`result.excluded`); der
+Plan graut Blockiertes aus.
 Verwaltet im eigenen **Merge-Rules**-Tab (`MergeRules.tsx`, Deployment-Manager-
 gated, `gated:true`); die Workbench-Detailansicht zeigt nur eine
 Read-only-Übersicht (`AllowedTypesSummary`). **Kopplung:** das Konstanten-Array
