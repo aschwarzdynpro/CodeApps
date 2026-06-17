@@ -134,8 +134,15 @@ export interface SolutionService {
     recordId: string,
     target: { id: string; uniqueName: string },
   ): Promise<void>
-  /** Components contained in one solution. */
+  /** Components contained in one solution (summary view, for display). */
   listComponents(solutionId: string): Promise<SolutionComponentInfo[]>
+  /**
+   * Exact solutioncomponent membership for merging — every row literally in
+   * the solution, including individually included subcomponents (columns,
+   * forms, …) that {@link listComponents} collapses under their table. Used
+   * by the merge and its plan so the full content is carried over.
+   */
+  listMergeComponents(solutionId: string): Promise<SolutionComponentInfo[]>
   /**
    * Azure DevOps work item summary for a solution's number. Returns null
    * when the item doesn't exist or the DevOps connector isn't wired yet.

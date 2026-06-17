@@ -1594,6 +1594,82 @@ export class DataverseSolutionService implements SolutionService {
   }
 
   /**
+   * Exact solutioncomponent membership of a solution, for MERGING: every row
+   * literally in the solution — root components AND any individually included
+   * subcomponents (columns, forms, views, relationships …) — read from the
+   * raw `solutioncomponent` table and enriched with display names from the
+   * summary view.
+   *
+   * The summary-based {@link listComponents} collapses subcomponents under
+   * their owning table (it's the maker "objects" grid), so merging from it
+   * copies only the table shell and drops the columns/forms the source
+   * actually carries. Behaviour is preserved per row: a table added with
+   * "include all subcomponents" (rootcomponentbehavior 0) is one row here and
+   * AddSolutionComponent pulls its assets across; a table added with specific
+   * subcomponents has an explicit row per subcomponent that is carried over
+   * individually. Root tables (type 1) are ordered first so a column is never
+   * added before its table.
+   */
+  async listMergeComponents(
+    solutionId: string,
+  ): Promise<SolutionComponentInfo[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.listMergeComponents(solutionId)
+    try {
+      const [rawRows, summaryRows] = await Promise.all([
+        this.fetchRawComponents(solutionId),
+        fetchAll(
+          (o) => Msdyn_solutioncomponentsummariesService.getAll(o),
+          {
+            select: [
+              'msdyn_solutioncomponentsummaryid',
+              'msdyn_objectid',
+              'msdyn_componenttype',
+              'msdyn_componenttypename',
+              'msdyn_displayname',
+              'msdyn_name',
+              'msdyn_schemaname',
+              'msdyn_primaryentityname',
+            ],
+            filter: `msdyn_solutionid eq '${solutionId}'`,
+          },
+        ).catch(() => null),
+      ])
+      // No raw rows → fall back to the summary list (better than nothing).
+      if (!rawRows) return this.listComponents(solutionId)
+      const named = new Map<string, SolutionComponentInfo>()
+      for (const r of summaryRows ?? []) {
+        const info = summaryToComponentInfo(r, new Map())
+        named.set(info.objectId.toLowerCase(), info)
+      }
+      return rawRows
+        .map((raw) => {
+          const base = toComponentInfo(raw)
+          const n = named.get(base.objectId.toLowerCase())
+          return n
+            ? {
+                ...base,
+                typeName: n.typeName,
+                displayName: n.displayName,
+                ...(n.schemaName ? { schemaName: n.schemaName } : {}),
+                ...(n.parentTable ? { parentTable: n.parentTable } : {}),
+              }
+            : base
+        })
+        .sort(
+          (a, b) =>
+            (a.typeCode === 1 ? 0 : 1) - (b.typeCode === 1 ? 0 : 1) ||
+            a.typeName.localeCompare(b.typeName) ||
+            a.displayName.localeCompare(b.displayName),
+        )
+    } catch (err) {
+      console.warn('[solutions] listMergeComponents() threw, falling back:', err)
+      return this.listComponents(solutionId)
+    }
+  }
+
+  /**
    * Work item summary via the Azure DevOps connector. TEMPORARILY
    * DISABLED (DEVOPS_PANEL_ENABLED = false) while the service-principal
    * access to the DevOps org is being set up — the connector data source
@@ -1634,12 +1710,14 @@ export class DataverseSolutionService implements SolutionService {
     const target = solutions.find((s) => s.uniqueName === targetUniqueName)
     if (!target) throw new Error(`Unknown target solution ${targetUniqueName}`)
     const existing = new Set(
-      (await this.listComponents(target.id)).map((c) => c.objectId),
+      (await this.listMergeComponents(target.id)).map((c) =>
+        c.objectId.toLowerCase(),
+      ),
     )
 
     const queue: SolutionComponentInfo[] = []
     for (const id of sourceSolutionIds) {
-      queue.push(...(await this.listComponents(id)))
+      queue.push(...(await this.listMergeComponents(id)))
     }
 
     const result: MergeResult = { added: 0, skipped: 0, errors: [] }
@@ -1648,7 +1726,7 @@ export class DataverseSolutionService implements SolutionService {
     const added: SolutionComponentInfo[] = []
     let done = 0
     for (const component of queue) {
-      if (existing.has(component.objectId)) {
+      if (existing.has(component.objectId.toLowerCase())) {
         result.skipped++
       } else {
         try {
@@ -1666,7 +1744,7 @@ export class DataverseSolutionService implements SolutionService {
             component.rootBehavior === 2 ? [] : undefined,
           )
           if (res.success) {
-            existing.add(component.objectId)
+            existing.add(component.objectId.toLowerCase())
             added.push(component)
             result.added++
           } else {

@@ -153,6 +153,14 @@ export class MockSolutionService {
     return (this.components.get(solutionId) ?? []).map((c) => ({ ...c }))
   }
 
+  // The mock has no subcomponent/membership distinction — its component lists
+  // already enumerate every component, so the merge view matches listComponents.
+  async listMergeComponents(
+    solutionId: string,
+  ): Promise<SolutionComponentInfo[]> {
+    return this.listComponents(solutionId)
+  }
+
   async checkDependencies(
     _solution: WorkingSolution,
     envKey: 'uat' | 'prod',

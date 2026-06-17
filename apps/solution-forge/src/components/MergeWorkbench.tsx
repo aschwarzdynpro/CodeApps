@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type {
   MergePlanItem,
   MergeResult,
@@ -42,7 +42,20 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
   const [planLoading, setPlanLoading] = useState(false)
   const [progress, setProgress] = useState<[number, number] | null>(null)
   const [result, setResult] = useState<MergeResult | null>(null)
+  // The green success bar fades out and clears itself after 5s — but only on a
+  // clean merge; one with errors stays so the failures can be read.
+  const [resultFading, setResultFading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!result || result.errors.length > 0) return
+    const fade = window.setTimeout(() => setResultFading(true), 4400)
+    const clear = window.setTimeout(() => setResult(null), 5000)
+    return () => {
+      window.clearTimeout(fade)
+      window.clearTimeout(clear)
+    }
+  }, [result])
   // Guards against out-of-order plan responses when toggling quickly.
   const planRequest = useRef(0)
 
@@ -57,7 +70,7 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
       const perSolution = await Promise.all(
         [...ids].map(async (id) => ({
           solution: solutions.find((s) => s.id === id),
-          components: await solutionService.listComponents(id),
+          components: await solutionService.listMergeComponents(id),
         })),
       )
       if (request !== planRequest.current) return
@@ -107,6 +120,7 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
     if (!target) return
     setProgress([0, plan?.length ?? 0])
     setResult(null)
+    setResultFading(false)
     setError(null)
     try {
       const res = await solutionService.mergeIntoDeployment(
@@ -127,6 +141,34 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
 
   return (
     <div className="merge-layout merge-layout--single">
+      {result && (
+        <div
+          className={`state ${
+            result.errors.length
+              ? 'state--error'
+              : 'state--success creation-banner'
+          } ${resultFading ? 'creation-banner--fading' : ''}`}
+        >
+          <span>
+            {result.errors.length
+              ? 'Merge finished with issues — '
+              : '✓ Merge finished — '}
+            <strong>{result.added}</strong> component
+            {result.added === 1 ? '' : 's'} added
+            {result.skipped > 0 ? `, ${result.skipped} already in target` : ''}
+            {result.errors.length > 0
+              ? `, ${result.errors.length} failed:`
+              : '.'}
+          </span>
+          {result.errors.length > 0 && (
+            <ul className="merge-errors">
+              {result.errors.map((e) => (
+                <li key={e}>{e}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       <div className="card merge-pane">
         <h3 className="card-title">
           1 · Working solutions to merge
@@ -226,19 +268,6 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
           </button>
         </div>
 
-        {result && (
-          <div className="state state--success">
-            Merge finished — {result.added} added, {result.skipped} already in
-            target.
-            {result.errors.length > 0 && (
-              <ul className="merge-errors">
-                {result.errors.map((e) => (
-                  <li key={e}>{e}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
         {error && <div className="state state--error">{error}</div>}
       </div>
     </div>

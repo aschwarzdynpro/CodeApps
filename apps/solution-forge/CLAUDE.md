@@ -66,6 +66,18 @@ Komponenten gruppiert nach Typ.
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
+0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT
+   über `msdyn_solutioncomponentsummary`.** Die Summary (Maker-„Objects"-Grid)
+   klappt Sub-Komponenten unter ihrer Tabelle zusammen → ein Merge darüber
+   kopiert nur die Tabellen-Hülle und verliert die in der Quelle enthaltenen
+   Spalten/Formulare/Views. `listMergeComponents()` liest daher die rohe
+   `solutioncomponent`-Tabelle (jede explizit enthaltene Zeile, Root + Sub),
+   reichert Namen aus der Summary an, sortiert Entitäten (Typ 1) nach vorn
+   (Tabelle vor ihren Spalten) und übernimmt je Zeile das
+   `rootcomponentbehavior` (0 = alle Subkomponenten via
+   `DoNotIncludeSubcomponents=false`; explizite Subs sind eigene Zeilen).
+   `listComponents()` (Summary) bleibt nur für die Anzeige.
+
 1. **Generator-Bug:** Jedes `pac code add-data-source` bricht an
    `AddSolutionComponent.Schema.json` ab UND wirft die handgepflegten
    Blöcke (`addsolutioncomponent`, `retrievemissingdependencies`) aus
