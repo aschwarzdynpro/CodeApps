@@ -1,9 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-// Inlined as a data URI: the code-app player only serves the assets listed in
-// index.html, so a separate /assets/*.png request 404s — embedding it in the
-// bundle sidesteps that entirely.
-import sacLogo from './assets/sac-logo.png?inline'
 import { usePower } from './PowerProvider'
 import { useSolutions } from './hooks/useSolutions'
 import { solutionService } from './services/solutionService'
@@ -689,11 +685,27 @@ function App() {
       <div className="app-shell">
         <aside className="sidebar">
           <div className="sidebar-brand">
-            <img
-              className="brand-logo"
-              src={sacLogo}
-              alt="Solution Admin Console — ALM"
-            />
+            <span className="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 32 32" role="img">
+                <defs>
+                  <linearGradient id="sacGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopColor="#3b82f6" />
+                    <stop offset="1" stopColor="#7c3aed" />
+                  </linearGradient>
+                </defs>
+                <path
+                  d="M16 1.5 L3.4 8.75 L3.4 23.25 L16 30.5 L28.6 23.25 L28.6 8.75 Z"
+                  fill="url(#sacGrad)"
+                />
+                <rect x="9" y="11.4" width="14" height="2.8" rx="1.4" fill="#fff" opacity="0.95" />
+                <rect x="10" y="16" width="12" height="2.8" rx="1.4" fill="#fff" opacity="0.8" />
+                <rect x="11" y="20.6" width="10" height="2.8" rx="1.4" fill="#fff" opacity="0.62" />
+              </svg>
+            </span>
+            <span className="brand-text">
+              <span className="brand-title">Solution Admin Console</span>
+              <span className="brand-tag">ALM</span>
+            </span>
           </div>
           <nav className="sidebar-nav">
             {NAV_GROUPS.map((group) => (

@@ -24,14 +24,40 @@
   padding: 16px 12px;
 }
 .sidebar-brand {
-  padding: 2px 2px 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 4px 8px;
 }
-.brand-logo {
+.brand-mark {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  filter: drop-shadow(0 2px 4px rgba(91, 91, 214, 0.25));
+}
+.brand-mark svg {
   display: block;
-  width: 80px;
-  max-width: 100%;
-  height: auto;
-  border-radius: 8px;
+  width: 100%;
+  height: 100%;
+}
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.brand-title {
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.brand-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--brand);
 }
 .sidebar-nav {
   display: flex;

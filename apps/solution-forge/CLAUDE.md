@@ -197,8 +197,12 @@ Komponenten gruppiert nach Typ.
     `index.html` referenzierten Dateien (JS/CSS); ein nur aus JS referenziertes
     `/assets/*.png` wird NICHT ausgeliefert (404 → Broken Image). ⇒ Bilder als
     **Data-URI inlinen**: `import logo from './assets/x.png?inline'` (vorher auf
-    sinnvolle Größe verkleinern, da es im JS-Bundle landet). Logo liegt in
-    `src/assets/sac-logo.png` (480px) und wird per `?inline` eingebettet.
+    sinnvolle Größe verkleinern, da es im JS-Bundle landet). **Das App-Logo ist
+    bewusst KEIN Raster mehr**, sondern ein code-gerendertes Lockup (Inline-SVG-
+    Hexagon mit Brand-Gradient + Wordmark „Solution Admin Console / ALM" in
+    `App.tsx`, Styles `.brand-mark`/`.brand-text`) — gestochen scharf in jeder
+    Größe, kein Asset-Serving nötig. Das gelieferte Raster-Lockup war klein
+    unleserlich.
 11. Debugging: kein Zugriff auf die laufende App — Diagnostik via
     `console.warn('[solutions]/[compare]/[deps]'…)` + `pac env fetch
     --xmlFile <fetchxml>` (Read-only-Reproduktion als User). Lookup-Fehler
