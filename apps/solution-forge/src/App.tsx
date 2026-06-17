@@ -12,6 +12,7 @@ import { SolutionList } from './components/SolutionList'
 import { SolutionDetail } from './components/SolutionDetail'
 import { CreateSolutionDialog } from './components/CreateSolutionDialog'
 import { MergeWorkbench } from './components/MergeWorkbench'
+import { MergeRules } from './components/MergeRules'
 import { ValidateWorkspace } from './components/ValidateWorkspace'
 // ALM Detective is temporarily hidden from the UI — component + service
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
@@ -37,6 +38,7 @@ import {
 type Tab =
   | 'workbench'
   | 'merge'
+  | 'mergeRules'
   | 'compare'
   | 'dependencies'
   | 'layers'
@@ -57,6 +59,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { key: 'workbench', label: 'Workbench', icon: '🧰', gated: false },
       { key: 'merge', label: 'Merge', icon: '⇉', gated: false },
+      { key: 'mergeRules', label: 'Merge Rules', icon: '⚙', gated: true },
     ],
   },
   {
@@ -74,6 +77,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
 const TAB_TITLES: Record<Tab, string> = {
   workbench: 'Workbench',
   merge: 'Merge',
+  mergeRules: 'Merge Rules',
   compare: 'Compare',
   dependencies: 'Dependency Check',
   layers: 'Layer Inspector',
@@ -907,11 +911,6 @@ function App() {
                       await solutionService.updateSolutionType(s.recordId, kind)
                       reload()
                     }}
-                    onSetAllowedTypes={async (s, codes) => {
-                      if (!s.recordId) return
-                      await solutionService.setAllowedMergeTypes(s.recordId, codes)
-                      reload()
-                    }}
                     linkCandidates={linkCandidates}
                     onLink={async (record, target) => {
                       if (!record.recordId) return
@@ -944,6 +943,16 @@ function App() {
 
       {!loading && !error && tab === 'merge' && (
         <MergeWorkbench solutions={allSolutions} onMerged={handleMerged} />
+      )}
+
+      {!loading && !error && tab === 'mergeRules' && isDeploymentManager && (
+        <MergeRules
+          solutions={allSolutions}
+          onSave={async (recordId, codes) => {
+            await solutionService.setAllowedMergeTypes(recordId, codes)
+            reload()
+          }}
+        />
       )}
 
       {!loading &&

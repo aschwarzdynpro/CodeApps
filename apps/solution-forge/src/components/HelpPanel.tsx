@@ -234,9 +234,10 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <ul>
               <li>
                 Navigation is a left sidebar grouped into <strong>Manage</strong>{' '}
-                (Workbench, Merge) and <strong>Validate</strong> (Compare,
-                Dependencies, Layers, App Sharing). The whole{' '}
-                <strong>Validate</strong> group requires the security role{' '}
+                (Workbench, Merge, Merge Rules) and <strong>Validate</strong>{' '}
+                (Compare, Dependencies, Layers, App Sharing). The whole{' '}
+                <strong>Validate</strong> group and <strong>Merge Rules</strong>{' '}
+                require the security role{' '}
                 <strong>“INT | Deployment Manager”</strong> (assigned directly
                 to your user) — without it those appear locked. Workbench and
                 Merge are open to everyone.
@@ -269,11 +270,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               </li>
               <li>
                 <strong>Allowed component types</strong> (optional): each
-                Release can restrict which component types it accepts — set it
-                in the Release's detail pane (“Allowed component types for
-                merge”; none = all allowed). Disallowed components are greyed
-                in the plan and reported as “excluded by allowed types” on
-                merge.
+                Release can restrict which component types it accepts. Manage
+                it in the <strong>Merge Rules</strong> tab (Deployment Manager
+                only); the Workbench detail shows a read-only summary. None set
+                = all allowed. Disallowed components are greyed in the plan and
+                reported as “excluded by allowed types” on merge.
               </li>
               <li>
                 After a merge the source records get the “Merged into

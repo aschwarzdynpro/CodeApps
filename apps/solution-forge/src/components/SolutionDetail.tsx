@@ -40,11 +40,6 @@ interface Props {
     solution: WorkingSolution,
     kind: TrackSolutionInput['kind'],
   ) => Promise<void>
-  /** Saves the merge allow-list (component-type codes) for a release. */
-  onSetAllowedTypes: (
-    solution: WorkingSolution,
-    typeCodes: number[],
-  ) => Promise<void>
   /** Unmanaged solutions without a record — candidates for re-linking. */
   linkCandidates: WorkingSolution[]
   /** Re-links an orphaned record to the chosen solution. */
@@ -316,82 +311,29 @@ function MergeRunComponentsModal({
 }
 
 /**
- * Release-only editor for the merge allow-list: toggle the component types that
- * may be merged into this release. None selected = no restriction (all allowed).
- * Saves to sst_allowedmergetypes via the parent handler.
+ * Read-only summary of a release's merge allow-list (managed in the Merge
+ * Rules tab). Narrow line: the allowed type labels, or "All types allowed".
  */
-function AllowedTypesPanel({
-  solution,
-  onSave,
-}: {
-  solution: WorkingSolution
-  onSave: (typeCodes: number[]) => Promise<void>
-}) {
-  const [selected, setSelected] = useState<Set<number>>(
-    new Set(solution.allowedMergeTypes ?? []),
-  )
-  const [saving, setSaving] = useState(false)
-  const [dirty, setDirty] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const toggle = (code: number) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(code)) next.delete(code)
-      else next.add(code)
-      return next
-    })
-    setDirty(true)
-    setError(null)
-  }
-
-  const save = async () => {
-    setSaving(true)
-    setError(null)
-    try {
-      await onSave([...selected])
-      setDirty(false)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setSaving(false)
-    }
-  }
-
+function AllowedTypesSummary({ solution }: { solution: WorkingSolution }) {
+  const codes = solution.allowedMergeTypes ?? []
+  const text =
+    codes.length === 0
+      ? 'All component types allowed'
+      : codes
+          .map(
+            (c) =>
+              MERGEABLE_COMPONENT_TYPES.find((t) => t.code === c)?.label ??
+              `Type ${c}`,
+          )
+          .join(', ')
   return (
-    <section className="merge-allowed">
-      <h3 className="card-title">Allowed component types for merge</h3>
-      <p className="muted merge-allowed-hint">
-        Restrict which component types may be merged into this release. None
-        selected = <strong>all types allowed</strong>.
-      </p>
-      <div className="chips merge-allowed-chips">
-        {MERGEABLE_COMPONENT_TYPES.map((t) => (
-          <button
-            key={t.code}
-            className={`chip ${selected.has(t.code) ? 'chip--active' : ''}`}
-            onClick={() => toggle(t.code)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <div className="merge-allowed-actions">
-        <button
-          className="btn btn--small btn--primary"
-          disabled={!dirty || saving}
-          onClick={() => void save()}
-        >
-          {saving ? 'Saving…' : 'Save allowed types'}
-        </button>
-        <span className="muted">
-          {selected.size === 0
-            ? 'All types allowed'
-            : `${selected.size} type${selected.size === 1 ? '' : 's'} allowed`}
-        </span>
-      </div>
-      {error && <div className="state state--error">{error}</div>}
-    </section>
+    <div className="merge-allowed-summary">
+      <span className="merge-allowed-summary-label">Allowed merge types</span>
+      <span className="muted">{text}</span>
+      <span className="merge-allowed-summary-hint muted">
+        manage in Merge Rules
+      </span>
+    </div>
   )
 }
 
@@ -526,7 +468,6 @@ export function SolutionDetail({
   onDelete,
   onComplete,
   onChangeType,
-  onSetAllowedTypes,
   linkCandidates,
   onLink,
 }: Props) {
@@ -776,10 +717,7 @@ export function SolutionDetail({
       )}
 
       {solution.kind === 'deployment' && solution.recordId && (
-        <AllowedTypesPanel
-          solution={solution}
-          onSave={(codes) => onSetAllowedTypes(solution, codes)}
-        />
+        <AllowedTypesSummary solution={solution} />
       )}
 
       {solution.kind === 'deployment' &&

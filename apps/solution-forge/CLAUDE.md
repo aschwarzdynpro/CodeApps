@@ -61,7 +61,9 @@ Open-Toggle blendet sie aus. „Mark completed" setzt nur das Status-Label
 alle erlaubt), gesetzt via `setAllowedMergeTypes(recordId, codes)`
 (Comma-String, `null` = leeren). `mergeIntoDeployment` filtert die Queue auf
 die erlaubten Typen (`result.excluded`); der Plan graut Nicht-Erlaubtes aus.
-In-App-Editor (Chips) im Release-Detail. **Kopplung:** das Konstanten-Array
+Verwaltet im eigenen **Merge-Rules**-Tab (`MergeRules.tsx`, Deployment-Manager-
+gated, `gated:true`); die Workbench-Detailansicht zeigt nur eine
+Read-only-Übersicht (`AllowedTypesSummary`). **Kopplung:** das Konstanten-Array
 `MERGEABLE_COMPONENT_TYPES` (types/solution.ts) muss die Choice-Optionen
 spiegeln — neue Option in Dataverse ⇒ Eintrag dort ergänzen.
 

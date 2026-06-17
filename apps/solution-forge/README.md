@@ -106,9 +106,11 @@ nach Typ.
 - **Erlaubte Komponententypen je Release** (optional): Multi-Select-Choice
   `sst_allowedmergetypes` (Optionswerte = `componenttype`-Codes) am
   Release-Record schränkt ein, welche Typen gemergt werden dürfen — leer = alle.
-  Im Release-Detail über Chips editierbar; nicht erlaubte Komponenten werden im
-  Plan ausgegraut und beim Merge als „excluded by allowed types" gezählt. Das
-  App-Array `MERGEABLE_COMPONENT_TYPES` spiegelt die Choice-Optionen.
+  Verwaltet im eigenen **Merge-Rules**-Tab (Deployment-Manager-gated, Chips je
+  Release); die Workbench-Detailansicht zeigt nur eine **Read-only-Übersicht**.
+  Nicht erlaubte Komponenten werden im Plan ausgegraut und beim Merge als
+  „excluded by allowed types" gezählt. Das App-Array
+  `MERGEABLE_COMPONENT_TYPES` spiegelt die Choice-Optionen.
 - **Compare (ALM)**: Release-Solution wählen → Cloud Flows, Workflows,
   Business Rules, Plugin Steps und Scripts werden über **DEV / UAT / PROD**
   verglichen, gruppiert nach Typ in aufklappbaren Sektionen. Abweichungen
