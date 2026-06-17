@@ -12,6 +12,7 @@ import { ValidateWorkspace } from './components/ValidateWorkspace'
 // ALM Detective is temporarily hidden from the UI — component + service
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
 import { HelpPanel } from './components/HelpPanel'
+import { HowToPanel } from './components/HowToPanel'
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog'
 import { CompleteSolutionDialog } from './components/CompleteSolutionDialog'
 import {
@@ -132,6 +133,7 @@ function App() {
   const [workItemLoading, setWorkItemLoading] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  const [showHowTo, setShowHowTo] = useState(false)
   // "Sync with DevOps": runs the cloud flow, then reloads so the
   // to-be-completed reconciliation re-runs.
   const [syncingDevOps, setSyncingDevOps] = useState(false)
@@ -664,6 +666,10 @@ function App() {
             ))}
           </nav>
           <div className="sidebar-footer">
+            <button className="nav-item" onClick={() => setShowHowTo(true)}>
+              <span className="nav-icon">📖</span>
+              <span className="nav-label">How-To</span>
+            </button>
             <button className="nav-item" onClick={() => setShowHelp(true)}>
               <span className="nav-icon">?</span>
               <span className="nav-label">Help</span>
@@ -879,6 +885,7 @@ function App() {
         </main>
       </div>
 
+      {showHowTo && <HowToPanel onClose={() => setShowHowTo(false)} />}
       {showHelp && <HelpPanel onClose={() => setShowHelp(false)} />}
 
       {confirmDelete && (

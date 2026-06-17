@@ -106,5 +106,8 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 - [x] Compare-Inhalts-Drift: Hash der Definition + Side-by-side-Diff (⇄ diff)
 - [x] App Sharing: Canvas-App-/Custom-Page-Sharing über DEV/UAT/PROD
       (POA via Konnektor-FetchXML; nur Releases, ohne Component Libraries)
+- [x] In-App-Anleitungen: **How-To** (Onboarding-Walk-through Workbench →
+      Anlegen → Merge → Validate) neben **Help** (Feature-Referenz), beide als
+      Sidebar-Footer-Menüpunkt + Overlay
 - [x] ALM Detective: phasenweiser Pre-Deployment-Audit (Dependency, Compare
       inkl. Content Drift, Layer, App Sharing) mit Severity-Report

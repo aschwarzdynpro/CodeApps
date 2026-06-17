@@ -46,6 +46,10 @@ nach Typ.
   geteilt (`ValidateWorkspace`); jeder Check hat darunter eine eigene Reihe
   (Ziel-Env-Toggle bei Dependencies/Layers — geteilter `envKey` —, Env-Status
   bei Compare/App Sharing) plus Run-Button und behält seine Ergebnisse.
+- **In-App-Anleitungen**: Sidebar-Footer mit **How-To** (Onboarding-Walk-
+  through für neue Kollegen — Solutions anlegen, was dabei passiert, mergen und
+  was dahintersteckt; `HowToPanel`) und **Help** (Feature-Referenz pro Tab;
+  `HelpPanel`), beide als Overlay.
 - **Kollisions-Radar**: „Scan collisions" lädt die Komponenten der **offenen**
   getrackten Working Solutions (ohne Releases) und markiert Komponenten,
   die in **mehr als einer** offenen Working Solution stecken — wer zuletzt

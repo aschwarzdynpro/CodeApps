@@ -293,6 +293,26 @@
 .help-section li::marker {
   color: var(--brand);
 }
+.help-section ol {
+  margin: 8px 0 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.help-section ol li::marker {
+  color: var(--brand);
+  font-weight: 800;
+}
+.help-section ol + .howto-note,
+.help-section ol + p,
+.help-section ul + p,
+.help-section p + p {
+  margin-top: 10px;
+}
+.howto-note {
+  font-size: 12.5px;
+}
 .help-section code {
   background: var(--surface);
   border: 1px solid var(--border);
