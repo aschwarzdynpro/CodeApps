@@ -960,8 +960,18 @@
 .inline-detail .detail {
   max-height: none;
   overflow: visible;
-  /* Lift the nested card off the row above with a subtle accent. */
-  border-left: 3px solid var(--brand);
+  /* Accent bar coloured by the entry's type (Bug/Feature/Release); the
+     .detail--* rules below override the colour, reusing the kind-badge hues. */
+  border-left: 3px solid var(--muted);
+}
+.inline-detail .detail--bug {
+  border-left-color: #b02a37;
+}
+.inline-detail .detail--feature {
+  border-left-color: #1a56db;
+}
+.inline-detail .detail--deployment {
+  border-left-color: #6f42c1;
 }
 @keyframes inline-detail-in {
   from {

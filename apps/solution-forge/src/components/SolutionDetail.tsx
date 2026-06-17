@@ -482,7 +482,7 @@ export function SolutionDetail({
     }))
 
   return (
-    <aside className="card detail">
+    <aside className={`card detail detail--${solution.kind}`}>
       <div className="detail-header">
         <div>
           <span className="type-edit">
