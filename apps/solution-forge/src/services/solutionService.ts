@@ -114,6 +114,11 @@ export interface SolutionService {
    */
   setDeploymentStatus(recordId: string, statusCode: number): Promise<void>
   /**
+   * Sets a release's merge allow-list (component-type codes) on its record.
+   * Empty clears the restriction (all types allowed).
+   */
+  setAllowedMergeTypes(recordId: string, typeCodes: number[]): Promise<void>
+  /**
    * Deletes only the real unmanaged solution (the container — components
    * stay), leaving the working-solution record intact. Used when completing
    * a working solution and cleaning up its solution.

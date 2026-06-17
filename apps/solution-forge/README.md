@@ -103,6 +103,12 @@ nach Typ.
 - **Merge**: Deployment Solution als Ziel wählen, Feature-/Bug-Solutions
   ankreuzen, Komponenten-Plan prüfen (Konflikte markiert, Duplikate werden
   übersprungen) und mergen (`AddSolutionComponent` je Komponente).
+- **Erlaubte Komponententypen je Release** (optional): Multi-Select-Choice
+  `sst_allowedmergetypes` (Optionswerte = `componenttype`-Codes) am
+  Release-Record schränkt ein, welche Typen gemergt werden dürfen — leer = alle.
+  Im Release-Detail über Chips editierbar; nicht erlaubte Komponenten werden im
+  Plan ausgegraut und beim Merge als „excluded by allowed types" gezählt. Das
+  App-Array `MERGEABLE_COMPONENT_TYPES` spiegelt die Choice-Optionen.
 - **Compare (ALM)**: Release-Solution wählen → Cloud Flows, Workflows,
   Business Rules, Plugin Steps und Scripts werden über **DEV / UAT / PROD**
   verglichen, gruppiert nach Typ in aufklappbaren Sektionen. Abweichungen

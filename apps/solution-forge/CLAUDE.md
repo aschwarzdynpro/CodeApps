@@ -54,6 +54,17 @@ lädt daher auch inaktive Records (kein `statecode eq 0`-Filter mehr) und der
 Open-Toggle blendet sie aus. „Mark completed" setzt nur das Status-Label
 `ssid_deploymentstatus`, deaktiviert den Record (noch) nicht.
 
+**Erlaubte Merge-Typen je Release:** Multi-Select-Choice
+`sst_allowedmergetypes` auf `ssid_workingsolution`, **Optionswerte = die
+`componenttype`-Codes** (1, 2, 26, 61, …) → kein Mapping nötig. Gelesen als
+`allowedMergeTypes?: number[]` (Comma-Values-Parse in `parseTypeCodes`; leer =
+alle erlaubt), gesetzt via `setAllowedMergeTypes(recordId, codes)`
+(Comma-String, `null` = leeren). `mergeIntoDeployment` filtert die Queue auf
+die erlaubten Typen (`result.excluded`); der Plan graut Nicht-Erlaubtes aus.
+In-App-Editor (Chips) im Release-Detail. **Kopplung:** das Konstanten-Array
+`MERGEABLE_COMPONENT_TYPES` (types/solution.ts) muss die Choice-Optionen
+spiegeln — neue Option in Dataverse ⇒ Eintrag dort ergänzen.
+
 **Merge-Historie:** Tabelle `sst_mergerun` (1 Zeile je Merge) — Counts
 (`sst_added_int`/`sst_skipped_int`/`sst_errors_int`), Quell-Titel
 (`sst_sources_txt`, `\n`-getrennt), Ziel via Lookup `sst_targetsolution_ref`

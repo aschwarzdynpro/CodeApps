@@ -268,6 +268,14 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 the target are skipped.
               </li>
               <li>
+                <strong>Allowed component types</strong> (optional): each
+                Release can restrict which component types it accepts — set it
+                in the Release's detail pane (“Allowed component types for
+                merge”; none = all allowed). Disallowed components are greyed
+                in the plan and reported as “excluded by allowed types” on
+                merge.
+              </li>
+              <li>
                 After a merge the source records get the “Merged into
                 Deployment Solution” status and a timestamp automatically.
               </li>

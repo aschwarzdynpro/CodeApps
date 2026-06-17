@@ -2629,3 +2629,39 @@
   font-size: 12px;
   color: #b02a37;
 }
+
+/* Release merge allow-list: editor (detail) + plan/exclusion markers */
+.merge-allowed {
+  margin: 4px 0 16px;
+}
+.merge-allowed-hint {
+  font-size: 12.5px;
+  margin: 4px 0 10px;
+}
+.merge-allowed-chips {
+  margin-bottom: 10px;
+}
+.merge-allowed-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.merge-allowed-note {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+}
+.merge-plan-excluded {
+  opacity: 0.5;
+}
+.merge-plan-blocked {
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #b02a37;
+  background: #fdf2f3;
+  border: 1px solid #f1aeb5;
+  border-radius: 999px;
+  padding: 1px 7px;
+}

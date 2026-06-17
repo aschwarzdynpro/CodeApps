@@ -364,6 +364,16 @@ export class MockSolutionService {
       statusCode === 500870003 ? 'Deployment completed' : 'None'
   }
 
+  async setAllowedMergeTypes(
+    recordId: string,
+    typeCodes: number[],
+  ): Promise<void> {
+    await delay(200)
+    const solution = this.solutions.find((s) => s.recordId === recordId)
+    if (!solution) throw new Error('Unknown working-solution record.')
+    solution.allowedMergeTypes = [...typeCodes]
+  }
+
   async syncDevOpsWorkItemStatus(): Promise<number> {
     await delay(1500)
     // Demo: pretend the sync closed one more open entry's work item, so the
@@ -432,12 +442,17 @@ export class MockSolutionService {
     const queue = sourceSolutionIds.flatMap(
       (id) => this.components.get(id) ?? [],
     )
-    const result: MergeResult = { added: 0, skipped: 0, errors: [] }
+    const allowed = target.allowedMergeTypes ?? []
+    const isAllowed = (tc: number) =>
+      allowed.length === 0 || allowed.includes(tc)
+    const result: MergeResult = { added: 0, skipped: 0, excluded: 0, errors: [] }
     const added: MergeRunComponent[] = []
     let done = 0
     for (const component of queue) {
       await delay(120)
-      if (existing.has(component.objectId)) {
+      if (!isAllowed(component.typeCode)) {
+        result.excluded++
+      } else if (existing.has(component.objectId)) {
         result.skipped++
       } else {
         existing.add(component.objectId)

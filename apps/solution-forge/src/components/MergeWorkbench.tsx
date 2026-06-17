@@ -5,6 +5,7 @@ import type {
   SolutionComponentInfo,
   WorkingSolution,
 } from '../types/solution'
+import { MERGEABLE_COMPONENT_TYPES } from '../types/solution'
 import { solutionService } from '../services/solutionService'
 import { MultiSolutionSelect } from './MultiSolutionSelect'
 import { SolutionSelect } from './SolutionSelect'
@@ -113,6 +114,19 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
   }
 
   const target = targets.find((s) => s.id === targetId) ?? null
+  // Release allow-list (empty = all types allowed).
+  const allowedTypes = target?.allowedMergeTypes ?? []
+  const isAllowed = (typeCode: number) =>
+    allowedTypes.length === 0 || allowedTypes.includes(typeCode)
+  const allowedLabels = allowedTypes
+    .map(
+      (c) =>
+        MERGEABLE_COMPONENT_TYPES.find((t) => t.code === c)?.label ?? `Type ${c}`,
+    )
+    .sort((a, b) => a.localeCompare(b))
+  const excludedCount = plan
+    ? plan.filter((p) => !isAllowed(p.component.typeCode)).length
+    : 0
   const canMerge =
     !!target && selected.size > 0 && !planLoading && progress === null
 
@@ -156,6 +170,9 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
             <strong>{result.added}</strong> component
             {result.added === 1 ? '' : 's'} added
             {result.skipped > 0 ? `, ${result.skipped} already in target` : ''}
+            {result.excluded > 0
+              ? `, ${result.excluded} excluded by allowed types`
+              : ''}
             {result.errors.length > 0
               ? `, ${result.errors.length} failed:`
               : '.'}
@@ -222,6 +239,12 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
             onChange={setTargetId}
           />
         )}
+        {target && allowedTypes.length > 0 && (
+          <p className="muted merge-allowed-note">
+            This release accepts only: <strong>{allowedLabels.join(', ')}</strong>.
+            Other component types are excluded from the merge.
+          </p>
+        )}
       </div>
 
       <div className="card merge-pane">
@@ -236,22 +259,36 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
               {plan.length} distinct component{plan.length === 1 ? '' : 's'}
               {plan.some((p) => p.conflict) &&
                 ' — conflicts are contributed by several solutions and applied once.'}
+              {excludedCount > 0 &&
+                ` · ${excludedCount} excluded by this release's allowed types`}
             </p>
             <ul className="merge-plan">
-              {plan.map((item) => (
-                <li
-                  key={item.component.objectId}
-                  className={item.conflict ? 'merge-plan-conflict' : ''}
-                >
-                  <span className="merge-plan-type">{item.component.typeName}</span>
-                  <span className="merge-plan-name">
-                    {item.component.displayName}
-                  </span>
-                  <span className="merge-plan-sources muted">
-                    {item.sources.join(', ')}
-                  </span>
-                </li>
-              ))}
+              {plan.map((item) => {
+                const allowedItem = isAllowed(item.component.typeCode)
+                return (
+                  <li
+                    key={item.component.objectId}
+                    className={`${item.conflict ? 'merge-plan-conflict' : ''} ${
+                      allowedItem ? '' : 'merge-plan-excluded'
+                    }`}
+                  >
+                    <span className="merge-plan-type">
+                      {item.component.typeName}
+                    </span>
+                    <span className="merge-plan-name">
+                      {item.component.displayName}
+                    </span>
+                    {!allowedItem && (
+                      <span className="merge-plan-blocked" title="Component type not allowed for this release">
+                        excluded
+                      </span>
+                    )}
+                    <span className="merge-plan-sources muted">
+                      {item.sources.join(', ')}
+                    </span>
+                  </li>
+                )
+              })}
             </ul>
           </>
         )}

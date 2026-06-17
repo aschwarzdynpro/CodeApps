@@ -907,6 +907,11 @@ function App() {
                       await solutionService.updateSolutionType(s.recordId, kind)
                       reload()
                     }}
+                    onSetAllowedTypes={async (s, codes) => {
+                      if (!s.recordId) return
+                      await solutionService.setAllowedMergeTypes(s.recordId, codes)
+                      reload()
+                    }}
                     linkCandidates={linkCandidates}
                     onLink={async (record, target) => {
                       if (!record.recordId) return

@@ -49,6 +49,12 @@ export interface WorkingSolution {
    * deployment status — determines whether an entry counts as open.
    */
   recordStateCode?: number
+  /**
+   * Release solutions only: component-type codes allowed when merging into
+   * this release (from the sst_allowedmergetypes multi-select). Empty/undefined
+   * means no restriction (all types allowed). See {@link MERGEABLE_COMPONENT_TYPES}.
+   */
+  allowedMergeTypes?: number[]
   /** True when the row's ssid_uniquesolutionname matches no real solution. */
   solutionMissing?: boolean
   /**
@@ -187,8 +193,40 @@ export interface MergePlanItem {
 export interface MergeResult {
   added: number
   skipped: number
+  /** Components dropped because their type isn't in the target's allow-list. */
+  excluded: number
   errors: string[]
 }
+
+/**
+ * Component types selectable in a release's merge allow-list. The codes are
+ * the Dataverse `componenttype` values and MUST mirror the option values of
+ * the `sst_allowedmergetypes` multi-select choice in Dataverse — add an option
+ * there and a matching entry here together.
+ */
+export const MERGEABLE_COMPONENT_TYPES: { code: number; label: string }[] = [
+  { code: 1, label: 'Table' },
+  { code: 2, label: 'Column' },
+  { code: 9, label: 'Choice' },
+  { code: 20, label: 'Security Role' },
+  { code: 26, label: 'View' },
+  { code: 29, label: 'Process (Flow/WF/BPF/Action)' },
+  { code: 59, label: 'Chart' },
+  { code: 60, label: 'Form' },
+  { code: 61, label: 'Web Resource' },
+  { code: 70, label: 'Field Security Profile' },
+  { code: 80, label: 'Model-driven App' },
+  { code: 91, label: 'Plugin Assembly' },
+  { code: 92, label: 'SDK Message Step' },
+  { code: 95, label: 'Service Endpoint' },
+  { code: 300, label: 'Canvas App' },
+  { code: 10021, label: 'Custom API' },
+  { code: 10022, label: 'Custom API Request Parameter' },
+  { code: 10023, label: 'Custom API Response Property' },
+  { code: 10064, label: 'Connection Reference' },
+  { code: 380, label: 'Environment Variable' },
+  { code: 381, label: 'Environment Variable Value' },
+]
 
 /**
  * One added component captured in a merge run. Stored compactly (type + name,
