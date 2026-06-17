@@ -52,7 +52,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'Manage',
     items: [
       { key: 'workbench', label: 'Workbench', icon: '🧰', gated: false },
-      { key: 'merge', label: 'Merge', icon: '⇉', gated: true },
+      { key: 'merge', label: 'Merge', icon: '⇉', gated: false },
     ],
   },
   {
@@ -934,7 +934,7 @@ function App() {
         </>
       )}
 
-      {!loading && !error && tab === 'merge' && isDeploymentManager && (
+      {!loading && !error && tab === 'merge' && (
         <MergeWorkbench solutions={allSolutions} onMerged={handleMerged} />
       )}
 

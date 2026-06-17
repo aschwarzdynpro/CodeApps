@@ -13,7 +13,7 @@ Verwaltet Dataverse-Solutions für Feature-/Bug-Entwicklung. Lies zuerst:
 | App-ID | `459ee5cd-2138-4556-b472-058c676f72ef` (appDisplayName in power.config.json noch „Solution Forge") |
 | Solution | `WorkbenchSchulz` (`67315e76-c155-ed11-bba2-0022489de585`) — App-Mitgliedschaft via Maker-Portal „Add existing → App → Code app" (`power-apps push -s` registriert sie NICHT) |
 | DevOps | Org `SchulzD365`, Projekt `D365UO` — Panel deaktiviert (`DEVOPS_PANEL_ENABLED=false`), Reaktivierung siehe TODO.md |
-| Rolle für Merge/Compare/DependencyCheck | `INT | Deployment Manager` (`DEPLOYMENT_MANAGER_ROLE` in config.ts) |
+| Rolle für die Validate-Gruppe (Compare/DependencyCheck/Layers/App Sharing) | `INT | Deployment Manager` (`DEPLOYMENT_MANAGER_ROLE` in config.ts) — Workbench + Merge sind NICHT gated |
 | pac-Auth | Profil `EX-Andy.Schwarz@schulz.st`; ggf. `-env <INT-11-URL>` |
 
 ## Arbeits-Zyklus (jede Änderung)

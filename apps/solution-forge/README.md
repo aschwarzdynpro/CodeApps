@@ -40,8 +40,9 @@ nach Typ.
 ## Features
 
 - **Navigation**: linke Sidebar, gruppiert in **Manage** (Workbench, Merge)
-  und **Validate** (Compare, Dependencies, Layers, App Sharing); Merge + die
-  Validate-Gruppe sind rollen-gated (Deployment Manager). Im Validate-Bereich
+  und **Validate** (Compare, Dependencies, Layers, App Sharing); nur die
+  **Validate-Gruppe** ist rollen-gated (Deployment Manager) — Workbench und
+  Merge stehen allen offen. Im Validate-Bereich
   wird die **Release-Solution einmal oben gewählt** und über alle vier Checks
   geteilt (`ValidateWorkspace`); jeder Check hat darunter eine eigene Reihe
   (Ziel-Env-Toggle bei Dependencies/Layers — geteilter `envKey` —, Env-Status

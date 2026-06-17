@@ -235,10 +235,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 Navigation is a left sidebar grouped into <strong>Manage</strong>{' '}
                 (Workbench, Merge) and <strong>Validate</strong> (Compare,
-                Dependencies, Layers, App Sharing). Merge and the whole Validate
-                group require the security role{' '}
+                Dependencies, Layers, App Sharing). The whole{' '}
+                <strong>Validate</strong> group requires the security role{' '}
                 <strong>“INT | Deployment Manager”</strong> (assigned directly
-                to your user) — without it they appear locked.
+                to your user) — without it those appear locked. Workbench and
+                Merge are open to everyone.
               </li>
               <li>
                 In <strong>Validate</strong>, pick the release solution once at
