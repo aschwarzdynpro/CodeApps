@@ -1643,29 +1643,150 @@ export class DataverseSolutionService implements SolutionService {
         const info = summaryToComponentInfo(r, new Map())
         named.set(info.objectId.toLowerCase(), info)
       }
-      return rawRows
-        .map((raw) => {
-          const base = toComponentInfo(raw)
-          const n = named.get(base.objectId.toLowerCase())
-          return n
-            ? {
-                ...base,
-                typeName: n.typeName,
-                displayName: n.displayName,
-                ...(n.schemaName ? { schemaName: n.schemaName } : {}),
-                ...(n.parentTable ? { parentTable: n.parentTable } : {}),
-              }
-            : base
-        })
-        .sort(
-          (a, b) =>
-            (a.typeCode === 1 ? 0 : 1) - (b.typeCode === 1 ? 0 : 1) ||
-            a.typeName.localeCompare(b.typeName) ||
-            a.displayName.localeCompare(b.displayName),
-        )
+      const components = rawRows.map((raw) => {
+        const base = toComponentInfo(raw)
+        const n = named.get(base.objectId.toLowerCase())
+        return n
+          ? {
+              ...base,
+              typeName: n.typeName,
+              displayName: n.displayName,
+              ...(n.schemaName ? { schemaName: n.schemaName } : {}),
+              ...(n.parentTable ? { parentTable: n.parentTable } : {}),
+            }
+          : base
+      })
+      // Subcomponents (columns, forms, views, …) aren't in the summary, so
+      // they still carry the "Type <short-guid>" fallback name — resolve those
+      // from their backing table / metadata so the plan shows real names.
+      const unresolved = new Set(
+        components
+          .filter((c) => !named.has(c.objectId.toLowerCase()))
+          .map((c) => c.objectId.toLowerCase()),
+      )
+      if (unresolved.size > 0)
+        await this.resolveComponentNames(components, unresolved)
+      return components.sort(
+        (a, b) =>
+          (a.typeCode === 1 ? 0 : 1) - (b.typeCode === 1 ? 0 : 1) ||
+          a.typeName.localeCompare(b.typeName) ||
+          a.displayName.localeCompare(b.displayName),
+      )
     } catch (err) {
       console.warn('[solutions] listMergeComponents() threw, falling back:', err)
       return this.listComponents(solutionId)
+    }
+  }
+
+  /**
+   * Best-effort: fill in real display names for components the summary didn't
+   * name (subcomponents). Two paths — a backing-table lookup by object id for
+   * types that have one (forms, views, charts, workflows, …, via
+   * {@link DEPENDENCY_SPECS}), and attribute metadata via the owning entities
+   * for columns. Mutates the components in place; anything still unresolved
+   * keeps its "Type <short-guid>" fallback. Failures are swallowed (names are
+   * cosmetic — they must never break the merge or its plan).
+   */
+  private async resolveComponentNames(
+    components: SolutionComponentInfo[],
+    unresolved: Set<string>,
+  ): Promise<void> {
+    const byType = new Map<number, SolutionComponentInfo[]>()
+    for (const c of components) {
+      if (!unresolved.has(c.objectId.toLowerCase())) continue
+      const list = byType.get(c.typeCode)
+      if (list) list.push(c)
+      else byType.set(c.typeCode, [c])
+    }
+    for (const [typeCode, comps] of byType) {
+      // Type 24 (Form) shares the systemforms table with type 60.
+      const spec =
+        DEPENDENCY_SPECS[typeCode] ??
+        (typeCode === 24 ? DEPENDENCY_SPECS[60] : undefined)
+      if (!spec) continue
+      try {
+        const found = new Map<string, string>()
+        for (const chunk of chunksOf(
+          comps.map((c) => c.objectId),
+          20,
+        )) {
+          const filter = chunk.map((id) => `${spec.idField} eq ${id}`).join(' or ')
+          for (const row of await this.queryRows(
+            null,
+            spec.entitySet,
+            `${spec.idField},${spec.displayField}`,
+            filter,
+          )) {
+            const id = str(row[spec.idField])
+            const name = str(row[spec.displayField])
+            if (id && name) found.set(id.toLowerCase(), name)
+          }
+        }
+        for (const c of comps) {
+          const name = found.get(c.objectId.toLowerCase())
+          if (name) {
+            c.displayName = name
+            unresolved.delete(c.objectId.toLowerCase())
+          }
+        }
+      } catch (err) {
+        console.warn(`[merge] name lookup for ${spec.entitySet} failed:`, err)
+      }
+    }
+    const attrs = byType.get(2)
+    if (attrs?.length) await this.resolveAttributeNames(components, attrs)
+  }
+
+  /**
+   * Resolve column (attribute) names from the metadata of the entities present
+   * in the same component set. The entity's logical name is the lower-cased
+   * schema name the summary provides; one metadata read per entity yields its
+   * attributes' MetadataId → label map. Best-effort.
+   */
+  private async resolveAttributeNames(
+    all: SolutionComponentInfo[],
+    attrs: SolutionComponentInfo[],
+  ): Promise<void> {
+    const logicalNames = [
+      ...new Set(
+        all
+          .filter((c) => c.typeCode === 1 && c.schemaName)
+          .map((c) => (c.schemaName as string).toLowerCase()),
+      ),
+    ]
+    if (logicalNames.length === 0) return
+    const nameById = new Map<string, string>()
+    for (const logical of logicalNames) {
+      try {
+        const res = await MicrosoftDataverseService.GetMetadataForGetEntity(
+          logical,
+          undefined,
+          'Attributes',
+        )
+        const data = res.data as
+          | { Attributes?: Array<Record<string, unknown>> }
+          | undefined
+        for (const a of data?.Attributes ?? []) {
+          const id =
+            typeof a.MetadataId === 'string' ? a.MetadataId.toLowerCase() : ''
+          const label = (
+            a.DisplayName as { UserLocalizedLabel?: { Label?: string } } | undefined
+          )?.UserLocalizedLabel?.Label
+          const name =
+            typeof label === 'string' && label
+              ? label
+              : typeof a.LogicalName === 'string'
+                ? a.LogicalName
+                : ''
+          if (id && name) nameById.set(id, name)
+        }
+      } catch (err) {
+        console.warn('[merge] attribute metadata lookup failed for', logical, err)
+      }
+    }
+    for (const c of attrs) {
+      const name = nameById.get(c.objectId.toLowerCase())
+      if (name) c.displayName = name
     }
   }
 
