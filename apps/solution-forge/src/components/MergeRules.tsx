@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   MERGEABLE_COMPONENT_TYPES,
   type WorkingSolution,
@@ -37,7 +37,19 @@ function MergeRulesEditor({
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [savedFading, setSavedFading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // The "saved" bar fades out and clears itself after 5s.
+  useEffect(() => {
+    if (!saved) return
+    const fade = window.setTimeout(() => setSavedFading(true), 4400)
+    const clear = window.setTimeout(() => setSaved(false), 5000)
+    return () => {
+      window.clearTimeout(fade)
+      window.clearTimeout(clear)
+    }
+  }, [saved])
 
   const touched = () => {
     setDirty(true)
@@ -86,6 +98,7 @@ function MergeRulesEditor({
     try {
       await onSave([...allow], [...exclude])
       setDirty(false)
+      setSavedFading(false)
       setSaved(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -103,6 +116,15 @@ function MergeRulesEditor({
 
   return (
     <div className="card merge-rules-editor">
+      {saved && (
+        <div
+          className={`state state--success creation-banner ${
+            savedFading ? 'creation-banner--fading' : ''
+          }`}
+        >
+          <span>✓ Merge rules saved for {solution.title}.</span>
+        </div>
+      )}
       <h3 className="card-title">Merge rules — {solution.title}</h3>
 
       <div className="merge-rules-group">
@@ -152,7 +174,6 @@ function MergeRulesEditor({
           {saving ? 'Saving…' : 'Save'}
         </button>
         <span className="muted">{summary}</span>
-        {saved && !dirty && <span className="merge-allowed-saved">✓ Saved</span>}
       </div>
       {error && <div className="state state--error">{error}</div>}
     </div>
