@@ -484,6 +484,10 @@
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  transition: opacity 0.6s ease;
+}
+.creation-banner--fading {
+  opacity: 0;
 }
 
 /* Link-state badge (WS | SOL) */

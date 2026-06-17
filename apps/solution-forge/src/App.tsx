@@ -169,6 +169,17 @@ function App() {
   >([])
   const deleteTimers = useRef(new Map<string, number>())
   const [justCreated, setJustCreated] = useState<WorkingSolution | null>(null)
+  // The "solution created" bar fades out and clears itself after 5s.
+  const [creationFading, setCreationFading] = useState(false)
+  useEffect(() => {
+    if (!justCreated) return
+    const fade = window.setTimeout(() => setCreationFading(true), 4400)
+    const clear = window.setTimeout(() => setJustCreated(null), 5000)
+    return () => {
+      window.clearTimeout(fade)
+      window.clearTimeout(clear)
+    }
+  }, [justCreated])
   // Locally created solutions show up immediately, even before reload() lands.
   const [created, setCreated] = useState<WorkingSolution[]>([])
 
@@ -469,6 +480,7 @@ function App() {
   const handleCreated = (solution: WorkingSolution) => {
     setShowCreate(false)
     setCreated((prev) => [solution, ...prev])
+    setCreationFading(false)
     setJustCreated(solution)
     setSelectedId(solution.id)
     setComponents([])
@@ -688,7 +700,11 @@ function App() {
       {!loading && !error && tab === 'workbench' && (
         <>
           {justCreated && (
-            <div className="state state--success creation-banner">
+            <div
+              className={`state state--success creation-banner ${
+                creationFading ? 'creation-banner--fading' : ''
+              }`}
+            >
               <span>
                 Solution <strong>{justCreated.title}</strong> (
                 <code>{justCreated.uniqueName}</code>) created.
