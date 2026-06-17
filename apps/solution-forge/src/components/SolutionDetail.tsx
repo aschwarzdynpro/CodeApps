@@ -560,7 +560,7 @@ export function SolutionDetail({
         )}
         <button
           className="command-bar-item command-bar-item--danger"
-          title="Remove the record / solution, with a 5-second undo"
+          title="Remove the record / solution, with a 3-second undo"
           onClick={() => onDelete(solution)}
         >
           <span className="cmd-icon">🗑</span> Delete

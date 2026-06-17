@@ -43,7 +43,7 @@ export function ConfirmDeleteDialog({ solution, onConfirm, onCancel }: Props) {
           ))}
         </ul>
         <p className="confirm-delete-text muted">
-          You get 5 seconds to undo before the deletion becomes final.
+          You get 3 seconds to undo before the deletion becomes final.
         </p>
 
         <div className="modal-footer">

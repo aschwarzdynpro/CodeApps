@@ -180,7 +180,7 @@ function App() {
   }, [syncMessage])
 
   // Soft delete / completion: confirmed entries disappear immediately and
-  // wait in pendingDeletes for the 5-second undo window; only then the hard
+  // wait in pendingDeletes for the 3-second undo window; only then the hard
   // action runs server-side. Undo just cancels the timer and re-shows the
   // entry (nothing happened server-side yet, so completing reverts to open
   // simply by not committing). `mode` selects the finalize action.
@@ -523,7 +523,7 @@ function App() {
   }
 
   /**
-   * Hide the entry and start the 5-second undo window for a deferred action.
+   * Hide the entry and start the 3-second undo window for a deferred action.
    * mode 'delete' removes the whole entry; 'complete' marks it completed and
    * deletes the underlying solution.
    */
@@ -540,7 +540,7 @@ function App() {
     setPendingDeletes((prev) => [...prev, { key, solution, mode }])
     const timeout = window.setTimeout(() => {
       void finalizeDelete(key, solution, mode)
-    }, 5000)
+    }, 3000)
     deleteTimers.current.set(key, timeout)
   }
 

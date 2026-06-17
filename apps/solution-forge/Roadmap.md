@@ -79,7 +79,7 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 - [x] Darstellungs-Schicht `ssid_workingsolution` (Join, Anlage, Nacherfassen,
       Re-Link, Typ-Pflege, Löschen mit Undo)
 - [x] „Mark completed": offene Working Solution auf „Deployment completed"
-      setzen, optional die unterliegende Solution löschen — mit 5s-Undo
+      setzen, optional die unterliegende Solution löschen — mit 3s-Undo
       (Restore + Wieder-Öffnen); erster Baustein Richtung Deployment-Kanban
 - [x] Kollisions-Radar, Komponenten-Suche, Work-Item-Gruppierung
 - [x] Merge mit Plan, Konflikt-Markierung und Status-Logging

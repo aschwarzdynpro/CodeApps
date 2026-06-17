@@ -863,7 +863,7 @@
   bottom: 0;
   height: 3px;
   background: #9db4ff;
-  animation: undo-countdown 5s linear forwards;
+  animation: undo-countdown 3s linear forwards;
 }
 @keyframes undo-countdown {
   from {

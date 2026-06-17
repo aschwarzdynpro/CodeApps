@@ -48,7 +48,7 @@ export interface SolutionService {
    * Hard-deletes whatever the entry consists of: the working-solution
    * record (when present) and/or the real solution (when it exists).
    * Components inside the solution are not deleted — only the container.
-   * The 5-second undo window lives in the UI; once this is called the
+   * The 3-second undo window lives in the UI; once this is called the
    * deletion is final.
    */
   deleteSolution(solution: WorkingSolution): Promise<void>

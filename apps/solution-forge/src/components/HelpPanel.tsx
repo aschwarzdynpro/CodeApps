@@ -213,14 +213,14 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 the deployment status to <strong>Deployment completed</strong>{' '}
                 (a label — open/closed is driven by the record's statecode, not
                 this). You're asked whether to also delete the underlying
-                solution; if so, a card pops up for 5 seconds to{' '}
+                solution; if so, a card pops up for 3 seconds to{' '}
                 <strong>undo</strong> — undoing keeps the solution.
               </li>
               <li>
                 <strong>Delete…</strong> removes the entry after a
                 confirmation: the working-solution record, the solution
                 container, or both — depending on what exists. A card pops
-                up for 5 seconds to <strong>undo</strong>; only after that
+                up for 3 seconds to <strong>undo</strong>; only after that
                 the deletion becomes final. Components inside a deleted
                 solution stay in the system. If the final delete fails
                 server-side (e.g. another solution import/uninstall is running),

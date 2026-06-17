@@ -12,7 +12,7 @@ interface Props {
 /**
  * Marks an open working solution as completed, optionally deleting its
  * underlying unmanaged solution. When the solution is deleted the deletion is
- * deferred behind a 5-second undo (handled by the caller); undoing also
+ * deferred behind a 3-second undo (handled by the caller); undoing also
  * reopens the working solution.
  */
 export function CompleteSolutionDialog({
@@ -66,7 +66,7 @@ export function CompleteSolutionDialog({
 
         {canDelete && deleteUnderlying && (
           <p className="confirm-delete-text muted">
-            You get 5 seconds to undo before the solution is deleted — undoing
+            You get 3 seconds to undo before the solution is deleted — undoing
             also reopens this working solution.
           </p>
         )}

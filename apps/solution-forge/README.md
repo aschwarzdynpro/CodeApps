@@ -95,10 +95,10 @@ nach Typ.
   `ssid_deploymentstatus = Deployment completed` (500870003) setzen (reines
   Status-Label — schließt den Eintrag nicht, das macht der statecode). Im
   Dialog wird gefragt, ob die unterliegende Solution gelöscht werden soll;
-  falls ja, läuft das (wie beim Delete) über das 5-Sekunden-Undo — Statuswechsel
+  falls ja, läuft das (wie beim Delete) über das 3-Sekunden-Undo — Statuswechsel
   und Solution-Delete werden erst nach Ablauf committed, Undo lässt beides aus.
 - **Löschen mit Undo**: Eintrag entfernen (Record, Solution oder beides) mit
-  5-Sekunden-Restore-Fenster, bevor der harte Delete läuft.
+  3-Sekunden-Restore-Fenster, bevor der harte Delete läuft.
 - **Merge**: Deployment Solution als Ziel wählen, Feature-/Bug-Solutions
   ankreuzen, Komponenten-Plan prüfen (Konflikte markiert, Duplikate werden
   übersprungen) und mergen (`AddSolutionComponent` je Komponente).
