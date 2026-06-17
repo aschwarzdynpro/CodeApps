@@ -1,9 +1,8 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   isOpenStatus,
   type ComponentCollision,
   type MergeRun,
-  type MergeRunComponent,
   type SolutionComponentInfo,
   type TrackSolutionInput,
   type WorkItemInfo,
@@ -240,26 +239,73 @@ function TrackPanel({
   )
 }
 
-/** Added components of one merge run, grouped by component type. */
-function ComponentBreakdown({
-  components,
+/**
+ * Overlay listing the components one merge run added, grouped by component
+ * type — roomy enough for large merges, where the inline table cell would be
+ * a cramped comma soup. Closes on backdrop click, the ✕, or Escape.
+ */
+function MergeRunComponentsModal({
+  run,
+  onClose,
 }: {
-  components: MergeRunComponent[]
+  run: MergeRun
+  onClose: () => void
 }) {
-  const byType = [...groupBy(components, (c) => c.t).entries()].sort((a, b) =>
-    a[0].localeCompare(b[0]),
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const byType = [...groupBy(run.components, (c) => c.t).entries()].sort(
+    (a, b) => a[0].localeCompare(b[0]),
   )
+
   return (
-    <ul className="merge-history-components">
-      {byType.map(([type, items]) => (
-        <li key={type}>
-          <span className="merge-plan-type">{type}</span>
-          <span className="merge-history-component-names">
-            {items.map((c) => c.n).join(', ')}
-          </span>
-        </li>
-      ))}
-    </ul>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal card modal--wide merge-components-modal"
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-header">
+          <div>
+            <h2>
+              Added components{' '}
+              <span className="muted">({run.components.length})</span>
+            </h2>
+            <p className="muted merge-components-sub">
+              {formatDateTime(run.createdOn)}
+              {run.createdBy ? ` · ${run.createdBy}` : ''}
+              {run.sources.length ? ` · from ${run.sources.join(', ')}` : ''}
+            </p>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </div>
+        <div className="merge-components-body">
+          {byType.map(([type, items]) => (
+            <section className="merge-components-group" key={type}>
+              <h3 className="merge-components-group-title">
+                <span className="merge-plan-type">{type}</span>
+                <span className="muted">{items.length}</span>
+              </h3>
+              <ul className="merge-components-names">
+                {items.map((c, i) => (
+                  <li key={`${c.n}-${i}`} title={c.n}>
+                    {c.n}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -273,7 +319,8 @@ function ComponentBreakdown({
 function MergeHistoryPanel({ recordId }: { recordId: string }) {
   const [runs, setRuns] = useState<MergeRun[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  // The run whose added components are shown in the overlay (null = closed).
+  const [detailRun, setDetailRun] = useState<MergeRun | null>(null)
 
   // The parent remounts the detail per solution (key={solution.id}), so this
   // loads once per opened release — no in-effect state reset needed.
@@ -292,9 +339,6 @@ function MergeHistoryPanel({ recordId }: { recordId: string }) {
       cancelled = true
     }
   }, [recordId])
-
-  const toggle = (id: string) =>
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
 
   return (
     <section className="merge-history">
@@ -322,56 +366,51 @@ function MergeHistoryPanel({ recordId }: { recordId: string }) {
           </thead>
           <tbody>
             {runs.map((run) => {
-              const open = !!expanded[run.id]
               const canExpand = run.components.length > 0
               return (
-                <Fragment key={run.id}>
-                  <tr
-                    className={`merge-history-row ${
-                      canExpand ? 'merge-history-row--clickable' : ''
-                    }`}
-                    onClick={canExpand ? () => toggle(run.id) : undefined}
-                  >
-                    <td>{formatDateTime(run.createdOn)}</td>
-                    <td>{run.createdBy ?? '—'}</td>
-                    <td className="num">
-                      {canExpand ? (
-                        <span className="merge-history-added">
-                          <span
-                            className={`component-group-chevron ${
-                              open ? 'component-group-chevron--open' : ''
-                            }`}
-                          >
-                            ▸
-                          </span>
-                          {run.added}
+                <tr
+                  key={run.id}
+                  className={`merge-history-row ${
+                    canExpand ? 'merge-history-row--clickable' : ''
+                  }`}
+                  onClick={canExpand ? () => setDetailRun(run) : undefined}
+                  title={canExpand ? 'View the added components' : undefined}
+                >
+                  <td>{formatDateTime(run.createdOn)}</td>
+                  <td>{run.createdBy ?? '—'}</td>
+                  <td className="num">
+                    {canExpand ? (
+                      <span className="merge-history-added">
+                        {run.added}
+                        <span
+                          className="merge-history-expand"
+                          aria-hidden="true"
+                        >
+                          ⤢
                         </span>
-                      ) : (
-                        run.added
-                      )}
-                    </td>
-                    <td className="num">{run.skipped}</td>
-                    <td
-                      className={`num ${
-                        run.errors ? 'merge-history-errors' : ''
-                      }`}
-                    >
-                      {run.errors}
-                    </td>
-                    <td>{run.sources.join(', ') || '—'}</td>
-                  </tr>
-                  {open && canExpand && (
-                    <tr className="merge-history-detail-row">
-                      <td colSpan={6}>
-                        <ComponentBreakdown components={run.components} />
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
+                      </span>
+                    ) : (
+                      run.added
+                    )}
+                  </td>
+                  <td className="num">{run.skipped}</td>
+                  <td
+                    className={`num ${run.errors ? 'merge-history-errors' : ''}`}
+                  >
+                    {run.errors}
+                  </td>
+                  <td>{run.sources.join(', ') || '—'}</td>
+                </tr>
               )
             })}
           </tbody>
         </table>
+      )}
+      {detailRun && (
+        <MergeRunComponentsModal
+          run={detailRun}
+          onClose={() => setDetailRun(null)}
+        />
       )}
     </section>
   )

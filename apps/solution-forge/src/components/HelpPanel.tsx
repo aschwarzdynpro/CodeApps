@@ -269,9 +269,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 Each merge is logged as a <strong>merge-run</strong> row. Open
                 a Release solution to see its <strong>Merge history</strong>{' '}
-                table — when, by whom, the counts and source solutions; expand
-                a row’s <em>Added</em> count to see exactly which components
-                that merge contributed.
+                table — when, by whom, the counts and source solutions; click a
+                row to open an <strong>overlay</strong> listing the components
+                that merge added, grouped by component type.
               </li>
             </ul>
           </section>

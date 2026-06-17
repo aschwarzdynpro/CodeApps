@@ -33,7 +33,9 @@ Deployment-Status „Merged into Deployment Solution". Zusätzlich wird je
 Merge eine **Historien-Zeile** in der Tabelle `sst_mergerun` geschrieben
 (Counts, Quell-Solutions und die hinzugefügten Komponenten als kompaktes
 JSON in einer Multiline-Spalte — keine Kind-Tabelle). Im Detail einer
-Release-Solution erscheint sie als ausklappbare **Merge-Historie**-Tabelle.
+Release-Solution erscheint sie als **Merge-Historie**-Tabelle; ein Klick auf
+eine Zeile öffnet ein Overlay mit den hinzugefügten Komponenten gruppiert
+nach Typ.
 
 ## Features
 

@@ -59,9 +59,10 @@ Multiline-Spalte `sst_addedcomponents_txt` — eine Spalte statt Kind-Tabelle,
 defensiv geparst (`toMergeRun`). Schreiben in
 `dataverseSolutionService.logMergeRun` (best-effort, scheitert nie den Merge);
 Lesen via `listMergeRuns(targetRecordId)` (Filter
-`_sst_targetsolution_ref_value eq <id>`). UI: ausklappbare Tabelle im
-`SolutionDetail` nur für Release-Solutions (lädt sich selbst, Remount je
-Solution).
+`_sst_targetsolution_ref_value eq <id>`). UI: Tabelle im `SolutionDetail`
+(nur Release-Solutions, lädt sich selbst, Remount je Solution); Klick auf eine
+Zeile öffnet ein **Overlay** (`MergeRunComponentsModal`) mit den hinzugefügten
+Komponenten gruppiert nach Typ.
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
