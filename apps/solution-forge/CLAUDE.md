@@ -180,6 +180,12 @@ Komponenten gruppiert nach Typ.
    nicht teilbar, SP-Connections schon.
 10. `.env` ist repo-weit gitignored ⇒ Konfig-Defaults gehören nach
     `src/config.ts`. UI-Sprache Englisch, Chat Deutsch.
+    **Statische Assets (Bilder):** Der Code-App-Player serviert nur die in
+    `index.html` referenzierten Dateien (JS/CSS); ein nur aus JS referenziertes
+    `/assets/*.png` wird NICHT ausgeliefert (404 → Broken Image). ⇒ Bilder als
+    **Data-URI inlinen**: `import logo from './assets/x.png?inline'` (vorher auf
+    sinnvolle Größe verkleinern, da es im JS-Bundle landet). Logo liegt in
+    `src/assets/sac-logo.png` (480px) und wird per `?inline` eingebettet.
 11. Debugging: kein Zugriff auf die laufende App — Diagnostik via
     `console.warn('[solutions]/[compare]/[deps]'…)` + `pac env fetch
     --xmlFile <fetchxml>` (Read-only-Reproduktion als User). Lookup-Fehler
