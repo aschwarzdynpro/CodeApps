@@ -794,6 +794,35 @@ export class DataverseSolutionService implements SolutionService {
       return mockSolutionService.deleteUnderlyingSolution(solutionId)
     if (!solutionId || solutionId.startsWith('missing-')) return
     await SolutionsService.delete(solutionId)
+    await this.assertSolutionDeleted(solutionId)
+  }
+
+  /**
+   * Confirm a solution delete actually took effect. The native client batches
+   * deletes, and a rejected sub-request still comes back inside an HTTP 200
+   * `$batch` envelope — so the delete await never throws even when Dataverse
+   * refused it (e.g. 0x80071151 "another solution import/uninstall is
+   * running"). We therefore re-read the solution: if it's still there the
+   * delete failed, and we throw a readable reason for the UI to surface.
+   */
+  private async assertSolutionDeleted(solutionId: string): Promise<void> {
+    let stillExists = false
+    try {
+      const result = await SolutionsService.get(solutionId, {
+        select: ['solutionid'],
+      })
+      stillExists = !!(result.success && result.data)
+    } catch {
+      // A failed read (the row is gone → 404) is the success case.
+      return
+    }
+    if (stillExists) {
+      throw new Error(
+        'Dataverse rejected the removal — the solution still exists. This ' +
+          'usually means another solution import or uninstall is running at ' +
+          'the moment. Please try again shortly.',
+      )
+    }
   }
 
   /** Point an orphaned record at an existing solution. */
@@ -1519,6 +1548,9 @@ export class DataverseSolutionService implements SolutionService {
       return mockSolutionService.deleteSolution(solution)
     if (!solution.solutionMissing && solution.id && !solution.id.startsWith('missing-')) {
       await SolutionsService.delete(solution.id)
+      // Throws if the (batched) delete was silently rejected — so the record
+      // below is kept and the UI shows why.
+      await this.assertSolutionDeleted(solution.id)
     }
     if (solution.recordId) {
       await Ssid_workingsolutionsService.delete(solution.recordId)

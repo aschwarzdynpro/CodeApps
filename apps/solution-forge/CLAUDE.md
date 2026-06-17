@@ -103,6 +103,14 @@ Komponenten gruppiert nach Typ.
 4. Konnektor: **`ListRecords` (ohne Org) ist unzuverlässig** — immer
    `ListRecordsWithOrganization` mit expliziter URL (auch für die eigene
    Umgebung). Org-Parameter = Org-URL ohne Slash.
+   **Batch-Delete schluckt Fehler:** Der native Client (`getClient`) bündelt
+   Deletes in einem `$batch`; ein abgelehnter Sub-Request (z. B. Solution-Delete
+   `429 / 0x80071151` „another import/uninstall running") kommt trotzdem in
+   einer **HTTP-200-`$batch`-Hülle** zurück → das `await` wirft NICHT, die
+   generierte `delete()` gibt `void` zurück. ⇒ Erfolg per **Re-Read prüfen**
+   (`assertSolutionDeleted`: Solution nach dem Delete erneut lesen, existiert
+   sie noch → werfen). Fehler-Banner in `App.tsx` (`actionError`, 5s-Fade,
+   `describeError` zieht die innere OData-`message` aus dem Batch-Body).
 5. **Identitäten:** Native Dataverse-Sources laufen als angemeldeter User;
    Konnektor-Sources als Connection (`sst_CRDataverse` → SP „App-Reg
    D365-CE nonProd"). Current User ⇒ native `SystemusersService` mit
