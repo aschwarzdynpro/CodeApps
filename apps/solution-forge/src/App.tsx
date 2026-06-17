@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
+import sacLogo from './assets/sac-logo.png'
 import { usePower } from './PowerProvider'
 import { useSolutions } from './hooks/useSolutions'
 import { solutionService } from './services/solutionService'
@@ -681,12 +682,11 @@ function App() {
       <div className="app-shell">
         <aside className="sidebar">
           <div className="sidebar-brand">
-            <span className="brand-mark">⬣</span>
-            <span className="brand-name">
-              Solution
-              <br />
-              Admin Console
-            </span>
+            <img
+              className="brand-logo"
+              src={sacLogo}
+              alt="Solution Admin Console — ALM"
+            />
           </div>
           <nav className="sidebar-nav">
             {NAV_GROUPS.map((group) => (
