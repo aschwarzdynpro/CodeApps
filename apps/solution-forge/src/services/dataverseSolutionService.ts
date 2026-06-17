@@ -1738,50 +1738,64 @@ export class DataverseSolutionService implements SolutionService {
   }
 
   /**
-   * Resolve column (attribute) names from the metadata of the entities present
-   * in the same component set. The entity's logical name is the lower-cased
-   * schema name the summary provides; one metadata read per entity yields its
-   * attributes' MetadataId → label map. Best-effort.
+   * Resolve column (attribute) names via the `EntityDefinitions` metadata set.
+   * Each entity solutioncomponent's objectId IS the entity's MetadataId, so we
+   * query EntityDefinitions filtered by those ids and expand their Attributes
+   * (MetadataId + DisplayName), then map each attribute component by id. Uses
+   * the reliable WithOrganization op against the current environment.
+   * Best-effort — failures keep the GUID fallback.
    */
   private async resolveAttributeNames(
     all: SolutionComponentInfo[],
     attrs: SolutionComponentInfo[],
   ): Promise<void> {
-    const logicalNames = [
-      ...new Set(
-        all
-          .filter((c) => c.typeCode === 1 && c.schemaName)
-          .map((c) => (c.schemaName as string).toLowerCase()),
-      ),
+    const entityIds = [
+      ...new Set(all.filter((c) => c.typeCode === 1).map((c) => c.objectId)),
     ]
-    if (logicalNames.length === 0) return
+    if (entityIds.length === 0) return
+    const url = ENVIRONMENTS.find((e) => e.isCurrent)?.url.replace(/\/+$/, '')
+    if (!url) return
     const nameById = new Map<string, string>()
-    for (const logical of logicalNames) {
+    for (const chunk of chunksOf(entityIds, 10)) {
+      const filter = chunk.map((id) => `MetadataId eq ${id}`).join(' or ')
       try {
-        const res = await MicrosoftDataverseService.GetMetadataForGetEntity(
-          logical,
+        const res = await MicrosoftDataverseService.ListRecordsWithOrganization(
+          url,
+          'EntityDefinitions',
           undefined,
-          'Attributes',
+          undefined,
+          undefined,
+          undefined,
+          'LogicalName',
+          filter,
+          undefined,
+          'Attributes($select=LogicalName,DisplayName,MetadataId)',
         )
-        const data = res.data as
-          | { Attributes?: Array<Record<string, unknown>> }
-          | undefined
-        for (const a of data?.Attributes ?? []) {
-          const id =
-            typeof a.MetadataId === 'string' ? a.MetadataId.toLowerCase() : ''
-          const label = (
-            a.DisplayName as { UserLocalizedLabel?: { Label?: string } } | undefined
-          )?.UserLocalizedLabel?.Label
-          const name =
-            typeof label === 'string' && label
-              ? label
-              : typeof a.LogicalName === 'string'
-                ? a.LogicalName
-                : ''
-          if (id && name) nameById.set(id, name)
+        const rows =
+          (res.data as { value?: Array<Record<string, unknown>> } | undefined)
+            ?.value ?? []
+        for (const row of rows) {
+          const attributes =
+            (row.Attributes as Array<Record<string, unknown>> | undefined) ?? []
+          for (const a of attributes) {
+            const id =
+              typeof a.MetadataId === 'string' ? a.MetadataId.toLowerCase() : ''
+            const label = (
+              a.DisplayName as
+                | { UserLocalizedLabel?: { Label?: string } }
+                | undefined
+            )?.UserLocalizedLabel?.Label
+            const name =
+              typeof label === 'string' && label
+                ? label
+                : typeof a.LogicalName === 'string'
+                  ? a.LogicalName
+                  : ''
+            if (id && name) nameById.set(id, name)
+          }
         }
       } catch (err) {
-        console.warn('[merge] attribute metadata lookup failed for', logical, err)
+        console.warn('[merge] EntityDefinitions attribute lookup failed:', err)
       }
     }
     for (const c of attrs) {
