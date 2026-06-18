@@ -53,12 +53,15 @@ export interface SolutionService {
    */
   deleteSolution(solution: WorkingSolution): Promise<void>
   /**
-   * Resolves the signed-in user for the "Mine" filter. id is the
-   * systemuser guid (matched against the rows' ownerId); name is a
+   * Resolves the signed-in user. id is the systemuser guid; name is a
    * display-name fallback. Both may be null when the host exposes no
-   * usable identity.
+   * usable identity. Used for "Assign to me".
    */
   getCurrentUser(): Promise<{ id: string | null; name: string | null }>
+  /** Active users matching a name fragment, for the owner picker. */
+  searchUsers(query: string): Promise<{ id: string; name: string }[]>
+  /** Reassigns a working-solution record to a systemuser (changes the owner). */
+  assignOwner(recordId: string, userId: string): Promise<void>
   /**
    * Required components of the solution that the solution itself doesn't
    * contain (RetrieveMissingDependencies), each checked for presence in

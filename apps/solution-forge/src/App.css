@@ -2686,6 +2686,9 @@
 .chip--exclude-active:hover {
   background: #b02a37;
 }
+.assign-me {
+  margin-bottom: 10px;
+}
 /* Workbench read-only summary of a release's allow-list */
 .merge-allowed-summary {
   display: flex;

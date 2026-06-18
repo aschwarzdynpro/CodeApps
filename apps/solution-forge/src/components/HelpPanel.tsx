@@ -194,6 +194,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 (<code>sst_devopsworkitemstatus</code>).
               </li>
               <li>
+                <strong>👤 Assign</strong> (tracked entries) reassigns the
+                record's owner — <strong>Assign to me</strong>, or search a user
+                by name and pick them.
+              </li>
+              <li>
                 For tracked entries the type badge has a <strong>✎</strong>{' '}
                 button — change Feature / Bug / Release there; it updates
                 the record's type choice.

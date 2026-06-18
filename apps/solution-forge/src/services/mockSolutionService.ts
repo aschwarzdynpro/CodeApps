@@ -35,6 +35,16 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 let mockIdCounter = 100
 
+/** Sample users for the owner picker (offline demo). */
+const MOCK_USERS: { id: string; name: string }[] = [
+  { id: 'u-0001', name: 'Marie Curie' },
+  { id: 'u-0002', name: 'Niels Bohr' },
+  { id: 'u-0003', name: 'Lise Meitner' },
+  { id: 'u-0004', name: 'Max Planck' },
+  { id: 'u-0005', name: 'Albert Einstein' },
+  { id: 'u-0006', name: 'Andy Schwarz' },
+]
+
 /** Sample work items matching the seeded solutions' DevOps ids. */
 const MOCK_WORK_ITEMS: Record<string, Omit<WorkItemInfo, 'id' | 'url'>> = {
   '4711': {
@@ -328,6 +338,21 @@ export class MockSolutionService {
     await delay(150)
     // Matches the seeded owner of feature_4711 so the filter is demoable.
     return { id: 'u-0001', name: 'Marie Curie' }
+  }
+
+  async searchUsers(query: string): Promise<{ id: string; name: string }[]> {
+    await delay(200)
+    const q = query.trim().toLowerCase()
+    if (q.length < 2) return []
+    return MOCK_USERS.filter((u) => u.name.toLowerCase().includes(q))
+  }
+
+  async assignOwner(recordId: string, userId: string): Promise<void> {
+    await delay(250)
+    const solution = this.solutions.find((s) => s.recordId === recordId)
+    if (!solution) throw new Error('Unknown working-solution record.')
+    solution.ownerId = userId
+    solution.owner = MOCK_USERS.find((u) => u.id === userId)?.name ?? 'Unknown'
   }
 
   async linkSolution(

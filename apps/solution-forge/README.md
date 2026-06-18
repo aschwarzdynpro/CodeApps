@@ -92,6 +92,10 @@ nach Typ.
   Deployment-Status (z. B. „Merged into Deployment Solution") spielt dafür
   **keine** Rolle. Inaktive Records werden mitgeladen und nur vom Open-Toggle
   ausgeblendet.
+- **Owner zuweisen**: In der Detail-Ansicht eines getrackten Eintrags
+  reassignt **👤 Assign** den Record-Owner — „Assign to me" oder per
+  Namenssuche einen User wählen (`assignOwner` setzt `ownerid@odata.bind`;
+  `searchUsers` über `SystemusersService`).
 - **Mark completed**: aktive getrackte Einträge auf
   `ssid_deploymentstatus = Deployment completed` (500870003) setzen (reines
   Status-Label — schließt den Eintrag nicht, das macht der statecode). Im

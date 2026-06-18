@@ -982,6 +982,20 @@ function App() {
                       await solutionService.updateSolutionType(s.recordId, kind)
                       reload()
                     }}
+                    onAssignToMe={async (s) => {
+                      if (!s.recordId) return
+                      const me = await solutionService.getCurrentUser()
+                      if (!me.id)
+                        throw new Error('Could not resolve your user account.')
+                      await solutionService.assignOwner(s.recordId, me.id)
+                      reload()
+                    }}
+                    onAssign={async (s, userId) => {
+                      if (!s.recordId) return
+                      await solutionService.assignOwner(s.recordId, userId)
+                      reload()
+                    }}
+                    onSearchUsers={(q) => solutionService.searchUsers(q)}
                     linkCandidates={linkCandidates}
                     onLink={async (record, target) => {
                       if (!record.recordId) return

@@ -806,6 +806,52 @@ export class DataverseSolutionService implements SolutionService {
     }
   }
 
+  /** Active users matching a name fragment, for the owner picker. */
+  async searchUsers(query: string): Promise<{ id: string; name: string }[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return mockSolutionService.searchUsers(query)
+    const q = query.trim()
+    if (q.length < 2) return []
+    try {
+      const escaped = q.replace(/'/g, "''")
+      const result = await SystemusersService.getAll({
+        select: ['systemuserid', 'fullname'],
+        filter: `isdisabled eq false and contains(fullname,'${escaped}')`,
+        orderBy: ['fullname asc'],
+        top: 20,
+      })
+      if (!result.success || !result.data) return []
+      return result.data
+        .map((u) => {
+          const row = u as { systemuserid?: string; fullname?: string }
+          return { id: row.systemuserid ?? '', name: row.fullname ?? '' }
+        })
+        .filter((u) => u.id && u.name)
+    } catch (err) {
+      console.warn('[solutions] user search failed:', err)
+      return []
+    }
+  }
+
+  /** Reassign a working-solution record to a systemuser. */
+  async assignOwner(recordId: string, userId: string): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.assignOwner(recordId, userId)
+    const result = await Ssid_workingsolutionsService.update(
+      recordId,
+      {
+        'ownerid@odata.bind': `/systemusers(${userId})`,
+      } as unknown as Partial<
+        Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+      >,
+    )
+    if (result && result.success === false) {
+      console.warn('[solutions] owner assign failed:', result)
+      throw new Error('Reassigning the owner failed.')
+    }
+  }
+
   /**
    * Trigger the "Sync DevOps Work Item Status" cloud flow (Power Apps trigger,
    * invoked through the generated flow service). The flow writes the latest

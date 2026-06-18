@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   isOpenStatus,
   MERGEABLE_COMPONENT_TYPES,
@@ -40,6 +40,12 @@ interface Props {
     solution: WorkingSolution,
     kind: TrackSolutionInput['kind'],
   ) => Promise<void>
+  /** Reassign the record's owner to the signed-in user. */
+  onAssignToMe: (solution: WorkingSolution) => Promise<void>
+  /** Reassign the record's owner to a chosen user. */
+  onAssign: (solution: WorkingSolution, userId: string) => Promise<void>
+  /** Search active users by name fragment (owner picker). */
+  onSearchUsers: (query: string) => Promise<{ id: string; name: string }[]>
   /** Unmanaged solutions without a record — candidates for re-linking. */
   linkCandidates: WorkingSolution[]
   /** Re-links an orphaned record to the chosen solution. */
@@ -442,6 +448,101 @@ function MergeHistoryPanel({ recordId }: { recordId: string }) {
   )
 }
 
+/**
+ * Reassign-owner panel: a quick "Assign to me" plus a name search to assign
+ * to any active user. The parent reloads on success (which unmounts this).
+ */
+function AssignOwnerPanel({
+  solution,
+  onAssignToMe,
+  onAssign,
+  onSearchUsers,
+}: {
+  solution: WorkingSolution
+  onAssignToMe: (solution: WorkingSolution) => Promise<void>
+  onAssign: (solution: WorkingSolution, userId: string) => Promise<void>
+  onSearchUsers: (query: string) => Promise<{ id: string; name: string }[]>
+}) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<{ id: string; name: string }[]>([])
+  const [searching, setSearching] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const timer = useRef<number | undefined>(undefined)
+
+  const runSearch = (v: string) => {
+    setQuery(v)
+    window.clearTimeout(timer.current)
+    const q = v.trim()
+    if (q.length < 2) {
+      setResults([])
+      setSearching(false)
+      return
+    }
+    setSearching(true)
+    timer.current = window.setTimeout(() => {
+      onSearchUsers(q)
+        .then((r) => setResults(r))
+        .catch(() => setResults([]))
+        .finally(() => setSearching(false))
+    }, 300)
+  }
+
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await fn()
+      // Success → parent reloads and unmounts this panel; keep it disabled.
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="track-panel">
+      <h3 className="track-panel-title">Reassign owner</h3>
+      <p className="muted track-panel-hint">
+        Current owner: <strong>{solution.owner ?? '—'}</strong>
+      </p>
+      <button
+        className="btn btn--small btn--primary assign-me"
+        disabled={busy}
+        onClick={() => void run(() => onAssignToMe(solution))}
+      >
+        👤 Assign to me
+      </button>
+      <input
+        className="search merge-source-search"
+        type="search"
+        placeholder="Or search a user by name…"
+        value={query}
+        onChange={(e) => runSearch(e.target.value)}
+      />
+      {searching && <div className="state">Searching…</div>}
+      {!searching && query.trim().length >= 2 && results.length === 0 && (
+        <div className="state">No user matches “{query}”.</div>
+      )}
+      <ul className="link-result-list">
+        {results.map((u) => (
+          <li key={u.id}>
+            <button
+              className="link-result"
+              disabled={busy}
+              onClick={() => void run(() => onAssign(solution, u.id))}
+            >
+              <span className="link-result-title">{u.name}</span>
+              <span className="link-result-action">Assign</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {error && <div className="state state--error">{error}</div>}
+    </section>
+  )
+}
+
 /** Visual bucket for a work item state across common process templates. */
 function stateBucket(state: string): string {
   const s = state.toLowerCase()
@@ -466,11 +567,15 @@ export function SolutionDetail({
   onDelete,
   onComplete,
   onChangeType,
+  onAssignToMe,
+  onAssign,
+  onSearchUsers,
   linkCandidates,
   onLink,
 }: Props) {
   // Inline type editor for tracked entries (sst_type_opt).
   const [editingType, setEditingType] = useState(false)
+  const [assigning, setAssigning] = useState(false)
   const [savingType, setSavingType] = useState(false)
   const [typeError, setTypeError] = useState<string | null>(null)
 
@@ -584,6 +689,17 @@ export function SolutionDetail({
             <span className="cmd-icon">✓</span> Complete
           </button>
         )}
+        {solution.recordId && (
+          <button
+            className={`command-bar-item ${
+              assigning ? 'command-bar-item--accent' : ''
+            }`}
+            title="Reassign the owner of this working solution"
+            onClick={() => setAssigning((v) => !v)}
+          >
+            <span className="cmd-icon">👤</span> Assign
+          </button>
+        )}
         <button
           className="command-bar-item command-bar-item--danger"
           title="Remove the record / solution, with a 3-second undo"
@@ -592,6 +708,15 @@ export function SolutionDetail({
           <span className="cmd-icon">🗑</span> Delete
         </button>
       </div>
+
+      {assigning && solution.recordId && (
+        <AssignOwnerPanel
+          solution={solution}
+          onAssignToMe={onAssignToMe}
+          onAssign={onAssign}
+          onSearchUsers={onSearchUsers}
+        />
+      )}
 
       {solution.solutionMissing && (
         <>
