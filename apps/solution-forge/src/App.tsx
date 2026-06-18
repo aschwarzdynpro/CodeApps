@@ -110,7 +110,8 @@ function describeError(err: unknown): string {
 
 function App() {
   const { environmentId } = usePower()
-  const { solutions, publishers, loading, error, reload } = useSolutions()
+  const { solutions, publishers, loading, error, loadedAt, reload } =
+    useSolutions()
 
   const [tab, setTab] = useState<Tab>('workbench')
   // Merge and Compare are restricted to deployment managers; tabs stay
@@ -870,6 +871,27 @@ function App() {
             >
               + New Working Solution
             </button>
+            <button
+              className="btn btn--small"
+              onClick={() => reload()}
+              disabled={loading}
+              title="Reload the working solutions list"
+            >
+              {loading ? 'Refreshing…' : '⟳ Refresh'}
+            </button>
+            {loadedAt && (
+              <span
+                className="list-updated muted"
+                title={`Last refreshed ${loadedAt.toLocaleString()}`}
+              >
+                Updated{' '}
+                {loadedAt.toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                })}
+              </span>
+            )}
             <button
               className="btn btn--small"
               onClick={() => void scanCollisions()}

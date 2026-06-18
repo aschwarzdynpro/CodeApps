@@ -7,6 +7,8 @@ interface UseSolutionsResult {
   publishers: PublisherInfo[]
   loading: boolean
   error: string | null
+  /** When the list was last loaded successfully (null before the first load). */
+  loadedAt: Date | null
   reload: () => void
 }
 
@@ -16,6 +18,7 @@ export function useSolutions(): UseSolutionsResult {
   const [publishers, setPublishers] = useState<PublisherInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -27,6 +30,7 @@ export function useSolutions(): UseSolutionsResult {
       ])
       setSolutions(solutions)
       setPublishers(publishers)
+      setLoadedAt(new Date())
     } catch {
       setError('Could not load solutions from the environment.')
     } finally {
@@ -40,5 +44,12 @@ export function useSolutions(): UseSolutionsResult {
     void load()
   }, [load])
 
-  return { solutions, publishers, loading, error, reload: () => void load() }
+  return {
+    solutions,
+    publishers,
+    loading,
+    error,
+    loadedAt,
+    reload: () => void load(),
+  }
 }

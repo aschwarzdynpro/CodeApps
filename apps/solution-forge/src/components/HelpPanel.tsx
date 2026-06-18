@@ -108,6 +108,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 single owner (or all owners).
               </li>
               <li>
+                <strong>⟳ Refresh</strong> reloads the list from the
+                environment; an <strong>“Updated &lt;time&gt;”</strong> stamp
+                next to it shows when it was last loaded.
+              </li>
+              <li>
                 <strong>incl. components</strong> — builds a one-time index
                 (across the <strong>open</strong> working solutions) so the
                 search also matches component display names (e.g. find every

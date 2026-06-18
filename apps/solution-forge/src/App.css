@@ -521,6 +521,10 @@
 .collision-bar .search-group {
   margin-left: auto;
 }
+.list-updated {
+  font-size: 12px;
+  white-space: nowrap;
+}
 /* Action buttons read as raised, white, rectangular buttons — the visual
    counterpart to the flat filter pills above. */
 .collision-bar .btn {
