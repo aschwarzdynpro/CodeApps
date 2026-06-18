@@ -16,6 +16,34 @@ Verwaltet Dataverse-Solutions für Feature-/Bug-Entwicklung. Lies zuerst:
 | Rolle für die Validate-Gruppe (Compare/DependencyCheck/Layers/App Sharing) | `INT | Deployment Manager` (`DEPLOYMENT_MANAGER_ROLE` in config.ts) — Workbench + Merge sind NICHT gated |
 | pac-Auth | Profil `EX-Andy.Schwarz@schulz.st`; ggf. `-env <INT-11-URL>` |
 
+## Frischer Checkout / Working Tree (WICHTIG)
+
+`src/generated/`, `.power/` und `power.config.json` sind gitignored — nach
+einem frischen Clone ODER nach einem Branch-Merge, dessen Code neue Data
+Sources einführte, fehlen sie lokal und der Build bricht ab
+(`Cannot find module '../generated/...'`). Bootstrap:
+
+```
+npm install                       # bringt auch Laufzeit-Deps wie `diff`
+power-apps init --display-name "Solution Administration Console" --environment-id 431783f6-367c-eb49-984b-4e70e4c0424d
+# Tabellen (Wrapper-Skript, NICHT pac direkt):
+./scripts/add-data-source.ps1 -a dataverse -t solution
+./scripts/add-data-source.ps1 -a dataverse -t publisher
+./scripts/add-data-source.ps1 -a dataverse -t solutioncomponent
+./scripts/add-data-source.ps1 -a dataverse -t msdyn_solutioncomponentsummary
+./scripts/add-data-source.ps1 -a dataverse -t systemuser
+./scripts/add-data-source.ps1 -a dataverse -t role
+./scripts/add-data-source.ps1 -a dataverse -t ssid_workingsolution
+./scripts/add-data-source.ps1 -a dataverse -t sst_mergerun
+# Konnektor (Dataverse, „from selected environment"):
+./scripts/add-data-source.ps1 -a shared_commondataserviceforapps -cr sst_CRDataverse -s 67315e76-c155-ed11-bba2-0022489de585
+# Cloud-Flow (npm-CLI, droppt danach den retrievemissingdependencies-Block
+# aus dataSourcesInfo.ts → manuell wieder einsetzen, Vorlage im Wrapper-Skript):
+power-apps add-flow --flow-id e8d6ad6b-abd5-f011-8544-000d3ab3220a   # PA | MANUAL | Working Solution | Sync DevOps Work Item Status
+```
+Welche generated services der committete Code erwartet ⇔ Soll-Liste:
+`grep -rho "generated/services/\w*" src` gegen `ls src/generated/services`.
+
 ## Arbeits-Zyklus (jede Änderung)
 
 ```
