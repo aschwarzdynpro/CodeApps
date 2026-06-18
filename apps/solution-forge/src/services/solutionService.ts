@@ -5,6 +5,7 @@ import type {
   PublisherInfo,
   SolutionComponentInfo,
   TrackSolutionInput,
+  UserRef,
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
@@ -58,8 +59,8 @@ export interface SolutionService {
    * usable identity. Used for "Assign to me".
    */
   getCurrentUser(): Promise<{ id: string | null; name: string | null }>
-  /** Active users matching a name fragment, for the owner picker. */
-  searchUsers(query: string): Promise<{ id: string; name: string }[]>
+  /** Active users matching a name/login fragment, for the owner picker. */
+  searchUsers(query: string): Promise<UserRef[]>
   /** Reassigns a working-solution record to a systemuser (changes the owner). */
   assignOwner(recordId: string, userId: string): Promise<void>
   /**

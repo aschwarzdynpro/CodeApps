@@ -6,6 +6,7 @@ import type {
   PublisherInfo,
   SolutionComponentInfo,
   TrackSolutionInput,
+  UserRef,
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
@@ -36,13 +37,13 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 let mockIdCounter = 100
 
 /** Sample users for the owner picker (offline demo). */
-const MOCK_USERS: { id: string; name: string }[] = [
-  { id: 'u-0001', name: 'Marie Curie' },
-  { id: 'u-0002', name: 'Niels Bohr' },
-  { id: 'u-0003', name: 'Lise Meitner' },
-  { id: 'u-0004', name: 'Max Planck' },
-  { id: 'u-0005', name: 'Albert Einstein' },
-  { id: 'u-0006', name: 'Andy Schwarz' },
+const MOCK_USERS: { id: string; name: string; username: string }[] = [
+  { id: 'u-0001', name: 'Marie Curie', username: 'marie.curie@dynpro.de' },
+  { id: 'u-0002', name: 'Niels Bohr', username: 'niels.bohr@dynpro.de' },
+  { id: 'u-0003', name: 'Lise Meitner', username: 'lise.meitner@dynpro.de' },
+  { id: 'u-0004', name: 'Max Planck', username: 'max.planck@dynpro.de' },
+  { id: 'u-0005', name: 'Albert Einstein', username: 'a.einstein@dynpro.de' },
+  { id: 'u-0006', name: 'Andy Schwarz', username: 'andy.schwarz@dynpro.de' },
 ]
 
 /** Sample work items matching the seeded solutions' DevOps ids. */
@@ -340,11 +341,15 @@ export class MockSolutionService {
     return { id: 'u-0001', name: 'Marie Curie' }
   }
 
-  async searchUsers(query: string): Promise<{ id: string; name: string }[]> {
+  async searchUsers(query: string): Promise<UserRef[]> {
     await delay(200)
     const q = query.trim().toLowerCase()
     if (q.length < 2) return []
-    return MOCK_USERS.filter((u) => u.name.toLowerCase().includes(q))
+    return MOCK_USERS.filter(
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        u.username.toLowerCase().includes(q),
+    ).map((u) => ({ ...u }))
   }
 
   async assignOwner(recordId: string, userId: string): Promise<void> {

@@ -15,6 +15,16 @@
 
 export type SolutionKind = 'feature' | 'bug' | 'deployment' | 'other'
 
+/** A user for the owner picker — display name plus the unique login. */
+export interface UserRef {
+  /** systemuserid */
+  id: string
+  /** fullname (display name — not unique). */
+  name: string
+  /** domainname / UPN — the unique login, shown to disambiguate. */
+  username: string
+}
+
 export interface PublisherInfo {
   /** publisherid */
   id: string

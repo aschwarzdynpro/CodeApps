@@ -6,6 +6,7 @@ import {
   type MergeRun,
   type SolutionComponentInfo,
   type TrackSolutionInput,
+  type UserRef,
   type WorkItemInfo,
   type WorkingSolution,
 } from '../types/solution'
@@ -44,8 +45,8 @@ interface Props {
   onAssignToMe: (solution: WorkingSolution) => Promise<void>
   /** Reassign the record's owner to a chosen user. */
   onAssign: (solution: WorkingSolution, userId: string) => Promise<void>
-  /** Search active users by name fragment (owner picker). */
-  onSearchUsers: (query: string) => Promise<{ id: string; name: string }[]>
+  /** Search active users by name/login fragment (owner picker). */
+  onSearchUsers: (query: string) => Promise<UserRef[]>
   /** Unmanaged solutions without a record — candidates for re-linking. */
   linkCandidates: WorkingSolution[]
   /** Re-links an orphaned record to the chosen solution. */
@@ -461,10 +462,10 @@ function AssignOwnerPanel({
   solution: WorkingSolution
   onAssignToMe: (solution: WorkingSolution) => Promise<void>
   onAssign: (solution: WorkingSolution, userId: string) => Promise<void>
-  onSearchUsers: (query: string) => Promise<{ id: string; name: string }[]>
+  onSearchUsers: (query: string) => Promise<UserRef[]>
 }) {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<{ id: string; name: string }[]>([])
+  const [results, setResults] = useState<UserRef[]>([])
   const [searching, setSearching] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -533,6 +534,7 @@ function AssignOwnerPanel({
               onClick={() => void run(() => onAssign(solution, u.id))}
             >
               <span className="link-result-title">{u.name}</span>
+              {u.username && <code>{u.username}</code>}
               <span className="link-result-action">Assign</span>
             </button>
           </li>

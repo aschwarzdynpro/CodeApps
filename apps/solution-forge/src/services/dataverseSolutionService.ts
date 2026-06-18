@@ -7,6 +7,7 @@ import type {
   SolutionComponentInfo,
   SolutionKind,
   TrackSolutionInput,
+  UserRef,
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
@@ -806,8 +807,8 @@ export class DataverseSolutionService implements SolutionService {
     }
   }
 
-  /** Active users matching a name fragment, for the owner picker. */
-  async searchUsers(query: string): Promise<{ id: string; name: string }[]> {
+  /** Active users matching a name/login fragment, for the owner picker. */
+  async searchUsers(query: string): Promise<UserRef[]> {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockSolutionService.searchUsers(query)
     const q = query.trim()
@@ -815,16 +816,26 @@ export class DataverseSolutionService implements SolutionService {
     try {
       const escaped = q.replace(/'/g, "''")
       const result = await SystemusersService.getAll({
-        select: ['systemuserid', 'fullname'],
-        filter: `isdisabled eq false and contains(fullname,'${escaped}')`,
+        select: ['systemuserid', 'fullname', 'domainname'],
+        filter:
+          `isdisabled eq false and ` +
+          `(contains(fullname,'${escaped}') or contains(domainname,'${escaped}'))`,
         orderBy: ['fullname asc'],
         top: 20,
       })
       if (!result.success || !result.data) return []
       return result.data
         .map((u) => {
-          const row = u as { systemuserid?: string; fullname?: string }
-          return { id: row.systemuserid ?? '', name: row.fullname ?? '' }
+          const row = u as {
+            systemuserid?: string
+            fullname?: string
+            domainname?: string
+          }
+          return {
+            id: row.systemuserid ?? '',
+            name: row.fullname ?? '',
+            username: row.domainname ?? '',
+          }
         })
         .filter((u) => u.id && u.name)
     } catch (err) {
