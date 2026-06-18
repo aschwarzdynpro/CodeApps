@@ -775,6 +775,31 @@ function App() {
         <main className="content">
           <header className="content-header">
             <h1>{TAB_TITLES[tab]}</h1>
+            {tab === 'workbench' && !error && (
+              <div className="header-actions">
+                {loadedAt && (
+                  <span
+                    className="list-updated muted"
+                    title={`Last refreshed ${loadedAt.toLocaleString()}`}
+                  >
+                    Updated{' '}
+                    {loadedAt.toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })}
+                  </span>
+                )}
+                <button
+                  className="btn btn--small"
+                  onClick={() => reload()}
+                  disabled={loading}
+                  title="Reload the working solutions list"
+                >
+                  {loading ? 'Refreshing…' : '⟳ Refresh'}
+                </button>
+              </div>
+            )}
           </header>
 
       {actionError && (
@@ -871,27 +896,6 @@ function App() {
             >
               + New Working Solution
             </button>
-            <button
-              className="btn btn--small"
-              onClick={() => reload()}
-              disabled={loading}
-              title="Reload the working solutions list"
-            >
-              {loading ? 'Refreshing…' : '⟳ Refresh'}
-            </button>
-            {loadedAt && (
-              <span
-                className="list-updated muted"
-                title={`Last refreshed ${loadedAt.toLocaleString()}`}
-              >
-                Updated{' '}
-                {loadedAt.toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                })}
-              </span>
-            )}
             <button
               className="btn btn--small"
               onClick={() => void scanCollisions()}
