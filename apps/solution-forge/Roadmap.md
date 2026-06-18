@@ -33,19 +33,28 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 
 - [ ] ⭐ **Drift-Report über alles**: Compare über alle getrackten Solutions
       aggregiert (X missing in PROD, Y Status-Drift) mit CSV-Export.
-- [ ] **Layer-Inspektor** (`msdyn_componentlayer`): Aktive unmanaged Layer
-      über managed Komponenten in UAT/PROD aufdecken.
+- [x] **Layer-Inspektor** (`msdyn_componentlayer`): Aktive unmanaged Layer
+      über managed Komponenten in UAT/PROD aufdecken. *(Tab „Layer
+      Inspector")*
+- [x] **App-Sharing-Check**: Canvas Apps & Custom Pages einer Solution
+      daraufhin prüfen, mit welchen Usern/Teams sie in UAT/PROD geteilt sind
+      (`RetrieveSharedPrincipalsAndAccess`) — deployt-aber-nicht-geteilt
+      aufdecken. *(Tab „App Sharing")*
 - [ ] **Präfix-Wächter**: Komponenten mit fremdem Publisher-Präfix in einer
       Working Solution flaggen.
 - [ ] **Housekeeping-Cockpit**: Duplikate, Orphans, leere Solutions,
       „Work Item zu / Solution offen" als Aufräum-Seite mit Direkt-Aktionen.
-- [ ] **Compare: Inhalts-Drift** via Hash (`clientdata` / `xaml` / `content`)
-      + Side-by-side-Diff.
+- [x] **Compare: Inhalts-Drift** via Hash (`clientdata` / `xaml` / `content`)
+      + Side-by-side-Diff. *(Compare → „Check content drift" + ⇄ diff)*
 
 ## DevOps-Synergien (sobald der Service Principal steht, siehe TODO.md)
 
-- [ ] **Work-Item-Sync**: `sst_devopsworkitemstatus/-type`, Area/Iteration
-      Path automatisch aktuell halten; „WI: Done, Solution: offen" markieren.
+- [~] **Work-Item-Sync**: `sst_devopsworkitemstatus/-type`, Area/Iteration
+      Path automatisch aktuell halten. „WI: Done, Solution: offen" wird bereits
+      markiert (Badge „to be completed", liest den synchronisierten
+      `sst_devopsworkitemstatus`), und der **„Sync with DevOps"-Button** stößt
+      den Sync-Cloud-Flow on-demand an. Offen: automatischer/zeitgesteuerter
+      Sync ohne Klick, Area/Iteration-Path, Typ-Sync (SP, siehe TODO.md).
 - [ ] **Working Solution aus Work Item anlegen**: „Meine zugewiesenen Work
       Items" listen, Klick → Dialog vorbefüllt.
 - [ ] **Branch/PR-Verknüpfung**: PRs zur Branch-Konvention `feature/<id>` am
@@ -54,8 +63,9 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 
 ## Team & Komfort
 
-- [ ] **Merge-Historie als Tabelle** (statt nur „letzter Merge") — Grundlage
-      für die Release Notes.
+- [x] **Merge-Historie als Tabelle** (statt nur „letzter Merge") — Grundlage
+      für die Release Notes. *(Tabelle `sst_mergerun`, Detail-Panel der
+      Release-Solution)*
 - [ ] **Teams-Benachrichtigungen**: neuer Konflikt im Radar / Merge fertig →
       Post in den Dev-Channel.
 - [ ] **Notizen am Eintrag** (Annotations im Detail-Panel).
@@ -68,7 +78,36 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 
 - [x] Darstellungs-Schicht `ssid_workingsolution` (Join, Anlage, Nacherfassen,
       Re-Link, Typ-Pflege, Löschen mit Undo)
+- [x] „Mark completed": offene Working Solution auf „Deployment completed"
+      setzen, optional die unterliegende Solution löschen — mit 3s-Undo
+      (Restore + Wieder-Öffnen); erster Baustein Richtung Deployment-Kanban
 - [x] Kollisions-Radar, Komponenten-Suche, Work-Item-Gruppierung
 - [x] Merge mit Plan, Konflikt-Markierung und Status-Logging
-- [x] Compare über INT-11 / UAT / PROD
+- [x] Merge-Historie: jeder Merge schreibt eine `sst_mergerun`-Zeile (Counts +
+      Quell-Solutions + hinzugefügte Komponenten als kompaktes JSON in einer
+      Multiline-Spalte, keine Kind-Tabelle); im Detail der Release-Solution als
+      ausklappbare Tabelle (pro Lauf die Komponenten nach Typ gruppiert)
+- [x] Compare über INT-11 / UAT / PROD (Missing + Status drift; Gruppen
+      collapsible; Picker release-gefiltert)
+- [x] Layer Inspector: alle Komponenten-Typen, progressive Sektionen,
+      DEV-vs-Ziel-Diff, Existenz/Missing für alle Typen (vom Compare hierher);
+      Missing/Unmanaged-Filter-Chips; „↗ layers"-Absprung ins Maker-Portal des
+      Ziel-Env (direkt auf die solution-layers-Seite bei Tabellen, Canvas Apps,
+      Custom Pages, Cloud Flows, Workflows, Web Resources, Plugin Assemblies,
+      Plugin Steps, Custom APIs; sonst auf die Solution; Remove active
+      customizations bewusst dort, nicht in-app); EnvVars (380/381) +
+      Connection References (10064) ausgeblendet
+- [x] Navigation: Sidebar (Gruppen Manage/Validate) statt Tabs; geteilte
+      Validate-Auswahl (Solution + Ziel-Env) über Compare/Dependencies/Layers/
+      App Sharing (`ValidateWorkspace`)
 - [x] Standard-Filter Open/Tracked/Mine, Rollen-Gating Merge & Compare
+- [x] Layer Inspector: unmanaged Active-Layer über managed Komponenten in
+      UAT/PROD (`msdyn_componentlayer`)
+- [x] Compare-Inhalts-Drift: Hash der Definition + Side-by-side-Diff (⇄ diff)
+- [x] App Sharing: Canvas-App-/Custom-Page-Sharing über DEV/UAT/PROD
+      (POA via Konnektor-FetchXML; nur Releases, ohne Component Libraries)
+- [x] In-App-Anleitungen: **How-To** (Onboarding-Walk-through Workbench →
+      Anlegen → Merge → Validate) neben **Help** (Feature-Referenz), beide als
+      Sidebar-Footer-Menüpunkt + Overlay
+- [x] ALM Detective: phasenweiser Pre-Deployment-Audit (Dependency, Compare
+      inkl. Content Drift, Layer, App Sharing) mit Severity-Report

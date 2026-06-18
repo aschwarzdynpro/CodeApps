@@ -2,7 +2,10 @@
 
 Power Apps **Code App** zum Verwalten von Dataverse-Solutions während der
 Feature- und Bug-Entwicklung: Working Solutions anlegen, Komponenten
-einsehen und Feature-/Bug-Solutions in eine Deployment Solution mergen.
+einsehen, Feature-/Bug-Solutions in eine Deployment Solution mergen und
+Releases vor dem Deployment prüfen (Dependency Check, Layer Inspector,
+App Sharing) — gebündelt im **ALM Detective**, der die Checks phasenweise
+durchläuft und einen nach Kritikalität sortierten Bericht erstellt.
 
 ## Konzept
 
@@ -26,11 +29,29 @@ Findet sich zur Row keine echte Solution, wird das im Detail markiert
 
 Nach einem Merge setzt die App auf den Quell-Datensätzen automatisch
 `sst_mergeintodeploymentsolution`, den Zeitstempel und den
-Deployment-Status „Merged into Deployment Solution".
+Deployment-Status „Merged into Deployment Solution". Zusätzlich wird je
+Merge eine **Historien-Zeile** in der Tabelle `sst_mergerun` geschrieben
+(Counts, Quell-Solutions und die hinzugefügten Komponenten als kompaktes
+JSON in einer Multiline-Spalte — keine Kind-Tabelle). Im Detail einer
+Release-Solution erscheint sie als **Merge-Historie**-Tabelle; ein Klick auf
+eine Zeile öffnet ein Overlay mit den hinzugefügten Komponenten gruppiert
+nach Typ.
 
 ## Features
 
-- **Kollisions-Radar**: „Scan collisions" lädt die Komponenten aller
+- **Navigation**: linke Sidebar, gruppiert in **Manage** (Workbench, Merge)
+  und **Validate** (Compare, Dependencies, Layers, App Sharing); nur die
+  **Validate-Gruppe** ist rollen-gated (Deployment Manager) — Workbench und
+  Merge stehen allen offen. Im Validate-Bereich
+  wird die **Release-Solution einmal oben gewählt** und über alle vier Checks
+  geteilt (`ValidateWorkspace`); jeder Check hat darunter eine eigene Reihe
+  (Ziel-Env-Toggle bei Dependencies/Layers — geteilter `envKey` —, Env-Status
+  bei Compare/App Sharing) plus Run-Button und behält seine Ergebnisse.
+- **In-App-Anleitungen**: Sidebar-Footer mit **How-To** (Onboarding-Walk-
+  through für neue Kollegen — Solutions anlegen, was dabei passiert, mergen und
+  was dahintersteckt; `HowToPanel`) und **Help** (Feature-Referenz pro Tab;
+  `HelpPanel`), beide als Overlay.
+- **Kollisions-Radar**: „Scan collisions" lädt die Komponenten der **offenen**
   getrackten Working Solutions (ohne Releases) und markiert Komponenten,
   die in **mehr als einer** offenen Working Solution stecken — wer zuletzt
   deployt, überschreibt. Betroffene Solutions bekommen einen ⚠-Chip; die
@@ -38,32 +59,141 @@ Deployment-Status „Merged into Deployment Solution".
 - **Workbench**: Liste aller Working Solutions mit Typ-Filter (Feature /
   Bug / Deployment), Suche über Titel, Unique Name und ADO-ID. Mit dem
   Schalter **incl. components** durchsucht die Suche zusätzlich die
-  Komponenten-Anzeigenamen aller Solutions („welche Solutions enthalten
-  ‚SST | Monteur'?") — dafür wird beim Aktivieren einmalig ein
-  Komponenten-Index aufgebaut; Treffer werden als Chips an der Solution
-  angezeigt.
+  Komponenten-Anzeigenamen der **offenen** Working Solutions („welche
+  enthalten ‚SST | Monteur'?") — dafür wird beim Aktivieren einmalig ein
+  Komponenten-Index über die offenen Working Solutions aufgebaut; Treffer
+  werden als Chips an der Solution angezeigt. Beide Funktionen sind damit auf
+  den aktiven Satz beschränkt (nicht alle Solutions der Umgebung).
 - **Anlegen**: Dialog mit Typ, ADO-ID, Titel, Beschreibung, Publisher und
   Live-Preview des Unique Name inkl. Duplikat-Prüfung. Die Solution wird
   real in Dataverse erzeugt und ist sofort im Maker-Portal sichtbar.
-- **Detail**: Metadaten, Komponenten der Solution gruppiert nach Typ in
-  aufklappbaren Gruppen (Anzeigenamen via `msdyn_solutioncomponentsummary`,
-  derselben Quelle wie im Maker-Portal), Deep-Link **Open in Maker Portal**
-  (Environment-ID kommt zur Laufzeit aus dem Host-Kontext) sowie ein
-  Azure-DevOps-Link zum Work Item.
+- **Detail**: Klick auf eine Zeile blendet die Details **inline direkt unter
+  dem Eintrag** ein (Fade-in); erneuter Klick auf dieselbe Zeile blendet sie
+  wieder aus — so bleibt die Tabelle über die volle Breite. **Command Bar**
+  mit den Aktionen (Open in Maker Portal links,
+  Mark completed / Delete als Icons rechts), Metadaten, Komponenten der
+  Solution gruppiert nach Typ in aufklappbaren Gruppen (Anzeigenamen via
+  `msdyn_solutioncomponentsummary`, derselben Quelle wie im Maker-Portal),
+  Deep-Link **Open in Maker Portal** (Environment-ID kommt zur Laufzeit aus dem
+  Host-Kontext) sowie ein Azure-DevOps-Link zum Work Item.
+- **„To be completed"-Check**: Beim Laden wird je offener Working Solution der
+  synchronisierte DevOps-Work-Item-Status (`sst_devopsworkitemstatus`) geprüft;
+  ist er *Closed/Done*, wird der Eintrag in der Liste als **„to be completed"**
+  markiert und die Mark-completed-Aktion hervorgehoben (abgeleitetes Flag,
+  nicht persistiert).
+- **Sync with DevOps**: Button in der Workbench-Toolbar ruft den Cloud Flow
+  *PA | MANUAL | Working Solution | Sync DevOps Work Item Status* auf (Power-
+  Apps-Trigger, via `power-apps add-flow` generierter Service → `shared_logic-
+  flows`). Während der Laufzeit eine In-Progress-Anzeige; nach Abschluss
+  `reload()`, sodass der „to be completed"-Abgleich gegen die frisch
+  synchronisierten Status neu rechnet.
+- **Offen/Geschlossen**: Der **Open-Filter** richtet sich nach dem `statecode`
+  des Working-Solution-Records (0 = offen, 1 = geschlossen) — der
+  Deployment-Status (z. B. „Merged into Deployment Solution") spielt dafür
+  **keine** Rolle. Inaktive Records werden mitgeladen und nur vom Open-Toggle
+  ausgeblendet.
+- **Owner zuweisen**: In der Detail-Ansicht eines getrackten Eintrags
+  reassignt **👤 Assign** den Record-Owner — „Assign to me" oder per
+  Namenssuche einen User wählen (`assignOwner` setzt `ownerid@odata.bind`;
+  `searchUsers` über `SystemusersService`).
+- **Mark completed**: aktive getrackte Einträge auf
+  `ssid_deploymentstatus = Deployment completed` (500870003) setzen (reines
+  Status-Label — schließt den Eintrag nicht, das macht der statecode). Im
+  Dialog wird gefragt, ob die unterliegende Solution gelöscht werden soll;
+  falls ja, läuft das (wie beim Delete) über das 3-Sekunden-Undo — Statuswechsel
+  und Solution-Delete werden erst nach Ablauf committed, Undo lässt beides aus.
+- **Löschen mit Undo**: Eintrag entfernen (Record, Solution oder beides) mit
+  3-Sekunden-Restore-Fenster, bevor der harte Delete läuft.
 - **Merge**: Deployment Solution als Ziel wählen, Feature-/Bug-Solutions
   ankreuzen, Komponenten-Plan prüfen (Konflikte markiert, Duplikate werden
   übersprungen) und mergen (`AddSolutionComponent` je Komponente).
-- **Compare (ALM)**: Solution wählen → Cloud Flows, Workflows, Business
-  Rules, Plugin Steps und Scripts werden über **DEV / UAT / PROD**
-  verglichen (Status, modifiedon, managed/unmanaged). Abweichungen sind
-  markiert und filterbar: *Missing*, *Status drift*, *Unmanaged in target*.
-  Cross-Env-Zugriff über den Microsoft-Dataverse-Konnektor
-  (`ListRecordsWithOrganization`, läuft mit den Rechten des angemeldeten
-  Benutzers in der jeweiligen Umgebung). Umgebungen sind aktuell hart in
-  `config.ts` hinterlegt (`ENVIRONMENTS`) — geplante Ausbaustufe ist eine
-  Steuertabelle. Hinweis: `modifiedon` wird bewusst nicht als Drift-Signal
-  gewertet (Solution-Import überschreibt es); Inhalts-Hashes
-  (clientdata/xaml/content) sind die nächste Ausbaustufe.
+- **Merge-Regeln je Release** (optional): zwei Multi-Select-Choices am
+  Release-Record (Optionswerte = `componenttype`-Codes) — **Allow-Liste**
+  `sst_allowedmergetypes` (leer = alle) und **Exclude-Liste**
+  `sst_excludedmergetypes`. Mergebar ist ein Typ, wenn (Allow leer ODER drin)
+  UND nicht in Exclude. Verwaltet im eigenen **Merge-Rules**-Tab
+  (Deployment-Manager-gated, Allow-/Exclude-Chips je Release); die
+  Workbench-Detailansicht zeigt nur eine **Read-only-Übersicht**. Blockierte
+  Komponenten werden im Plan ausgegraut und beim Merge als „excluded by merge
+  rules" gezählt. Das App-Array `MERGEABLE_COMPONENT_TYPES` spiegelt die
+  Choice-Optionen.
+- **Compare (ALM)**: Release-Solution wählen → Cloud Flows, Workflows,
+  Business Rules, Plugin Steps und Scripts werden über **DEV / UAT / PROD**
+  verglichen, gruppiert nach Typ in aufklappbaren Sektionen. Abweichungen
+  sind markiert und filterbar: *Missing* (nicht im Ziel) und *Status drift*
+  (z. B. Flow Draft in PROD, Plugin Step deaktiviert). Cross-Env-Zugriff
+  über den Microsoft-Dataverse-Konnektor (`ListRecordsWithOrganization`,
+  läuft mit den Rechten des angemeldeten Benutzers in der jeweiligen
+  Umgebung). Umgebungen aktuell hart in `config.ts` (`ENVIRONMENTS`).
+  Hinweis: `modifiedon` wird bewusst nicht als Drift-Signal gewertet
+  (Solution-Import überschreibt es). **Unmanaged Layer, die Existenz aller
+  übrigen Komponenten-Typen und der Definitions-Diff** sind in den
+  **Layer Inspector** gewandert.
+- **Dependency Check**: Release-Solution gegen UAT/PROD prüfen
+  (`RetrieveMissingDependencies`) — listet benötigte Komponenten, die weder
+  in der Solution noch im Ziel vorhanden sind (Import würde scheitern),
+  inkl. **Add to Solution** je fehlender Komponente. Name-gematchte Typen
+  (EnvVars, Connection References, Web Resources, Canvas Apps) zählen als
+  vorhanden, wenn das Ziel sie unter gleichem Namen kennt.
+- **Layer Inspector**: **alle** Komponenten einer Release-Solution gegen die
+  Layer-Stacks im Ziel-Env (UAT/PROD) prüfen (virtuelle Tabelle
+  `msdyn_componentlayer`, eine Abfrage pro Komponente). Verdict je Komponente:
+  **unmanaged „Active"-Layer über managed** (direkte Customization, maskiert
+  Deployments), **unmanaged-only**, **Missing** (= Existenz-Check: zeigt, ob
+  Plugin Assemblies, Custom APIs etc. überhaupt deployed sind) oder *clean*.
+  **Environment Variables (380/381) und Connection References (10064) werden
+  übersprungen** — sie tragen per Definition einen Active-Layer (Wert bzw.
+  Connection) und wären sonst nur False Positives (`LAYER_IGNORED_TYPES`).
+  Ergebnisse erscheinen **pro Komponententyp, sobald die Sektion fertig ist**
+  (Rest lädt im Hintergrund); Sektionen sind aufklappbar. Zwei Filter-Chips
+  über der Liste (**Missing** / **Unmanaged layer**) blenden die Ergebnisse
+  auf die jeweilige Kategorie ein. Für diffbare Typen
+  (Flows/Workflows/Business Rules/Scripts) ein **⇄ diff DEV vs. Ziel**
+  (Side-by-side). Klassische Typnamen statisch gemappt, solution-aware Typen
+  dynamisch aus `solutioncomponentdefinition`; Typen ohne Layer-Daten bleiben
+  „No layer data". Zeilen mit unmanaged Layer
+  bekommen einen Absprung ins Maker-Portal des Ziel-Environments: für
+  Tabellen, Canvas Apps, Custom Pages, Cloud Flows, Workflows/BPF/Actions,
+  Web Resources, Plugin Assemblies, Plugin Steps und Custom APIs (inkl.
+  Request-/Response-Parameter) direkt auf die **solution layers**-Seite der
+  Komponente (**↗ layers in {env}**), sonst auf die Solution
+  (**↗ solution in {env}**) →
+  Komponente wählen → „Advanced → See solution layers". Die Ziel-Env-Solution-
+  ID wird per `uniquename` aufgelöst (IDs divergieren je Env); die Maker-Route
+  je Typ baut `config.makerLayerPath` (Canvas App vs. Custom Page über
+  `canvasapptype`, Cloud Flow vs. Process über Workflow-`category` — dafür je
+  ein Bulk-Lookup auf `canvasapps`/`workflows`). Entity-Sub-Komponenten
+  (Forms/Views/Columns/Business Rules) brauchen die Tabellen-ID in der Route
+  und fallen vorerst auf die Solution-Objektliste zurück, ebenso ungemappte
+  Typen. Das Entfernen passiert bewusst im Portal, nicht in der App (nicht
+  umkehrbar). Eine in-app-Variante über `BulkRemoveActiveCustomizations` wäre
+  technisch möglich, liefert aber keinen Erfolgs-Payload und ist destruktiv
+  cross-env (`RemoveActiveCustomizations` ist im Web API gar nicht erreichbar —
+  nur SOAP); Details in CLAUDE.md gotcha #8.
+- **App Sharing**: Canvas Apps und Custom Pages einer Solution daraufhin
+  prüfen, mit wem sie in DEV/UAT/PROD geteilt sind. Solution-Import
+  überträgt **kein** User-Sharing — eine deployte Canvas App erreicht
+  niemanden, bis sie im Ziel geteilt wird; genau diese Lücke wird oben
+  hervorgehoben. Cross-Env-Match über den import-stabilen `canvasapp.name`;
+  die Prinzipale kommen aus der Sharing-Tabelle `principalobjectaccess`
+  (per FetchXML über `ListRecordsWithOrganization`, gefiltert auf
+  `objectid`), je Umgebung über den bereits verdrahteten Konnektor — keine
+  neue Data Source. (Der direkte Weg `RetrieveSharedPrincipalsAndAccess`
+  scheidet aus: der Konnektor kann nur POST-Actions cross-env aufrufen,
+  keine GET-Functions.) Custom Pages (`canvasapptype 2`) erhalten Zugriff
+  über die Rollen der modellgetriebenen App, nicht über direktes Sharing —
+  „nicht geteilt" ist dort normal.
+- **ALM Detective**: Pre-Deployment-Audit, das die ausgewählten ALM-Checks
+  (Dependency Check, Compare inkl. Content Drift, Layer Inspector, App
+  Sharing) phasenweise gegen eine Release-Solution laufen lässt und die
+  Ergebnisse zu **einem nach Kritikalität sortierten Bericht** bündelt.
+  Ein Phasen-Stepper zeigt den Fortschritt je Check; Findings sind nach
+  Severity gruppiert/filterbar (Critical: fehlende Dependency; High:
+  unmanaged Layer über managed Komponente, Canvas App nicht geteilt;
+  Medium: Status-/Content-Drift; Low: Missing in Target, unmanaged-only,
+  Lookup-Fehler). Kompakter als die Einzelseiten — für die volle Tiefe den
+  jeweiligen Feature-Tab öffnen. Der Detective orchestriert nur die
+  vorhandenen Services (kein eigener Datenpfad).
 
 ## Architektur
 
@@ -80,7 +210,11 @@ Die UI hängt nur am Interface `SolutionService` in
   `rootcomponentbehavior` (Fallback auf die Roh-Tabelle, falls die Summary
   nichts liefert)
 - `mergeIntoDeployment(target, sources)` – `AddSolutionComponent` pro
-  Komponente, bereits vorhandene Objekte werden übersprungen
+  Komponente, bereits vorhandene Objekte werden übersprungen; schreibt
+  anschließend eine `sst_mergerun`-Historien-Zeile
+- `listMergeRuns(targetRecordId)` – Merge-Historie einer Release-Solution
+  (`sst_mergerun`-Zeilen, neueste zuerst; hinzugefügte Komponenten aus dem
+  JSON-Feld geparst)
 
 Implementierungen:
 

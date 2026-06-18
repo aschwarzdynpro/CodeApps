@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
 import type {
   DependencyCheckResult,
@@ -6,12 +6,18 @@ import type {
 } from '../types/dependency'
 import { ENVIRONMENTS } from '../config'
 import { solutionService } from '../services/solutionService'
-import { SolutionSelect } from './SolutionSelect'
 import { shortGuid } from '../utils/format'
 
 interface Props {
-  solutions: WorkingSolution[]
+  /** Release solution + target env from the shared Validate selector. */
+  solution: WorkingSolution
+  envKey: 'uat' | 'prod'
+  onEnvChange: (envKey: 'uat' | 'prod') => void
 }
+
+const targetEnvs = ENVIRONMENTS.filter(
+  (e) => e.key === 'uat' || e.key === 'prod',
+)
 
 /**
  * Dependency check for a release solution: RetrieveMissingDependencies
@@ -19,16 +25,7 @@ interface Props {
  * checked for presence in the selected target environment. Missing ones
  * can be pulled into the solution directly.
  */
-export function DependencyCheck({ solutions }: Props) {
-  const releases = solutions.filter(
-    (s) => s.kind === 'deployment' && !s.solutionMissing && s.recordId,
-  )
-  const targetEnvs = ENVIRONMENTS.filter(
-    (e) => e.key === 'uat' || e.key === 'prod',
-  )
-
-  const [solutionId, setSolutionId] = useState('')
-  const [envKey, setEnvKey] = useState<'uat' | 'prod'>('uat')
+export function DependencyCheck({ solution, envKey, onEnvChange }: Props) {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState('')
   const [result, setResult] = useState<DependencyCheckResult | null>(null)
@@ -36,11 +33,9 @@ export function DependencyCheck({ solutions }: Props) {
   const [addBusyId, setAddBusyId] = useState<string | null>(null)
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
   const [addError, setAddError] = useState<string | null>(null)
-
-  const solution = releases.find((s) => s.id === solutionId) ?? null
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
   const run = async () => {
-    if (!solution) return
     setRunning(true)
     setResult(null)
     setError(null)
@@ -62,7 +57,6 @@ export function DependencyCheck({ solutions }: Props) {
   }
 
   const addToSolution = async (item: DependencyItem) => {
-    if (!solution) return
     setAddBusyId(item.requiredObjectId)
     setAddError(null)
     try {
@@ -80,9 +74,25 @@ export function DependencyCheck({ solutions }: Props) {
   }
 
   const envLabel =
-    targetEnvs.find((e) => e.key === envKey)?.label ?? envKey.toUpperCase()
+    ENVIRONMENTS.find((e) => e.key === envKey)?.label ?? envKey.toUpperCase()
   const missing = result?.items.filter((i) => i.targetStatus === 'missing') ?? []
   const others = result?.items.filter((i) => i.targetStatus !== 'missing') ?? []
+
+  // Missing dependencies grouped by required component type — collapsible
+  // sections, like the Workbench component overview.
+  const missingByType = useMemo(() => {
+    const groups = new Map<string, DependencyItem[]>()
+    for (const item of result?.items ?? []) {
+      if (item.targetStatus !== 'missing') continue
+      const list = groups.get(item.requiredTypeName)
+      if (list) list.push(item)
+      else groups.set(item.requiredTypeName, [item])
+    }
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))
+  }, [result])
+  const isOpen = (typeName: string) => !collapsed[typeName]
+  const toggle = (typeName: string) =>
+    setCollapsed((prev) => ({ ...prev, [typeName]: isOpen(typeName) }))
 
   const renderItem = (item: DependencyItem) => {
     const added = addedIds.has(item.requiredObjectId)
@@ -92,7 +102,6 @@ export function DependencyCheck({ solutions }: Props) {
         className="dep-row"
         title={item.requiredObjectId}
       >
-        <span className="merge-plan-type">{item.requiredTypeName}</span>
         <span className="dep-name">
           {item.requiredName ?? shortGuid(item.requiredObjectId)}
           <span className="dep-required-by muted">
@@ -119,40 +128,25 @@ export function DependencyCheck({ solutions }: Props) {
 
   return (
     <div>
-      <div className="card compare-controls">
-        <div className="compare-picker">
-          <span className="form-label">Release solution</span>
-          <SolutionSelect
-            options={releases}
-            value={solutionId}
-            onChange={(id) => {
-              setSolutionId(id)
-              setResult(null)
-              setError(null)
-            }}
-            placeholder="Select a release solution…"
-          />
+      <div className="validate-toolbar">
+        <div className="chips" title="Target environment for the check">
+          {targetEnvs.map((env) => (
+            <button
+              key={env.key}
+              className={`chip ${envKey === env.key ? 'chip--active' : ''}`}
+              onClick={() => onEnvChange(env.key as 'uat' | 'prod')}
+            >
+              {env.label}
+            </button>
+          ))}
         </div>
-        <div className="dep-controls">
-          <div className="chips">
-            {targetEnvs.map((env) => (
-              <button
-                key={env.key}
-                className={`chip ${envKey === env.key ? 'chip--active' : ''}`}
-                onClick={() => setEnvKey(env.key as 'uat' | 'prod')}
-              >
-                {env.label}
-              </button>
-            ))}
-          </div>
-          <button
-            className="btn btn--primary"
-            disabled={!solution || running}
-            onClick={() => void run()}
-          >
-            {running ? `Checking… ${progress}` : 'Dependency Check'}
-          </button>
-        </div>
+        <button
+          className="btn btn--primary"
+          disabled={running}
+          onClick={() => void run()}
+        >
+          {running ? `Checking… ${progress}` : 'Dependency Check'}
+        </button>
       </div>
 
       {error && <div className="state state--error">{error}</div>}
@@ -183,7 +177,31 @@ export function DependencyCheck({ solutions }: Props) {
                 Missing in {envLabel} ({missing.length}) — import would fail
               </h3>
               {addError && <div className="state state--error">{addError}</div>}
-              <ul className="dep-list">{missing.map(renderItem)}</ul>
+              {missingByType.map(([typeName, items]) => {
+                const open = isOpen(typeName)
+                return (
+                  <div key={typeName} className="component-group">
+                    <button
+                      className="component-group-toggle"
+                      onClick={() => toggle(typeName)}
+                      aria-expanded={open}
+                    >
+                      <span
+                        className={`component-group-chevron ${
+                          open ? 'component-group-chevron--open' : ''
+                        }`}
+                      >
+                        ▸
+                      </span>
+                      <span className="component-group-title">{typeName}</span>
+                      <span className="muted">({items.length})</span>
+                    </button>
+                    {open && (
+                      <ul className="dep-list">{items.map(renderItem)}</ul>
+                    )}
+                  </div>
+                )
+              })}
             </section>
           )}
 
@@ -207,9 +225,9 @@ export function DependencyCheck({ solutions }: Props) {
 
       {!running && !result && !error && (
         <div className="state">
-          Pick a release solution and a target environment — the check lists
-          required components the solution doesn't contain and whether they
-          exist in the target.
+          Click <strong>Dependency Check</strong> — required components{' '}
+          {solution.title} doesn't contain are listed and checked for presence
+          in {envLabel}.
         </div>
       )}
     </div>

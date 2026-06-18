@@ -1,13 +1,17 @@
 import type {
   CreateWorkingSolutionInput,
   MergeResult,
+  MergeRun,
+  MergeRunComponent,
   PublisherInfo,
   SolutionComponentInfo,
   SolutionKind,
   TrackSolutionInput,
+  UserRef,
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
+import { isClosedWorkItemState } from '../types/solution'
 import type { SolutionService } from './solutionService'
 import { mockSolutionService } from './mockSolutionService'
 import { hostUserHints, powerModeReady } from '../PowerProvider'
@@ -17,23 +21,41 @@ import {
   extractDevOpsId,
 } from '../utils/naming'
 import { shortGuid } from '../utils/format'
-import { DEVOPS_PANEL_ENABLED, ENVIRONMENTS, makerSolutionUrl } from '../config'
+import {
+  DEVOPS_PANEL_ENABLED,
+  ENVIRONMENTS,
+  makerLayerPath,
+  makerSolutionUrl,
+} from '../config'
 import { RetrieveMissingDependenciesService } from './retrieveMissingDependenciesService'
+import { LAYER_IGNORED_TYPES, layerComponentNames } from './componentLayerNames'
 import type {
   DependencyCheckResult,
   DependencyItem,
 } from '../types/dependency'
+import type {
+  ComponentLayerInfo,
+  ComponentLayerStack,
+  LayerInspectionResult,
+  LayerSection,
+} from '../types/layers'
 import { SolutionsService } from '../generated/services/SolutionsService'
 import { PublishersService } from '../generated/services/PublishersService'
 import { SolutioncomponentsService } from '../generated/services/SolutioncomponentsService'
 import { Msdyn_solutioncomponentsummariesService } from '../generated/services/Msdyn_solutioncomponentsummariesService'
 import type { Msdyn_solutioncomponentsummaries } from '../generated/models/Msdyn_solutioncomponentsummariesModel'
 import { AddSolutionComponentService } from '../generated/services/AddSolutionComponentService'
+import { PA_MANUAL_WorkingSolution_SyncDevOpsWorkItemStatusService } from '../generated/services/PA_MANUAL_WorkingSolution_SyncDevOpsWorkItemStatusService'
 import { Ssid_workingsolutionsService } from '../generated/services/Ssid_workingsolutionsService'
 import type {
   Ssid_workingsolutions,
   Ssid_workingsolutionsBase,
 } from '../generated/models/Ssid_workingsolutionsModel'
+import { Sst_mergerunsService } from '../generated/services/Sst_mergerunsService'
+import type {
+  Sst_mergeruns,
+  Sst_mergerunsBase,
+} from '../generated/models/Sst_mergerunsModel'
 import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
 import { SystemusersService } from '../generated/services/SystemusersService'
 import { RolesService } from '../generated/services/RolesService'
@@ -155,11 +177,24 @@ const WORKING_ROW_SELECT = [
   'ssid_uniquesolutionname',
   'sst_type_opt',
   'sst_devopsworkitemtype',
+  'sst_devopsworkitemstatus',
   'ssid_deploymentstatus',
+  'statecode',
+  'sst_allowedmergetypes',
+  'sst_excludedmergetypes',
   '_ownerid_value',
   'createdon',
   'modifiedon',
 ]
+
+/** Parse a multi-select choice value ("1,2,61") into component-type codes. */
+function parseTypeCodes(value: unknown): number[] {
+  if (typeof value !== 'string' || !value.trim()) return []
+  return value
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n))
+}
 
 /**
  * Derive the kind from the synced DevOps work item type whenever
@@ -376,6 +411,44 @@ function toComponentInfo(raw: Solutioncomponents): SolutionComponentInfo {
   }
 }
 
+/**
+ * Map one `sst_mergerun` row to the domain {@link MergeRun}. The added
+ * components live denormalized as a compact JSON array in
+ * sst_addedcomponents_txt — parsed defensively so a malformed/legacy value
+ * just yields an empty component list instead of throwing.
+ */
+function toMergeRun(raw: Sst_mergeruns): MergeRun {
+  const row = raw as Sst_mergeruns & Record<string, unknown>
+  let components: MergeRunComponent[] = []
+  const json = raw.sst_addedcomponents_txt
+  if (json) {
+    try {
+      const parsed = JSON.parse(json)
+      if (Array.isArray(parsed)) {
+        components = parsed.filter(
+          (c): c is MergeRunComponent =>
+            !!c && typeof c.t === 'string' && typeof c.n === 'string',
+        )
+      }
+    } catch {
+      // Tolerate non-JSON text — the counts still tell the story.
+    }
+  }
+  return {
+    id: raw.sst_mergerunid,
+    createdOn: raw.createdon ?? '',
+    createdBy: formatted(row, '_createdby_value') ?? raw.createdbyname,
+    added: Number(raw.sst_added_int ?? 0),
+    skipped: Number(raw.sst_skipped_int ?? 0),
+    errors: Number(raw.sst_errors_int ?? 0),
+    sources: (raw.sst_sources_txt ?? '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    components,
+  }
+}
+
 /** Page through a generated getAll until the result set is exhausted. */
 async function fetchAll<T>(
   getAll: (options?: IGetAllOptions) => Promise<IOperationResult<T[]>>,
@@ -399,15 +472,15 @@ async function fetchAll<T>(
 }
 
 export class DataverseSolutionService implements SolutionService {
-  /** Active rows of the ssid_workingsolution presentation table. */
+  /**
+   * Rows of the ssid_workingsolution presentation table — active AND inactive.
+   * Open/closed is derived from statecode (0 = open, 1 = closed), so inactive
+   * rows are loaded too and just filtered out by the workbench's Open toggle.
+   */
   private async fetchWorkingRows(): Promise<Ssid_workingsolutions[]> {
-    const rows = await fetchAll(
-      (o) => Ssid_workingsolutionsService.getAll(o),
-      {
-        select: WORKING_ROW_SELECT,
-        filter: 'statecode eq 0',
-      },
-    )
+    const rows = await fetchAll((o) => Ssid_workingsolutionsService.getAll(o), {
+      select: WORKING_ROW_SELECT,
+    })
     return rows ?? []
   }
 
@@ -428,7 +501,7 @@ export class DataverseSolutionService implements SolutionService {
           // Working solutions are always unmanaged; isvisible drops the
           // hidden system containers (Active, Basic, …).
           filter: 'ismanaged eq false and isvisible eq true',
-          orderBy: ['modifiedon desc'],
+          orderBy: ['createdon desc'],
         }),
         this.fetchWorkingRows().catch((err) => {
           console.warn('[solutions] working-solution rows failed:', err)
@@ -487,6 +560,15 @@ export class DataverseSolutionService implements SolutionService {
             raw.ssid_deploymentstatus !== undefined
               ? Number(raw.ssid_deploymentstatus)
               : undefined,
+          // 0 = active/open, 1 = inactive/closed — drives the Open filter.
+          recordStateCode:
+            raw.statecode !== undefined ? Number(raw.statecode) : undefined,
+          allowedMergeTypes: parseTypeCodes(row.sst_allowedmergetypes),
+          excludedMergeTypes: parseTypeCodes(row.sst_excludedmergetypes),
+          // Open record + closed DevOps work item → ready to be completed.
+          toBeCompleted:
+            Number(raw.statecode) === 0 &&
+            isClosedWorkItemState(raw.sst_devopsworkitemstatus),
           ...(solution ? {} : { solutionMissing: true as const }),
         })
       }
@@ -494,7 +576,8 @@ export class DataverseSolutionService implements SolutionService {
       for (const solution of solutions) {
         if (!linkedSolutionIds.has(solution.id)) result.push(solution)
       }
-      return result.sort((a, b) => b.modifiedOn.localeCompare(a.modifiedOn))
+      // Newest created first.
+      return result.sort((a, b) => b.createdOn.localeCompare(a.createdOn))
     } catch (err) {
       console.warn('[solutions] listSolutions() threw, falling back to mock:', err)
       return mockSolutionService.listSolutions()
@@ -674,6 +757,174 @@ export class DataverseSolutionService implements SolutionService {
     }
   }
 
+  /** Set the deployment status (e.g. completed / reopened) on a record. */
+  async setDeploymentStatus(
+    recordId: string,
+    statusCode: number,
+  ): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.setDeploymentStatus(recordId, statusCode)
+    const result = await Ssid_workingsolutionsService.update(
+      recordId,
+      {
+        ssid_deploymentstatus: statusCode,
+      } as unknown as Partial<
+        Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+      >,
+    )
+    if (result && result.success === false) {
+      console.warn('[solutions] deployment status update failed:', result)
+      throw new Error('Updating the deployment status failed.')
+    }
+  }
+
+  /**
+   * Set a release's merge rules on its record: the allow-list and the
+   * exclude-list (component-type codes). An empty list clears that column.
+   * A type is mergeable when (allow empty or in allow) AND not in exclude.
+   */
+  async setMergeTypeRules(
+    recordId: string,
+    allowed: number[],
+    excluded: number[],
+  ): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.setMergeTypeRules(recordId, allowed, excluded)
+    const result = await Ssid_workingsolutionsService.update(
+      recordId,
+      {
+        // Multi-select choice: comma-separated values, or null to clear.
+        sst_allowedmergetypes: allowed.length ? allowed.join(',') : null,
+        sst_excludedmergetypes: excluded.length ? excluded.join(',') : null,
+      } as unknown as Partial<
+        Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+      >,
+    )
+    if (result && result.success === false) {
+      console.warn('[solutions] merge type rules update failed:', result)
+      throw new Error('Updating the merge type rules failed.')
+    }
+  }
+
+  /** Active users matching a name/login fragment, for the owner picker. */
+  async searchUsers(query: string): Promise<UserRef[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return mockSolutionService.searchUsers(query)
+    const q = query.trim()
+    if (q.length < 2) return []
+    try {
+      const escaped = q.replace(/'/g, "''")
+      const result = await SystemusersService.getAll({
+        select: ['systemuserid', 'fullname', 'domainname'],
+        filter:
+          `isdisabled eq false and ` +
+          `(contains(fullname,'${escaped}') or contains(domainname,'${escaped}'))`,
+        orderBy: ['fullname asc'],
+        top: 20,
+      })
+      if (!result.success || !result.data) return []
+      return result.data
+        .map((u) => {
+          const row = u as {
+            systemuserid?: string
+            fullname?: string
+            domainname?: string
+          }
+          return {
+            id: row.systemuserid ?? '',
+            name: row.fullname ?? '',
+            username: row.domainname ?? '',
+          }
+        })
+        .filter((u) => u.id && u.name)
+    } catch (err) {
+      console.warn('[solutions] user search failed:', err)
+      return []
+    }
+  }
+
+  /** Reassign a working-solution record to a systemuser. */
+  async assignOwner(recordId: string, userId: string): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.assignOwner(recordId, userId)
+    const result = await Ssid_workingsolutionsService.update(
+      recordId,
+      {
+        'ownerid@odata.bind': `/systemusers(${userId})`,
+      } as unknown as Partial<
+        Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+      >,
+    )
+    if (result && result.success === false) {
+      console.warn('[solutions] owner assign failed:', result)
+      throw new Error('Reassigning the owner failed.')
+    }
+  }
+
+  /**
+   * Trigger the "Sync DevOps Work Item Status" cloud flow (Power Apps trigger,
+   * invoked through the generated flow service). The flow writes the latest
+   * DevOps work-item state onto each working solution's
+   * sst_devopsworkitemstatus; the caller then reloads to re-derive the
+   * "to be completed" flags.
+   */
+  async syncDevOpsWorkItemStatus(): Promise<number> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.syncDevOpsWorkItemStatus()
+    const result =
+      await PA_MANUAL_WorkingSolution_SyncDevOpsWorkItemStatusService.Run({})
+    if (!result.success) {
+      console.warn('[devops] sync flow failed:', result)
+      const detail = (result as { error?: { message?: string } }).error?.message
+      throw new Error(
+        `The DevOps sync flow failed${detail ? ` — ${detail}` : ''}.`,
+      )
+    }
+    return result.data?.count ?? 0
+  }
+
+  /** Delete only the real solution (container), keeping the record. */
+  async deleteUnderlyingSolution(solutionId: string): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.deleteUnderlyingSolution(solutionId)
+    if (!solutionId || solutionId.startsWith('missing-')) return
+    await SolutionsService.delete(solutionId)
+    await this.assertSolutionDeleted(solutionId)
+  }
+
+  /**
+   * Confirm a solution delete actually took effect. The native client batches
+   * deletes, and a rejected sub-request still comes back inside an HTTP 200
+   * `$batch` envelope — so the delete await never throws even when Dataverse
+   * refused it (e.g. 0x80071151 "another solution import/uninstall is
+   * running"). We therefore re-read the solution: if it's still there the
+   * delete failed, and we throw a readable reason for the UI to surface.
+   */
+  private async assertSolutionDeleted(solutionId: string): Promise<void> {
+    let stillExists = false
+    try {
+      const result = await SolutionsService.get(solutionId, {
+        select: ['solutionid'],
+      })
+      stillExists = !!(result.success && result.data)
+    } catch {
+      // A failed read (the row is gone → 404) is the success case.
+      return
+    }
+    if (stillExists) {
+      throw new Error(
+        'Dataverse rejected the removal — the solution still exists. This ' +
+          'usually means another solution import or uninstall is running at ' +
+          'the moment. Please try again shortly.',
+      )
+    }
+  }
+
   /** Point an orphaned record at an existing solution. */
   async linkSolution(
     recordId: string,
@@ -806,7 +1057,7 @@ export class DataverseSolutionService implements SolutionService {
     orgUrl: string | null,
     entitySet: string,
     select: string,
-    filter: string,
+    filter?: string,
   ): Promise<Row[]> {
     // "Current environment" queries also go through WithOrganization (with
     // the host environment's own URL): the plain ListRecords variant has
@@ -1064,6 +1315,263 @@ export class DataverseSolutionService implements SolutionService {
     }
   }
 
+  /**
+   * Layer stack of one component in the target org. The virtual table
+   * requires both filter conditions; the component id is the plain GUID
+   * (no braces). An empty result means the component has no layers there,
+   * i.e. it doesn't exist in the target.
+   */
+  private async fetchLayerStack(
+    orgUrl: string,
+    component: SolutionComponentInfo,
+    componentName: string,
+  ): Promise<ComponentLayerStack> {
+    // msdyn_solutionversion is NOT a declared OData property (selecting it
+    // fails with 0x80060888) — but the virtual provider returns it in the
+    // payload anyway, so it is read opportunistically below.
+    const rows = await this.queryRows(
+      orgUrl,
+      'msdyn_componentlayers',
+      'msdyn_componentlayerid,msdyn_solutionname,msdyn_publishername,msdyn_order',
+      `msdyn_componentid eq '${component.objectId}' and ` +
+        `msdyn_solutioncomponentname eq '${componentName.replace(/'/g, "''")}'`,
+    )
+    const layers: ComponentLayerInfo[] = rows
+      .map((row) => ({
+        id: str(row.msdyn_componentlayerid),
+        solutionName: str(row.msdyn_solutionname),
+        publisherName: str(row.msdyn_publishername) || undefined,
+        solutionVersion: str(row.msdyn_solutionversion) || undefined,
+        order: Number(row.msdyn_order ?? 0),
+      }))
+      .sort((a, b) => b.order - a.order)
+    if (layers.length === 0) return { component, verdict: 'absent', layers }
+    const hasActive = layers.some((l) => l.solutionName === 'Active')
+    const hasManaged = layers.some((l) => l.solutionName !== 'Active')
+    const verdict = hasActive
+      ? hasManaged
+        ? 'overridden'
+        : 'unmanagedOnly'
+      : 'clean'
+    return { component, verdict, layers }
+  }
+
+  /**
+   * Layer inspector: every component of the solution is checked for an
+   * unmanaged "Active" layer in the target environment. One layer query
+   * per component (the virtual table only answers per component), so the
+   * progress callback matters for larger solutions.
+   */
+  async inspectLayers(
+    solution: WorkingSolution,
+    envKey: 'uat' | 'prod',
+    onProgress?: (done: number, total: number) => void,
+    onSection?: (section: LayerSection) => void,
+  ): Promise<LayerInspectionResult> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.inspectLayers(
+        solution,
+        envKey,
+        onProgress,
+        onSection,
+      )
+    const env = ENVIRONMENTS.find((e) => e.key === envKey)
+    if (!env) throw new Error(`Unknown environment ${envKey}`)
+    const orgUrl = env.url.replace(/\/+$/, '')
+
+    const [allComponents, typeNames] = await Promise.all([
+      this.listComponents(solution.id),
+      layerComponentNames(),
+    ])
+    // Environment variables and connection references carry an unmanaged
+    // (Active) layer by design, so they'd only be false positives — skip them.
+    const components = allComponents.filter(
+      (c) => !LAYER_IGNORED_TYPES.has(c.typeCode),
+    )
+
+    // Maker-portal "solution layers" deep-link path per component (needs a
+    // couple of sub-type lookups for canvas apps / processes).
+    const layerPaths = await this.resolveLayerPaths(components)
+
+    // Group by component type so each section can be emitted as soon as it
+    // finishes (the UI renders it while later types still load).
+    const byType = new Map<number, SolutionComponentInfo[]>()
+    for (const c of components) {
+      const list = byType.get(c.typeCode)
+      if (list) list.push(c)
+      else byType.set(c.typeCode, [c])
+    }
+    const typeGroups = [...byType.values()].sort((a, b) =>
+      a[0].typeName.localeCompare(b[0].typeName),
+    )
+
+    const verdictRank: Record<ComponentLayerStack['verdict'], number> = {
+      overridden: 0,
+      unmanagedOnly: 1,
+      error: 2,
+      absent: 3,
+      unsupported: 4,
+      clean: 5,
+    }
+    const allStacks: ComponentLayerStack[] = []
+    const failedTypes = new Set<string>()
+    let done = 0
+    const total = components.length
+    onProgress?.(0, total)
+
+    for (const comps of typeGroups) {
+      const componentName = typeNames.get(comps[0].typeCode)
+      const sectionStacks: ComponentLayerStack[] = []
+      for (const batch of chunksOf(comps, 4)) {
+        await Promise.all(
+          batch.map(async (component) => {
+            const makerLayerPath = layerPaths.get(component.objectId)
+            if (!componentName) {
+              sectionStacks.push({
+                component,
+                verdict: 'unsupported',
+                layers: [],
+                makerLayerPath,
+              })
+            } else {
+              try {
+                const stack = await this.fetchLayerStack(
+                  orgUrl,
+                  component,
+                  componentName,
+                )
+                sectionStacks.push({ ...stack, makerLayerPath })
+              } catch (err) {
+                console.warn(
+                  `[layers] ${component.typeName} ${component.objectId} failed:`,
+                  err,
+                )
+                failedTypes.add(component.typeName)
+                sectionStacks.push({
+                  component,
+                  verdict: 'error',
+                  layers: [],
+                  makerLayerPath,
+                })
+              }
+            }
+            onProgress?.(++done, total)
+          }),
+        )
+      }
+      sectionStacks.sort(
+        (a, b) =>
+          verdictRank[a.verdict] - verdictRank[b.verdict] ||
+          a.component.displayName.localeCompare(b.component.displayName),
+      )
+      allStacks.push(...sectionStacks)
+      onSection?.({
+        typeCode: comps[0].typeCode,
+        typeName: comps[0].typeName,
+        stacks: sectionStacks,
+      })
+    }
+
+    const warnings = [...failedTypes].map(
+      (typeName) =>
+        `${typeName}: layer query failed for some components — their verdict is "error" (details in the browser console).`,
+    )
+    return { envKey, stacks: allStacks, warnings }
+  }
+
+  /**
+   * Build the maker-portal "solution layers" path per component. Canvas apps
+   * (300) and processes (29) need a sub-type discriminator (canvasapptype /
+   * workflow category) the solution-component summary doesn't carry, so those
+   * are read in bulk from the current environment (the props are
+   * env-independent). Best-effort: a component without a resolvable path just
+   * falls back to the solution list in the UI.
+   */
+  private async resolveLayerPaths(
+    components: SolutionComponentInfo[],
+  ): Promise<Map<string, string>> {
+    const canvasType = new Map<string, number>()
+    const workflowCategory = new Map<string, number>()
+    const canvasIds = components
+      .filter((c) => c.typeCode === 300)
+      .map((c) => c.objectId)
+    const workflowIds = components
+      .filter((c) => c.typeCode === 29)
+      .map((c) => c.objectId)
+    try {
+      for (const chunk of chunksOf(canvasIds, 20)) {
+        const filter = chunk.map((id) => `canvasappid eq ${id}`).join(' or ')
+        for (const row of await this.queryRows(
+          null,
+          'canvasapps',
+          'canvasappid,canvasapptype',
+          filter,
+        )) {
+          const id = str(row.canvasappid)
+          if (id) canvasType.set(id.toLowerCase(), Number(row.canvasapptype ?? -1))
+        }
+      }
+    } catch (err) {
+      console.warn('[layers] canvasapptype lookup failed:', err)
+    }
+    try {
+      for (const chunk of chunksOf(workflowIds, 20)) {
+        const filter = chunk.map((id) => `workflowid eq ${id}`).join(' or ')
+        for (const row of await this.queryRows(
+          null,
+          'workflows',
+          'workflowid,category',
+          filter,
+        )) {
+          const id = str(row.workflowid)
+          if (id) workflowCategory.set(id.toLowerCase(), Number(row.category ?? -1))
+        }
+      }
+    } catch (err) {
+      console.warn('[layers] workflow category lookup failed:', err)
+    }
+    const paths = new Map<string, string>()
+    for (const c of components) {
+      const path = makerLayerPath(c.typeCode, c.objectId, {
+        canvasAppType: canvasType.get(c.objectId.toLowerCase()),
+        workflowCategory: workflowCategory.get(c.objectId.toLowerCase()),
+      })
+      if (path) paths.set(c.objectId, path)
+    }
+    return paths
+  }
+
+  /**
+   * Resolve a solution's id in the target environment by unique name (ids
+   * diverge per environment). Non-fatal — returns null on miss or error so
+   * the deep link can fall back gracefully.
+   */
+  async resolveSolutionIdInEnv(
+    uniqueName: string,
+    envKey: 'uat' | 'prod',
+  ): Promise<string | null> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.resolveSolutionIdInEnv(uniqueName, envKey)
+    const env = ENVIRONMENTS.find((e) => e.key === envKey)
+    if (!env) return null
+    const orgUrl = env.url.replace(/\/+$/, '')
+    try {
+      const rows = await this.queryRows(
+        orgUrl,
+        'solutions',
+        'solutionid,uniquename',
+        `uniquename eq '${uniqueName.replace(/'/g, "''")}'`,
+      )
+      const id = rows[0]?.solutionid
+      return typeof id === 'string' ? id : null
+    } catch (err) {
+      console.warn('[layers] target solution id lookup failed:', err)
+      return null
+    }
+  }
+
   /** Pull one missing required component into the release solution. */
   async addDependencyToSolution(
     targetUniqueName: string,
@@ -1140,6 +1648,9 @@ export class DataverseSolutionService implements SolutionService {
       return mockSolutionService.deleteSolution(solution)
     if (!solution.solutionMissing && solution.id && !solution.id.startsWith('missing-')) {
       await SolutionsService.delete(solution.id)
+      // Throws if the (batched) delete was silently rejected — so the record
+      // below is kept and the UI shows why.
+      await this.assertSolutionDeleted(solution.id)
     }
     if (solution.recordId) {
       await Ssid_workingsolutionsService.delete(solution.recordId)
@@ -1218,6 +1729,217 @@ export class DataverseSolutionService implements SolutionService {
   }
 
   /**
+   * Exact solutioncomponent membership of a solution, for MERGING: every row
+   * literally in the solution — root components AND any individually included
+   * subcomponents (columns, forms, views, relationships …) — read from the
+   * raw `solutioncomponent` table and enriched with display names from the
+   * summary view.
+   *
+   * The summary-based {@link listComponents} collapses subcomponents under
+   * their owning table (it's the maker "objects" grid), so merging from it
+   * copies only the table shell and drops the columns/forms the source
+   * actually carries. Behaviour is preserved per row: a table added with
+   * "include all subcomponents" (rootcomponentbehavior 0) is one row here and
+   * AddSolutionComponent pulls its assets across; a table added with specific
+   * subcomponents has an explicit row per subcomponent that is carried over
+   * individually. Root tables (type 1) are ordered first so a column is never
+   * added before its table.
+   */
+  async listMergeComponents(
+    solutionId: string,
+  ): Promise<SolutionComponentInfo[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.listMergeComponents(solutionId)
+    try {
+      const [rawRows, summaryRows] = await Promise.all([
+        this.fetchRawComponents(solutionId),
+        fetchAll(
+          (o) => Msdyn_solutioncomponentsummariesService.getAll(o),
+          {
+            select: [
+              'msdyn_solutioncomponentsummaryid',
+              'msdyn_objectid',
+              'msdyn_componenttype',
+              'msdyn_componenttypename',
+              'msdyn_displayname',
+              'msdyn_name',
+              'msdyn_schemaname',
+              'msdyn_primaryentityname',
+            ],
+            filter: `msdyn_solutionid eq '${solutionId}'`,
+          },
+        ).catch(() => null),
+      ])
+      // No raw rows → fall back to the summary list (better than nothing).
+      if (!rawRows) return this.listComponents(solutionId)
+      const named = new Map<string, SolutionComponentInfo>()
+      for (const r of summaryRows ?? []) {
+        const info = summaryToComponentInfo(r, new Map())
+        named.set(info.objectId.toLowerCase(), info)
+      }
+      const components = rawRows.map((raw) => {
+        const base = toComponentInfo(raw)
+        const n = named.get(base.objectId.toLowerCase())
+        return n
+          ? {
+              ...base,
+              typeName: n.typeName,
+              displayName: n.displayName,
+              ...(n.schemaName ? { schemaName: n.schemaName } : {}),
+              ...(n.parentTable ? { parentTable: n.parentTable } : {}),
+            }
+          : base
+      })
+      // Subcomponents (columns, forms, views, …) aren't in the summary, so
+      // they still carry the "Type <short-guid>" fallback name — resolve those
+      // from their backing table / metadata so the plan shows real names.
+      const unresolved = new Set(
+        components
+          .filter((c) => !named.has(c.objectId.toLowerCase()))
+          .map((c) => c.objectId.toLowerCase()),
+      )
+      if (unresolved.size > 0)
+        await this.resolveComponentNames(components, unresolved)
+      return components.sort(
+        (a, b) =>
+          (a.typeCode === 1 ? 0 : 1) - (b.typeCode === 1 ? 0 : 1) ||
+          a.typeName.localeCompare(b.typeName) ||
+          a.displayName.localeCompare(b.displayName),
+      )
+    } catch (err) {
+      console.warn('[solutions] listMergeComponents() threw, falling back:', err)
+      return this.listComponents(solutionId)
+    }
+  }
+
+  /**
+   * Best-effort: fill in real display names for components the summary didn't
+   * name (subcomponents). Two paths — a backing-table lookup by object id for
+   * types that have one (forms, views, charts, workflows, …, via
+   * {@link DEPENDENCY_SPECS}), and attribute metadata via the owning entities
+   * for columns. Mutates the components in place; anything still unresolved
+   * keeps its "Type <short-guid>" fallback. Failures are swallowed (names are
+   * cosmetic — they must never break the merge or its plan).
+   */
+  private async resolveComponentNames(
+    components: SolutionComponentInfo[],
+    unresolved: Set<string>,
+  ): Promise<void> {
+    const byType = new Map<number, SolutionComponentInfo[]>()
+    for (const c of components) {
+      if (!unresolved.has(c.objectId.toLowerCase())) continue
+      const list = byType.get(c.typeCode)
+      if (list) list.push(c)
+      else byType.set(c.typeCode, [c])
+    }
+    for (const [typeCode, comps] of byType) {
+      // Type 24 (Form) shares the systemforms table with type 60.
+      const spec =
+        DEPENDENCY_SPECS[typeCode] ??
+        (typeCode === 24 ? DEPENDENCY_SPECS[60] : undefined)
+      if (!spec) continue
+      try {
+        const found = new Map<string, string>()
+        for (const chunk of chunksOf(
+          comps.map((c) => c.objectId),
+          20,
+        )) {
+          const filter = chunk.map((id) => `${spec.idField} eq ${id}`).join(' or ')
+          for (const row of await this.queryRows(
+            null,
+            spec.entitySet,
+            `${spec.idField},${spec.displayField}`,
+            filter,
+          )) {
+            const id = str(row[spec.idField])
+            const name = str(row[spec.displayField])
+            if (id && name) found.set(id.toLowerCase(), name)
+          }
+        }
+        for (const c of comps) {
+          const name = found.get(c.objectId.toLowerCase())
+          if (name) {
+            c.displayName = name
+            unresolved.delete(c.objectId.toLowerCase())
+          }
+        }
+      } catch (err) {
+        console.warn(`[merge] name lookup for ${spec.entitySet} failed:`, err)
+      }
+    }
+    const attrs = byType.get(2)
+    if (attrs?.length) await this.resolveAttributeNames(components, attrs)
+  }
+
+  /**
+   * Resolve column (attribute) names via the `EntityDefinitions` metadata set.
+   * Each entity solutioncomponent's objectId IS the entity's MetadataId, so we
+   * query EntityDefinitions filtered by those ids and expand their Attributes
+   * (MetadataId + DisplayName), then map each attribute component by id. Uses
+   * the reliable WithOrganization op against the current environment.
+   * Best-effort — failures keep the GUID fallback.
+   */
+  private async resolveAttributeNames(
+    all: SolutionComponentInfo[],
+    attrs: SolutionComponentInfo[],
+  ): Promise<void> {
+    const entityIds = [
+      ...new Set(all.filter((c) => c.typeCode === 1).map((c) => c.objectId)),
+    ]
+    if (entityIds.length === 0) return
+    const url = ENVIRONMENTS.find((e) => e.isCurrent)?.url.replace(/\/+$/, '')
+    if (!url) return
+    const nameById = new Map<string, string>()
+    for (const chunk of chunksOf(entityIds, 10)) {
+      const filter = chunk.map((id) => `MetadataId eq ${id}`).join(' or ')
+      try {
+        const res = await MicrosoftDataverseService.ListRecordsWithOrganization(
+          url,
+          'EntityDefinitions',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          'LogicalName',
+          filter,
+          undefined,
+          'Attributes($select=LogicalName,DisplayName,MetadataId)',
+        )
+        const rows =
+          (res.data as { value?: Array<Record<string, unknown>> } | undefined)
+            ?.value ?? []
+        for (const row of rows) {
+          const attributes =
+            (row.Attributes as Array<Record<string, unknown>> | undefined) ?? []
+          for (const a of attributes) {
+            const id =
+              typeof a.MetadataId === 'string' ? a.MetadataId.toLowerCase() : ''
+            const label = (
+              a.DisplayName as
+                | { UserLocalizedLabel?: { Label?: string } }
+                | undefined
+            )?.UserLocalizedLabel?.Label
+            const name =
+              typeof label === 'string' && label
+                ? label
+                : typeof a.LogicalName === 'string'
+                  ? a.LogicalName
+                  : ''
+            if (id && name) nameById.set(id, name)
+          }
+        }
+      } catch (err) {
+        console.warn('[merge] EntityDefinitions attribute lookup failed:', err)
+      }
+    }
+    for (const c of attrs) {
+      const name = nameById.get(c.objectId.toLowerCase())
+      if (name) c.displayName = name
+    }
+  }
+
+  /**
    * Work item summary via the Azure DevOps connector. TEMPORARILY
    * DISABLED (DEVOPS_PANEL_ENABLED = false) while the service-principal
    * access to the DevOps org is being set up — the connector data source
@@ -1258,18 +1980,33 @@ export class DataverseSolutionService implements SolutionService {
     const target = solutions.find((s) => s.uniqueName === targetUniqueName)
     if (!target) throw new Error(`Unknown target solution ${targetUniqueName}`)
     const existing = new Set(
-      (await this.listComponents(target.id)).map((c) => c.objectId),
+      (await this.listMergeComponents(target.id)).map((c) =>
+        c.objectId.toLowerCase(),
+      ),
     )
 
     const queue: SolutionComponentInfo[] = []
     for (const id of sourceSolutionIds) {
-      queue.push(...(await this.listComponents(id)))
+      queue.push(...(await this.listMergeComponents(id)))
     }
 
-    const result: MergeResult = { added: 0, skipped: 0, errors: [] }
+    // The release may restrict which component types it accepts: an allow-list
+    // (empty = all) and an exclude-list applied on top.
+    const allowed = target.allowedMergeTypes ?? []
+    const excluded = target.excludedMergeTypes ?? []
+    const isAllowed = (typeCode: number) =>
+      (allowed.length === 0 || allowed.includes(typeCode)) &&
+      !excluded.includes(typeCode)
+
+    const result: MergeResult = { added: 0, skipped: 0, excluded: 0, errors: [] }
+    // The concrete components actually added in this run — logged to the
+    // merge-run row so the history can show what each merge contributed.
+    const added: SolutionComponentInfo[] = []
     let done = 0
     for (const component of queue) {
-      if (existing.has(component.objectId)) {
+      if (!isAllowed(component.typeCode)) {
+        result.excluded++
+      } else if (existing.has(component.objectId.toLowerCase())) {
         result.skipped++
       } else {
         try {
@@ -1287,7 +2024,8 @@ export class DataverseSolutionService implements SolutionService {
             component.rootBehavior === 2 ? [] : undefined,
           )
           if (res.success) {
-            existing.add(component.objectId)
+            existing.add(component.objectId.toLowerCase())
+            added.push(component)
             result.added++
           } else {
             console.warn('[solutions] AddSolutionComponent failed:', res)
@@ -1308,8 +2046,11 @@ export class DataverseSolutionService implements SolutionService {
     // carries dedicated fields for exactly this.
     if (result.added > 0 || result.skipped > 0) {
       const mergedAt = new Date().toISOString()
-      for (const source of solutions) {
-        if (!sourceSolutionIds.includes(source.id) || !source.recordId) continue
+      const sourceSolutions = solutions.filter((s) =>
+        sourceSolutionIds.includes(s.id),
+      )
+      for (const source of sourceSolutions) {
+        if (!source.recordId) continue
         try {
           await Ssid_workingsolutionsService.update(
             source.recordId,
@@ -1326,8 +2067,87 @@ export class DataverseSolutionService implements SolutionService {
           console.warn('[solutions] merge log update failed:', err)
         }
       }
+
+      // Append one merge-run history row on the target. The added components
+      // ride along as a compact JSON array in a single multiline column
+      // (sst_addedcomponents_txt) — no child table to keep the schema lean.
+      try {
+        await this.logMergeRun(target, sourceSolutions, result, added, mergedAt)
+      } catch (err) {
+        // History is best-effort — never fail the merge over it.
+        console.warn('[solutions] merge-run history write failed:', err)
+      }
     }
     return result
+  }
+
+  /** Create the sst_mergerun row for one completed merge. */
+  private async logMergeRun(
+    target: WorkingSolution,
+    sourceSolutions: WorkingSolution[],
+    result: MergeResult,
+    added: SolutionComponentInfo[],
+    mergedAt: string,
+  ): Promise<void> {
+    const components: MergeRunComponent[] = added.map((c) => ({
+      t: c.typeName,
+      n: c.displayName,
+    }))
+    const record = {
+      sst_name_str: `${target.title} · ${mergedAt.slice(0, 10)}`,
+      sst_added_int: result.added,
+      sst_skipped_int: result.skipped,
+      sst_errors_int: result.errors.length,
+      sst_sources_txt: sourceSolutions.map((s) => s.title).join('\n'),
+      sst_addedcomponents_txt: components.length
+        ? JSON.stringify(components)
+        : '',
+      // Link back to the target's working-solution record so the history can
+      // be queried per release. Skip the bind when the target is untracked.
+      ...(target.recordId
+        ? {
+            'sst_targetsolution_ref@odata.bind': `/ssid_workingsolutions(${target.recordId})`,
+          }
+        : {}),
+    } as unknown as Omit<Sst_mergerunsBase, 'sst_mergerunid'>
+    const created = await Sst_mergerunsService.create(record)
+    if (!created.success) {
+      console.warn('[solutions] sst_mergerun create rejected:', created)
+      throw new Error('Merge-run history record was rejected.')
+    }
+  }
+
+  /**
+   * Merge history of one release solution — the sst_mergerun rows linked to
+   * its working-solution record, newest first. Best-effort: returns an empty
+   * list on miss or error so the detail view degrades gracefully.
+   */
+  async listMergeRuns(targetRecordId: string): Promise<MergeRun[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.listMergeRuns(targetRecordId)
+    if (!targetRecordId) return []
+    try {
+      const rows = await fetchAll((o) => Sst_mergerunsService.getAll(o), {
+        select: [
+          'sst_mergerunid',
+          'sst_added_int',
+          'sst_skipped_int',
+          'sst_errors_int',
+          'sst_sources_txt',
+          'sst_addedcomponents_txt',
+          '_createdby_value',
+          'createdon',
+        ],
+        filter: `_sst_targetsolution_ref_value eq ${targetRecordId}`,
+        orderBy: ['createdon desc'],
+      })
+      if (!rows) return []
+      return rows.map(toMergeRun)
+    } catch (err) {
+      console.warn('[solutions] listMergeRuns() threw:', err)
+      return []
+    }
   }
 }
 

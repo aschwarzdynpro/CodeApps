@@ -87,6 +87,95 @@ export function makerSolutionUrl(
     : 'https://make.powerapps.com'
 }
 
+/** Maker-portal deep link to the Solutions area of a specific environment —
+ *  the entry point for inspecting a component's solution layers there
+ *  (open the solution → select the component → Advanced → See solution
+ *  layers). Used as the last-resort fallback when neither the target
+ *  solution nor a known per-type route segment is available. */
+export function makerEnvSolutionsUrl(environmentId: string): string {
+  const envId = environmentId || FALLBACK_ENVIRONMENT_ID
+  return envId
+    ? `https://make.powerapps.com/environments/${envId}/solutions`
+    : 'https://make.powerapps.com'
+}
+
+/**
+ * Relative maker-portal path (the bit between `/solutions/{id}/` and
+ * `/layers`) for a component's solution-layers view, by component type.
+ * Verified from real maker-portal URLs. Returns undefined for types we can't
+ * build a route for (entity-nested forms/views/columns/business rules, which
+ * need the owning table's id; or unmapped types) — the caller then falls back
+ * to the solution's objects list.
+ *
+ * Two types need a sub-type discriminator:
+ *  - Canvas App (300): `canvasAppType` 2 = custom page (`objects/pages`),
+ *    otherwise an app (`objects/apps`).
+ *  - Process (29): `workflowCategory` 5 = cloud flow (`objects/cloudflows`);
+ *    0/3/4 = workflow/action/BPF (`objects/processes`); 2 (business rule) is
+ *    entity-nested → undefined.
+ */
+export function makerLayerPath(
+  typeCode: number,
+  objectId: string,
+  opts: { canvasAppType?: number; workflowCategory?: number } = {},
+): string | undefined {
+  switch (typeCode) {
+    case 1: // Entity / table
+      return `entities/${objectId}`
+    case 61: // Web resource (the maker groups them under "web resources/code")
+      return `web%20resources/code/${objectId}`
+    case 91: // Plugin assembly
+      return `objects/plugin%20assemblies/${objectId}`
+    case 92: // SDK message processing step
+      return `objects/plugin%20steps/${objectId}`
+    case 10021: // Custom API
+      return `objects/customapis/${objectId}`
+    case 10022: // Custom API request parameter
+      return `objects/customapirequestparameters/${objectId}`
+    case 10023: // Custom API response property
+      return `objects/customapiresponseproperties/${objectId}`
+    case 300: // Canvas app vs. custom page
+      if (opts.canvasAppType === undefined) return undefined
+      return opts.canvasAppType === 2
+        ? `objects/pages/${objectId}`
+        : `objects/apps/${objectId}`
+    case 29: // Process family — split by workflow category
+      if (opts.workflowCategory === 5) return `objects/cloudflows/${objectId}`
+      if ([0, 3, 4].includes(opts.workflowCategory ?? -1))
+        return `objects/processes/${objectId}`
+      return undefined // business rule (2) etc. are entity-nested
+    default:
+      return undefined
+  }
+}
+
+/**
+ * Maker-portal deep link straight into a component's **solution layers** view
+ * in a specific environment, e.g.
+ * `…/environments/{env}/solutions/{solutionId}/entities/{objectId}/layers`.
+ * `layerPath` comes from {@link makerLayerPath}; only emit this when both the
+ * path and the target solution id are known.
+ */
+export function makerComponentLayersUrl(
+  environmentId: string,
+  solutionId: string,
+  layerPath: string,
+): string {
+  return `https://make.powerapps.com/environments/${environmentId}/solutions/${solutionId}/${layerPath}/layers`
+}
+
+/** Maker-portal deep link to a canvas app's details page (where the Share
+ *  command lives) in a specific environment. `appName` is the canvas app's
+ *  import-stable logical name (`canvasapp.name`) — the id the maker portal
+ *  uses in app URLs, not the per-environment `canvasappid`. */
+export function makerCanvasAppUrl(
+  environmentId: string,
+  appName: string,
+): string {
+  if (!environmentId || !appName) return 'https://make.powerapps.com'
+  return `https://make.powerapps.com/environments/${environmentId}/apps/${appName}/details`
+}
+
 /** Azure DevOps work item link, or null when the org isn't configured yet. */
 export function devOpsWorkItemUrl(devOpsId: string | null): string | null {
   if (!devOpsId || !ADO_ORG_URL || !ADO_PROJECT) return null

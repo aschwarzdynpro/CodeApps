@@ -8,29 +8,110 @@ import { SolutionList } from './components/SolutionList'
 import { SolutionDetail } from './components/SolutionDetail'
 import { CreateSolutionDialog } from './components/CreateSolutionDialog'
 import { MergeWorkbench } from './components/MergeWorkbench'
-import { CompareWorkbench } from './components/CompareWorkbench'
-import { DependencyCheck } from './components/DependencyCheck'
+import { MergeRules } from './components/MergeRules'
+import { ValidateWorkspace } from './components/ValidateWorkspace'
+// ALM Detective is temporarily hidden from the UI — component + service
+// (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
 import { HelpPanel } from './components/HelpPanel'
+import { HowToPanel } from './components/HowToPanel'
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog'
+import { CompleteSolutionDialog } from './components/CompleteSolutionDialog'
 import {
   DEPLOYMENT_MANAGER_ROLE,
   DEVOPS_PANEL_ENABLED,
   makerSolutionUrl,
 } from './config'
 import {
-  CLOSED_STATUS_CODES,
+  DEPLOYMENT_COMPLETED_CODE,
+  isOpenStatus,
   type ComponentCollision,
+  type MergeResult,
   type SolutionComponentInfo,
   type TrackSolutionInput,
   type WorkItemInfo,
   type WorkingSolution,
 } from './types/solution'
 
-type Tab = 'workbench' | 'merge' | 'compare' | 'dependencies'
+type Tab =
+  | 'workbench'
+  | 'merge'
+  | 'mergeRules'
+  | 'compare'
+  | 'dependencies'
+  | 'layers'
+  | 'sharing'
+
+interface NavItem {
+  key: Tab
+  label: string
+  icon: string
+  /** Requires the deployment-manager role. */
+  gated: boolean
+}
+
+/** Sidebar navigation, grouped by purpose. */
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  {
+    label: 'Manage',
+    items: [
+      { key: 'workbench', label: 'Workbench', icon: '🧰', gated: false },
+      { key: 'merge', label: 'Merge', icon: '⇉', gated: false },
+      { key: 'mergeRules', label: 'Merge Rules', icon: '⚙', gated: true },
+    ],
+  },
+  {
+    label: 'Validate',
+    items: [
+      { key: 'compare', label: 'Compare', icon: '⇄', gated: true },
+      { key: 'dependencies', label: 'Dependencies', icon: '🔗', gated: true },
+      { key: 'layers', label: 'Layers', icon: '🧱', gated: true },
+      { key: 'sharing', label: 'App Sharing', icon: '👥', gated: true },
+    ],
+  },
+]
+
+/** Heading shown in the content header per section. */
+const TAB_TITLES: Record<Tab, string> = {
+  workbench: 'Workbench',
+  merge: 'Merge',
+  mergeRules: 'Merge Rules',
+  compare: 'Compare',
+  dependencies: 'Dependency Check',
+  layers: 'Layer Inspector',
+  sharing: 'App Sharing',
+}
+
+/**
+ * Pull a readable message out of an unknown error. Handles the OData error
+ * shape ({ error: { message } }) and messages that embed the batch/OData JSON
+ * (e.g. a failed DELETE returns the whole multipart body) by extracting the
+ * inner "message" — so the user sees "Cannot start the requested operation
+ * [Uninstall] …" rather than a raw batch dump.
+ */
+function describeError(err: unknown): string {
+  const odata = (err as { error?: { message?: string } } | undefined)?.error
+    ?.message
+  if (odata) return odata
+  const raw =
+    err instanceof Error ? err.message : typeof err === 'string' ? err : ''
+  if (raw) {
+    const match = raw.match(/"message"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+    if (match) {
+      try {
+        return JSON.parse(`"${match[1]}"`) as string
+      } catch {
+        return match[1]
+      }
+    }
+    return raw
+  }
+  return String(err)
+}
 
 function App() {
   const { environmentId } = usePower()
-  const { solutions, publishers, loading, error, reload } = useSolutions()
+  const { solutions, publishers, loading, error, loadedAt, reload } =
+    useSolutions()
 
   const [tab, setTab] = useState<Tab>('workbench')
   // Merge and Compare are restricted to deployment managers; tabs stay
@@ -52,13 +133,12 @@ function App() {
   // can be unticked to reach finished or untracked entries.
   const [openOnly, setOpenOnly] = useState(true)
   const [trackedOnly, setTrackedOnly] = useState(true)
-  // "Mine" filter: resolved lazily on first activation. undefined = not
-  // resolved yet, 'loading' = lookup running.
-  const [mineOnly, setMineOnly] = useState(false)
-  const [currentUser, setCurrentUser] = useState<
-    { id: string | null; name: string | null } | 'loading' | undefined
-  >(undefined)
+  // Owner filter — '' = all owners.
+  const [ownerFilter, setOwnerFilter] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // While the inline detail plays its fade-out, the row stays selected so the
+  // pane keeps rendering in place; cleared once the animation ends.
+  const [detailClosing, setDetailClosing] = useState(false)
   const [components, setComponents] = useState<SolutionComponentInfo[]>([])
   const [componentsLoading, setComponentsLoading] = useState(false)
   // Components loaded once per solution and reused on re-selection; only the
@@ -85,18 +165,84 @@ function App() {
   const [workItemLoading, setWorkItemLoading] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  const [showHowTo, setShowHowTo] = useState(false)
+  // "Sync with DevOps": runs the cloud flow, then reloads so the
+  // to-be-completed reconciliation re-runs.
+  const [syncingDevOps, setSyncingDevOps] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<{
+    ok: boolean
+    text: string
+  } | null>(null)
+  // The success bar fades out and clears itself ~10s after a sync.
+  const [syncFading, setSyncFading] = useState(false)
+  useEffect(() => {
+    if (!syncMessage?.ok) return
+    const fade = window.setTimeout(() => setSyncFading(true), 9400)
+    const clear = window.setTimeout(() => setSyncMessage(null), 10000)
+    return () => {
+      window.clearTimeout(fade)
+      window.clearTimeout(clear)
+    }
+  }, [syncMessage])
 
-  // Soft delete: confirmed entries disappear immediately and wait in
-  // pendingDeletes for the 5-second undo window; only then the hard
-  // delete runs. Undo just cancels the timer and re-shows the entry.
+  // Soft delete / completion: confirmed entries disappear immediately and
+  // wait in pendingDeletes for the 3-second undo window; only then the hard
+  // action runs server-side. Undo just cancels the timer and re-shows the
+  // entry (nothing happened server-side yet, so completing reverts to open
+  // simply by not committing). `mode` selects the finalize action.
   const [confirmDelete, setConfirmDelete] = useState<WorkingSolution | null>(
     null,
   )
+  const [completeTarget, setCompleteTarget] = useState<WorkingSolution | null>(
+    null,
+  )
   const [pendingDeletes, setPendingDeletes] = useState<
-    { key: string; solution: WorkingSolution }[]
+    { key: string; solution: WorkingSolution; mode: 'delete' | 'complete' }[]
   >([])
   const deleteTimers = useRef(new Map<string, number>())
   const [justCreated, setJustCreated] = useState<WorkingSolution | null>(null)
+  // The "solution created" bar fades out and clears itself after 5s.
+  const [creationFading, setCreationFading] = useState(false)
+  useEffect(() => {
+    if (!justCreated) return
+    const fade = window.setTimeout(() => setCreationFading(true), 4400)
+    const clear = window.setTimeout(() => setJustCreated(null), 5000)
+    return () => {
+      window.clearTimeout(fade)
+      window.clearTimeout(clear)
+    }
+  }, [justCreated])
+  // Transient error from a background action (e.g. a delete/complete that
+  // failed server-side after the undo window) — shown as a banner that fades
+  // out and clears itself after 5s.
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [actionErrorFading, setActionErrorFading] = useState(false)
+  useEffect(() => {
+    if (!actionError) return
+    const fade = window.setTimeout(() => setActionErrorFading(true), 4400)
+    const clear = window.setTimeout(() => setActionError(null), 5000)
+    return () => {
+      window.clearTimeout(fade)
+      window.clearTimeout(clear)
+    }
+  }, [actionError])
+  // Merge outcome banner — lives at App level so it survives the reload() the
+  // merge triggers (which briefly unmounts the Merge tab). Clean merges fade
+  // after 5s; merges with item-level errors stay so they can be read.
+  const [mergeBanner, setMergeBanner] = useState<{
+    result: MergeResult
+    title: string
+  } | null>(null)
+  const [mergeBannerFading, setMergeBannerFading] = useState(false)
+  useEffect(() => {
+    if (!mergeBanner || mergeBanner.result.errors.length > 0) return
+    const fade = window.setTimeout(() => setMergeBannerFading(true), 4400)
+    const clear = window.setTimeout(() => setMergeBanner(null), 5000)
+    return () => {
+      window.clearTimeout(fade)
+      window.clearTimeout(clear)
+    }
+  }, [mergeBanner])
   // Locally created solutions show up immediately, even before reload() lands.
   const [created, setCreated] = useState<WorkingSolution[]>([])
 
@@ -120,26 +266,25 @@ function App() {
     return merged.filter((s) => !pendingKeys.has(s.recordId ?? s.id))
   }, [solutions, created, pendingDeletes])
 
-  // Structural filters (open / tracked / mine) applied before kind and
+  // Structural filters (open / tracked / owner) applied before kind and
   // search — the kind counts reflect this base set.
   const baseFiltered = useMemo(() => {
-    const isMine = (s: WorkingSolution): boolean => {
-      if (!currentUser || currentUser === 'loading') return true // still resolving
-      if (currentUser.id && s.ownerId) return s.ownerId === currentUser.id
-      if (currentUser.name && s.owner)
-        return s.owner.toLowerCase() === currentUser.name.toLowerCase()
-      return false
-    }
     return allSolutions
-      .filter(
-        (s) =>
-          !openOnly ||
-          s.deploymentStatusCode === undefined ||
-          !CLOSED_STATUS_CODES.has(s.deploymentStatusCode),
-      )
+      .filter((s) => !openOnly || isOpenStatus(s))
       .filter((s) => !trackedOnly || !!s.recordId)
-      .filter((s) => !mineOnly || isMine(s))
-  }, [allSolutions, openOnly, trackedOnly, mineOnly, currentUser])
+      .filter((s) => !ownerFilter || s.owner === ownerFilter)
+  }, [allSolutions, openOnly, trackedOnly, ownerFilter])
+
+  // Distinct owners across all solutions, for the workbench owner filter.
+  const owners = useMemo(
+    () =>
+      [
+        ...new Set(
+          allSolutions.map((s) => s.owner).filter((o): o is string => !!o),
+        ),
+      ].sort((a, b) => a.localeCompare(b)),
+    [allSolutions],
+  )
 
   const counts = useMemo(() => {
     const c: Partial<Record<KindFilter, number>> = {}
@@ -178,17 +323,6 @@ function App() {
       )
   }, [baseFiltered, kindFilter, search, componentMatches])
 
-  const toggleMineOnly = (enabled: boolean) => {
-    setMineOnly(enabled)
-    if (enabled && currentUser === undefined) {
-      setCurrentUser('loading')
-      solutionService
-        .getCurrentUser()
-        .then((u) => setCurrentUser(u))
-        .catch(() => setCurrentUser({ id: null, name: null }))
-    }
-  }
-
   const selected = allSolutions.find((s) => s.id === selectedId) ?? null
 
   // Unmanaged solutions without a record — offered when re-linking
@@ -226,12 +360,19 @@ function App() {
   }
 
   /**
-   * Load every solution's components into the search index, a few solutions
-   * at a time. Runs once per toggle activation; results are kept until the
-   * toggle is switched off (turning it back on re-indexes fresh data).
+   * Load components into the search index, a few solutions at a time. Scoped
+   * to open working solutions and their linked solutions (the active set, not
+   * every solution in the environment). Runs once per toggle activation;
+   * results are kept until the toggle is switched off.
    */
   const buildComponentIndex = async (allTargets: WorkingSolution[]) => {
-    const targets = allTargets.filter((s) => !s.solutionMissing)
+    const targets = allTargets.filter(
+      (s, index) =>
+        isOpenStatus(s) &&
+        !!s.recordId &&
+        !s.solutionMissing &&
+        allTargets.findIndex((o) => o.id === s.id) === index,
+    )
     setIndexProgress([0, targets.length])
     const index = new Map<string, SolutionComponentInfo[]>()
     let done = 0
@@ -260,15 +401,17 @@ function App() {
   }
 
   /**
-   * Collision radar: load the components of every tracked, non-release
+   * Collision radar: load the components of every open, tracked, non-release
    * working solution (component cache is reused and seeded), then flag
    * every component that appears in more than one of them.
    */
   const scanCollisions = async () => {
-    // Tracked working set only — releases collect merges by design and
-    // duplicate-link rows must not count as two solutions.
+    // Open tracked working set only — completed/merged entries are done,
+    // releases collect merges by design, and duplicate-link rows must not
+    // count as two solutions.
     const targets = allSolutions.filter(
       (s, index) =>
+        isOpenStatus(s) &&
         s.recordId &&
         !s.solutionMissing &&
         s.kind !== 'deployment' &&
@@ -365,6 +508,12 @@ function App() {
   }
 
   const openSolution = (id: string) => {
+    // Clicking the open row again collapses the inline detail (fade-out).
+    if (id === selectedId) {
+      setDetailClosing(true)
+      return
+    }
+    setDetailClosing(false)
     setSelectedId(id)
     setJustCreated(null)
     const solution = allSolutions.find((s) => s.id === id)
@@ -379,29 +528,74 @@ function App() {
       loadWorkItem(solution.devOpsId)
   }
 
+  // Called when the fade-out finishes — only now do we drop the selection so
+  // the pane unmounts after it has visually collapsed.
+  const finishCloseDetail = () => {
+    setDetailClosing(false)
+    setSelectedId(null)
+  }
+
   const handleCreated = (solution: WorkingSolution) => {
     setShowCreate(false)
     setCreated((prev) => [solution, ...prev])
+    setCreationFading(false)
     setJustCreated(solution)
     setSelectedId(solution.id)
     setComponents([])
     reload()
   }
 
-  /** Confirmed in the dialog: hide the entry and start the undo window. */
-  const startDelete = (solution: WorkingSolution) => {
-    setConfirmDelete(null)
+  /**
+   * Hide the entry and start the 3-second undo window for a deferred action.
+   * mode 'delete' removes the whole entry; 'complete' marks it completed and
+   * deletes the underlying solution.
+   */
+  const startPending = (
+    solution: WorkingSolution,
+    mode: 'delete' | 'complete',
+  ) => {
     const key = solution.recordId ?? solution.id
     if (selectedId === solution.id) {
       setSelectedId(null)
       setComponents([])
       setComponentsLoading(false)
     }
-    setPendingDeletes((prev) => [...prev, { key, solution }])
+    setPendingDeletes((prev) => [...prev, { key, solution, mode }])
     const timeout = window.setTimeout(() => {
-      void finalizeDelete(key, solution)
-    }, 5000)
+      void finalizeDelete(key, solution, mode)
+    }, 3000)
     deleteTimers.current.set(key, timeout)
+  }
+
+  /** Confirmed in the delete dialog. */
+  const startDelete = (solution: WorkingSolution) => {
+    setConfirmDelete(null)
+    startPending(solution, 'delete')
+  }
+
+  /**
+   * Confirmed in the complete dialog. Without deleting the solution it's a
+   * plain status update; with deletion it goes through the undo window.
+   */
+  const handleComplete = async (
+    solution: WorkingSolution,
+    deleteUnderlying: boolean,
+  ) => {
+    setCompleteTarget(null)
+    if (!solution.recordId) return
+    if (deleteUnderlying) {
+      startPending(solution, 'complete')
+      return
+    }
+    try {
+      await solutionService.setDeploymentStatus(
+        solution.recordId,
+        DEPLOYMENT_COMPLETED_CODE,
+      )
+    } catch (err) {
+      console.warn('[solutions] complete failed:', err)
+    }
+    reload()
   }
 
   const undoDelete = (key: string) => {
@@ -412,12 +606,56 @@ function App() {
     setPendingDeletes((prev) => prev.filter((p) => p.key !== key))
   }
 
-  const finalizeDelete = async (key: string, solution: WorkingSolution) => {
+  /**
+   * Run the "Sync DevOps Work Item Status" cloud flow, then reload so the
+   * to-be-completed reconciliation runs against the refreshed statuses.
+   */
+  const syncDevOps = async () => {
+    setSyncingDevOps(true)
+    setSyncMessage(null)
+    setSyncFading(false)
+    try {
+      const count = await solutionService.syncDevOpsWorkItemStatus()
+      setSyncMessage({
+        ok: true,
+        text: `DevOps work item status synced${
+          count ? ` — ${count} record${count === 1 ? '' : 's'}` : ''
+        }.`,
+      })
+      reload()
+    } catch (err) {
+      setSyncMessage({
+        ok: false,
+        text: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setSyncingDevOps(false)
+    }
+  }
+
+  const finalizeDelete = async (
+    key: string,
+    solution: WorkingSolution,
+    mode: 'delete' | 'complete',
+  ) => {
     deleteTimers.current.delete(key)
     try {
-      await solutionService.deleteSolution(solution)
+      if (mode === 'complete') {
+        if (solution.recordId)
+          await solutionService.setDeploymentStatus(
+            solution.recordId,
+            DEPLOYMENT_COMPLETED_CODE,
+          )
+        await solutionService.deleteUnderlyingSolution(solution.id)
+      } else {
+        await solutionService.deleteSolution(solution)
+      }
     } catch (err) {
-      console.warn('[solutions] delete failed:', err)
+      console.warn(`[solutions] ${mode} failed:`, err)
+      setActionErrorFading(false)
+      setActionError(
+        `${mode === 'complete' ? 'Completing' : 'Deleting'} “${solution.title}” failed: ${describeError(err)}`,
+      )
     }
     setPendingDeletes((prev) => prev.filter((p) => p.key !== key))
     setComponentCache((prev) => {
@@ -445,7 +683,13 @@ function App() {
 
   // After a merge the target solution gained components — drop its cached
   // list so the next open (or an open detail view) refetches.
-  const handleMerged = (targetSolutionId: string) => {
+  const handleMerged = (
+    targetSolutionId: string,
+    result: MergeResult,
+    targetTitle: string,
+  ) => {
+    setMergeBannerFading(false)
+    setMergeBanner({ result, title: targetTitle })
     setComponentCache((prev) => {
       const next = new Map(prev)
       next.delete(targetSolutionId)
@@ -463,85 +707,145 @@ function App() {
 
   return (
     <div className="app">
-      <header className="app-header">
-        <div>
-          <div className="title-row">
-            <h1>Solution Administration Console</h1>
-            <button
-              className="icon-btn"
-              title="Help & feature guide"
-              aria-label="Help"
-              onClick={() => setShowHelp(true)}
-            >
-              ?
+      <div className="app-shell">
+        <aside className="sidebar">
+          <div className="sidebar-brand">
+            <span className="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 32 32" role="img">
+                <defs>
+                  <linearGradient id="sacGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopColor="#3b82f6" />
+                    <stop offset="1" stopColor="#7c3aed" />
+                  </linearGradient>
+                </defs>
+                <path
+                  d="M16 1.5 L3.4 8.75 L3.4 23.25 L16 30.5 L28.6 23.25 L28.6 8.75 Z"
+                  fill="url(#sacGrad)"
+                />
+                <rect x="9" y="11.4" width="14" height="2.8" rx="1.4" fill="#fff" opacity="0.95" />
+                <rect x="10" y="16" width="12" height="2.8" rx="1.4" fill="#fff" opacity="0.8" />
+                <rect x="11" y="20.6" width="10" height="2.8" rx="1.4" fill="#fff" opacity="0.62" />
+              </svg>
+            </span>
+            <span className="brand-text">
+              <span className="brand-title">Solution Admin Console</span>
+              <span className="brand-tag">ALM</span>
+            </span>
+          </div>
+          <nav className="sidebar-nav">
+            {NAV_GROUPS.map((group) => (
+              <div className="nav-group" key={group.label}>
+                <span className="nav-group-label">{group.label}</span>
+                {group.items.map((item) => {
+                  const locked = item.gated && !isDeploymentManager
+                  return (
+                    <button
+                      key={item.key}
+                      className={`nav-item ${tab === item.key ? 'nav-item--active' : ''} ${locked ? 'nav-item--locked' : ''}`}
+                      title={
+                        locked
+                          ? `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
+                          : undefined
+                      }
+                      onClick={() => {
+                        if (!locked) setTab(item.key)
+                      }}
+                    >
+                      <span className="nav-icon">{item.icon}</span>
+                      <span className="nav-label">{item.label}</span>
+                      {locked && <span className="nav-lock">ⓘ</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
+          </nav>
+          <div className="sidebar-footer">
+            <button className="nav-item" onClick={() => setShowHowTo(true)}>
+              <span className="nav-icon">📖</span>
+              <span className="nav-label">How-To</span>
+            </button>
+            <button className="nav-item" onClick={() => setShowHelp(true)}>
+              <span className="nav-icon">?</span>
+              <span className="nav-label">Help</span>
             </button>
           </div>
-          <p className="subtitle">
-            Working solutions for feature &amp; bug development — create,
-            inspect, merge.
-          </p>
-        </div>
-        <div className="header-right">
-          <button
-            className="btn btn--primary"
-            onClick={() => setShowCreate(true)}
-            disabled={loading}
-          >
-            + New Working Solution
-          </button>
-        </div>
-      </header>
+        </aside>
 
-      <nav className="tabs">
-        <button
-          className={`tab ${tab === 'workbench' ? 'tab--active' : ''}`}
-          onClick={() => setTab('workbench')}
-        >
-          Workbench
-        </button>
-        <button
-          className={`tab ${tab === 'merge' ? 'tab--active' : ''} ${
-            isDeploymentManager ? '' : 'tab--disabled'
+        <main className="content">
+          <header className="content-header">
+            <h1>{TAB_TITLES[tab]}</h1>
+            {tab === 'workbench' && !error && (
+              <div className="header-actions">
+                {loadedAt && (
+                  <span
+                    className="list-updated muted"
+                    title={`Last refreshed ${loadedAt.toLocaleString()}`}
+                  >
+                    Updated{' '}
+                    {loadedAt.toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })}
+                  </span>
+                )}
+                <button
+                  className="btn btn--small"
+                  onClick={() => reload()}
+                  disabled={loading}
+                  title="Reload the working solutions list"
+                >
+                  {loading ? 'Refreshing…' : '⟳ Refresh'}
+                </button>
+              </div>
+            )}
+          </header>
+
+      {actionError && (
+        <div
+          className={`state state--error creation-banner ${
+            actionErrorFading ? 'creation-banner--fading' : ''
           }`}
-          title={
-            isDeploymentManager
-              ? undefined
-              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
-          }
-          onClick={() => isDeploymentManager && setTab('merge')}
         >
-          Merge
-          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
-        </button>
-        <button
-          className={`tab ${tab === 'compare' ? 'tab--active' : ''} ${
-            isDeploymentManager ? '' : 'tab--disabled'
-          }`}
-          title={
-            isDeploymentManager
-              ? undefined
-              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
-          }
-          onClick={() => isDeploymentManager && setTab('compare')}
+          <span>{actionError}</span>
+        </div>
+      )}
+
+      {mergeBanner && (
+        <div
+          className={`state ${
+            mergeBanner.result.errors.length
+              ? 'state--error'
+              : 'state--success creation-banner'
+          } ${mergeBannerFading ? 'creation-banner--fading' : ''}`}
         >
-          Compare
-          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
-        </button>
-        <button
-          className={`tab ${tab === 'dependencies' ? 'tab--active' : ''} ${
-            isDeploymentManager ? '' : 'tab--disabled'
-          }`}
-          title={
-            isDeploymentManager
-              ? undefined
-              : `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
-          }
-          onClick={() => isDeploymentManager && setTab('dependencies')}
-        >
-          Dependency Check
-          {!isDeploymentManager && <span className="tab-lock">ⓘ</span>}
-        </button>
-      </nav>
+          <span>
+            {mergeBanner.result.errors.length
+              ? 'Merge finished with issues — '
+              : '✓ Merge finished — '}
+            <strong>{mergeBanner.result.added}</strong> component
+            {mergeBanner.result.added === 1 ? '' : 's'} added into{' '}
+            <strong>{mergeBanner.title}</strong>
+            {mergeBanner.result.skipped > 0
+              ? `, ${mergeBanner.result.skipped} already in target`
+              : ''}
+            {mergeBanner.result.excluded > 0
+              ? `, ${mergeBanner.result.excluded} excluded by merge rules`
+              : ''}
+            {mergeBanner.result.errors.length > 0
+              ? `, ${mergeBanner.result.errors.length} failed:`
+              : '.'}
+          </span>
+          {mergeBanner.result.errors.length > 0 && (
+            <ul className="merge-errors">
+              {mergeBanner.result.errors.map((e) => (
+                <li key={e}>{e}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {loading && <div className="state">Loading solutions…</div>}
       {error && <div className="state state--error">{error}</div>}
@@ -549,7 +853,11 @@ function App() {
       {!loading && !error && tab === 'workbench' && (
         <>
           {justCreated && (
-            <div className="state state--success creation-banner">
+            <div
+              className={`state state--success creation-banner ${
+                creationFading ? 'creation-banner--fading' : ''
+              }`}
+            >
               <span>
                 Solution <strong>{justCreated.title}</strong> (
                 <code>{justCreated.uniqueName}</code>) created.
@@ -573,26 +881,21 @@ function App() {
             onOpenOnlyChange={setOpenOnly}
             trackedOnly={trackedOnly}
             onTrackedOnlyChange={setTrackedOnly}
-            mineOnly={mineOnly}
-            onMineOnlyChange={toggleMineOnly}
-            mineUserName={
-              currentUser && currentUser !== 'loading' ? currentUser.name : null
-            }
+            owners={owners}
+            ownerFilter={ownerFilter}
+            onOwnerChange={setOwnerFilter}
+            groupByWorkItem={groupByWorkItem}
+            onGroupByChange={setGroupByWorkItem}
           />
 
-          {mineOnly &&
-            currentUser &&
-            currentUser !== 'loading' &&
-            !currentUser.id &&
-            !currentUser.name && (
-              <div className="state state--error">
-                Could not determine the signed-in user — the “Mine” filter
-                has nothing to match. Check the browser console for the
-                identity lookup details.
-              </div>
-            )}
-
           <div className="collision-bar">
+            <button
+              className="btn btn--small btn--primary"
+              onClick={() => setShowCreate(true)}
+              disabled={loading}
+            >
+              + New Working Solution
+            </button>
             <button
               className="btn btn--small"
               onClick={() => void scanCollisions()}
@@ -605,11 +908,12 @@ function App() {
                   : '⚠ Scan collisions'}
             </button>
             <button
-              className={`btn btn--small ${groupByWorkItem ? 'btn--toggled' : ''}`}
-              title="Group solutions sharing the same Azure DevOps work item number."
-              onClick={() => setGroupByWorkItem((v) => !v)}
+              className="btn btn--small"
+              title="Run the 'Sync DevOps Work Item Status' cloud flow, then refresh the to-be-completed check."
+              onClick={() => void syncDevOps()}
+              disabled={syncingDevOps}
             >
-              Group by work item
+              {syncingDevOps ? 'Syncing with DevOps…' : '⟳ Sync with DevOps'}
             </button>
             <div className="search-group">
               <input
@@ -625,7 +929,7 @@ function App() {
               />
               <label
                 className="search-scope"
-                title="Also match component display names (builds a one-time index across all solutions)."
+                title="Also match component display names (builds a one-time index across the open working solutions)."
               >
                 <input
                   type="checkbox"
@@ -657,6 +961,25 @@ function App() {
               ))}
           </div>
 
+          {syncingDevOps && (
+            <div className="sharing-progress" aria-live="polite">
+              <span className="sharing-progress-spinner" />
+              <span className="sharing-progress-text">
+                Sync with DevOps in progress — the cloud flow is updating each
+                working solution's work item status…
+              </span>
+            </div>
+          )}
+          {syncMessage && !syncingDevOps && (
+            <div
+              className={`state ${
+                syncMessage.ok ? 'state--success sync-banner' : 'state--error'
+              } ${syncFading ? 'sync-banner--fading' : ''}`}
+            >
+              {syncMessage.text}
+            </div>
+          )}
+
           <div className="layout">
             <SolutionList
               solutions={filtered}
@@ -665,70 +988,97 @@ function App() {
               componentMatches={componentMatches}
               collisions={collisions}
               groupByWorkItem={groupByWorkItem}
+              detailClosing={detailClosing}
+              onDetailClosed={finishCloseDetail}
+              detail={
+                selected ? (
+                  <SolutionDetail
+                    key={selected.id}
+                    solution={selected}
+                    environmentId={environmentId}
+                    components={components}
+                    loadingComponents={componentsLoading}
+                    onRefreshComponents={() => loadComponents(selected.id, true)}
+                    collisions={collisions?.get(selected.id) ?? null}
+                    onTrack={handleTrack}
+                    onDelete={(s) => setConfirmDelete(s)}
+                    onComplete={(s) => setCompleteTarget(s)}
+                    onChangeType={async (s, kind) => {
+                      if (!s.recordId) return
+                      await solutionService.updateSolutionType(s.recordId, kind)
+                      reload()
+                    }}
+                    onAssignToMe={async (s) => {
+                      if (!s.recordId) return
+                      const me = await solutionService.getCurrentUser()
+                      if (!me.id)
+                        throw new Error('Could not resolve your user account.')
+                      await solutionService.assignOwner(s.recordId, me.id)
+                      reload()
+                    }}
+                    onAssign={async (s, userId) => {
+                      if (!s.recordId) return
+                      await solutionService.assignOwner(s.recordId, userId)
+                      reload()
+                    }}
+                    onSearchUsers={(q) => solutionService.searchUsers(q)}
+                    linkCandidates={linkCandidates}
+                    onLink={async (record, target) => {
+                      if (!record.recordId) return
+                      await solutionService.linkSolution(record.recordId, {
+                        id: target.id,
+                        uniqueName: target.uniqueName,
+                      })
+                      // Follow the record to its now-linked solution entry.
+                      setSelectedId(target.id)
+                      loadComponents(target.id)
+                      reload()
+                    }}
+                    workItem={
+                      selected.devOpsId
+                        ? (workItems.get(selected.devOpsId) ?? null)
+                        : null
+                    }
+                    workItemLoading={
+                      workItemLoading &&
+                      !!selected.devOpsId &&
+                      !workItems.has(selected.devOpsId)
+                    }
+                  />
+                ) : null
+              }
             />
-            {selected ? (
-              <SolutionDetail
-                key={selected.id}
-                solution={selected}
-                environmentId={environmentId}
-                components={components}
-                loadingComponents={componentsLoading}
-                onRefreshComponents={() => loadComponents(selected.id, true)}
-                collisions={collisions?.get(selected.id) ?? null}
-                onTrack={handleTrack}
-                onDelete={(s) => setConfirmDelete(s)}
-                onChangeType={async (s, kind) => {
-                  if (!s.recordId) return
-                  await solutionService.updateSolutionType(s.recordId, kind)
-                  reload()
-                }}
-                linkCandidates={linkCandidates}
-                onLink={async (record, target) => {
-                  if (!record.recordId) return
-                  await solutionService.linkSolution(record.recordId, {
-                    id: target.id,
-                    uniqueName: target.uniqueName,
-                  })
-                  // Follow the record to its now-linked solution entry.
-                  setSelectedId(target.id)
-                  loadComponents(target.id)
-                  reload()
-                }}
-                workItem={
-                  selected.devOpsId
-                    ? (workItems.get(selected.devOpsId) ?? null)
-                    : null
-                }
-                workItemLoading={
-                  workItemLoading &&
-                  !!selected.devOpsId &&
-                  !workItems.has(selected.devOpsId)
-                }
-              />
-            ) : (
-              <aside className="card detail detail--empty">
-                Select a solution to see its details and components.
-              </aside>
-            )}
           </div>
         </>
       )}
 
-      {!loading && !error && tab === 'merge' && isDeploymentManager && (
+      {!loading && !error && tab === 'merge' && (
         <MergeWorkbench solutions={allSolutions} onMerged={handleMerged} />
       )}
 
-      {!loading && !error && tab === 'compare' && isDeploymentManager && (
-        <CompareWorkbench
+      {!loading && !error && tab === 'mergeRules' && isDeploymentManager && (
+        <MergeRules
           solutions={allSolutions}
-          initialSolutionId={selectedId}
+          onSave={async (recordId, allowed, excluded) => {
+            await solutionService.setMergeTypeRules(recordId, allowed, excluded)
+            reload()
+          }}
         />
       )}
 
-      {!loading && !error && tab === 'dependencies' && isDeploymentManager && (
-        <DependencyCheck solutions={allSolutions} />
-      )}
+      {!loading &&
+        !error &&
+        (tab === 'compare' ||
+          tab === 'dependencies' ||
+          tab === 'layers' ||
+          tab === 'sharing') &&
+        isDeploymentManager && (
+          <ValidateWorkspace tab={tab} solutions={allSolutions} />
+        )}
+        </main>
+      </div>
 
+      {showHowTo && <HowToPanel onClose={() => setShowHowTo(false)} />}
       {showHelp && <HelpPanel onClose={() => setShowHelp(false)} />}
 
       {confirmDelete && (
@@ -739,12 +1089,24 @@ function App() {
         />
       )}
 
+      {completeTarget && (
+        <CompleteSolutionDialog
+          solution={completeTarget}
+          onConfirm={(deleteUnderlying) =>
+            void handleComplete(completeTarget, deleteUnderlying)
+          }
+          onCancel={() => setCompleteTarget(null)}
+        />
+      )}
+
       {pendingDeletes.length > 0 && (
         <div className="undo-stack">
           {pendingDeletes.map((p) => (
             <div key={p.key} className="undo-card">
               <span className="undo-text">
-                Deleted <strong>{p.solution.title}</strong>
+                {p.mode === 'complete' ? 'Completed' : 'Deleted'}{' '}
+                <strong>{p.solution.title}</strong>
+                {p.mode === 'complete' && ' — deleting solution'}
               </span>
               <button
                 className="undo-button"

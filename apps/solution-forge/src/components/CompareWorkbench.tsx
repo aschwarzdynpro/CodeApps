@@ -1,52 +1,44 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
 import {
   ALM_KIND_LABELS,
   DEVIATION_LABELS,
-  type AlmComponentKind,
   type ComparisonResult,
   type ComparisonRow,
   type DeviationKind,
   type EnvComponentState,
-  type EnvKey,
 } from '../types/comparison'
 import { ENVIRONMENTS } from '../config'
 import { comparisonService } from '../services/comparisonService'
 import { formatRelative } from '../utils/format'
 
 interface Props {
-  solutions: WorkingSolution[]
-  /** Solution preselected in the workbench, if any. */
-  initialSolutionId: string | null
+  /** The release solution chosen in the shared Validate selector. */
+  solution: WorkingSolution
 }
 
-const KIND_ORDER: AlmComponentKind[] = [
-  'cloudflow',
-  'workflow',
-  'businessrule',
-  'pluginstep',
-  'webresource',
+// Rich ALM type names lead the group order.
+const RICH_TYPE_ORDER: string[] = [
+  ALM_KIND_LABELS.cloudflow,
+  ALM_KIND_LABELS.workflow,
+  ALM_KIND_LABELS.businessrule,
+  ALM_KIND_LABELS.pluginstep,
+  ALM_KIND_LABELS.webresource,
 ]
 
+/** Compare surfaces cross-environment state: missing + status drift. */
+const COMPARE_DEVIATIONS: DeviationKind[] = ['missing', 'state']
+
+/** Groups with at most this many rows start expanded. */
+const AUTO_EXPAND_LIMIT = 12
+
 /**
- * Cross-environment ALM comparison: pick a solution, the ALM-relevant
- * components are resolved and their state compared across DEV / UAT / PROD.
- * Deviations (missing, status drift, unmanaged in target) are highlighted
- * and filterable.
+ * Cross-environment comparison: pick a release solution, its cloud flows,
+ * workflows, business rules, plugin steps and scripts are compared across
+ * DEV / UAT / PROD. Compare reports presence (missing) and status drift;
+ * unmanaged layers and content diffs live in the Layer Inspector.
  */
-export function CompareWorkbench({
-  solutions: allSolutions,
-  initialSolutionId,
-}: Props) {
-  // Rows without a resolvable real solution have no components to compare,
-  // and several working-solution records pointing at the same solution
-  // collapse to one entry — the comparison works on the solution itself.
-  const solutions = allSolutions.filter(
-    (s, index) =>
-      !s.solutionMissing &&
-      allSolutions.findIndex((o) => o.id === s.id) === index,
-  )
-  const [solutionId, setSolutionId] = useState<string>(initialSolutionId ?? '')
+export function CompareWorkbench({ solution }: Props) {
   const [result, setResult] = useState<ComparisonResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
@@ -55,15 +47,19 @@ export function CompareWorkbench({
     null,
   )
   const [onlyDeviations, setOnlyDeviations] = useState(false)
+  // Per-type-group collapse overrides; reset on every fresh result.
+  const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>(
+    {},
+  )
   const cache = useRef(new Map<string, ComparisonResult>())
   const request = useRef(0)
 
-  const run = (id: string, force = false) => {
-    setSolutionId(id)
+  const run = (force = false) => {
     setResult(null)
     setError(null)
     setDeviationFilter(null)
-    if (!id) return
+    setGroupOverrides({})
+    const id = solution.id
     if (!force) {
       const cached = cache.current.get(id)
       if (cached) {
@@ -92,32 +88,18 @@ export function CompareWorkbench({
       })
   }
 
-  // Kick off the comparison for the solution carried over from the
-  // workbench when the tab opens. Mount-only by design — later switches go
-  // through the picker.
-  useEffect(() => {
-    // Async kick-off drives loading/result state as it resolves (same
-    // pattern as useSolutions' initial load).
-    if (!initialSolutionId || !solutions.some((s) => s.id === initialSolutionId))
-      return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    run(initialSolutionId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   const deviationCounts = useMemo(() => {
     const counts: Record<DeviationKind, number> = {
       missing: 0,
       state: 0,
       unmanaged: 0,
+      content: 0,
     }
     for (const row of result?.rows ?? [])
       for (const d of row.deviations) counts[d]++
     return counts
   }, [result])
 
-  // "In sync" requires a verdict from every environment — rows with
-  // unknown cells (failed queries) don't count.
   const inSyncCount = useMemo(
     () =>
       (result?.rows ?? []).filter(
@@ -137,31 +119,32 @@ export function CompareWorkbench({
   }, [result, deviationFilter, onlyDeviations])
 
   const grouped = useMemo(() => {
-    const groups = new Map<AlmComponentKind, ComparisonRow[]>()
-    for (const kind of KIND_ORDER) groups.set(kind, [])
-    for (const row of visibleRows) groups.get(row.ref.kind)?.push(row)
-    return [...groups.entries()].filter(([, rows]) => rows.length > 0)
+    const groups = new Map<string, ComparisonRow[]>()
+    for (const row of visibleRows) {
+      const list = groups.get(row.ref.typeName)
+      if (list) list.push(row)
+      else groups.set(row.ref.typeName, [row])
+    }
+    const rank = (typeName: string) => {
+      const i = RICH_TYPE_ORDER.indexOf(typeName)
+      return i === -1 ? RICH_TYPE_ORDER.length : i
+    }
+    return [...groups.entries()].sort(
+      ([a], [b]) => rank(a) - rank(b) || a.localeCompare(b),
+    )
   }, [visibleRows])
 
-  const selectedSolution = solutions.find((s) => s.id === solutionId)
+  const isExpanded = (typeName: string, count: number) =>
+    groupOverrides[typeName] ?? count <= AUTO_EXPAND_LIMIT
+  const toggleGroup = (typeName: string, count: number) =>
+    setGroupOverrides((prev) => ({
+      ...prev,
+      [typeName]: !isExpanded(typeName, count),
+    }))
 
   return (
     <div>
-      <div className="card compare-controls">
-        <div className="compare-picker">
-          <span className="form-label">Solution</span>
-          <select
-            value={solutionId}
-            onChange={(e) => run(e.target.value)}
-          >
-            <option value="">Select a solution to compare…</option>
-            {solutions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.title} ({s.uniqueName})
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="validate-toolbar">
         <div className="compare-envs">
           {ENVIRONMENTS.map((env) => (
             <span
@@ -172,15 +155,20 @@ export function CompareWorkbench({
               {env.label}
             </span>
           ))}
-          {selectedSolution && !loading && (
-            <button
-              className="btn btn--small"
-              onClick={() => run(solutionId, true)}
-            >
-              Refresh
-            </button>
-          )}
         </div>
+        {result && !loading ? (
+          <button className="btn btn--small" onClick={() => run(true)}>
+            Refresh
+          </button>
+        ) : (
+          <button
+            className="btn btn--primary"
+            disabled={loading}
+            onClick={() => run()}
+          >
+            Compare
+          </button>
+        )}
       </div>
 
       {loading && <div className="state">Comparing… {progress}</div>}
@@ -196,7 +184,7 @@ export function CompareWorkbench({
           ))}
 
           <div className="compare-summary">
-            {(Object.keys(DEVIATION_LABELS) as DeviationKind[]).map((kind) => (
+            {COMPARE_DEVIATIONS.map((kind) => (
               <button
                 key={kind}
                 className={`chip chip--deviation-${kind} ${
@@ -229,73 +217,87 @@ export function CompareWorkbench({
           {result.rows.length === 0 && (
             <div className="state">
               This solution contains no cloud flows, workflows, business
-              rules, plugin steps or scripts.
+              rules, plugin steps or scripts. Use the Layer Inspector for the
+              other component types.
             </div>
           )}
 
-          {grouped.map(([kind, rows]) => (
-            <section key={kind} className="card compare-group">
-              <h3 className="card-title">
-                {ALM_KIND_LABELS[kind]}{' '}
-                <span className="muted">({rows.length})</span>
-              </h3>
-              <table className="compare-table">
-                <thead>
-                  <tr>
-                    <th>Component</th>
-                    {ENVIRONMENTS.map((env) => (
-                      <th key={env.key}>{env.label}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr
-                      key={row.ref.objectId}
-                      className={row.deviations.length ? 'compare-row--drift' : ''}
-                    >
-                      <td className="compare-name" title={row.ref.objectId}>
-                        {row.ref.name}
-                        {row.deviations.map((d) => (
-                          <span key={d} className={`drift-tag drift-tag--${d}`}>
-                            {DEVIATION_LABELS[d]}
-                          </span>
+          {grouped.map(([typeName, rows]) => {
+            const expanded = isExpanded(typeName, rows.length)
+            return (
+              <section key={typeName} className="card compare-group">
+                <button
+                  className="component-group-toggle"
+                  onClick={() => toggleGroup(typeName, rows.length)}
+                  aria-expanded={expanded}
+                >
+                  <span
+                    className={`component-group-chevron ${
+                      expanded ? 'component-group-chevron--open' : ''
+                    }`}
+                  >
+                    ▸
+                  </span>
+                  <span className="component-group-title">{typeName}</span>
+                  <span className="muted">({rows.length})</span>
+                </button>
+                {expanded && (
+                  <table className="compare-table">
+                    <thead>
+                      <tr>
+                        <th>Component</th>
+                        {ENVIRONMENTS.map((env) => (
+                          <th key={env.key}>{env.label}</th>
                         ))}
-                      </td>
-                      {ENVIRONMENTS.map((env) => (
-                        <td key={env.key}>
-                          <CompareCell
-                            state={row.byEnv[env.key]}
-                            envKey={env.key}
-                          />
-                        </td>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((row) => (
+                        <tr
+                          key={row.ref.objectId}
+                          className={
+                            row.deviations.length ? 'compare-row--drift' : ''
+                          }
+                        >
+                          <td className="compare-name" title={row.ref.objectId}>
+                            {row.ref.name}
+                            {row.deviations.map((d) => (
+                              <span
+                                key={d}
+                                className={`drift-tag drift-tag--${d}`}
+                              >
+                                {DEVIATION_LABELS[d]}
+                              </span>
+                            ))}
+                          </td>
+                          {ENVIRONMENTS.map((env) => (
+                            <td key={env.key}>
+                              <CompareCell state={row.byEnv[env.key]} />
+                            </td>
+                          ))}
+                        </tr>
                       ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-          ))}
+                    </tbody>
+                  </table>
+                )}
+              </section>
+            )
+          })}
         </>
       )}
 
       {!loading && !result && !error && (
         <div className="state">
-          Select a solution — its cloud flows, workflows, business rules,
-          plugin steps and scripts are compared across DEV, UAT and PROD.
+          Click <strong>Compare</strong> — {solution.title}'s cloud flows,
+          workflows, business rules, plugin steps and scripts are compared
+          across DEV, UAT and PROD for presence (missing) and status drift.
         </div>
       )}
     </div>
   )
 }
 
-function CompareCell({
-  state,
-  envKey,
-}: {
-  state: EnvComponentState | null
-  envKey: EnvKey
-}) {
+function CompareCell({ state }: { state: EnvComponentState | null }) {
   if (!state) return <span className="cell-unknown">?</span>
   if (!state.present) return <span className="cell-missing">Missing</span>
   return (
@@ -310,9 +312,6 @@ function CompareCell({
         </span>
       ) : (
         <span className="state-pill state-pill--neutral">Present</span>
-      )}
-      {envKey !== 'dev' && state.isManaged === false && (
-        <span className="state-pill state-pill--unmanaged">unmanaged</span>
       )}
       {state.modifiedOn && (
         <span className="cell-modified muted">

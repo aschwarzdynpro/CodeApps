@@ -1,4 +1,9 @@
-import type { ComparisonResult } from '../types/comparison'
+import type {
+  AlmComponentRef,
+  ComparisonResult,
+  ContentPair,
+  EnvKey,
+} from '../types/comparison'
 import { dataverseComparisonService } from './dataverseComparisonService'
 
 /**
@@ -20,6 +25,28 @@ export interface ComparisonService {
     solutionId: string,
     onProgress?: (message: string) => void,
   ): Promise<ComparisonResult>
+  /**
+   * Second pass over an existing comparison: hashes each diffable
+   * component's definition (clientdata/xaml/content) in every environment
+   * where it is present and flags a `content` deviation when the hashes
+   * differ. Returns a new result with content hashes filled into byEnv and
+   * the deviations updated. Loaded on demand because the content fields can
+   * be large.
+   */
+  checkContentDrift(
+    result: ComparisonResult,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<ComparisonResult>
+  /**
+   * Fetches one component's raw definition from two environments for the
+   * side-by-side diff, decoded to text (base64 web resources are decoded;
+   * binary types are flagged instead).
+   */
+  fetchContentPair(
+    ref: AlmComponentRef,
+    envA: EnvKey,
+    envB: EnvKey,
+  ): Promise<ContentPair>
 }
 
 export const comparisonService: ComparisonService = dataverseComparisonService

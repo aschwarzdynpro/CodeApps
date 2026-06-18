@@ -1,14 +1,23 @@
 import type {
   CreateWorkingSolutionInput,
   MergeResult,
+  MergeRun,
+  MergeRunComponent,
   PublisherInfo,
   SolutionComponentInfo,
   TrackSolutionInput,
+  UserRef,
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
 import type { DependencyCheckResult } from '../types/dependency'
+import type {
+  ComponentLayerStack,
+  LayerInspectionResult,
+  LayerSection,
+} from '../types/layers'
 import { buildUniqueName } from '../utils/naming'
+import { LAYER_IGNORED_TYPES } from './componentLayerNames'
 import {
   mockComponentsBySolutionId,
   mockPublishers,
@@ -26,6 +35,16 @@ import {
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 let mockIdCounter = 100
+
+/** Sample users for the owner picker (offline demo). */
+const MOCK_USERS: { id: string; name: string; username: string }[] = [
+  { id: 'u-0001', name: 'Marie Curie', username: 'marie.curie@dynpro.de' },
+  { id: 'u-0002', name: 'Niels Bohr', username: 'niels.bohr@dynpro.de' },
+  { id: 'u-0003', name: 'Lise Meitner', username: 'lise.meitner@dynpro.de' },
+  { id: 'u-0004', name: 'Max Planck', username: 'max.planck@dynpro.de' },
+  { id: 'u-0005', name: 'Albert Einstein', username: 'a.einstein@dynpro.de' },
+  { id: 'u-0006', name: 'Andy Schwarz', username: 'andy.schwarz@dynpro.de' },
+]
 
 /** Sample work items matching the seeded solutions' DevOps ids. */
 const MOCK_WORK_ITEMS: Record<string, Omit<WorkItemInfo, 'id' | 'url'>> = {
@@ -69,11 +88,34 @@ export class MockSolutionService {
       rows.map((r) => ({ ...r })),
     ]),
   )
+  // Merge-run history keyed by the target's working-solution record id. Seed
+  // one earlier run so the release solution's history is demoable offline.
+  private mergeRuns = new Map<string, MergeRun[]>([
+    [
+      'ws-0005',
+      [
+        {
+          id: 'mr-0001',
+          createdOn: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+          createdBy: 'Niels Bohr',
+          added: 3,
+          skipped: 0,
+          errors: 0,
+          sources: ['Customer onboarding wizard'],
+          components: [
+            { t: 'Table', n: 'dyn_onboardingcase' },
+            { t: 'Form', n: 'Onboarding Case – Main' },
+            { t: 'Process', n: 'Onboarding approval flow' },
+          ],
+        },
+      ],
+    ],
+  ])
 
   async listSolutions(): Promise<WorkingSolution[]> {
     await delay(350)
     return [...this.solutions]
-      .sort((a, b) => b.modifiedOn.localeCompare(a.modifiedOn))
+      .sort((a, b) => b.createdOn.localeCompare(a.createdOn))
       .map((s) => ({ ...s }))
   }
 
@@ -120,6 +162,14 @@ export class MockSolutionService {
   async listComponents(solutionId: string): Promise<SolutionComponentInfo[]> {
     await delay(300)
     return (this.components.get(solutionId) ?? []).map((c) => ({ ...c }))
+  }
+
+  // The mock has no subcomponent/membership distinction — its component lists
+  // already enumerate every component, so the merge view matches listComponents.
+  async listMergeComponents(
+    solutionId: string,
+  ): Promise<SolutionComponentInfo[]> {
+    return this.listComponents(solutionId)
   }
 
   async checkDependencies(
@@ -187,6 +237,99 @@ export class MockSolutionService {
     await delay(400)
   }
 
+  async inspectLayers(
+    solution: WorkingSolution,
+    envKey: 'uat' | 'prod',
+    onProgress?: (done: number, total: number) => void,
+    onSection?: (section: LayerSection) => void,
+  ): Promise<LayerInspectionResult> {
+    // Skip the by-design Active-layer types (env vars, connection refs) —
+    // matches the real impl.
+    const components = (this.components.get(solution.id) ?? []).filter(
+      (c) => !LAYER_IGNORED_TYPES.has(c.typeCode),
+    )
+    const stacks: ComponentLayerStack[] = []
+    onProgress?.(0, components.length)
+    for (const [index, component] of components.entries()) {
+      await delay(150)
+      // Deterministic spread so every verdict is demoable offline.
+      if (index === 0) {
+        stacks.push({
+          component,
+          verdict: 'overridden',
+          // Demo-only: show the precise canvas-app layers deep link.
+          makerLayerPath: `objects/apps/${component.objectId}`,
+          layers: [
+            { id: `l-${index}-a`, solutionName: 'Active', order: 3 },
+            {
+              id: `l-${index}-m`,
+              solutionName: 'deploy_2026_06',
+              publisherName: 'DynPro GmbH',
+              solutionVersion: '1.3.0.0',
+              order: 2,
+            },
+            {
+              id: `l-${index}-s`,
+              solutionName: 'System',
+              publisherName: 'MicrosoftCorporation',
+              solutionVersion: '5.0',
+              order: 1,
+            },
+          ],
+        })
+      } else if (index === 1) {
+        stacks.push({
+          component,
+          verdict: 'unmanagedOnly',
+          makerLayerPath: `entities/${component.objectId}`,
+          layers: [{ id: `l-${index}-a`, solutionName: 'Active', order: 1 }],
+        })
+      } else if (index === 2) {
+        stacks.push({ component, verdict: 'absent', layers: [] })
+      } else {
+        stacks.push({
+          component,
+          verdict: 'clean',
+          layers: [
+            {
+              id: `l-${index}-m`,
+              solutionName: 'deploy_2026_06',
+              publisherName: 'DynPro GmbH',
+              solutionVersion: '1.3.0.0',
+              order: 1,
+            },
+          ],
+        })
+      }
+      onProgress?.(index + 1, components.length)
+    }
+    // Emit one section per component type (progressive rendering demo).
+    const byType = new Map<string, ComponentLayerStack[]>()
+    for (const s of stacks) {
+      const list = byType.get(s.component.typeName)
+      if (list) list.push(s)
+      else byType.set(s.component.typeName, [s])
+    }
+    for (const [typeName, sectionStacks] of byType) {
+      await delay(120)
+      onSection?.({
+        typeCode: sectionStacks[0].component.typeCode,
+        typeName,
+        stacks: sectionStacks,
+      })
+    }
+    return { envKey, stacks, warnings: [] }
+  }
+
+  async resolveSolutionIdInEnv(
+    uniqueName: string,
+    envKey: 'uat' | 'prod',
+  ): Promise<string | null> {
+    await delay(120)
+    // Demo-only placeholder id so the deep-link structure is visible offline.
+    return uniqueName && envKey ? '11111111-1111-1111-1111-111111111111' : null
+  }
+
   async hasRole(): Promise<boolean> {
     await delay(150)
     return true // keep the full feature set demoable offline
@@ -196,6 +339,25 @@ export class MockSolutionService {
     await delay(150)
     // Matches the seeded owner of feature_4711 so the filter is demoable.
     return { id: 'u-0001', name: 'Marie Curie' }
+  }
+
+  async searchUsers(query: string): Promise<UserRef[]> {
+    await delay(200)
+    const q = query.trim().toLowerCase()
+    if (q.length < 2) return []
+    return MOCK_USERS.filter(
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        u.username.toLowerCase().includes(q),
+    ).map((u) => ({ ...u }))
+  }
+
+  async assignOwner(recordId: string, userId: string): Promise<void> {
+    await delay(250)
+    const solution = this.solutions.find((s) => s.recordId === recordId)
+    if (!solution) throw new Error('Unknown working-solution record.')
+    solution.ownerId = userId
+    solution.owner = MOCK_USERS.find((u) => u.id === userId)?.name ?? 'Unknown'
   }
 
   async linkSolution(
@@ -218,6 +380,52 @@ export class MockSolutionService {
     const solution = this.solutions.find((s) => s.recordId === recordId)
     if (!solution) throw new Error('Unknown working-solution record.')
     solution.kind = kind
+  }
+
+  async setDeploymentStatus(
+    recordId: string,
+    statusCode: number,
+  ): Promise<void> {
+    await delay(250)
+    const solution = this.solutions.find((s) => s.recordId === recordId)
+    if (!solution) throw new Error('Unknown working-solution record.')
+    solution.deploymentStatusCode = statusCode
+    solution.deploymentStatus =
+      statusCode === 500870003 ? 'Deployment completed' : 'None'
+  }
+
+  async setMergeTypeRules(
+    recordId: string,
+    allowed: number[],
+    excluded: number[],
+  ): Promise<void> {
+    await delay(200)
+    const solution = this.solutions.find((s) => s.recordId === recordId)
+    if (!solution) throw new Error('Unknown working-solution record.')
+    solution.allowedMergeTypes = [...allowed]
+    solution.excludedMergeTypes = [...excluded]
+  }
+
+  async syncDevOpsWorkItemStatus(): Promise<number> {
+    await delay(1500)
+    // Demo: pretend the sync closed one more open entry's work item, so the
+    // reconciliation lights up another "to be completed" after reload.
+    const candidate = this.solutions.find(
+      (s) => s.recordId && !s.solutionMissing && !s.toBeCompleted,
+    )
+    if (candidate) {
+      candidate.toBeCompleted = true
+      return 1
+    }
+    return 0
+  }
+
+  async deleteUnderlyingSolution(solutionId: string): Promise<void> {
+    await delay(300)
+    // The record stays; only the real solution is gone → now "WS only".
+    const solution = this.solutions.find((s) => s.id === solutionId)
+    if (solution) solution.solutionMissing = true
+    this.components.delete(solutionId)
   }
 
   async deleteSolution(solution: WorkingSolution): Promise<void> {
@@ -266,15 +474,23 @@ export class MockSolutionService {
     const queue = sourceSolutionIds.flatMap(
       (id) => this.components.get(id) ?? [],
     )
-    const result: MergeResult = { added: 0, skipped: 0, errors: [] }
+    const allowed = target.allowedMergeTypes ?? []
+    const excluded = target.excludedMergeTypes ?? []
+    const isAllowed = (tc: number) =>
+      (allowed.length === 0 || allowed.includes(tc)) && !excluded.includes(tc)
+    const result: MergeResult = { added: 0, skipped: 0, excluded: 0, errors: [] }
+    const added: MergeRunComponent[] = []
     let done = 0
     for (const component of queue) {
       await delay(120)
-      if (existing.has(component.objectId)) {
+      if (!isAllowed(component.typeCode)) {
+        result.excluded++
+      } else if (existing.has(component.objectId)) {
         result.skipped++
       } else {
         existing.add(component.objectId)
         targetComponents.push({ ...component, id: `c-merged-${++mockIdCounter}` })
+        added.push({ t: component.typeName, n: component.displayName })
         result.added++
       }
       onProgress?.(++done, queue.length)
@@ -288,7 +504,31 @@ export class MockSolutionService {
         source.deploymentStatusCode = 867520001
       }
     }
+    // …and the merge-run history row on the target.
+    if (target.recordId && (result.added > 0 || result.skipped > 0)) {
+      const runs = this.mergeRuns.get(target.recordId) ?? []
+      runs.unshift({
+        id: `mr-${++mockIdCounter}`,
+        createdOn: new Date().toISOString(),
+        createdBy: 'Marie Curie',
+        added: result.added,
+        skipped: result.skipped,
+        errors: result.errors.length,
+        sources: this.solutions
+          .filter((s) => sourceSolutionIds.includes(s.id))
+          .map((s) => s.title),
+        components: added,
+      })
+      this.mergeRuns.set(target.recordId, runs)
+    }
     return result
+  }
+
+  async listMergeRuns(targetRecordId: string): Promise<MergeRun[]> {
+    await delay(250)
+    return (this.mergeRuns.get(targetRecordId) ?? [])
+      .map((r) => ({ ...r, components: r.components.map((c) => ({ ...c })) }))
+      .sort((a, b) => b.createdOn.localeCompare(a.createdOn))
   }
 }
 

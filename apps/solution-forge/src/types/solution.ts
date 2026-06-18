@@ -15,6 +15,16 @@
 
 export type SolutionKind = 'feature' | 'bug' | 'deployment' | 'other'
 
+/** A user for the owner picker — display name plus the unique login. */
+export interface UserRef {
+  /** systemuserid */
+  id: string
+  /** fullname (display name — not unique). */
+  name: string
+  /** domainname / UPN — the unique login, shown to disambiguate. */
+  username: string
+}
+
 export interface PublisherInfo {
   /** publisherid */
   id: string
@@ -41,10 +51,34 @@ export interface WorkingSolution {
   ownerId?: string
   /** Formatted ssid_deploymentstatus label, e.g. "Deployment completed". */
   deploymentStatus?: string
-  /** Raw ssid_deploymentstatus option value (see CLOSED_STATUS_CODES). */
+  /** Raw ssid_deploymentstatus option value (informational only). */
   deploymentStatusCode?: number
+  /**
+   * statecode of the working-solution record: 0 = active (open), 1 = inactive
+   * (closed). Undefined for untracked solutions (no record). This — not the
+   * deployment status — determines whether an entry counts as open.
+   */
+  recordStateCode?: number
+  /**
+   * Release solutions only: component-type codes allowed when merging into
+   * this release (from the sst_allowedmergetypes multi-select). Empty/undefined
+   * means no restriction (all types allowed). See {@link MERGEABLE_COMPONENT_TYPES}.
+   */
+  allowedMergeTypes?: number[]
+  /**
+   * Release solutions only: component-type codes blocked on merge
+   * (sst_excludedmergetypes). Applied on top of the allow-list — a type is
+   * mergeable when (allow empty or in allow) AND not in exclude.
+   */
+  excludedMergeTypes?: number[]
   /** True when the row's ssid_uniquesolutionname matches no real solution. */
   solutionMissing?: boolean
+  /**
+   * Derived flag: the entry is still open but its DevOps work item is closed
+   * (sst_devopsworkitemstatus), so it's ready to be marked completed. Not
+   * persisted — computed when the list loads.
+   */
+  toBeCompleted?: boolean
   /** uniquename, e.g. "feature_4711" */
   uniqueName: string
   /** friendlyname — the title entered by the developer. */
@@ -118,6 +152,31 @@ export interface CreateWorkingSolutionInput {
  */
 export const CLOSED_STATUS_CODES = new Set([500870003, 867520001, 867520002])
 
+/** ssid_deploymentstatus value for "Deployment completed". */
+export const DEPLOYMENT_COMPLETED_CODE = 500870003
+
+/**
+ * Returns true when a working solution counts as open. Open ⇔ the
+ * working-solution record is active (statecode 0); the deployment status is
+ * informational only and does NOT affect this. Untracked solutions (no record,
+ * hence no statecode) count as open.
+ */
+export function isOpenStatus(s: WorkingSolution): boolean {
+  return s.recordStateCode === undefined || s.recordStateCode === 0
+}
+
+/**
+ * DevOps work-item states (sst_devopsworkitemstatus, lower-cased) that count
+ * as closed/done — an open working solution in one of these is "to be
+ * completed". Extend if the process adds other terminal states.
+ */
+export const CLOSED_WORK_ITEM_STATES = new Set(['closed', 'done'])
+
+/** Whether a stored DevOps work-item status string is a closed state. */
+export function isClosedWorkItemState(status?: string): boolean {
+  return CLOSED_WORK_ITEM_STATES.has((status ?? '').trim().toLowerCase())
+}
+
 /** Attach a working-solution record to an already existing solution. */
 export interface TrackSolutionInput {
   /** solutionid of the real solution to track. */
@@ -150,5 +209,71 @@ export interface MergePlanItem {
 export interface MergeResult {
   added: number
   skipped: number
+  /** Components dropped because their type isn't in the target's allow-list. */
+  excluded: number
   errors: string[]
+}
+
+/**
+ * Component types selectable in a release's merge allow-list. The codes are
+ * the Dataverse `componenttype` values and MUST mirror the option values of
+ * the `sst_allowedmergetypes` multi-select choice in Dataverse — add an option
+ * there and a matching entry here together.
+ */
+export const MERGEABLE_COMPONENT_TYPES: { code: number; label: string }[] = [
+  { code: 1, label: 'Table' },
+  { code: 2, label: 'Column' },
+  { code: 9, label: 'Choice' },
+  { code: 20, label: 'Security Role' },
+  { code: 26, label: 'View' },
+  { code: 29, label: 'Process (Flow/WF/BPF/Action)' },
+  { code: 59, label: 'Chart' },
+  { code: 60, label: 'Form' },
+  { code: 61, label: 'Web Resource' },
+  { code: 70, label: 'Field Security Profile' },
+  { code: 80, label: 'Model-driven App' },
+  { code: 91, label: 'Plugin Assembly' },
+  { code: 92, label: 'SDK Message Step' },
+  { code: 95, label: 'Service Endpoint' },
+  { code: 300, label: 'Canvas App' },
+  { code: 10021, label: 'Custom API' },
+  { code: 10022, label: 'Custom API Request Parameter' },
+  { code: 10023, label: 'Custom API Response Property' },
+  { code: 10064, label: 'Connection Reference' },
+  { code: 380, label: 'Environment Variable' },
+  { code: 381, label: 'Environment Variable Value' },
+]
+
+/**
+ * One added component captured in a merge run. Stored compactly (type + name,
+ * short keys) so the whole list fits in a single multiline column on the
+ * `sst_mergerun` row — no child table. The type label drives grouping/icons
+ * in the UI; the name is what the release notes need.
+ */
+export interface MergeRunComponent {
+  /** Component type label, e.g. "Web Resource". */
+  t: string
+  /** Component display name. */
+  n: string
+}
+
+/**
+ * One logged merge into a release/deployment solution (a row of the
+ * `sst_mergerun` table). Counts plus the source solution titles and the
+ * concrete components that were added in that run.
+ */
+export interface MergeRun {
+  /** sst_mergerunid */
+  id: string
+  /** createdon (ISO date-time) — when the merge ran. */
+  createdOn: string
+  /** createdby display name, when resolvable. */
+  createdBy?: string
+  added: number
+  skipped: number
+  errors: number
+  /** Titles of the source solutions merged in this run. */
+  sources: string[]
+  /** Components added in this run (parsed from sst_addedcomponents_txt). */
+  components: MergeRunComponent[]
 }

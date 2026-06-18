@@ -1,4 +1,5 @@
 import type { SolutionKind } from '../types/solution'
+import { OwnerFilter } from './OwnerFilter'
 
 export type KindFilter = SolutionKind | 'All'
 
@@ -20,11 +21,14 @@ interface Props {
   /** Default-on: only entries with a working-solution record. */
   trackedOnly: boolean
   onTrackedOnlyChange: (enabled: boolean) => void
-  /** Only working solutions owned by the signed-in user. */
-  mineOnly: boolean
-  onMineOnlyChange: (enabled: boolean) => void
-  /** Resolved name of the signed-in user, when known. */
-  mineUserName?: string | null
+  /** Distinct owners for the owner filter. */
+  owners: string[]
+  /** Selected owner, or '' for all. */
+  ownerFilter: string
+  onOwnerChange: (owner: string) => void
+  /** View toggle: group entries by their Azure DevOps work item number. */
+  groupByWorkItem: boolean
+  onGroupByChange: (enabled: boolean) => void
 }
 
 export function SolutionFilterBar({
@@ -35,9 +39,11 @@ export function SolutionFilterBar({
   onOpenOnlyChange,
   trackedOnly,
   onTrackedOnlyChange,
-  mineOnly,
-  onMineOnlyChange,
-  mineUserName,
+  owners,
+  ownerFilter,
+  onOwnerChange,
+  groupByWorkItem,
+  onGroupByChange,
 }: Props) {
   return (
     <div className="filter-bar">
@@ -73,16 +79,18 @@ export function SolutionFilterBar({
         >
           Tracked
         </button>
+        <OwnerFilter
+          owners={owners}
+          value={ownerFilter}
+          onChange={onOwnerChange}
+        />
+        <span className="chip-divider" />
         <button
-          className={`chip ${mineOnly ? 'chip--active' : ''}`}
-          title={
-            mineUserName
-              ? `Only working solutions owned by ${mineUserName}`
-              : 'Only working solutions owned by you'
-          }
-          onClick={() => onMineOnlyChange(!mineOnly)}
+          className={`chip ${groupByWorkItem ? 'chip--active' : ''}`}
+          title="Group solutions sharing the same Azure DevOps work item number."
+          onClick={() => onGroupByChange(!groupByWorkItem)}
         >
-          👤 Mine
+          Group by work item
         </button>
       </div>
     </div>

@@ -1,16 +1,21 @@
-import { useState } from 'react'
-import type {
-  ComponentCollision,
-  SolutionComponentInfo,
-  TrackSolutionInput,
-  WorkItemInfo,
-  WorkingSolution,
+import { useEffect, useRef, useState } from 'react'
+import {
+  isOpenStatus,
+  MERGEABLE_COMPONENT_TYPES,
+  type ComponentCollision,
+  type MergeRun,
+  type SolutionComponentInfo,
+  type TrackSolutionInput,
+  type UserRef,
+  type WorkItemInfo,
+  type WorkingSolution,
 } from '../types/solution'
 import {
   DEVOPS_PANEL_ENABLED,
   devOpsWorkItemUrl,
   makerSolutionUrl,
 } from '../config'
+import { solutionService } from '../services/solutionService'
 import { formatDateTime, groupBy } from '../utils/format'
 import { KindBadge } from './KindBadge'
 
@@ -29,11 +34,19 @@ interface Props {
   onTrack: (input: TrackSolutionInput) => Promise<void>
   /** Opens the delete confirmation for this entry. */
   onDelete: (solution: WorkingSolution) => void
+  /** Opens the "mark completed" dialog for an open tracked entry. */
+  onComplete: (solution: WorkingSolution) => void
   /** Persists a new type (sst_type_opt) for a tracked entry. */
   onChangeType: (
     solution: WorkingSolution,
     kind: TrackSolutionInput['kind'],
   ) => Promise<void>
+  /** Reassign the record's owner to the signed-in user. */
+  onAssignToMe: (solution: WorkingSolution) => Promise<void>
+  /** Reassign the record's owner to a chosen user. */
+  onAssign: (solution: WorkingSolution, userId: string) => Promise<void>
+  /** Search active users by name/login fragment (owner picker). */
+  onSearchUsers: (query: string) => Promise<UserRef[]>
   /** Unmanaged solutions without a record — candidates for re-linking. */
   linkCandidates: WorkingSolution[]
   /** Re-links an orphaned record to the chosen solution. */
@@ -234,6 +247,304 @@ function TrackPanel({
   )
 }
 
+/**
+ * Overlay listing the components one merge run added, grouped by component
+ * type — roomy enough for large merges, where the inline table cell would be
+ * a cramped comma soup. Closes on backdrop click, the ✕, or Escape.
+ */
+function MergeRunComponentsModal({
+  run,
+  onClose,
+}: {
+  run: MergeRun
+  onClose: () => void
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const byType = [...groupBy(run.components, (c) => c.t).entries()].sort(
+    (a, b) => a[0].localeCompare(b[0]),
+  )
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal card modal--wide merge-components-modal"
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-header">
+          <div>
+            <h2>
+              Added components{' '}
+              <span className="muted">({run.components.length})</span>
+            </h2>
+            <p className="muted merge-components-sub">
+              {formatDateTime(run.createdOn)}
+              {run.createdBy ? ` · ${run.createdBy}` : ''}
+              {run.sources.length ? ` · from ${run.sources.join(', ')}` : ''}
+            </p>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </div>
+        <div className="merge-components-body">
+          {byType.map(([type, items]) => (
+            <section className="merge-components-group" key={type}>
+              <h3 className="merge-components-group-title">
+                <span className="merge-plan-type">{type}</span>
+                <span className="muted">{items.length}</span>
+              </h3>
+              <ul className="merge-components-names">
+                {items.map((c, i) => (
+                  <li key={`${c.n}-${i}`} title={c.n}>
+                    {c.n}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Read-only summary of a release's merge rules (managed in the Merge Rules
+ * tab): the allow-list and exclude-list, or "All types allowed".
+ */
+function MergeRulesSummary({ solution }: { solution: WorkingSolution }) {
+  const labelFor = (c: number) =>
+    MERGEABLE_COMPONENT_TYPES.find((t) => t.code === c)?.label ?? `Type ${c}`
+  const allow = solution.allowedMergeTypes ?? []
+  const exclude = solution.excludedMergeTypes ?? []
+  return (
+    <div className="merge-allowed-summary">
+      <span className="merge-allowed-summary-label">Merge rules</span>
+      <span className="muted">
+        {allow.length === 0
+          ? 'All types allowed'
+          : `Allow: ${allow.map(labelFor).join(', ')}`}
+        {exclude.length > 0 && ` · Exclude: ${exclude.map(labelFor).join(', ')}`}
+      </span>
+      <span className="merge-allowed-summary-hint muted">
+        manage in Merge Rules
+      </span>
+    </div>
+  )
+}
+
+/**
+ * Merge history of a release solution: the logged sst_mergerun rows, newest
+ * first, as a table. Each row expands to the concrete components that merge
+ * added (stored compactly on the row, so no extra query). Loads itself on
+ * mount — the parent remounts the detail per solution, so a record-id effect
+ * stays correct.
+ */
+function MergeHistoryPanel({ recordId }: { recordId: string }) {
+  const [runs, setRuns] = useState<MergeRun[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  // The run whose added components are shown in the overlay (null = closed).
+  const [detailRun, setDetailRun] = useState<MergeRun | null>(null)
+
+  // The parent remounts the detail per solution (key={solution.id}), so this
+  // loads once per opened release — no in-effect state reset needed.
+  useEffect(() => {
+    let cancelled = false
+    solutionService
+      .listMergeRuns(recordId)
+      .then((r) => {
+        if (!cancelled) setRuns(r)
+      })
+      .catch((err) => {
+        if (!cancelled)
+          setError(err instanceof Error ? err.message : String(err))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [recordId])
+
+  return (
+    <section className="merge-history">
+      <h3 className="card-title">
+        Merge history{runs && runs.length > 0 && ` (${runs.length})`}
+      </h3>
+      {error && <div className="state state--error">{error}</div>}
+      {!error && runs === null && (
+        <div className="state">Loading merge history…</div>
+      )}
+      {!error && runs?.length === 0 && (
+        <div className="state">No merges logged for this release yet.</div>
+      )}
+      {!error && !!runs?.length && (
+        <table className="merge-history-table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>By</th>
+              <th className="num">Added</th>
+              <th className="num">Skipped</th>
+              <th className="num">Errors</th>
+              <th>Sources</th>
+            </tr>
+          </thead>
+          <tbody>
+            {runs.map((run) => {
+              const canExpand = run.components.length > 0
+              return (
+                <tr
+                  key={run.id}
+                  className={`merge-history-row ${
+                    canExpand ? 'merge-history-row--clickable' : ''
+                  }`}
+                  onClick={canExpand ? () => setDetailRun(run) : undefined}
+                  title={canExpand ? 'View the added components' : undefined}
+                >
+                  <td>{formatDateTime(run.createdOn)}</td>
+                  <td>{run.createdBy ?? '—'}</td>
+                  <td className="num">
+                    {canExpand ? (
+                      <span className="merge-history-added">
+                        {run.added}
+                        <span
+                          className="merge-history-expand"
+                          aria-hidden="true"
+                        >
+                          ⤢
+                        </span>
+                      </span>
+                    ) : (
+                      run.added
+                    )}
+                  </td>
+                  <td className="num">{run.skipped}</td>
+                  <td
+                    className={`num ${run.errors ? 'merge-history-errors' : ''}`}
+                  >
+                    {run.errors}
+                  </td>
+                  <td>{run.sources.join(', ') || '—'}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+      {detailRun && (
+        <MergeRunComponentsModal
+          run={detailRun}
+          onClose={() => setDetailRun(null)}
+        />
+      )}
+    </section>
+  )
+}
+
+/**
+ * Reassign-owner panel: a quick "Assign to me" plus a name search to assign
+ * to any active user. The parent reloads on success (which unmounts this).
+ */
+function AssignOwnerPanel({
+  solution,
+  onAssignToMe,
+  onAssign,
+  onSearchUsers,
+}: {
+  solution: WorkingSolution
+  onAssignToMe: (solution: WorkingSolution) => Promise<void>
+  onAssign: (solution: WorkingSolution, userId: string) => Promise<void>
+  onSearchUsers: (query: string) => Promise<UserRef[]>
+}) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<UserRef[]>([])
+  const [searching, setSearching] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const timer = useRef<number | undefined>(undefined)
+
+  const runSearch = (v: string) => {
+    setQuery(v)
+    window.clearTimeout(timer.current)
+    const q = v.trim()
+    if (q.length < 2) {
+      setResults([])
+      setSearching(false)
+      return
+    }
+    setSearching(true)
+    timer.current = window.setTimeout(() => {
+      onSearchUsers(q)
+        .then((r) => setResults(r))
+        .catch(() => setResults([]))
+        .finally(() => setSearching(false))
+    }, 300)
+  }
+
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await fn()
+      // Success → parent reloads and unmounts this panel; keep it disabled.
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="track-panel">
+      <h3 className="track-panel-title">Reassign owner</h3>
+      <p className="muted track-panel-hint">
+        Current owner: <strong>{solution.owner ?? '—'}</strong>
+      </p>
+      <button
+        className="btn btn--small btn--primary assign-me"
+        disabled={busy}
+        onClick={() => void run(() => onAssignToMe(solution))}
+      >
+        👤 Assign to me
+      </button>
+      <input
+        className="search merge-source-search"
+        type="search"
+        placeholder="Or search a user by name…"
+        value={query}
+        onChange={(e) => runSearch(e.target.value)}
+      />
+      {searching && <div className="state">Searching…</div>}
+      {!searching && query.trim().length >= 2 && results.length === 0 && (
+        <div className="state">No user matches “{query}”.</div>
+      )}
+      <ul className="link-result-list">
+        {results.map((u) => (
+          <li key={u.id}>
+            <button
+              className="link-result"
+              disabled={busy}
+              onClick={() => void run(() => onAssign(solution, u.id))}
+            >
+              <span className="link-result-title">{u.name}</span>
+              {u.username && <code>{u.username}</code>}
+              <span className="link-result-action">Assign</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {error && <div className="state state--error">{error}</div>}
+    </section>
+  )
+}
+
 /** Visual bucket for a work item state across common process templates. */
 function stateBucket(state: string): string {
   const s = state.toLowerCase()
@@ -256,12 +567,17 @@ export function SolutionDetail({
   collisions,
   onTrack,
   onDelete,
+  onComplete,
   onChangeType,
+  onAssignToMe,
+  onAssign,
+  onSearchUsers,
   linkCandidates,
   onLink,
 }: Props) {
   // Inline type editor for tracked entries (sst_type_opt).
   const [editingType, setEditingType] = useState(false)
+  const [assigning, setAssigning] = useState(false)
   const [savingType, setSavingType] = useState(false)
   const [typeError, setTypeError] = useState<string | null>(null)
 
@@ -299,7 +615,7 @@ export function SolutionDetail({
     }))
 
   return (
-    <aside className="card detail">
+    <aside className={`card detail detail--${solution.kind}`}>
       <div className="detail-header">
         <div>
           <span className="type-edit">
@@ -341,31 +657,68 @@ export function SolutionDetail({
         <p className="detail-description">{solution.description}</p>
       )}
 
-      <div className="detail-actions">
+      <div className="command-bar">
         {solution.solutionMissing ? (
           <span
-            className="btn btn--primary btn--disabled"
+            className="command-bar-item command-bar-item--disabled"
             title="No Dataverse solution matches this record's unique solution name."
           >
-            Open in Maker Portal
+            <span className="cmd-icon">↗</span> Maker Portal
           </span>
         ) : (
           <a
-            className="btn btn--primary"
+            className="command-bar-item"
             href={makerSolutionUrl(environmentId, solution.id)}
             target="_blank"
             rel="noreferrer"
+            title="Open this solution in the maker portal"
           >
-            Open in Maker Portal ↗
+            <span className="cmd-icon">↗</span> Maker Portal
           </a>
         )}
+        {solution.recordId && isOpenStatus(solution) && (
+          <button
+            className={`command-bar-item ${
+              solution.toBeCompleted ? 'command-bar-item--accent' : ''
+            }`}
+            title={
+              solution.toBeCompleted
+                ? 'Work item is closed — set deployment status to completed (optionally delete the solution)'
+                : 'Set deployment status to completed (optionally delete the solution)'
+            }
+            onClick={() => onComplete(solution)}
+          >
+            <span className="cmd-icon">✓</span> Complete
+          </button>
+        )}
+        {solution.recordId && (
+          <button
+            className={`command-bar-item ${
+              assigning ? 'command-bar-item--accent' : ''
+            }`}
+            title="Reassign the owner of this working solution"
+            onClick={() => setAssigning((v) => !v)}
+          >
+            <span className="cmd-icon">👤</span> Assign
+          </button>
+        )}
         <button
-          className="btn btn--danger detail-delete"
+          className="command-bar-item command-bar-item--danger"
+          title="Remove the record / solution, with a 3-second undo"
           onClick={() => onDelete(solution)}
         >
-          Delete…
+          <span className="cmd-icon">🗑</span> Delete
         </button>
       </div>
+
+      {assigning && solution.recordId && (
+        <AssignOwnerPanel
+          solution={solution}
+          onAssignToMe={onAssignToMe}
+          onAssign={onAssign}
+          onSearchUsers={onSearchUsers}
+        />
+      )}
 
       {solution.solutionMissing && (
         <>
@@ -487,6 +840,16 @@ export function SolutionDetail({
           </ul>
         </section>
       )}
+
+      {solution.kind === 'deployment' && solution.recordId && (
+        <MergeRulesSummary solution={solution} />
+      )}
+
+      {solution.kind === 'deployment' &&
+        solution.recordId &&
+        !solution.solutionMissing && (
+          <MergeHistoryPanel recordId={solution.recordId} />
+        )}
 
       {!solution.solutionMissing && (
         <div className="detail-components-header">
