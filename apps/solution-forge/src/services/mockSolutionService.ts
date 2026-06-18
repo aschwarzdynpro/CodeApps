@@ -115,7 +115,7 @@ export class MockSolutionService {
   async listSolutions(): Promise<WorkingSolution[]> {
     await delay(350)
     return [...this.solutions]
-      .sort((a, b) => b.modifiedOn.localeCompare(a.modifiedOn))
+      .sort((a, b) => b.createdOn.localeCompare(a.createdOn))
       .map((s) => ({ ...s }))
   }
 

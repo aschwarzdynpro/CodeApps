@@ -32,7 +32,7 @@ import { dataverseSolutionService } from './dataverseSolutionService'
  * the UI.
  */
 export interface SolutionService {
-  /** All visible unmanaged solutions, newest-modified first. */
+  /** All visible unmanaged solutions, newest-created first. */
   listSolutions(): Promise<WorkingSolution[]>
   /** Publishers available for new working solutions. */
   listPublishers(): Promise<PublisherInfo[]>

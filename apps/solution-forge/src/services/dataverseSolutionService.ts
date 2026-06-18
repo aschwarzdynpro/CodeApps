@@ -501,7 +501,7 @@ export class DataverseSolutionService implements SolutionService {
           // Working solutions are always unmanaged; isvisible drops the
           // hidden system containers (Active, Basic, …).
           filter: 'ismanaged eq false and isvisible eq true',
-          orderBy: ['modifiedon desc'],
+          orderBy: ['createdon desc'],
         }),
         this.fetchWorkingRows().catch((err) => {
           console.warn('[solutions] working-solution rows failed:', err)
@@ -576,7 +576,8 @@ export class DataverseSolutionService implements SolutionService {
       for (const solution of solutions) {
         if (!linkedSolutionIds.has(solution.id)) result.push(solution)
       }
-      return result.sort((a, b) => b.modifiedOn.localeCompare(a.modifiedOn))
+      // Newest created first.
+      return result.sort((a, b) => b.createdOn.localeCompare(a.createdOn))
     } catch (err) {
       console.warn('[solutions] listSolutions() threw, falling back to mock:', err)
       return mockSolutionService.listSolutions()
