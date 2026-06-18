@@ -25,6 +25,7 @@ import {
   DEPLOYMENT_COMPLETED_CODE,
   isOpenStatus,
   type ComponentCollision,
+  type MergeResult,
   type SolutionComponentInfo,
   type TrackSolutionInput,
   type WorkItemInfo,
@@ -224,6 +225,23 @@ function App() {
       window.clearTimeout(clear)
     }
   }, [actionError])
+  // Merge outcome banner — lives at App level so it survives the reload() the
+  // merge triggers (which briefly unmounts the Merge tab). Clean merges fade
+  // after 5s; merges with item-level errors stay so they can be read.
+  const [mergeBanner, setMergeBanner] = useState<{
+    result: MergeResult
+    title: string
+  } | null>(null)
+  const [mergeBannerFading, setMergeBannerFading] = useState(false)
+  useEffect(() => {
+    if (!mergeBanner || mergeBanner.result.errors.length > 0) return
+    const fade = window.setTimeout(() => setMergeBannerFading(true), 4400)
+    const clear = window.setTimeout(() => setMergeBanner(null), 5000)
+    return () => {
+      window.clearTimeout(fade)
+      window.clearTimeout(clear)
+    }
+  }, [mergeBanner])
   // Locally created solutions show up immediately, even before reload() lands.
   const [created, setCreated] = useState<WorkingSolution[]>([])
 
@@ -664,7 +682,13 @@ function App() {
 
   // After a merge the target solution gained components — drop its cached
   // list so the next open (or an open detail view) refetches.
-  const handleMerged = (targetSolutionId: string) => {
+  const handleMerged = (
+    targetSolutionId: string,
+    result: MergeResult,
+    targetTitle: string,
+  ) => {
+    setMergeBannerFading(false)
+    setMergeBanner({ result, title: targetTitle })
     setComponentCache((prev) => {
       const next = new Map(prev)
       next.delete(targetSolutionId)
@@ -759,6 +783,41 @@ function App() {
           }`}
         >
           <span>{actionError}</span>
+        </div>
+      )}
+
+      {mergeBanner && (
+        <div
+          className={`state ${
+            mergeBanner.result.errors.length
+              ? 'state--error'
+              : 'state--success creation-banner'
+          } ${mergeBannerFading ? 'creation-banner--fading' : ''}`}
+        >
+          <span>
+            {mergeBanner.result.errors.length
+              ? 'Merge finished with issues — '
+              : '✓ Merge finished — '}
+            <strong>{mergeBanner.result.added}</strong> component
+            {mergeBanner.result.added === 1 ? '' : 's'} added into{' '}
+            <strong>{mergeBanner.title}</strong>
+            {mergeBanner.result.skipped > 0
+              ? `, ${mergeBanner.result.skipped} already in target`
+              : ''}
+            {mergeBanner.result.excluded > 0
+              ? `, ${mergeBanner.result.excluded} excluded by merge rules`
+              : ''}
+            {mergeBanner.result.errors.length > 0
+              ? `, ${mergeBanner.result.errors.length} failed:`
+              : '.'}
+          </span>
+          {mergeBanner.result.errors.length > 0 && (
+            <ul className="merge-errors">
+              {mergeBanner.result.errors.map((e) => (
+                <li key={e}>{e}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 

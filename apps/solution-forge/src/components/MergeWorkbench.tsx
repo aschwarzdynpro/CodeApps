@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type {
   MergePlanItem,
   MergeResult,
@@ -12,9 +12,14 @@ import { SolutionSelect } from './SolutionSelect'
 
 interface Props {
   solutions: WorkingSolution[]
-  /** Called with the target's id after a successful merge so the workbench
-   *  can reload and invalidate the target's cached component list. */
-  onMerged: (targetSolutionId: string) => void
+  /** Called after a merge with the target id, the result and the target title.
+   *  The parent reloads, invalidates the target's component cache and shows the
+   *  outcome banner (at App level so it survives the reload). */
+  onMerged: (
+    targetSolutionId: string,
+    result: MergeResult,
+    targetTitle: string,
+  ) => void
 }
 
 /**
@@ -42,21 +47,7 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
   const [plan, setPlan] = useState<MergePlanItem[] | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
   const [progress, setProgress] = useState<[number, number] | null>(null)
-  const [result, setResult] = useState<MergeResult | null>(null)
-  // The green success bar fades out and clears itself after 5s — but only on a
-  // clean merge; one with errors stays so the failures can be read.
-  const [resultFading, setResultFading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!result || result.errors.length > 0) return
-    const fade = window.setTimeout(() => setResultFading(true), 4400)
-    const clear = window.setTimeout(() => setResult(null), 5000)
-    return () => {
-      window.clearTimeout(fade)
-      window.clearTimeout(clear)
-    }
-  }, [result])
   // Guards against out-of-order plan responses when toggling quickly.
   const planRequest = useRef(0)
 
@@ -108,7 +99,6 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
     if (next.has(id)) next.delete(id)
     else next.add(id)
     setSelected(next)
-    setResult(null)
     setError(null)
     void buildPlan(next)
   }
@@ -140,8 +130,6 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
   const merge = async () => {
     if (!target) return
     setProgress([0, plan?.length ?? 0])
-    setResult(null)
-    setResultFading(false)
     setError(null)
     try {
       const res = await solutionService.mergeIntoDeployment(
@@ -149,8 +137,9 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
         [...selected],
         (done, total) => setProgress([done, total]),
       )
-      setResult(res)
-      onMerged(target.id)
+      // The outcome banner lives at App level (survives the reload onMerged
+      // triggers, which briefly unmounts this tab).
+      onMerged(target.id, res, target.title)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -162,37 +151,6 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
 
   return (
     <div className="merge-layout merge-layout--single">
-      {result && (
-        <div
-          className={`state ${
-            result.errors.length
-              ? 'state--error'
-              : 'state--success creation-banner'
-          } ${resultFading ? 'creation-banner--fading' : ''}`}
-        >
-          <span>
-            {result.errors.length
-              ? 'Merge finished with issues — '
-              : '✓ Merge finished — '}
-            <strong>{result.added}</strong> component
-            {result.added === 1 ? '' : 's'} added
-            {result.skipped > 0 ? `, ${result.skipped} already in target` : ''}
-            {result.excluded > 0
-              ? `, ${result.excluded} excluded by merge rules`
-              : ''}
-            {result.errors.length > 0
-              ? `, ${result.errors.length} failed:`
-              : '.'}
-          </span>
-          {result.errors.length > 0 && (
-            <ul className="merge-errors">
-              {result.errors.map((e) => (
-                <li key={e}>{e}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
       <div className="card merge-pane">
         <h3 className="card-title">
           1 · Working solutions to merge
