@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { usePower } from './PowerProvider'
 import { useSalesData } from './hooks/useSalesData'
-import type { ViewContext } from './dashboard/types'
+import type { TileDef, ViewContext } from './dashboard/types'
+import type { UserRef } from './types/sales'
 import {
   activitiesTile,
   leadsTile,
@@ -14,40 +15,65 @@ import {
 import { Header } from './components/Header'
 import { KpiBar } from './components/KpiBar'
 import { DashboardTile } from './components/DashboardTile'
+import { LoadingOverlay } from './components/LoadingOverlay'
 
 /**
  * Moderne Code-App-Fassung des Legacy-Dashboards "Dashboard GVL":
- * KPI-Leiste plus sechs Kacheln (Aktivitäten, Leads, Verkaufschancen,
- * Projekte, Angebote, Aufträge) — jede mit Ansichts-/Diagrammwechsler,
+ * KPI-Leiste als Überblick plus eine Bereichsauswahl — der gewählte Bereich
+ * (Aktivitäten, Leads, Verkaufschancen, Projekte, Angebote, Aufträge) wird
+ * groß angezeigt (Diagramm + Tabelle), mit Ansichts-/Diagrammwechsler,
  * Schnellsuche und Cross-Filter per Diagramm-Klick.
  */
 
-type Theme = 'light' | 'dark'
+type Theme = 'light' | 'dark' | 'waldmann'
 
 const THEME_KEY = 'sales-dashboard-theme'
 const DATA_MODE_KEY = 'sales-dashboard-data-mode'
 
+/** Reihenfolge des Design-Umschalters: Hell → Dunkel → Waldmann → … */
+const THEME_ORDER: Theme[] = ['light', 'dark', 'waldmann']
+
+/** Anzahl der Datensätze in der Standardansicht einer Kachel (Badge der Tableiste). */
+function defaultViewCount<T>(def: TileDef<T>, rows: T[], ctx: ViewContext): number {
+  const filter = def.views[0].filter
+  let count = 0
+  for (const row of rows) if (filter(row, ctx)) count++
+  return count
+}
+
 function initialTheme(): Theme {
   const stored = localStorage.getItem(THEME_KEY)
-  if (stored === 'dark' || stored === 'light') return stored
+  if (stored === 'dark' || stored === 'light' || stored === 'waldmann') return stored
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches
     ? 'dark'
     : 'light'
 }
 
 export default function App() {
-  const { mode, orgUrl } = usePower()
+  const { mode, orgUrl, recordLinkAppId } = usePower()
 
   // Demo-Schalter: erzwingt Demo-Daten auch im Power-Apps-Host (zum Testen).
   const [forceMock, setForceMock] = useState(
     () => localStorage.getItem(DATA_MODE_KEY) === 'demo',
   )
+
+  // Gewählte GVL, aus deren Sicht das Dashboard gefiltert wird; `null` = der
+  // Standard (angemeldeter Benutzer).
+  const [selectedGvl, setSelectedGvl] = useState<UserRef | null>(null)
+
+  // Aktuell angezeigter Bereich (eine der sechs Kacheln).
+  const [activeTile, setActiveTile] = useState<string>('activities')
+
   const changeForceMock = (value: boolean) => {
     setForceMock(value)
+    // Eine GVL aus dem alten Datenbestand passt nicht zum neuen (Demo ↔ Live):
+    // zurück auf den Standard.
+    setSelectedGvl(null)
     localStorage.setItem(DATA_MODE_KEY, value ? 'demo' : 'auto')
   }
 
-  const { data, loading, error, refresh, lastUpdated } = useSalesData(forceMock)
+  const { data, loading, error, refresh, lastUpdated, listSalesManagers, progress } =
+    useSalesData(forceMock, selectedGvl?.id)
 
   const [theme, setTheme] = useState<Theme>(initialTheme)
   useEffect(() => {
@@ -55,22 +81,28 @@ export default function App() {
     localStorage.setItem(THEME_KEY, theme)
   }, [theme])
 
-  // "Ich" der "Meine …"-Ansichten; im Demo-Modus per Kopfzeile wechselbar.
-  // Nach einem Wechsel Demo ↔ Live passen alte Perspektiv-IDs nicht zum
-  // neuen Datenbestand — dann zählt der angemeldete Benutzer (abgeleitet,
-  // kein State-Reset nötig).
-  const [perspectiveId, setPerspectiveId] = useState<string | null>(null)
-  const validPerspective =
-    perspectiveId && data?.salesManagers.some((u) => u.id === perspectiveId)
-      ? perspectiveId
-      : null
-  const userId = validPerspective ?? data?.currentUser.id ?? ''
+  // "Ich" der "Meine …"-Ansichten und der KPIs: die gewählte GVL, sonst der
+  // angemeldete Benutzer (Standard).
+  const userId = selectedGvl?.id ?? data?.currentUser.id ?? ''
 
   const ctx = useMemo<ViewContext>(
     () => ({ userId, now: new Date() }),
     // `data` als Dependency: nach einem Refresh soll auch `now` neu sein.
     [userId, data], // eslint-disable-line react-hooks/exhaustive-deps
   )
+
+  // Bereichs-Tableiste: Icon, Titel, Akzent und Anzahl (Standardansicht) je Kachel.
+  const tabs = useMemo(() => {
+    if (!data) return []
+    return [
+      { id: activitiesTile.id, icon: activitiesTile.icon, title: activitiesTile.title, accent: activitiesTile.accent, count: defaultViewCount(activitiesTile, data.activities, ctx) },
+      { id: leadsTile.id, icon: leadsTile.icon, title: leadsTile.title, accent: leadsTile.accent, count: defaultViewCount(leadsTile, data.leads, ctx) },
+      { id: opportunitiesTile.id, icon: opportunitiesTile.icon, title: opportunitiesTile.title, accent: opportunitiesTile.accent, count: defaultViewCount(opportunitiesTile, data.opportunities, ctx) },
+      { id: projectsTile.id, icon: projectsTile.icon, title: projectsTile.title, accent: projectsTile.accent, count: defaultViewCount(projectsTile, data.projects, ctx) },
+      { id: quotesTile.id, icon: quotesTile.icon, title: quotesTile.title, accent: quotesTile.accent, count: defaultViewCount(quotesTile, data.quotes, ctx) },
+      { id: ordersTile.id, icon: ordersTile.icon, title: ordersTile.title, accent: ordersTile.accent, count: defaultViewCount(ordersTile, data.orders, ctx) },
+    ]
+  }, [data, ctx])
 
   if (!data) {
     return (
@@ -99,28 +131,50 @@ export default function App() {
         canUseLive={mode === 'power-platform'}
         forceMock={forceMock}
         onForceMockChange={changeForceMock}
-        salesManagers={data.salesManagers}
-        perspectiveId={userId}
-        onPerspectiveChange={setPerspectiveId}
+        selectedGvl={selectedGvl}
+        defaultName={data.currentUser.name}
+        loadCandidates={listSalesManagers}
+        onGvlChange={setSelectedGvl}
         theme={theme}
-        onThemeToggle={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+        onThemeCycle={() =>
+          setTheme((t) => THEME_ORDER[(THEME_ORDER.indexOf(t) + 1) % THEME_ORDER.length])
+        }
         onRefresh={() => void refresh()}
         loading={loading}
         lastUpdated={lastUpdated}
       />
 
-      <main className="app__main">
-        <KpiBar data={data} ctx={ctx} />
+      <div className="app__stage">
+        <main className={`app__main${loading ? ' is-reloading' : ''}`}>
+        <KpiBar
+          data={data}
+          ctx={ctx}
+          sections={tabs}
+          activeTileId={activeTile}
+          onSelectTile={setActiveTile}
+        />
 
-        <div className="tile-grid">
-          <DashboardTile def={activitiesTile} rows={data.activities} ctx={ctx} orgUrl={orgUrl} />
-          <DashboardTile def={leadsTile} rows={data.leads} ctx={ctx} orgUrl={orgUrl} />
-          <DashboardTile def={opportunitiesTile} rows={data.opportunities} ctx={ctx} orgUrl={orgUrl} />
-          <DashboardTile def={projectsTile} rows={data.projects} ctx={ctx} orgUrl={orgUrl} />
-          <DashboardTile def={quotesTile} rows={data.quotes} ctx={ctx} orgUrl={orgUrl} />
-          <DashboardTile def={ordersTile} rows={data.orders} ctx={ctx} orgUrl={orgUrl} />
-        </div>
-      </main>
+        {activeTile === 'activities' && (
+          <DashboardTile def={activitiesTile} rows={data.activities} ctx={ctx} orgUrl={orgUrl} appId={recordLinkAppId} fullWidth />
+        )}
+        {activeTile === 'leads' && (
+          <DashboardTile def={leadsTile} rows={data.leads} ctx={ctx} orgUrl={orgUrl} appId={recordLinkAppId} fullWidth />
+        )}
+        {activeTile === 'opportunities' && (
+          <DashboardTile def={opportunitiesTile} rows={data.opportunities} ctx={ctx} orgUrl={orgUrl} appId={recordLinkAppId} fullWidth />
+        )}
+        {activeTile === 'projects' && (
+          <DashboardTile def={projectsTile} rows={data.projects} ctx={ctx} orgUrl={orgUrl} appId={recordLinkAppId} fullWidth />
+        )}
+        {activeTile === 'quotes' && (
+          <DashboardTile def={quotesTile} rows={data.quotes} ctx={ctx} orgUrl={orgUrl} appId={recordLinkAppId} fullWidth />
+        )}
+        {activeTile === 'orders' && (
+          <DashboardTile def={ordersTile} rows={data.orders} ctx={ctx} orgUrl={orgUrl} appId={recordLinkAppId} fullWidth />
+        )}
+        </main>
+        {loading && <LoadingOverlay progress={progress} />}
+      </div>
     </div>
   )
 }

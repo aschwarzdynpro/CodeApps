@@ -23,6 +23,16 @@ export interface ColumnDef<T> {
   value: (row: T) => string | number | undefined
   /** Farbton für kind = 'badge'. */
   tone?: (row: T) => BadgeTone
+  /**
+   * Spalte ist standardmäßig ausgeblendet — sie steht im Spalten-Konfigurator
+   * der Liste zum Hinzufügen bereit, erscheint aber nicht in der Erstansicht.
+   */
+  defaultHidden?: boolean
+  /**
+   * Markiert die Zelle als überfällig (rot), z. B. ein offener Fälligkeits-/
+   * Nachfass-/Entscheidungstermin in der Vergangenheit. Liefert true → Warnung.
+   */
+  overdue?: (row: T, now: Date) => boolean
 }
 
 export interface ViewDef<T> {

@@ -4,18 +4,24 @@
  */
 
 // Models
+export * as AccountsModel from './models/AccountsModel';
 export * as ActivitypointersModel from './models/ActivitypointersModel';
 export * as CommonModels from './models/CommonModels';
+export * as LeadsModel from './models/LeadsModel';
 export * as OpportunitiesModel from './models/OpportunitiesModel';
 export * as QuotesModel from './models/QuotesModel';
 export * as SalesordersModel from './models/SalesordersModel';
 export * as SystemusersModel from './models/SystemusersModel';
+export * as TerritoriesModel from './models/TerritoriesModel';
 export * as Wal_projectsModel from './models/Wal_projectsModel';
 
 // Services
+export * from './services/AccountsService';
 export * from './services/ActivitypointersService';
+export * from './services/LeadsService';
 export * from './services/OpportunitiesService';
 export * from './services/QuotesService';
 export * from './services/SalesordersService';
 export * from './services/SystemusersService';
+export * from './services/TerritoriesService';
 export * from './services/Wal_projectsService';
