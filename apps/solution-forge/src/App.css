@@ -417,6 +417,16 @@
 .chip--active .chip-count {
   background: rgba(255, 255, 255, 0.22);
 }
+.chip--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.chip--disabled:hover {
+  border-color: var(--border);
+}
+.chip-lock {
+  font-size: 11px;
+}
 .search {
   flex: 1;
   min-width: 200px;

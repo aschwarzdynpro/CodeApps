@@ -5,6 +5,7 @@ import type {
   WorkingSolution,
 } from '../types/solution'
 import { buildUniqueName, sanitizeIdPart } from '../utils/naming'
+import { DEPLOYMENT_MANAGER_ROLE } from '../config'
 
 type Kind = CreateWorkingSolutionInput['kind']
 
@@ -17,6 +18,8 @@ const KIND_OPTIONS: { value: Kind; label: string; hint: string }[] = [
 interface Props {
   publishers: PublisherInfo[]
   existingUniqueNames: string[]
+  /** Release solutions may only be created by deployment managers. */
+  canCreateRelease: boolean
   onCreate: (input: CreateWorkingSolutionInput) => Promise<WorkingSolution>
   onCreated: (solution: WorkingSolution) => void
   onClose: () => void
@@ -31,6 +34,7 @@ interface Props {
 export function CreateSolutionDialog({
   publishers,
   existingUniqueNames,
+  canCreateRelease,
   onCreate,
   onCreated,
   onClose,
@@ -59,7 +63,8 @@ export function CreateSolutionDialog({
     idPart !== '' &&
     !duplicate &&
     !idInvalid &&
-    publisherId !== ''
+    publisherId !== '' &&
+    (kind !== 'deployment' || canCreateRelease)
 
   const submit = async () => {
     if (!canSubmit) return
@@ -98,16 +103,27 @@ export function CreateSolutionDialog({
         <div className="form-row">
           <span className="form-label">Type</span>
           <div className="chips">
-            {KIND_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                className={`chip ${kind === opt.value ? 'chip--active' : ''}`}
-                onClick={() => setKind(opt.value)}
-                title={opt.hint}
-              >
-                {opt.label}
-              </button>
-            ))}
+            {KIND_OPTIONS.map((opt) => {
+              const locked = opt.value === 'deployment' && !canCreateRelease
+              return (
+                <button
+                  key={opt.value}
+                  className={`chip ${kind === opt.value ? 'chip--active' : ''} ${
+                    locked ? 'chip--disabled' : ''
+                  }`}
+                  disabled={locked}
+                  onClick={() => !locked && setKind(opt.value)}
+                  title={
+                    locked
+                      ? `Creating a Release requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
+                      : opt.hint
+                  }
+                >
+                  {opt.label}
+                  {locked && <span className="chip-lock"> ⓘ</span>}
+                </button>
+              )
+            })}
           </div>
         </div>
 

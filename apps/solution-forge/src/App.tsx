@@ -1124,6 +1124,7 @@ function App() {
         <CreateSolutionDialog
           publishers={publishers}
           existingUniqueNames={allSolutions.map((s) => s.uniqueName)}
+          canCreateRelease={isDeploymentManager}
           onCreate={(input) => solutionService.createWorkingSolution(input)}
           onCreated={handleCreated}
           onClose={() => setShowCreate(false)}
