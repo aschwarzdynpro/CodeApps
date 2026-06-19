@@ -34,6 +34,7 @@ power-apps init --display-name "Solution Administration Console" --environment-i
 ./scripts/add-data-source.ps1 -a dataverse -t systemuser
 ./scripts/add-data-source.ps1 -a dataverse -t role
 ./scripts/add-data-source.ps1 -a dataverse -t ssid_workingsolution
+./scripts/add-data-source.ps1 -a dataverse -t ssid_workbenchsettings
 ./scripts/add-data-source.ps1 -a dataverse -t sst_mergerun
 # Konnektor (Dataverse, „from selected environment"):
 ./scripts/add-data-source.ps1 -a shared_commondataserviceforapps -cr sst_CRDataverse -s 67315e76-c155-ed11-bba2-0022489de585

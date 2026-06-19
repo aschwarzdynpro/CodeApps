@@ -47,6 +47,7 @@ import type { Msdyn_solutioncomponentsummaries } from '../generated/models/Msdyn
 import { AddSolutionComponentService } from '../generated/services/AddSolutionComponentService'
 import { PA_MANUAL_WorkingSolution_SyncDevOpsWorkItemStatusService } from '../generated/services/PA_MANUAL_WorkingSolution_SyncDevOpsWorkItemStatusService'
 import { Ssid_workingsolutionsService } from '../generated/services/Ssid_workingsolutionsService'
+import { Ssid_workbenchsettingsesService } from '../generated/services/Ssid_workbenchsettingsesService'
 import type {
   Ssid_workingsolutions,
   Ssid_workingsolutionsBase,
@@ -630,22 +631,16 @@ export class DataverseSolutionService implements SolutionService {
   }> {
     this.settingsPromise ??= (async () => {
       try {
-        const result = await MicrosoftDataverseService.ListRecords(
-          'ssid_workbenchsettings',
-          undefined,
-          undefined,
-          undefined,
-          'ssid_workbenchsettingid,ssid_publisher_str',
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          1,
-        )
-        const row = (
-          result.data as { value?: Record<string, unknown>[] } | undefined
-        )?.value?.[0]
-        const id = row?.ssid_workbenchsettingid
+        // Native generated data source (runs as the signed-in user).
+        // NB the real names: PK = ssid_workbenchsettingsid, entity set =
+        // ssid_workbenchsettingses (both carry the extra "s").
+        const result = await Ssid_workbenchsettingsesService.getAll({
+          select: ['ssid_workbenchsettingsid', 'ssid_publisher_str'],
+        })
+        const row = result.data?.[0] as
+          | { ssid_workbenchsettingsid?: string; ssid_publisher_str?: string }
+          | undefined
+        const id = row?.ssid_workbenchsettingsid
         const publisher = row?.ssid_publisher_str
         return {
           id: typeof id === 'string' && id ? id : null,
@@ -750,7 +745,8 @@ export class DataverseSolutionService implements SolutionService {
       ssid_deploymentstatus: DEPLOYMENT_STATUS_NONE,
       ...(workbenchSettingId
         ? {
-            'ssid_WorkbenchSetting@odata.bind': `/ssid_workbenchsettings(${workbenchSettingId})`,
+            // Entity set name carries the extra "s": ssid_workbenchsettingses.
+            'ssid_WorkbenchSetting@odata.bind': `/ssid_workbenchsettingses(${workbenchSettingId})`,
           }
         : {}),
     } as unknown as Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
