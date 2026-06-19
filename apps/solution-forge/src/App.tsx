@@ -36,6 +36,7 @@ type Tab =
   | 'workbench'
   | 'merge'
   | 'mergeRules'
+  | 'analyze'
   | 'compare'
   | 'dependencies'
   | 'layers'
@@ -62,6 +63,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Validate',
     items: [
+      { key: 'analyze', label: 'Analyze', icon: '📊', gated: true },
       { key: 'compare', label: 'Compare', icon: '⇄', gated: true },
       { key: 'dependencies', label: 'Dependencies', icon: '🔗', gated: true },
       { key: 'layers', label: 'Layers', icon: '🧱', gated: true },
@@ -75,6 +77,7 @@ const TAB_TITLES: Record<Tab, string> = {
   workbench: 'Workbench',
   merge: 'Merge',
   mergeRules: 'Merge Rules',
+  analyze: 'Solution Analysis',
   compare: 'Compare',
   dependencies: 'Dependency Check',
   layers: 'Layer Inspector',
@@ -1083,7 +1086,8 @@ function App() {
 
       {!loading &&
         !error &&
-        (tab === 'compare' ||
+        (tab === 'analyze' ||
+          tab === 'compare' ||
           tab === 'dependencies' ||
           tab === 'layers' ||
           tab === 'sharing') &&

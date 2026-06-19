@@ -1,12 +1,18 @@
 import { useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
 import { SolutionSelect } from './SolutionSelect'
+import { AnalyzeDashboard } from './AnalyzeDashboard'
 import { CompareWorkbench } from './CompareWorkbench'
 import { DependencyCheck } from './DependencyCheck'
 import { LayerInspector } from './LayerInspector'
 import { AppSharing } from './AppSharing'
 
-export type ValidateTab = 'compare' | 'dependencies' | 'layers' | 'sharing'
+export type ValidateTab =
+  | 'analyze'
+  | 'compare'
+  | 'dependencies'
+  | 'layers'
+  | 'sharing'
 
 interface Props {
   tab: ValidateTab
@@ -51,9 +57,16 @@ export function ValidateWorkspace({ tab, solutions }: Props) {
       {!solution ? (
         <div className="state">
           Select a release solution above — the check then runs across the
-          environments (the selection stays put as you switch between Compare,
-          Dependencies, Layers and App Sharing).
+          environments (the selection stays put as you switch between Analyze,
+          Compare, Dependencies, Layers and App Sharing).
         </div>
+      ) : tab === 'analyze' ? (
+        <AnalyzeDashboard
+          key={selKey}
+          solution={solution}
+          envKey={envKey}
+          onEnvChange={setEnvKey}
+        />
       ) : tab === 'compare' ? (
         <CompareWorkbench key={selKey} solution={solution} />
       ) : tab === 'dependencies' ? (

@@ -2765,3 +2765,358 @@
   border-radius: 999px;
   padding: 1px 7px;
 }
+
+/* ============================================================
+   Analyze dashboard (Validate › Analyze)
+   ============================================================ */
+.analyze-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.analyze-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0 0 10px;
+  letter-spacing: -0.01em;
+}
+.analyze-meta-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 0;
+}
+.analyze-meta-grid div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.analyze-meta-grid dt {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.analyze-meta-grid dd {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.analyze-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+/* Two-column body: main + right rail. */
+.analyze-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .analyze-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.analyze-main {
+  min-width: 0;
+}
+
+/* Risk score card: gauge + severity cards. */
+.analyze-score-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 28px;
+  align-items: center;
+}
+@media (max-width: 620px) {
+  .analyze-score-card {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+}
+.risk-gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.risk-gauge svg {
+  width: 128px;
+  height: 128px;
+}
+.risk-gauge-track {
+  fill: none;
+  stroke: var(--bg);
+  stroke-width: 12;
+}
+.risk-gauge-arc {
+  fill: none;
+  stroke-width: 12;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s ease;
+}
+.risk-gauge--low .risk-gauge-arc {
+  stroke: #1a8754;
+}
+.risk-gauge--medium .risk-gauge-arc {
+  stroke: #b7791f;
+}
+.risk-gauge--high .risk-gauge-arc {
+  stroke: #b02a37;
+}
+.risk-gauge-value {
+  text-anchor: middle;
+  font-size: 30px;
+  font-weight: 800;
+  fill: var(--text);
+}
+.risk-gauge-unit {
+  text-anchor: middle;
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--muted);
+}
+.risk-gauge-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.risk-gauge-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.risk-band {
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 12px;
+}
+.risk-band--low {
+  background: #e7f4ee;
+  color: #1a8754;
+}
+.risk-band--medium {
+  background: #fdf6e7;
+  color: #b7791f;
+}
+.risk-band--high {
+  background: #fdf2f3;
+  color: #b02a37;
+}
+
+/* Severity issue cards. */
+.severity-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 520px) {
+  .severity-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.severity-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+}
+.severity-card-count {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+}
+.severity-card-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.severity-card--critical {
+  border-left-color: #b02a37;
+  background: #fdf2f3;
+}
+.severity-card--high {
+  border-left-color: #c0571f;
+  background: #fcefe6;
+}
+.severity-card--medium {
+  border-left-color: #b7791f;
+  background: #fdf6e7;
+}
+.severity-card--low {
+  border-left-color: #6b7280;
+  background: #f1f3f5;
+}
+
+/* Key issues table. */
+.analyze-issues {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.analyze-issues th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 10px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.analyze-issues td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.analyze-issues tr:last-child td {
+  border-bottom: none;
+}
+.analyze-issue-category {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.analyze-issue-subject {
+  display: block;
+  font-weight: 600;
+}
+.analyze-issue-detail {
+  display: block;
+  font-size: 11px;
+}
+.analyze-issue-phase {
+  white-space: nowrap;
+  font-size: 12px;
+}
+.analyze-issue-action a {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.analyze-issue-action a:hover {
+  text-decoration: underline;
+}
+.analyze-more {
+  margin: 10px 2px 0;
+  font-size: 12px;
+}
+
+/* Component tiles. */
+.component-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 10px;
+}
+.component-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.component-tile-count {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+.component-tile-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Right rail: recommendations + readiness. */
+.reco-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.reco-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.reco-item .sev-dot {
+  margin-top: 5px;
+}
+.reco-text {
+  min-width: 0;
+}
+.reco-target {
+  margin: -4px 0 12px;
+  font-size: 12px;
+}
+.readiness-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.readiness-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.readiness-label {
+  font-weight: 600;
+}
+.readiness-status {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.readiness-status--ok {
+  color: #1a8754;
+}
+.readiness-status--attention {
+  color: #b7791f;
+}
+.readiness-status--failed {
+  color: #b02a37;
+}
+.readiness-status--skipped {
+  color: var(--muted);
+}
+.readiness-overall {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.readiness-overall-value {
+  font-size: 18px;
+  font-weight: 800;
+  border-radius: 8px;
+  padding: 2px 10px;
+}
