@@ -110,8 +110,23 @@ function describeError(err: unknown): string {
 
 function App() {
   const { environmentId } = usePower()
-  const { solutions, publishers, loading, error, loadedAt, reload } =
+  const { solutions, publishers, defaultPublisher, loading, error, loadedAt, reload } =
     useSolutions()
+
+  // Resolve the configured default publisher (ssid_publisher_str) to a
+  // publisher id — matched defensively by unique name, prefix or friendly
+  // name; falls back to the first publisher in the dialog when unset.
+  const defaultPublisherId = useMemo(() => {
+    if (!defaultPublisher) return ''
+    const needle = defaultPublisher.trim().toLowerCase()
+    const match = publishers.find(
+      (p) =>
+        p.uniqueName.toLowerCase() === needle ||
+        p.prefix.toLowerCase() === needle ||
+        p.friendlyName.toLowerCase() === needle,
+    )
+    return match?.id ?? ''
+  }, [defaultPublisher, publishers])
 
   const [tab, setTab] = useState<Tab>('workbench')
   // Merge and Compare are restricted to deployment managers; tabs stay
@@ -1123,6 +1138,7 @@ function App() {
       {showCreate && (
         <CreateSolutionDialog
           publishers={publishers}
+          defaultPublisherId={defaultPublisherId}
           existingUniqueNames={allSolutions.map((s) => s.uniqueName)}
           canCreateRelease={isDeploymentManager}
           onCreate={(input) => solutionService.createWorkingSolution(input)}

@@ -17,6 +17,8 @@ const KIND_OPTIONS: { value: Kind; label: string; hint: string }[] = [
 
 interface Props {
   publishers: PublisherInfo[]
+  /** Preselected publisher id (from Workbench Settings); '' = none. */
+  defaultPublisherId: string
   existingUniqueNames: string[]
   /** Release solutions may only be created by deployment managers. */
   canCreateRelease: boolean
@@ -33,6 +35,7 @@ interface Props {
  */
 export function CreateSolutionDialog({
   publishers,
+  defaultPublisherId,
   existingUniqueNames,
   canCreateRelease,
   onCreate,
@@ -43,7 +46,9 @@ export function CreateSolutionDialog({
   const [devOpsId, setDevOpsId] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [publisherId, setPublisherId] = useState(publishers[0]?.id ?? '')
+  const [publisherId, setPublisherId] = useState(
+    defaultPublisherId || publishers[0]?.id || '',
+  )
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

@@ -36,6 +36,12 @@ export interface SolutionService {
   listSolutions(): Promise<WorkingSolution[]>
   /** Publishers available for new working solutions. */
   listPublishers(): Promise<PublisherInfo[]>
+  /**
+   * Configured default publisher for new working solutions, read from the
+   * single Workbench Settings record (`ssid_publisher_str`). Returns the
+   * raw string (unique name / prefix / friendly name) or null when unset.
+   */
+  getDefaultPublisher(): Promise<string | null>
   /** Creates the solution in Dataverse and returns the stored record. */
   createWorkingSolution(
     input: CreateWorkingSolutionInput,

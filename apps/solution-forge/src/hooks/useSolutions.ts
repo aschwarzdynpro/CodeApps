@@ -5,6 +5,8 @@ import type { PublisherInfo, WorkingSolution } from '../types/solution'
 interface UseSolutionsResult {
   solutions: WorkingSolution[]
   publishers: PublisherInfo[]
+  /** Configured default publisher (raw ssid_publisher_str), or null. */
+  defaultPublisher: string | null
   loading: boolean
   error: string | null
   /** When the list was last loaded successfully (null before the first load). */
@@ -16,6 +18,7 @@ interface UseSolutionsResult {
 export function useSolutions(): UseSolutionsResult {
   const [solutions, setSolutions] = useState<WorkingSolution[]>([])
   const [publishers, setPublishers] = useState<PublisherInfo[]>([])
+  const [defaultPublisher, setDefaultPublisher] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [loadedAt, setLoadedAt] = useState<Date | null>(null)
@@ -24,12 +27,14 @@ export function useSolutions(): UseSolutionsResult {
     setLoading(true)
     setError(null)
     try {
-      const [solutions, publishers] = await Promise.all([
+      const [solutions, publishers, defaultPublisher] = await Promise.all([
         solutionService.listSolutions(),
         solutionService.listPublishers(),
+        solutionService.getDefaultPublisher(),
       ])
       setSolutions(solutions)
       setPublishers(publishers)
+      setDefaultPublisher(defaultPublisher)
       setLoadedAt(new Date())
     } catch {
       setError('Could not load solutions from the environment.')
@@ -47,6 +52,7 @@ export function useSolutions(): UseSolutionsResult {
   return {
     solutions,
     publishers,
+    defaultPublisher,
     loading,
     error,
     loadedAt,

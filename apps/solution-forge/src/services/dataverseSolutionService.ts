@@ -615,33 +615,60 @@ export class DataverseSolutionService implements SolutionService {
   }
 
   /**
-   * The ssid_workingsolution table requires a ssid_WorkbenchSetting lookup;
-   * resolve the first available settings row via the Dataverse connector
-   * (no dedicated typed data source needed for a single id).
+   * The single Workbench Settings config record, fetched once and cached:
+   * supplies both the required ssid_WorkbenchSetting lookup id and the
+   * configured default publisher (ssid_publisher_str).
    */
+  private settingsPromise: Promise<{
+    id: string | null
+    publisher: string | null
+  }> | null = null
+
+  private firstWorkbenchSettings(): Promise<{
+    id: string | null
+    publisher: string | null
+  }> {
+    this.settingsPromise ??= (async () => {
+      try {
+        const result = await MicrosoftDataverseService.ListRecords(
+          'ssid_workbenchsettings',
+          undefined,
+          undefined,
+          undefined,
+          'ssid_workbenchsettingid,ssid_publisher_str',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          1,
+        )
+        const row = (
+          result.data as { value?: Record<string, unknown>[] } | undefined
+        )?.value?.[0]
+        const id = row?.ssid_workbenchsettingid
+        const publisher = row?.ssid_publisher_str
+        return {
+          id: typeof id === 'string' && id ? id : null,
+          publisher:
+            typeof publisher === 'string' && publisher ? publisher : null,
+        }
+      } catch (err) {
+        console.warn('[solutions] workbench setting lookup failed:', err)
+        return { id: null, publisher: null }
+      }
+    })()
+    return this.settingsPromise
+  }
+
   private async defaultWorkbenchSettingId(): Promise<string | null> {
-    try {
-      const result = await MicrosoftDataverseService.ListRecords(
-        'ssid_workbenchsettings',
-        undefined,
-        undefined,
-        undefined,
-        'ssid_workbenchsettingid',
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        1,
-      )
-      const rows =
-        (result.data as { value?: Record<string, unknown>[] } | undefined)
-          ?.value ?? []
-      const id = rows[0]?.ssid_workbenchsettingid
-      return typeof id === 'string' && id ? id : null
-    } catch (err) {
-      console.warn('[solutions] workbench setting lookup failed:', err)
-      return null
-    }
+    return (await this.firstWorkbenchSettings()).id
+  }
+
+  async getDefaultPublisher(): Promise<string | null> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.getDefaultPublisher()
+    return (await this.firstWorkbenchSettings()).publisher
   }
 
   async createWorkingSolution(

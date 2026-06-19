@@ -124,6 +124,12 @@ export class MockSolutionService {
     return mockPublishers.map((p) => ({ ...p }))
   }
 
+  async getDefaultPublisher(): Promise<string | null> {
+    await delay(100)
+    // Mimics the Workbench Settings default (matched by unique name).
+    return mockPublishers[1]?.uniqueName ?? null
+  }
+
   async createWorkingSolution(
     input: CreateWorkingSolutionInput,
   ): Promise<WorkingSolution> {
