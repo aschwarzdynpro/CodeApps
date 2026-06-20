@@ -483,7 +483,7 @@ export class DataverseComparisonService implements ComparisonService {
           for (const id of chunk) {
             const row = byId.get(id.toLowerCase())
             if (row) {
-              const payload = spec.fields.map((f) => str(row[f])).join(' ')
+              const payload = spec.fields.map((f) => str(row[f])).find((v) => v !== '') ?? ''
               contentByKey.set(`${env.key}:${id.toLowerCase()}`, {
                 hash: await sha256Hex(payload),
                 size: payload.length,
