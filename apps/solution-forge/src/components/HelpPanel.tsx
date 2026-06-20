@@ -56,6 +56,12 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 one sweep and compiles the result.
               </li>
               <li>
+                The sweep <strong>keeps running when you navigate away</strong>
+                {' '}— a small bar at the bottom-left shows the progress and a{' '}
+                <strong>View</strong> button to jump back; the result is ready
+                when you return.
+              </li>
+              <li>
                 A <strong>Deployment Risk Score</strong> gauge (0–100, higher is
                 safer) bands the release as{' '}
                 <span className="risk-band risk-band--low">Low Risk</span>,{' '}

@@ -903,6 +903,81 @@
   gap: 10px;
   z-index: 100;
 }
+
+/* Background-activity bar for the Analyze sweep. */
+.analysis-bar {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 460px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #fff;
+  background: #1b2433;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
+  animation: analysis-bar-in 0.18s ease-out;
+}
+@keyframes analysis-bar-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.analysis-bar--done {
+  background: #14532d;
+}
+.analysis-bar--error {
+  background: #5b1d1d;
+}
+.analysis-bar .det-spinner {
+  flex: none;
+}
+.analysis-bar-icon {
+  font-weight: 700;
+}
+.analysis-bar-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+}
+.analysis-bar-text .muted {
+  color: rgba(255, 255, 255, 0.7);
+}
+.analysis-bar-view {
+  flex: none;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.analysis-bar-view:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+.analysis-bar-close {
+  flex: none;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.analysis-bar-close:hover {
+  color: #fff;
+}
 .undo-card {
   position: relative;
   display: flex;

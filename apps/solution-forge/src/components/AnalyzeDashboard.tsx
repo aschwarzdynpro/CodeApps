@@ -1,17 +1,15 @@
-import { useMemo, useState } from 'react'
-import type { WorkingSolution, SolutionComponentInfo } from '../types/solution'
+import { useMemo } from 'react'
+import type { Finding } from '../types/detective'
 import {
   PHASE_LABELS,
   PHASE_ORDER,
   SEVERITY_LABELS,
   SEVERITY_ORDER,
-  type DetectiveResult,
-  type Finding,
-  type PhaseState,
 } from '../types/detective'
+import type { AnalysisRun } from '../hooks/useAnalysisRun'
+import type { WorkingSolution } from '../types/solution'
 import { ENVIRONMENTS } from '../config'
-import { runInvestigation, severityCounts } from '../services/detectiveService'
-import { solutionService } from '../services/solutionService'
+import { severityCounts } from '../services/detectiveService'
 import {
   buildReadiness,
   buildRecommendations,
@@ -25,6 +23,13 @@ interface Props {
   solution: WorkingSolution
   envKey: 'uat' | 'prod'
   onEnvChange: (envKey: 'uat' | 'prod') => void
+  /**
+   * The lifted analysis run (survives navigation). Only reflects this
+   * dashboard when it matches the current solution + env.
+   */
+  run: AnalysisRun | null
+  /** Start a sweep for the current solution + env. */
+  onRun: () => void
 }
 
 const targetEnvs = ENVIRONMENTS.filter(
@@ -47,52 +52,33 @@ const GAUGE_C = 2 * Math.PI * GAUGE_R
  * recommendations and an environment-readiness matrix — the at-a-glance
  * companion to the focused Compare / Dependencies / Layers / Sharing tabs.
  */
-export function AnalyzeDashboard({ solution, envKey, onEnvChange }: Props) {
-  const [running, setRunning] = useState(false)
-  const [phaseStates, setPhaseStates] = useState<Record<
-    string,
-    PhaseState
-  > | null>(null)
-  const [result, setResult] = useState<DetectiveResult | null>(null)
-  const [components, setComponents] = useState<SolutionComponentInfo[] | null>(
-    null,
-  )
-  const [analyzedAt, setAnalyzedAt] = useState<Date | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
+export function AnalyzeDashboard({
+  solution,
+  envKey,
+  onEnvChange,
+  run: activeRun,
+  onRun,
+}: Props) {
   const envLabel =
     ENVIRONMENTS.find((e) => e.key === envKey)?.label ?? envKey.toUpperCase()
 
-  const run = async () => {
-    setRunning(true)
-    setResult(null)
-    setComponents(null)
-    setError(null)
-    const init: Record<string, PhaseState> = {}
-    for (const key of PHASE_ORDER) init[key] = { key, status: 'pending' }
-    setPhaseStates(init)
-    try {
-      // The component summary is independent of the phases — fetch it in
-      // parallel with the investigation so the dashboard fills in one pass.
-      const [res, comps] = await Promise.all([
-        runInvestigation({
-          solution,
-          targetEnv: envKey,
-          phases: PHASE_ORDER,
-          onPhase: (state) =>
-            setPhaseStates((prev) => ({ ...(prev ?? {}), [state.key]: state })),
-        }),
-        solutionService.listComponents(solution.id).catch(() => [] as SolutionComponentInfo[]),
-      ])
-      setResult(res)
-      setComponents(comps)
-      setAnalyzedAt(new Date())
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setRunning(false)
-    }
-  }
+  // The lifted run only drives this view when it's for the current
+  // selection; a run for a different solution/env is surfaced by the
+  // global background bar instead.
+  const matching =
+    activeRun &&
+    activeRun.solutionId === solution.id &&
+    activeRun.envKey === envKey
+      ? activeRun
+      : null
+  const running = matching?.running ?? false
+  const phaseStates = matching?.phaseStates ?? null
+  const result = matching && !matching.running ? matching.result : null
+  const components = matching && !matching.running ? matching.components : null
+  const analyzedAt = matching?.analyzedAt ?? null
+  const error = matching?.error ?? null
+
+  const run = onRun
 
   const counts = useMemo(
     () => (result ? severityCounts(result.findings) : null),

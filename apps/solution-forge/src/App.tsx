@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { usePower } from './PowerProvider'
 import { useSolutions } from './hooks/useSolutions'
+import { useAnalysisRun } from './hooks/useAnalysisRun'
+import { PHASE_LABELS } from './types/detective'
 import { solutionService } from './services/solutionService'
 import { SolutionFilterBar, type KindFilter } from './components/SolutionFilterBar'
 import { SolutionList } from './components/SolutionList'
@@ -143,6 +145,20 @@ function App() {
       .then((granted) => setIsDeploymentManager(granted))
       .catch(() => setIsDeploymentManager(false))
   }, [])
+  // Analyze sweep + Validate selection are lifted here so the run keeps
+  // going (and the selection stays put) while navigating between tabs.
+  const { run: analysisRun, start: startAnalysis } = useAnalysisRun()
+  const [validateSolutionId, setValidateSolutionId] = useState('')
+  const [validateEnvKey, setValidateEnvKey] = useState<'uat' | 'prod'>('uat')
+  const [analysisBarHidden, setAnalysisBarHidden] = useState(false)
+  const handleAnalyze = (
+    solution: WorkingSolution,
+    env: 'uat' | 'prod',
+  ) => {
+    setAnalysisBarHidden(false)
+    startAnalysis(solution, env)
+  }
+
   const [kindFilter, setKindFilter] = useState<KindFilter>('All')
   const [search, setSearch] = useState('')
   const [groupByWorkItem, setGroupByWorkItem] = useState(false)
@@ -1113,7 +1129,16 @@ function App() {
           tab === 'layers' ||
           tab === 'sharing') &&
         isDeploymentManager && (
-          <ValidateWorkspace tab={tab} solutions={allSolutions} />
+          <ValidateWorkspace
+            tab={tab}
+            solutions={allSolutions}
+            solutionId={validateSolutionId}
+            onSolutionChange={setValidateSolutionId}
+            envKey={validateEnvKey}
+            onEnvChange={setValidateEnvKey}
+            analysisRun={analysisRun}
+            onAnalyze={handleAnalyze}
+          />
         )}
         </main>
       </div>
@@ -1138,6 +1163,88 @@ function App() {
           onCancel={() => setCompleteTarget(null)}
         />
       )}
+
+      {(() => {
+        // Background-activity bar for the Analyze sweep: visible whenever a
+        // run exists and we're not already looking at exactly that result.
+        if (!analysisRun || analysisBarHidden) return null
+        const hasOutcome =
+          analysisRun.running || !!analysisRun.result || !!analysisRun.error
+        if (!hasOutcome) return null
+        const viewingThisRun =
+          tab === 'analyze' &&
+          analysisRun.solutionId === validateSolutionId &&
+          analysisRun.envKey === validateEnvKey
+        if (viewingThisRun) return null
+        const envLabel = analysisRun.envKey.toUpperCase()
+        const runningPhase = analysisRun.running
+          ? Object.values(analysisRun.phaseStates).find(
+              (p) => p.status === 'running',
+            )
+          : null
+        const view = () => {
+          setValidateSolutionId(analysisRun.solutionId)
+          setValidateEnvKey(analysisRun.envKey)
+          setTab('analyze')
+        }
+        return (
+          <div
+            className={`analysis-bar ${
+              analysisRun.error
+                ? 'analysis-bar--error'
+                : analysisRun.running
+                  ? 'analysis-bar--running'
+                  : 'analysis-bar--done'
+            }`}
+          >
+            {analysisRun.running ? (
+              <span className="det-spinner" />
+            ) : (
+              <span className="analysis-bar-icon">
+                {analysisRun.error ? '✕' : '✓'}
+              </span>
+            )}
+            <span className="analysis-bar-text">
+              {analysisRun.running ? (
+                <>
+                  Analyzing <strong>{analysisRun.solutionTitle}</strong> (
+                  {envLabel})
+                  {runningPhase && (
+                    <span className="muted">
+                      {' '}
+                      — {PHASE_LABELS[runningPhase.key as keyof typeof PHASE_LABELS] ??
+                        'running'}
+                      …
+                    </span>
+                  )}
+                </>
+              ) : analysisRun.error ? (
+                <>
+                  Analysis of <strong>{analysisRun.solutionTitle}</strong>{' '}
+                  failed
+                </>
+              ) : (
+                <>
+                  Analysis of <strong>{analysisRun.solutionTitle}</strong> (
+                  {envLabel}) ready
+                </>
+              )}
+            </span>
+            <button className="analysis-bar-view" onClick={view}>
+              View
+            </button>
+            {!analysisRun.running && (
+              <button
+                className="analysis-bar-close"
+                aria-label="Dismiss"
+                onClick={() => setAnalysisBarHidden(true)}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        )
+      })()}
 
       {pendingDeletes.length > 0 && (
         <div className="undo-stack">
