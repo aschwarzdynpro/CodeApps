@@ -248,9 +248,10 @@ export function AnalyzeWorkspace({
             openedDetails.has('compare') && (
               <div hidden={subTab !== 'compare'}>
                 <CompareWorkbench
-                  key={`cmp-${solution.id}`}
+                  key={`cmp-${solution.id}-${envKey}`}
                   solution={solution}
                   autoRun
+                  targetEnv={envKey}
                 />
               </div>
             )}

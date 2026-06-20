@@ -21,6 +21,8 @@ interface Props {
   solution: WorkingSolution
   /** Run automatically once on mount (used inside the Analyze tabs). */
   autoRun?: boolean
+  /** Analyzed target env — the ⇄ diff defaults to DEV vs this env. */
+  targetEnv?: 'uat' | 'prod'
 }
 
 // Rich ALM type names lead the group order.
@@ -45,7 +47,7 @@ const AUTO_EXPAND_LIMIT = 12
  * DEV / UAT / PROD. Compare reports presence (missing) and status drift;
  * unmanaged layers and content diffs live in the Layer Inspector.
  */
-export function CompareWorkbench({ solution, autoRun }: Props) {
+export function CompareWorkbench({ solution, autoRun, targetEnv }: Props) {
   const [result, setResult] = useState<ComparisonResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
@@ -175,13 +177,16 @@ export function CompareWorkbench({ solution, autoRun }: Props) {
     row.deviations.includes('content')
   const diffEnvsFor = (row: ComparisonRow): EnvKey[] => {
     const dev = row.byEnv.dev?.contentHash
-    const target = (['uat', 'prod'] as EnvKey[]).find((k) => {
+    const differs = (k: EnvKey) => {
       const h = row.byEnv[k]?.contentHash
-      return (
-        !!h && !!dev && h !== 'error' && dev !== 'error' && h !== dev
-      )
-    })
-    return ['dev', target ?? 'uat']
+      return !!h && !!dev && h !== 'error' && dev !== 'error' && h !== dev
+    }
+    // Prefer the analyzed target env; otherwise the first env that differs.
+    const order: ('uat' | 'prod')[] = targetEnv
+      ? [targetEnv, ...(['uat', 'prod'] as const).filter((e) => e !== targetEnv)]
+      : ['uat', 'prod']
+    const pick = order.find((k) => differs(k))
+    return ['dev', pick ?? targetEnv ?? 'uat']
   }
 
   const visibleRows = useMemo(() => {

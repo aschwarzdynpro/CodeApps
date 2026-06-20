@@ -31,6 +31,20 @@ interface Props {
 const GAUGE_R = 54
 const GAUGE_C = 2 * Math.PI * GAUGE_R
 
+/** Recommended next step per finding category (when no deep link applies). */
+const ACTION_BY_CATEGORY: Record<string, string> = {
+  'Missing dependency': 'Add the component to the solution (Deployment Readiness)',
+  'Missing in target': 'Deploy the component to the target',
+  'Unmanaged in target': 'Remove the unmanaged layer / redeploy managed',
+  'Status drift': 'Activate / enable in the target to match DEV',
+  'Content drift': 'Open the ⇄ diff in Compare, then redeploy from DEV',
+  'Unmanaged layer over managed': 'Remove active customizations in the target',
+  'Unmanaged-only component': 'Add the component to a managed solution',
+  'Canvas app not shared': 'Share the app with its users / a team',
+  'Layer lookup failed': 'Retry — check access to the target environment',
+  'Sharing lookup failed': 'Retry — check access to the target environment',
+}
+
 /**
  * Summary tab of the Analyze workspace: a single-screen overview compiled
  * from a finished post-deployment sweep — deployment risk score, severity
@@ -103,6 +117,10 @@ export function AnalyzeSummary({
           <a href={f.link.href} target="_blank" rel="noreferrer">
             {f.link.label}
           </a>
+        ) : ACTION_BY_CATEGORY[f.category] ? (
+          <span className="analyze-issue-reco">
+            {ACTION_BY_CATEGORY[f.category]}
+          </span>
         ) : (
           <span className="muted">—</span>
         )}
