@@ -113,10 +113,13 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       (POA via Konnektor-FetchXML; nur Releases, ohne Component Libraries)
 - [x] In-App-Anleitungen: **How-To** (Onboarding-Walk-through Workbench →
       Anlegen → Merge → Validate) neben **Help** (Feature-Referenz), beide als
-      Sidebar-Footer-Menüpunkt + Overlay
+      Topbar-Icon (rechts) + Overlay
 - [x] ALM Detective: phasenweiser Pre-Deployment-Audit (Dependency, Compare
       inkl. Content Drift, Layer, App Sharing) mit Severity-Report
 - [x] Analyze-Dashboard (Validate › Analyze): Risk Score + Gauge, Severity-
       Karten, Key Issues, Komponenten-Übersicht, Recommendations und
       Environment-Readiness — reine Ableitung über `analysisModel.ts` auf dem
       Detective-Orchestrator
+- [x] App-Shell im Dynamics-365-Stil: durchgehende dunkle Topbar (Brand +
+      Utility-Cluster mit Mode-Badge/How-To/Help), full-height-Sidebar,
+      full-width-Content (`.app-topbar`/`.app-body`)

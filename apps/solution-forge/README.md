@@ -58,7 +58,11 @@ nach Typ.
   den fokussierten Einzel-Tabs; nutzt denselben Orchestrator wie der ALM
   Detective (`runInvestigation`) plus eine reine Ableitungs-Schicht
   (`analysisModel.ts`) — kein eigener Datenpfad, Mock-Fallback inklusive.
-- **In-App-Anleitungen**: Sidebar-Footer mit **How-To** (Onboarding-Walk-
+- **App-Shell** (Dynamics-365-Stil): durchgehende **dunkle Topbar** mit
+  Brand-Lockup links und Utility-Cluster rechts (Lauf-Modus-Badge —
+  „Connected" / „Demo data" aus `usePower().mode` —, How-To & Help als Icons),
+  darunter eine **full-height-Sidebar** (sticky) plus full-width-Content.
+- **In-App-Anleitungen**: in der Topbar rechts **How-To** (Onboarding-Walk-
   through für neue Kollegen — Solutions anlegen, was dabei passiert, mergen und
   was dahintersteckt; `HowToPanel`) und **Help** (Feature-Referenz pro Tab;
   `HelpPanel`), beide als Overlay.
