@@ -2,15 +2,19 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
 import {
   ALM_KIND_LABELS,
+  CONTENT_DIFFABLE_KINDS,
   DEVIATION_LABELS,
+  type AlmComponentRef,
   type ComparisonResult,
   type ComparisonRow,
   type DeviationKind,
   type EnvComponentState,
+  type EnvKey,
 } from '../types/comparison'
 import { ENVIRONMENTS } from '../config'
 import { comparisonService } from '../services/comparisonService'
 import { formatRelative } from '../utils/format'
+import { ContentDiffModal } from './ContentDiffModal'
 
 interface Props {
   /** The release solution chosen in the shared Validate selector. */
@@ -28,7 +32,8 @@ const RICH_TYPE_ORDER: string[] = [
   ALM_KIND_LABELS.webresource,
 ]
 
-/** Compare surfaces cross-environment state: missing + status drift. */
+/** Compare surfaces cross-environment state: missing + status drift, plus
+ *  content drift once the (heavier) content pass has run. */
 const COMPARE_DEVIATIONS: DeviationKind[] = ['missing', 'state']
 
 /** Groups with at most this many rows start expanded. */
@@ -49,12 +54,38 @@ export function CompareWorkbench({ solution, autoRun }: Props) {
     null,
   )
   const [onlyDeviations, setOnlyDeviations] = useState(false)
+  const [driftRunning, setDriftRunning] = useState(false)
+  const [diffTarget, setDiffTarget] = useState<{
+    ref: AlmComponentRef
+    envs: EnvKey[]
+  } | null>(null)
   // Per-type-group collapse overrides; reset on every fresh result.
   const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>(
     {},
   )
   const cache = useRef(new Map<string, ComparisonResult>())
   const request = useRef(0)
+
+  // Second pass: hash each diffable component's definition and flag content
+  // drift. Heavier than the base compare, so it runs after it (auto inside
+  // the Analyze tabs, on-demand via the button otherwise).
+  const runDrift = async (base: ComparisonResult) => {
+    if (driftRunning) return
+    setDriftRunning(true)
+    setError(null)
+    try {
+      const withDrift = await comparisonService.checkContentDrift(
+        base,
+        (done, total) => setProgress(`Content drift ${done}/${total}`),
+      )
+      cache.current.set(solution.id, withDrift)
+      setResult(withDrift)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setDriftRunning(false)
+    }
+  }
 
   const run = (force = false) => {
     setResult(null)
@@ -80,6 +111,9 @@ export function CompareWorkbench({ solution, autoRun }: Props) {
         if (req !== request.current) return
         cache.current.set(id, res)
         setResult(res)
+        // Inside the Analyze tabs, run the content pass too so the tab
+        // matches the Summary (which already reports content drift).
+        if (autoRun) void runDrift(res)
       })
       .catch((err) => {
         if (req !== request.current) return
@@ -120,6 +154,35 @@ export function CompareWorkbench({ solution, autoRun }: Props) {
       ).length,
     [result],
   )
+
+  // The content pass has run once any cell carries a content hash. Then the
+  // "Content drift" chip joins the filters.
+  const driftChecked = useMemo(
+    () =>
+      (result?.rows ?? []).some((r) =>
+        ENVIRONMENTS.some((env) => r.byEnv[env.key]?.contentHash != null),
+      ),
+    [result],
+  )
+  const deviationKinds: DeviationKind[] = driftChecked
+    ? [...COMPARE_DEVIATIONS, 'content']
+    : COMPARE_DEVIATIONS
+
+  // DEV-vs-target diff for a content-drift row (diffable kinds only).
+  const canDiff = (row: ComparisonRow) =>
+    !!row.ref.kind &&
+    CONTENT_DIFFABLE_KINDS.has(row.ref.kind) &&
+    row.deviations.includes('content')
+  const diffEnvsFor = (row: ComparisonRow): EnvKey[] => {
+    const dev = row.byEnv.dev?.contentHash
+    const target = (['uat', 'prod'] as EnvKey[]).find((k) => {
+      const h = row.byEnv[k]?.contentHash
+      return (
+        !!h && !!dev && h !== 'error' && dev !== 'error' && h !== dev
+      )
+    })
+    return ['dev', target ?? 'uat']
+  }
 
   const visibleRows = useMemo(() => {
     let rows = result?.rows ?? []
@@ -168,9 +231,24 @@ export function CompareWorkbench({ solution, autoRun }: Props) {
           ))}
         </div>
         {result && !loading ? (
-          <button className="btn btn--small" onClick={() => run(true)}>
-            Refresh
-          </button>
+          <div className="compare-toolbar-actions">
+            {!driftChecked && (
+              <button
+                className="btn btn--small"
+                disabled={driftRunning}
+                onClick={() => void runDrift(result)}
+              >
+                {driftRunning ? 'Hashing…' : 'Check content drift'}
+              </button>
+            )}
+            <button
+              className="btn btn--small"
+              disabled={driftRunning}
+              onClick={() => run(true)}
+            >
+              Refresh
+            </button>
+          </div>
         ) : (
           <button
             className="btn btn--primary"
@@ -194,8 +272,12 @@ export function CompareWorkbench({ solution, autoRun }: Props) {
             </div>
           ))}
 
+          {driftRunning && (
+            <div className="state">Hashing definitions… {progress}</div>
+          )}
+
           <div className="compare-summary">
-            {COMPARE_DEVIATIONS.map((kind) => (
+            {deviationKinds.map((kind) => (
               <button
                 key={kind}
                 className={`chip chip--deviation-${kind} ${
@@ -280,6 +362,19 @@ export function CompareWorkbench({ solution, autoRun }: Props) {
                                 {DEVIATION_LABELS[d]}
                               </span>
                             ))}
+                            {canDiff(row) && (
+                              <button
+                                className="compare-diff-link"
+                                onClick={() =>
+                                  setDiffTarget({
+                                    ref: row.ref,
+                                    envs: diffEnvsFor(row),
+                                  })
+                                }
+                              >
+                                ⇄ diff
+                              </button>
+                            )}
                           </td>
                           {ENVIRONMENTS.map((env) => (
                             <td key={env.key}>
@@ -303,6 +398,13 @@ export function CompareWorkbench({ solution, autoRun }: Props) {
           workflows, business rules, plugin steps and scripts are compared
           across DEV, UAT and PROD for presence (missing) and status drift.
         </div>
+      )}
+
+      {diffTarget && (
+        <ContentDiffModal
+          target={diffTarget}
+          onClose={() => setDiffTarget(null)}
+        />
       )}
     </div>
   )

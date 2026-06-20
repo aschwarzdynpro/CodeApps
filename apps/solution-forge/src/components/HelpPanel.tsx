@@ -496,21 +496,29 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 collapsible sections.
               </li>
               <li>
-                Deviation tags: <strong>Missing</strong> (not in the target)
-                and <strong>Status drift</strong> (e.g. flow Draft in PROD,
-                plugin step disabled). The summary chips filter the matrix;
-                modified dates are shown for information only (solution
+                Deviation tags: <strong>Missing</strong> (not in the target),
+                <strong>Status drift</strong> (e.g. flow Draft in PROD, plugin
+                step disabled) and <strong>Content drift</strong> (the
+                definition differs from DEV). The summary chips filter the
+                matrix; modified dates are shown for information only (solution
                 import rewrites them).
+              </li>
+              <li>
+                <strong>Content drift</strong> needs the heavier content pass:
+                inside <strong>Analyze</strong> it runs automatically; on its
+                own use the <strong>Check content drift</strong> button. Drifted
+                rows get a <strong>⇄ diff</strong> link opening the DEV-vs-target
+                side-by-side diff.
               </li>
               <li>
                 “?” cells mean the environment could not be queried — the
                 banner shows the reason.
               </li>
               <li>
-                <strong>Unmanaged layers</strong>, the <strong>existence of
-                every other component type</strong> (plugin assemblies,
-                custom APIs, …) and the <strong>definition diff</strong> now
-                live in the <strong>Layer Inspector</strong>.
+                <strong>Unmanaged layers</strong> and the{' '}
+                <strong>existence of every other component type</strong>{' '}
+                (plugin assemblies, custom APIs, …) live in the{' '}
+                <strong>Layer Inspector</strong>.
               </li>
             </ul>
           </section>
