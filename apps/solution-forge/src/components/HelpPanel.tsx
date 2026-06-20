@@ -45,6 +45,49 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>📊 Analyze (Solution Analysis)</h3>
+            <ul>
+              <li>
+                A single-screen <strong>dashboard overview</strong> for a
+                release solution: pick the release at the top, choose the
+                deployment target (UAT / PROD) and hit{' '}
+                <strong>Run Analysis</strong> — it runs the Dependencies,
+                Compare (incl. content drift), Layers and App Sharing checks in
+                one sweep and compiles the result.
+              </li>
+              <li>
+                A <strong>Deployment Risk Score</strong> gauge (0–100, higher is
+                safer) bands the release as{' '}
+                <span className="risk-band risk-band--low">Low Risk</span>,{' '}
+                <span className="risk-band risk-band--medium">Medium Risk</span>{' '}
+                or <span className="risk-band risk-band--high">High Risk</span>,
+                with severity cards counting{' '}
+                <span className="sev-pill sev-pill--critical">Critical</span>,{' '}
+                <span className="sev-pill sev-pill--high">High</span>,{' '}
+                <span className="sev-pill sev-pill--medium">Medium</span> and{' '}
+                <span className="sev-pill sev-pill--low">Low</span> findings.
+              </li>
+              <li>
+                <strong>Key Issues</strong> lists the highest-severity findings;{' '}
+                <strong>Solution Components</strong> breaks the solution down by
+                component type.
+              </li>
+              <li>
+                <strong>Recommendations</strong> turn the findings into concrete
+                next steps, and the <strong>Environment Readiness</strong>{' '}
+                matrix shows per-area compatibility with the target plus an
+                overall readiness percentage.
+              </li>
+              <li>
+                The dashboard is the at-a-glance companion to the focused
+                Compare / Dependencies / Layers / App Sharing tabs — open those
+                for the full detail. Requires the “INT | Deployment Manager”
+                role.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
             <h3>🔍 ALM Detective</h3>
             <ul>
               <li>
@@ -245,7 +288,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 Navigation is a left sidebar grouped into <strong>Manage</strong>{' '}
                 (Workbench, Merge, Merge Rules) and <strong>Validate</strong>{' '}
-                (Compare, Dependencies, Layers, App Sharing). The whole{' '}
+                (Analyze, Compare, Dependencies, Layers, App Sharing). The whole{' '}
                 <strong>Validate</strong> group and <strong>Merge Rules</strong>{' '}
                 require the security role{' '}
                 <strong>“INT | Deployment Manager”</strong> (assigned directly
@@ -257,7 +300,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 the top; each check has its own row below it (target-env toggle
                 for Dependencies / Layers, environment status for Compare / App
                 Sharing) plus its run button. The selection stays put as you
-                switch between the four checks.
+                switch between Analyze and the four focused checks.
               </li>
               <li>
                 Only <strong>tracked</strong> feature / bug solutions can be

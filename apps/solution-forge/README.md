@@ -40,14 +40,29 @@ nach Typ.
 ## Features
 
 - **Navigation**: linke Sidebar, gruppiert in **Manage** (Workbench, Merge)
-  und **Validate** (Compare, Dependencies, Layers, App Sharing); nur die
+  und **Validate** (Analyze, Compare, Dependencies, Layers, App Sharing); nur die
   **Validate-Gruppe** ist rollen-gated (Deployment Manager) — Workbench und
   Merge stehen allen offen. Im Validate-Bereich
-  wird die **Release-Solution einmal oben gewählt** und über alle vier Checks
+  wird die **Release-Solution einmal oben gewählt** und über alle Checks
   geteilt (`ValidateWorkspace`); jeder Check hat darunter eine eigene Reihe
-  (Ziel-Env-Toggle bei Dependencies/Layers — geteilter `envKey` —, Env-Status
+  (Ziel-Env-Toggle bei Analyze/Dependencies/Layers — geteilter `envKey` —, Env-Status
   bei Compare/App Sharing) plus Run-Button und behält seine Ergebnisse.
-- **In-App-Anleitungen**: Sidebar-Footer mit **How-To** (Onboarding-Walk-
+- **Analyze (Solution Analysis)**: Dashboard-Überblick für eine Release-Solution.
+  Ein Klick auf **Run Analysis** lässt Dependencies, Compare (inkl. Content
+  Drift), Layers und App Sharing in einem Durchlauf gegen das Ziel-Env (UAT/PROD)
+  laufen und verdichtet das Ergebnis zu: einem **Deployment Risk Score** (0–100,
+  Gauge + Low/Medium/High-Risk-Band), Severity-Karten (Critical/High/Medium/Low),
+  einer **Key-Issues**-Tabelle, einer **Komponenten-Übersicht** nach Typ,
+  abgeleiteten **Recommendations** und einer **Environment-Readiness**-Matrix
+  (Kompatibilität je Bereich + Gesamt-Readiness in %). At-a-glance-Ergänzung zu
+  den fokussierten Einzel-Tabs; nutzt denselben Orchestrator wie der ALM
+  Detective (`runInvestigation`) plus eine reine Ableitungs-Schicht
+  (`analysisModel.ts`) — kein eigener Datenpfad, Mock-Fallback inklusive.
+- **App-Shell** (Dynamics-365-Stil): durchgehende **dunkle Topbar** mit
+  Brand-Lockup links und Utility-Cluster rechts (Lauf-Modus-Badge —
+  „Connected" / „Demo data" aus `usePower().mode` —, How-To & Help als Icons),
+  darunter eine **full-height-Sidebar** (sticky) plus full-width-Content.
+- **In-App-Anleitungen**: in der Topbar rechts **How-To** (Onboarding-Walk-
   through für neue Kollegen — Solutions anlegen, was dabei passiert, mergen und
   was dahintersteckt; `HowToPanel`) und **Help** (Feature-Referenz pro Tab;
   `HelpPanel`), beide als Overlay.

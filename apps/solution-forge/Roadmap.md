@@ -12,6 +12,11 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 - [x] ⭐ **Dependency-Check** (`RetrieveMissingDependencies`): Release-Solution
       gegen Ziel-Umgebung prüfen — Missing/Required Dependencies, optional
       „Add to Solution" je fehlender Komponente. *(Tab „Dependency Check")*
+- [x] ⭐ **Analyze-Dashboard**: Solution-Analysis-Überblick je Release —
+      Deployment Risk Score (Gauge + Risk-Band), Severity-Karten, Key-Issues-
+      Tabelle, Komponenten-Übersicht, abgeleitete Recommendations und
+      Environment-Readiness-Matrix; ein Durchlauf über alle vier Checks.
+      *(Tab „Analyze", `AnalyzeDashboard` + `analysisModel.ts`)*
 - [ ] **Solution-Checker-Anbindung**: Critical/High-Findings des Microsoft
       Solution Checkers als Badge pro Working Solution.
 - [ ] **Pre-Merge-Diff**: Zwei Solutions gegenüberstellen — „was würde der
@@ -108,6 +113,13 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       (POA via Konnektor-FetchXML; nur Releases, ohne Component Libraries)
 - [x] In-App-Anleitungen: **How-To** (Onboarding-Walk-through Workbench →
       Anlegen → Merge → Validate) neben **Help** (Feature-Referenz), beide als
-      Sidebar-Footer-Menüpunkt + Overlay
+      Topbar-Icon (rechts) + Overlay
 - [x] ALM Detective: phasenweiser Pre-Deployment-Audit (Dependency, Compare
       inkl. Content Drift, Layer, App Sharing) mit Severity-Report
+- [x] Analyze-Dashboard (Validate › Analyze): Risk Score + Gauge, Severity-
+      Karten, Key Issues, Komponenten-Übersicht, Recommendations und
+      Environment-Readiness — reine Ableitung über `analysisModel.ts` auf dem
+      Detective-Orchestrator
+- [x] App-Shell im Dynamics-365-Stil: durchgehende dunkle Topbar (Brand +
+      Utility-Cluster mit Mode-Badge/How-To/Help), full-height-Sidebar,
+      full-width-Content (`.app-topbar`/`.app-body`)
