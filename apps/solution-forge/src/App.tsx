@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import './App.css'
 import { usePower } from './PowerProvider'
 import { useSolutions } from './hooks/useSolutions'
 import { useAnalysisRun } from './hooks/useAnalysisRun'
+import { useReadinessRun } from './hooks/useReadinessRun'
 import { PHASE_LABELS, type DetectivePhaseKey } from './types/detective'
 import { solutionService } from './services/solutionService'
 import { SolutionFilterBar, type KindFilter } from './components/SolutionFilterBar'
@@ -13,6 +14,7 @@ import { MergeWorkbench } from './components/MergeWorkbench'
 import { MergeRules } from './components/MergeRules'
 import { ReadinessWorkspace } from './components/ReadinessWorkspace'
 import { AnalyzeWorkspace } from './components/AnalyzeWorkspace'
+import { ActivityBar } from './components/ActivityBar'
 // ALM Detective is temporarily hidden from the UI — component + service
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
 import { HelpPanel } from './components/HelpPanel'
@@ -150,6 +152,20 @@ function App() {
   ) => {
     setAnalysisBarHidden(false)
     startAnalysis(solution, env, phases)
+  }
+
+  // Deployment-Readiness check — lifted the same way so it keeps running
+  // (and the selection stays put) while navigating between tabs.
+  const { run: readinessRun, start: startReadiness } = useReadinessRun()
+  const [readinessSolutionId, setReadinessSolutionId] = useState('')
+  const [readinessEnvKey, setReadinessEnvKey] = useState<'uat' | 'prod'>('uat')
+  const [readinessBarHidden, setReadinessBarHidden] = useState(false)
+  const handleReadinessCheck = (
+    solution: WorkingSolution,
+    env: 'uat' | 'prod',
+  ) => {
+    setReadinessBarHidden(false)
+    startReadiness(solution, env)
   }
 
   const [kindFilter, setKindFilter] = useState<KindFilter>('All')
@@ -1115,7 +1131,15 @@ function App() {
       )}
 
       {!loading && !error && tab === 'readiness' && isDeploymentManager && (
-        <ReadinessWorkspace solutions={allSolutions} />
+        <ReadinessWorkspace
+          solutions={allSolutions}
+          solutionId={readinessSolutionId}
+          onSolutionChange={setReadinessSolutionId}
+          envKey={readinessEnvKey}
+          onEnvChange={setReadinessEnvKey}
+          run={readinessRun}
+          onCheck={handleReadinessCheck}
+        />
       )}
 
       {!loading && !error && tab === 'analyze' && isDeploymentManager && (
@@ -1154,85 +1178,146 @@ function App() {
       )}
 
       {(() => {
-        // Background-activity bar for the Analyze sweep: visible whenever a
-        // run exists and we're not already looking at exactly that result.
-        if (!analysisRun || analysisBarHidden) return null
-        const hasOutcome =
-          analysisRun.running || !!analysisRun.result || !!analysisRun.error
-        if (!hasOutcome) return null
-        const viewingThisRun =
-          tab === 'analyze' &&
-          analysisRun.solutionId === validateSolutionId &&
-          analysisRun.envKey === validateEnvKey
-        if (viewingThisRun) return null
-        const envLabel = analysisRun.envKey.toUpperCase()
-        const runningPhase = analysisRun.running
-          ? Object.values(analysisRun.phaseStates).find(
-              (p) => p.status === 'running',
+        // Background-activity bars: surface long-running jobs (Analyze sweep,
+        // Deployment-Readiness check) that keep going while navigating away.
+        // Each bar shows only when its run has an outcome and we're not already
+        // looking at exactly that result; several stack in one container.
+        const bars: ReactNode[] = []
+
+        if (analysisRun && !analysisBarHidden) {
+          const hasOutcome =
+            analysisRun.running || !!analysisRun.result || !!analysisRun.error
+          const viewingThisRun =
+            tab === 'analyze' &&
+            analysisRun.solutionId === validateSolutionId &&
+            analysisRun.envKey === validateEnvKey
+          if (hasOutcome && !viewingThisRun) {
+            const envLabel = analysisRun.envKey.toUpperCase()
+            const runningPhase = analysisRun.running
+              ? Object.values(analysisRun.phaseStates).find(
+                  (p) => p.status === 'running',
+                )
+              : null
+            bars.push(
+              <ActivityBar
+                key="analyze"
+                state={
+                  analysisRun.error
+                    ? 'error'
+                    : analysisRun.running
+                      ? 'running'
+                      : 'done'
+                }
+                onView={() => {
+                  setValidateSolutionId(analysisRun.solutionId)
+                  setValidateEnvKey(analysisRun.envKey)
+                  setTab('analyze')
+                }}
+                onClose={
+                  analysisRun.running
+                    ? undefined
+                    : () => setAnalysisBarHidden(true)
+                }
+              >
+                {analysisRun.running ? (
+                  <>
+                    Analyzing <strong>{analysisRun.solutionTitle}</strong> (
+                    {envLabel})
+                    {runningPhase && (
+                      <span className="muted">
+                        {' '}
+                        —{' '}
+                        {PHASE_LABELS[
+                          runningPhase.key as keyof typeof PHASE_LABELS
+                        ] ?? 'running'}
+                        …
+                      </span>
+                    )}
+                  </>
+                ) : analysisRun.error ? (
+                  <>
+                    Analysis of <strong>{analysisRun.solutionTitle}</strong>{' '}
+                    failed
+                  </>
+                ) : (
+                  <>
+                    Analysis of <strong>{analysisRun.solutionTitle}</strong> (
+                    {envLabel}) ready
+                  </>
+                )}
+              </ActivityBar>,
             )
-          : null
-        const view = () => {
-          setValidateSolutionId(analysisRun.solutionId)
-          setValidateEnvKey(analysisRun.envKey)
-          setTab('analyze')
+          }
         }
-        return (
-          <div
-            className={`analysis-bar ${
-              analysisRun.error
-                ? 'analysis-bar--error'
-                : analysisRun.running
-                  ? 'analysis-bar--running'
-                  : 'analysis-bar--done'
-            }`}
-          >
-            {analysisRun.running ? (
-              <span className="det-spinner" />
-            ) : (
-              <span className="analysis-bar-icon">
-                {analysisRun.error ? '✕' : '✓'}
-              </span>
-            )}
-            <span className="analysis-bar-text">
-              {analysisRun.running ? (
-                <>
-                  Analyzing <strong>{analysisRun.solutionTitle}</strong> (
-                  {envLabel})
-                  {runningPhase && (
+
+        if (readinessRun && !readinessBarHidden) {
+          const hasOutcome =
+            readinessRun.running ||
+            !!readinessRun.result ||
+            !!readinessRun.error
+          const viewingThisRun =
+            tab === 'readiness' &&
+            readinessRun.solutionId === readinessSolutionId &&
+            readinessRun.envKey === readinessEnvKey
+          if (hasOutcome && !viewingThisRun) {
+            const envLabel = readinessRun.envKey.toUpperCase()
+            const missing = readinessRun.result
+              ? readinessRun.result.items.filter(
+                  (i) => i.targetStatus === 'missing',
+                ).length
+              : 0
+            bars.push(
+              <ActivityBar
+                key="readiness"
+                state={
+                  readinessRun.error
+                    ? 'error'
+                    : readinessRun.running
+                      ? 'running'
+                      : 'done'
+                }
+                onView={() => {
+                  setReadinessSolutionId(readinessRun.solutionId)
+                  setReadinessEnvKey(readinessRun.envKey)
+                  setTab('readiness')
+                }}
+                onClose={
+                  readinessRun.running
+                    ? undefined
+                    : () => setReadinessBarHidden(true)
+                }
+              >
+                {readinessRun.running ? (
+                  <>
+                    Checking dependencies for{' '}
+                    <strong>{readinessRun.solutionTitle}</strong> ({envLabel})
+                    {readinessRun.progress && (
+                      <span className="muted"> — {readinessRun.progress}</span>
+                    )}
+                  </>
+                ) : readinessRun.error ? (
+                  <>
+                    Dependency check for{' '}
+                    <strong>{readinessRun.solutionTitle}</strong> failed
+                  </>
+                ) : (
+                  <>
+                    Dependency check for{' '}
+                    <strong>{readinessRun.solutionTitle}</strong> ({envLabel})
+                    ready
                     <span className="muted">
                       {' '}
-                      — {PHASE_LABELS[runningPhase.key as keyof typeof PHASE_LABELS] ??
-                        'running'}
-                      …
+                      — {missing} missing in {envLabel}
                     </span>
-                  )}
-                </>
-              ) : analysisRun.error ? (
-                <>
-                  Analysis of <strong>{analysisRun.solutionTitle}</strong>{' '}
-                  failed
-                </>
-              ) : (
-                <>
-                  Analysis of <strong>{analysisRun.solutionTitle}</strong> (
-                  {envLabel}) ready
-                </>
-              )}
-            </span>
-            <button className="analysis-bar-view" onClick={view}>
-              View
-            </button>
-            {!analysisRun.running && (
-              <button
-                className="analysis-bar-close"
-                aria-label="Dismiss"
-                onClick={() => setAnalysisBarHidden(true)}
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        )
+                  </>
+                )}
+              </ActivityBar>,
+            )
+          }
+        }
+
+        if (bars.length === 0) return null
+        return <div className="activity-bars">{bars}</div>
       })()}
 
       {pendingDeletes.length > 0 && (

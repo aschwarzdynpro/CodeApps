@@ -375,6 +375,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 metadata types that can't be verified from the app) is
                 summarized in one line — nothing to do for those.
               </li>
+              <li>
+                The check <strong>keeps running when you navigate away</strong>{' '}
+                — a bar at the bottom-left tracks progress and lets you jump
+                back; the result is waiting when you return.
+              </li>
               <li>Requires the “INT | Deployment Manager” role.</li>
             </ul>
           </section>

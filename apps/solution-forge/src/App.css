@@ -904,12 +904,18 @@
   z-index: 100;
 }
 
-/* Background-activity bar for the Analyze sweep. */
-.analysis-bar {
+/* Background-activity bars (Analyze sweep, Deployment-Readiness check) —
+   stack bottom-left, newest at the bottom. */
+.activity-bars {
   position: fixed;
   left: 20px;
   bottom: 20px;
   z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.analysis-bar {
   display: flex;
   align-items: center;
   gap: 10px;

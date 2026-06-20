@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
-import type {
-  DependencyCheckResult,
-  DependencyItem,
-} from '../types/dependency'
+import type { DependencyItem } from '../types/dependency'
+import type { ReadinessRun } from '../hooks/useReadinessRun'
 import { ENVIRONMENTS } from '../config'
 import { solutionService } from '../services/solutionService'
 import { shortGuid } from '../utils/format'
@@ -13,6 +11,10 @@ interface Props {
   solution: WorkingSolution
   envKey: 'uat' | 'prod'
   onEnvChange: (envKey: 'uat' | 'prod') => void
+  /** The lifted check for this solution+env (null until first run). */
+  run: ReadinessRun | null
+  /** Start (or re-run) the lifted check — survives tab navigation. */
+  onCheck: () => void
 }
 
 const targetEnvs = ENVIRONMENTS.filter(
@@ -23,37 +25,31 @@ const targetEnvs = ENVIRONMENTS.filter(
  * Dependency check for a release solution: RetrieveMissingDependencies
  * lists every required component the solution doesn't contain; each one is
  * checked for presence in the selected target environment. Missing ones
- * can be pulled into the solution directly.
+ * can be pulled into the solution directly. The long-running check itself is
+ * lifted to App (see {@link ReadinessRun}) so it keeps going while navigating
+ * away; only the add-to-solution interaction stays local here.
  */
-export function DependencyCheck({ solution, envKey, onEnvChange }: Props) {
-  const [running, setRunning] = useState(false)
-  const [progress, setProgress] = useState('')
-  const [result, setResult] = useState<DependencyCheckResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
+export function DependencyCheck({
+  solution,
+  envKey,
+  onEnvChange,
+  run,
+  onCheck,
+}: Props) {
   const [addBusyId, setAddBusyId] = useState<string | null>(null)
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
   const [addError, setAddError] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
-  const run = async () => {
-    setRunning(true)
-    setResult(null)
-    setError(null)
+  const running = run?.running ?? false
+  const progress = run?.progress ?? ''
+  const result = run?.result ?? null
+  const error = run?.error ?? null
+
+  const startCheck = () => {
     setAddedIds(new Set())
     setAddError(null)
-    setProgress('Starting…')
-    try {
-      const res = await solutionService.checkDependencies(
-        solution,
-        envKey,
-        (msg) => setProgress(msg),
-      )
-      setResult(res)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setRunning(false)
-    }
+    onCheck()
   }
 
   const addToSolution = async (item: DependencyItem) => {
@@ -143,7 +139,7 @@ export function DependencyCheck({ solution, envKey, onEnvChange }: Props) {
         <button
           className="btn btn--primary"
           disabled={running}
-          onClick={() => void run()}
+          onClick={startCheck}
         >
           {running ? `Checking… ${progress}` : 'Dependency Check'}
         </button>
