@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
 import type { AlmComponentRef, EnvKey } from '../types/comparison'
 import type {
@@ -20,6 +20,8 @@ interface Props {
   solution: WorkingSolution
   envKey: 'uat' | 'prod'
   onEnvChange: (envKey: 'uat' | 'prod') => void
+  /** Run automatically once on mount (used inside the Analyze tabs). */
+  autoRun?: boolean
 }
 
 const TARGET_ENVS = ENVIRONMENTS.filter(
@@ -64,7 +66,12 @@ const matchesFilter = (verdict: LayerVerdict, filter: LayerFilter) =>
  * masked) and components missing in the target. Sections appear per
  * component type as they finish; diffable types offer a DEV-vs-target diff.
  */
-export function LayerInspector({ solution, envKey, onEnvChange }: Props) {
+export function LayerInspector({
+  solution,
+  envKey,
+  onEnvChange,
+  autoRun,
+}: Props) {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState<[number, number] | null>(null)
   const [sections, setSections] = useState<LayerSection[]>([])
@@ -118,6 +125,15 @@ export function LayerInspector({ solution, envKey, onEnvChange }: Props) {
       setProgress(null)
     }
   }
+
+  // Auto-run once when embedded in the Analyze tabs.
+  const didAuto = useRef(false)
+  useEffect(() => {
+    if (!autoRun || didAuto.current) return
+    didAuto.current = true
+    void Promise.resolve().then(run)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const counts = useMemo(() => {
     const c: Record<LayerVerdict, number> = {

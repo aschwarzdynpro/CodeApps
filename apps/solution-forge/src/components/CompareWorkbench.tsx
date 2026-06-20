@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
 import {
   ALM_KIND_LABELS,
@@ -15,6 +15,8 @@ import { formatRelative } from '../utils/format'
 interface Props {
   /** The release solution chosen in the shared Validate selector. */
   solution: WorkingSolution
+  /** Run automatically once on mount (used inside the Analyze tabs). */
+  autoRun?: boolean
 }
 
 // Rich ALM type names lead the group order.
@@ -38,7 +40,7 @@ const AUTO_EXPAND_LIMIT = 12
  * DEV / UAT / PROD. Compare reports presence (missing) and status drift;
  * unmanaged layers and content diffs live in the Layer Inspector.
  */
-export function CompareWorkbench({ solution }: Props) {
+export function CompareWorkbench({ solution, autoRun }: Props) {
   const [result, setResult] = useState<ComparisonResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
@@ -87,6 +89,15 @@ export function CompareWorkbench({ solution }: Props) {
         if (req === request.current) setLoading(false)
       })
   }
+
+  // Auto-run once when embedded in the Analyze tabs.
+  const didAuto = useRef(false)
+  useEffect(() => {
+    if (!autoRun || didAuto.current) return
+    didAuto.current = true
+    void Promise.resolve().then(() => run())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const deviationCounts = useMemo(() => {
     const counts: Record<DeviationKind, number> = {

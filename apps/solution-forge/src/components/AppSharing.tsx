@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
 import type { EnvKey } from '../types/comparison'
 import {
@@ -14,6 +14,8 @@ import { sharingService } from '../services/sharingService'
 interface Props {
   /** The release solution chosen in the shared Validate selector. */
   solution: WorkingSolution
+  /** Run automatically once on mount (used inside the Analyze tabs). */
+  autoRun?: boolean
 }
 
 const KIND_ORDER: CanvasAppKind[] = ['canvas', 'custompage']
@@ -27,12 +29,13 @@ const GAP_ENVS: EnvKey[] = ['uat', 'prod']
  * import never carries user sharing, a canvas app can land in UAT/PROD and
  * reach nobody — those gaps are called out.
  */
-export function AppSharing({ solution }: Props) {
+export function AppSharing({ solution, autoRun }: Props) {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState('')
   const [result, setResult] = useState<AppSharingResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const didAuto = useRef(false)
 
   const run = async () => {
     setRunning(true)
@@ -51,6 +54,15 @@ export function AppSharing({ solution }: Props) {
       setRunning(false)
     }
   }
+
+  // Auto-run once when embedded in the Analyze tabs. Deferred to a
+  // microtask so the first setState isn't synchronous in the effect.
+  useEffect(() => {
+    if (!autoRun || didAuto.current) return
+    didAuto.current = true
+    void Promise.resolve().then(run)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // "Deployed but shared with nobody" in UAT/PROD — the actionable gap.
   // Custom pages are excluded (they get access via the app's roles).

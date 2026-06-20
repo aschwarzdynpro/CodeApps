@@ -116,6 +116,13 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       Topbar-Icon (rechts) + Overlay
 - [x] ALM Detective: phasenweiser Pre-Deployment-Audit (Dependency, Compare
       inkl. Content Drift, Layer, App Sharing) mit Severity-Report
+- [x] Validate-Umbau in zwei Phasen: **Deployment Readiness** (= vorher;
+      Dependency Check) und **Analyze** (= nachher). Analyze als Container:
+      Toolbar (Solution + UAT/PROD + Post-Check-Auswahl + Analyze nebeneinander),
+      Progress, dann Sub-Tabs Summary + Compare/Layers/App Sharing (Voll-
+      Inhalte via `autoRun`, keep-alive). Summary: Risk-Counter als Filter,
+      alle Issues nach Kritikalität gruppiert + ein/ausklappbar. Analyse-Lauf
+      bleibt nach App gehoben (läuft im Hintergrund weiter, Info-Bar)
 - [x] Analyze-Dashboard (Validate › Analyze): Risk Score + Gauge, Severity-
       Karten, Key Issues, Komponenten-Übersicht, Recommendations und
       Environment-Readiness — reine Ableitung über `analysisModel.ts` auf dem

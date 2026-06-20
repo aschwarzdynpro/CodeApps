@@ -45,15 +45,21 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
-            <h3>📊 Analyze (Solution Analysis)</h3>
+            <h3>📊 Analyze (post-deployment)</h3>
             <ul>
               <li>
-                A single-screen <strong>dashboard overview</strong> for a
-                release solution: pick the release at the top, choose the
-                deployment target (UAT / PROD) and hit{' '}
-                <strong>Run Analysis</strong> — it runs the Dependencies,
-                Compare (incl. content drift), Layers and App Sharing checks in
-                one sweep and compiles the result.
+                Everything to review <strong>after</strong> a release reaches a
+                target. In one toolbar row pick the release, the target (UAT /
+                PROD) and which checks to include —{' '}
+                <strong>Compare</strong> (incl. content drift),{' '}
+                <strong>Layers</strong> and <strong>App Sharing</strong> — then
+                hit <strong>Analyze</strong>.
+              </li>
+              <li>
+                The sweep fills four tabs: a <strong>Summary</strong> dashboard
+                plus one tab per selected check with its full content. (Things
+                to check <em>before</em> deploying live in{' '}
+                <strong>Deployment Readiness</strong>.)
               </li>
               <li>
                 The sweep <strong>keeps running when you navigate away</strong>
@@ -74,7 +80,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 <span className="sev-pill sev-pill--low">Low</span> findings.
               </li>
               <li>
-                <strong>Key Issues</strong> lists the highest-severity findings;{' '}
+                The severity cards are <strong>clickable filters</strong>, and{' '}
+                <strong>Issues</strong> lists every finding grouped by
+                criticality in collapsible sections;{' '}
                 <strong>Solution Components</strong> breaks the solution down by
                 component type.
               </li>
@@ -85,10 +93,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 overall readiness percentage.
               </li>
               <li>
-                The dashboard is the at-a-glance companion to the focused
-                Compare / Dependencies / Layers / App Sharing tabs — open those
-                for the full detail. Requires the “INT | Deployment Manager”
-                role.
+                Requires the “INT | Deployment Manager” role.
               </li>
             </ul>
           </section>
@@ -294,19 +299,14 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 Navigation is a left sidebar grouped into <strong>Manage</strong>{' '}
                 (Workbench, Merge, Merge Rules) and <strong>Validate</strong>{' '}
-                (Analyze, Compare, Dependencies, Layers, App Sharing). The whole{' '}
+                (<strong>Deployment Readiness</strong> = before, and{' '}
+                <strong>Analyze</strong> = after, with Compare / Layers / App
+                Sharing as tabs inside Analyze). The whole{' '}
                 <strong>Validate</strong> group and <strong>Merge Rules</strong>{' '}
                 require the security role{' '}
                 <strong>“INT | Deployment Manager”</strong> (assigned directly
                 to your user) — without it those appear locked. Workbench and
                 Merge are open to everyone.
-              </li>
-              <li>
-                In <strong>Validate</strong>, pick the release solution once at
-                the top; each check has its own row below it (target-env toggle
-                for Dependencies / Layers, environment status for Compare / App
-                Sharing) plus its run button. The selection stays put as you
-                switch between Analyze and the four focused checks.
               </li>
               <li>
                 Only <strong>tracked</strong> feature / bug solutions can be
@@ -353,7 +353,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
-            <h3>Dependency Check</h3>
+            <h3>Deployment Readiness (Dependency Check)</h3>
             <ul>
               <li>
                 Pick a <strong>release solution</strong> and a target

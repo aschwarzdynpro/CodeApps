@@ -3060,6 +3060,20 @@
   border-radius: 10px;
   border: 1px solid var(--border);
   border-left-width: 4px;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.severity-card:hover:not(:disabled) {
+  filter: brightness(0.98);
+}
+.severity-card:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.severity-card--active {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
 }
 .severity-card-count {
   font-size: 24px;
@@ -3245,4 +3259,93 @@
   font-weight: 800;
   border-radius: 8px;
   padding: 2px 10px;
+}
+
+/* Analyze toolbar (solution + target + checks + run, side by side). */
+.analyze-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.analyze-toolbar-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 260px;
+}
+.analyze-toolbar-env,
+.analyze-toolbar-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.analyze-toolbar-run {
+  margin-left: auto;
+}
+.check-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.check-chip input {
+  accent-color: var(--brand);
+}
+
+/* Analyze sub-tabs. */
+.subtabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin: 16px 0;
+}
+.subtab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.subtab:hover {
+  color: var(--text);
+}
+.subtab--active {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+}
+
+/* Issue groups (Summary). */
+.issue-group {
+  margin-bottom: 10px;
+}
+.issue-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 6px 2px;
+  cursor: pointer;
+  text-align: left;
+}
+.issue-group-caret {
+  color: var(--muted);
+  font-size: 12px;
+  width: 12px;
+}
+.analyze-clear-filter {
+  margin-left: 10px;
+  vertical-align: middle;
 }

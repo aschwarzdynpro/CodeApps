@@ -3,7 +3,7 @@ import './App.css'
 import { usePower } from './PowerProvider'
 import { useSolutions } from './hooks/useSolutions'
 import { useAnalysisRun } from './hooks/useAnalysisRun'
-import { PHASE_LABELS } from './types/detective'
+import { PHASE_LABELS, type DetectivePhaseKey } from './types/detective'
 import { solutionService } from './services/solutionService'
 import { SolutionFilterBar, type KindFilter } from './components/SolutionFilterBar'
 import { SolutionList } from './components/SolutionList'
@@ -11,7 +11,8 @@ import { SolutionDetail } from './components/SolutionDetail'
 import { CreateSolutionDialog } from './components/CreateSolutionDialog'
 import { MergeWorkbench } from './components/MergeWorkbench'
 import { MergeRules } from './components/MergeRules'
-import { ValidateWorkspace } from './components/ValidateWorkspace'
+import { ReadinessWorkspace } from './components/ReadinessWorkspace'
+import { AnalyzeWorkspace } from './components/AnalyzeWorkspace'
 // ALM Detective is temporarily hidden from the UI — component + service
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
 import { HelpPanel } from './components/HelpPanel'
@@ -34,15 +35,7 @@ import {
   type WorkingSolution,
 } from './types/solution'
 
-type Tab =
-  | 'workbench'
-  | 'merge'
-  | 'mergeRules'
-  | 'analyze'
-  | 'compare'
-  | 'dependencies'
-  | 'layers'
-  | 'sharing'
+type Tab = 'workbench' | 'merge' | 'mergeRules' | 'readiness' | 'analyze'
 
 interface NavItem {
   key: Tab
@@ -65,11 +58,13 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Validate',
     items: [
+      {
+        key: 'readiness',
+        label: 'Deployment Readiness',
+        icon: '🚦',
+        gated: true,
+      },
       { key: 'analyze', label: 'Analyze', icon: '📊', gated: true },
-      { key: 'compare', label: 'Compare', icon: '⇄', gated: true },
-      { key: 'dependencies', label: 'Dependencies', icon: '🔗', gated: true },
-      { key: 'layers', label: 'Layers', icon: '🧱', gated: true },
-      { key: 'sharing', label: 'App Sharing', icon: '👥', gated: true },
     ],
   },
 ]
@@ -79,11 +74,8 @@ const TAB_TITLES: Record<Tab, string> = {
   workbench: 'Workbench',
   merge: 'Merge',
   mergeRules: 'Merge Rules',
-  analyze: 'Solution Analysis',
-  compare: 'Compare',
-  dependencies: 'Dependency Check',
-  layers: 'Layer Inspector',
-  sharing: 'App Sharing',
+  readiness: 'Deployment Readiness',
+  analyze: 'Analyze',
 }
 
 /**
@@ -154,9 +146,10 @@ function App() {
   const handleAnalyze = (
     solution: WorkingSolution,
     env: 'uat' | 'prod',
+    phases: DetectivePhaseKey[],
   ) => {
     setAnalysisBarHidden(false)
-    startAnalysis(solution, env)
+    startAnalysis(solution, env, phases)
   }
 
   const [kindFilter, setKindFilter] = useState<KindFilter>('All')
@@ -1121,25 +1114,21 @@ function App() {
         />
       )}
 
-      {!loading &&
-        !error &&
-        (tab === 'analyze' ||
-          tab === 'compare' ||
-          tab === 'dependencies' ||
-          tab === 'layers' ||
-          tab === 'sharing') &&
-        isDeploymentManager && (
-          <ValidateWorkspace
-            tab={tab}
-            solutions={allSolutions}
-            solutionId={validateSolutionId}
-            onSolutionChange={setValidateSolutionId}
-            envKey={validateEnvKey}
-            onEnvChange={setValidateEnvKey}
-            analysisRun={analysisRun}
-            onAnalyze={handleAnalyze}
-          />
-        )}
+      {!loading && !error && tab === 'readiness' && isDeploymentManager && (
+        <ReadinessWorkspace solutions={allSolutions} />
+      )}
+
+      {!loading && !error && tab === 'analyze' && isDeploymentManager && (
+        <AnalyzeWorkspace
+          solutions={allSolutions}
+          solutionId={validateSolutionId}
+          onSolutionChange={setValidateSolutionId}
+          envKey={validateEnvKey}
+          onEnvChange={setValidateEnvKey}
+          run={analysisRun}
+          onAnalyze={handleAnalyze}
+        />
+      )}
         </main>
       </div>
 

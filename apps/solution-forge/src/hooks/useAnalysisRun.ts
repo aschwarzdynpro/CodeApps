@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import type { SolutionComponentInfo, WorkingSolution } from '../types/solution'
 import type { DetectiveResult, PhaseState } from '../types/detective'
 import { PHASE_ORDER } from '../types/detective'
+import type { DetectivePhaseKey } from '../types/detective'
 import { runInvestigation } from '../services/detectiveService'
 import { solutionService } from '../services/solutionService'
 
@@ -14,6 +15,8 @@ export interface AnalysisRun {
   solutionId: string
   solutionTitle: string
   envKey: 'uat' | 'prod'
+  /** Phases included in this run (the post-deployment checks). */
+  phases: DetectivePhaseKey[]
   running: boolean
   phaseStates: Record<string, PhaseState>
   result: DetectiveResult | null
@@ -25,8 +28,12 @@ export interface AnalysisRun {
 export interface UseAnalysisRun {
   /** The current/last run, or null before the first run. */
   run: AnalysisRun | null
-  /** Start (or restart) the sweep for a solution + target environment. */
-  start: (solution: WorkingSolution, envKey: 'uat' | 'prod') => void
+  /** Start (or restart) the sweep for a solution, target env and phases. */
+  start: (
+    solution: WorkingSolution,
+    envKey: 'uat' | 'prod',
+    phases: DetectivePhaseKey[],
+  ) => void
 }
 
 export function useAnalysisRun(): UseAnalysisRun {
@@ -35,14 +42,20 @@ export function useAnalysisRun(): UseAnalysisRun {
   const reqRef = useRef(0)
 
   const start = useCallback(
-    (solution: WorkingSolution, envKey: 'uat' | 'prod') => {
+    (
+      solution: WorkingSolution,
+      envKey: 'uat' | 'prod',
+      phases: DetectivePhaseKey[],
+    ) => {
       const reqId = ++reqRef.current
+      const ordered = PHASE_ORDER.filter((p) => phases.includes(p))
       const init: Record<string, PhaseState> = {}
-      for (const key of PHASE_ORDER) init[key] = { key, status: 'pending' }
+      for (const key of ordered) init[key] = { key, status: 'pending' }
       setRun({
         solutionId: solution.id,
         solutionTitle: solution.title,
         envKey,
+        phases: ordered,
         running: true,
         phaseStates: init,
         result: null,
@@ -55,7 +68,7 @@ export function useAnalysisRun(): UseAnalysisRun {
         runInvestigation({
           solution,
           targetEnv: envKey,
-          phases: PHASE_ORDER,
+          phases: ordered,
           onPhase: (state) => {
             if (reqId !== reqRef.current) return
             setRun((prev) =>
