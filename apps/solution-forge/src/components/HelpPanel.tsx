@@ -245,6 +245,12 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 metadata (version, publisher, owner, deployment status).
               </li>
               <li>
+                Each list row shows the synced{' '}
+                <strong>DevOps work-item status</strong> as a chip next to its{' '}
+                <strong>#number</strong> — blue while active, muted when
+                Closed/Done (from <code>sst_devopsworkitemstatus</code>).
+              </li>
+              <li>
                 When an open entry's DevOps work item is <strong>Closed</strong>,
                 it's flagged{' '}
                 <span className="tbc-chip">✓ to be completed</span> in the list

@@ -566,6 +566,8 @@ export class DataverseSolutionService implements SolutionService {
             raw.statecode !== undefined ? Number(raw.statecode) : undefined,
           allowedMergeTypes: parseTypeCodes(row.sst_allowedmergetypes),
           excludedMergeTypes: parseTypeCodes(row.sst_excludedmergetypes),
+          // Raw synced DevOps work-item state for the list status chip.
+          workItemStatus: raw.sst_devopsworkitemstatus || undefined,
           // Open record + closed DevOps work item → ready to be completed.
           toBeCompleted:
             Number(raw.statecode) === 0 &&

@@ -1234,6 +1234,25 @@
   font-weight: 700;
   color: #1a56db;
 }
+/* Synced DevOps work-item state — blue while active, muted green when done. */
+.wi-status-chip {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+.wi-status-chip--open {
+  color: #1a56db;
+  background: #eaf1fd;
+  border: 1px solid #bcd3f7;
+}
+.wi-status-chip--closed {
+  color: #5f6b7a;
+  background: #eef1f5;
+  border: 1px solid #d4dae2;
+}
 .solution-row-owner {
   color: var(--muted);
   white-space: nowrap;

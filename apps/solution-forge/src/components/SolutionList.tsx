@@ -4,6 +4,7 @@ import type {
   SolutionComponentInfo,
   WorkingSolution,
 } from '../types/solution'
+import { isClosedWorkItemState } from '../types/solution'
 import { formatRelative } from '../utils/format'
 import { KindBanner } from './KindBadge'
 
@@ -61,6 +62,24 @@ function StateBanner({ solution }: { solution: WorkingSolution }) {
   return (
     <span className={`sol-state sol-state--${state}`} title={m.title}>
       {m.label}
+    </span>
+  )
+}
+
+/**
+ * Synced DevOps work-item state (sst_devopsworkitemstatus). Closed/done states
+ * read as muted "complete"; everything else as an active blue chip.
+ */
+function WorkItemStatusChip({ status }: { status: string }) {
+  const closed = isClosedWorkItemState(status)
+  return (
+    <span
+      className={`wi-status-chip ${
+        closed ? 'wi-status-chip--closed' : 'wi-status-chip--open'
+      }`}
+      title={`DevOps work item status: ${status}`}
+    >
+      {status}
     </span>
   )
 }
@@ -155,6 +174,9 @@ export function SolutionList({
             <span className="solution-row-meta">
               <code>{s.uniqueName}</code>
               {s.devOpsId && <span className="ado-chip">#{s.devOpsId}</span>}
+              {s.workItemStatus && (
+                <WorkItemStatusChip status={s.workItemStatus} />
+              )}
               {s.version && <span>v{s.version}</span>}
               {s.owner && (
                 <span className="solution-row-owner">👤 {s.owner}</span>

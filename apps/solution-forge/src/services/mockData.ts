@@ -49,6 +49,7 @@ export const mockSolutions: WorkingSolution[] = [
     deploymentStatus: 'None',
     deploymentStatusCode: 500870000,
     // Open, but its DevOps work item is closed → ready to complete (demo).
+    workItemStatus: 'Closed',
     toBeCompleted: true,
   },
   {
@@ -82,6 +83,7 @@ export const mockSolutions: WorkingSolution[] = [
     ownerId: 'u-0003',
     deploymentStatus: 'None',
     deploymentStatusCode: 500870000,
+    workItemStatus: 'Active',
   },
   {
     id: 'a0000000-0000-4000-9000-000000000004',

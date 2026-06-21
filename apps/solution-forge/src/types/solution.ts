@@ -88,6 +88,13 @@ export interface WorkingSolution {
   kind: SolutionKind
   /** Azure DevOps work item id parsed from the unique name (null for deploy/other). */
   devOpsId: string | null
+  /**
+   * DevOps work-item state synced onto the record (sst_devopsworkitemstatus),
+   * e.g. "New", "Active", "Resolved", "Closed". Undefined when never synced.
+   * Drives the work-item status chip in the list; {@link isClosedWorkItemState}
+   * classifies it.
+   */
+  workItemStatus?: string
   version: string
   isManaged: boolean
   /** createdon (ISO date-time) */
