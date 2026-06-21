@@ -904,12 +904,18 @@
   z-index: 100;
 }
 
-/* Background-activity bar for the Analyze sweep. */
-.analysis-bar {
+/* Background-activity bars (Analyze sweep, Deployment-Readiness check) —
+   stack bottom-left, newest at the bottom. */
+.activity-bars {
   position: fixed;
   left: 20px;
   bottom: 20px;
   z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.analysis-bar {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1227,6 +1233,25 @@
 .ado-chip {
   font-weight: 700;
   color: #1a56db;
+}
+/* Synced DevOps work-item state — blue while active, muted green when done. */
+.wi-status-chip {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+.wi-status-chip--open {
+  color: #1a56db;
+  background: #eaf1fd;
+  border: 1px solid #bcd3f7;
+}
+.wi-status-chip--closed {
+  color: #5f6b7a;
+  background: #eef1f5;
+  border: 1px solid #d4dae2;
 }
 .solution-row-owner {
   color: var(--muted);
