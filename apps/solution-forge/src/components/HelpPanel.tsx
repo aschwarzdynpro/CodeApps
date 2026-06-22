@@ -370,8 +370,15 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 (App Elements rolled up to a counter).
               </li>
               <li>
-                Toggle between <strong>Markdown</strong> and <strong>Raw</strong>{' '}
-                text and <strong>Copy</strong> the active format.
+                Release notes are <strong>incremental</strong>: after the first
+                publish, each draft lists only what was merged{' '}
+                <strong>since the last published version</strong> (the draft
+                shows the “since” date; nothing new ⇒ nothing to publish).
+              </li>
+              <li>
+                Toggle between <strong>Markdown</strong> (rendered) and{' '}
+                <strong>Raw</strong> text and <strong>Copy</strong> the active
+                format (the Markdown tab copies the Markdown source).
               </li>
               <li>
                 <strong>Publish</strong> freezes the current draft as a

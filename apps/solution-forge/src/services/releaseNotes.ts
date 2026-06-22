@@ -33,6 +33,9 @@ export function buildReleaseNotes(
   runs: MergeRun[],
   solutions: WorkingSolution[],
   generatedAt: Date,
+  /** ISO date-time of the previous published note — adds an "incremental"
+   *  subtitle. The caller is responsible for passing only the runs since then. */
+  sincePublishedOn?: string | null,
 ): ReleaseNotesContent {
   // Included solutions — union of merge-run source titles, deduped. A title
   // that resolves to exactly one current working solution with a work item id
@@ -104,6 +107,7 @@ export function buildReleaseNotes(
   )}`
 
   const date = generatedAt.toISOString().slice(0, 10)
+  const since = sincePublishedOn ? sincePublishedOn.slice(0, 10) : null
   const publisher = release.publisher?.friendlyName
   const version = release.version || '—'
 
@@ -112,10 +116,9 @@ export function buildReleaseNotes(
     `# Release Notes — ${release.title} (\`${release.uniqueName}\`) v${version}`,
     '',
     `_Generated ${date}${publisher ? ` · Publisher: ${publisher}` : ''}_`,
-    '',
-    `## Included solutions (${included.length})`,
-    '',
   ]
+  if (since) md.push(`_Incremental — changes since ${since}_`)
+  md.push('', `## Included solutions (${included.length})`, '')
   if (included.length === 0) md.push('_None._', '')
   for (const s of included) {
     if (s.devOpsId && s.url) md.push(`- ${s.title} ([#${s.devOpsId}](${s.url}))`)
@@ -157,9 +160,9 @@ export function buildReleaseNotes(
   const tx: string[] = [
     `RELEASE NOTES — ${release.title} (${release.uniqueName}) v${version}`,
     `Generated ${date}${publisher ? ` · Publisher: ${publisher}` : ''}`,
-    '',
-    `INCLUDED SOLUTIONS (${included.length})`,
   ]
+  if (since) tx.push(`Incremental — changes since ${since}`)
+  tx.push('', `INCLUDED SOLUTIONS (${included.length})`)
   if (included.length === 0) tx.push('  (none)')
   for (const s of included) {
     if (s.devOpsId && s.url) tx.push(`  - ${s.title} (#${s.devOpsId}  ${s.url})`)

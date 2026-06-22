@@ -138,9 +138,12 @@ nach Typ.
   hinzugefügten Komponenten nach Typ (App Elements als Counter). Umschalter
   **Markdown | Raw** + Copy. **Publish** friert den aktuellen Draft als
   versionierten Snapshot ein (Tabelle `sst_releasenote`, beide Formate
-  gespeichert; deaktiviert, wenn identisch zum letzten Stand) — nur
-  Deployment Manager; Anzeigen/Kopieren offen. **History**-Tab listet alle
-  veröffentlichten Stände (Datum · Autor · Summary) zum Wiederabruf.
+  gespeichert) — nur Deployment Manager; Anzeigen/Kopieren offen.
+  **Inkrementell:** nach dem ersten Publish listet der Draft nur noch, was
+  **seit der letzten veröffentlichten Release Note** gemergt wurde (Cutoff =
+  `createdon` der letzten Note; nichts Neues ⇒ Publish deaktiviert).
+  **History**-Tab listet alle veröffentlichten Stände (Datum · Autor · Summary)
+  zum Wiederabruf.
 - **Compare (ALM)**: Release-Solution wählen → Cloud Flows, Workflows,
   Business Rules, Plugin Steps und Scripts werden über **DEV / UAT / PROD**
   verglichen, gruppiert nach Typ in aufklappbaren Sektionen. Abweichungen
