@@ -84,7 +84,7 @@ Unmanaged Solutions **ohne** Tracking-Datensatz erscheinen trotzdem in der Liste
   Icons **📖 How-To** (Onboarding-Walkthrough) und **? Help** (Feature-Referenz
   pro Bereich).
 - **Sidebar** links, gruppiert in:
-  - **Manage:** Workbench · Merge · Merge Rules
+  - **Manage:** Workbench · Merge · Merge Rules · Release Notes
   - **Validate:** Deployment Readiness · Analyze
 
 ---
@@ -203,6 +203,29 @@ Ein Typ ist mergebar, wenn er **(in Allow ODER Allow leer) UND nicht in Exclude*
 ist. Verwaltet im eigenen **Merge Rules**-Tab; die Workbench-Detailansicht zeigt
 nur eine Read-only-Übersicht. Blockierte Komponenten werden im Plan ausgegraut
 und beim Merge als „excluded by merge rules" gezählt.
+
+### Release Notes
+
+Eigener Menüpunkt **📝 Release Notes** (ungated). Release-Solution oben wählen →
+zwei Sub-Tabs:
+
+- **Draft** — wird live aus der **Merge-Historie** generiert:
+  - **Included solutions:** alle gemergten Quell-Solutions (Display-Namen);
+    bei eindeutig auflösbarem Titel zusätzlich der DevOps-**`#`-Work-Item-Link**.
+  - **Components:** alle hinzugefügten Komponenten nach Typ gruppiert; **App
+    Elements** als Counter zusammengefasst.
+  - Umschalter **Markdown | Raw** + **Copy** des aktiven Formats.
+  - **Publish** friert den Draft als versionierten Snapshot ein (beide Formate
+    gespeichert). Deaktiviert, wenn identisch zum zuletzt veröffentlichten Stand.
+    **Publish nur mit Rolle „INT | Deployment Manager"**; Anzeigen/Kopieren offen.
+- **History** — alle veröffentlichten Stände (Datum · Autor · Summary); Klick
+  öffnet den gespeicherten Stand exakt wie veröffentlicht.
+
+Gespeichert in der Tabelle `sst_releasenote` (Lookup auf die Release-Solution).
+Hinweis: Eine Komponente lässt sich nicht einer einzelnen Quell-Solution
+zuordnen (der Merge-Log speichert die kombinierte Liste), daher Gruppierung nach
+Typ. Die Notes sind **historisch** (was gemergt wurde), nicht der aktuelle
+Live-Stand.
 
 ---
 

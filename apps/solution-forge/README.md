@@ -132,6 +132,15 @@ nach Typ.
   Komponenten werden im Plan ausgegraut und beim Merge als „excluded by merge
   rules" gezählt. Das App-Array `MERGEABLE_COMPONENT_TYPES` spiegelt die
   Choice-Optionen.
+- **Release Notes**: Eigener Menüpunkt; je **Release-Solution** werden aus der
+  **Merge-Historie** Release Notes generiert — enthaltene Quell-Solutions (mit
+  DevOps-`#`-Link, wenn der Titel eindeutig auflösbar ist) und alle
+  hinzugefügten Komponenten nach Typ (App Elements als Counter). Umschalter
+  **Markdown | Raw** + Copy. **Publish** friert den aktuellen Draft als
+  versionierten Snapshot ein (Tabelle `sst_releasenote`, beide Formate
+  gespeichert; deaktiviert, wenn identisch zum letzten Stand) — nur
+  Deployment Manager; Anzeigen/Kopieren offen. **History**-Tab listet alle
+  veröffentlichten Stände (Datum · Autor · Summary) zum Wiederabruf.
 - **Compare (ALM)**: Release-Solution wählen → Cloud Flows, Workflows,
   Business Rules, Plugin Steps und Scripts werden über **DEV / UAT / PROD**
   verglichen, gruppiert nach Typ in aufklappbaren Sektionen. Abweichungen

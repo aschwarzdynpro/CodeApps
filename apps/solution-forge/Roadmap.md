@@ -24,9 +24,12 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 
 ## Release-Zug & Deployment
 
-- [ ] ⭐ **Release-Notes-Generator**: Aus den gemergten Working Solutions
-      (`sst_DeploymentSolution_id`) + Work-Item-Titeln Markdown-Release-Notes
-      erzeugen (Copy-Button).
+- [x] ⭐ **Release-Notes-Generator**: Eigener Menüpunkt **Release Notes** —
+      je Release-Solution aus der Merge-Historie generiert (enthaltene
+      Solutions inkl. DevOps-`#`-Link, Komponenten nach Typ, App Elements als
+      Counter), Umschalter Markdown | Raw + Copy. **Publish** speichert
+      versionierte Snapshots (`sst_releasenote`, nur Deployment Manager),
+      **History**-Tab zum Wiederabruf.
 - [ ] **Deployment-Kanban**: `ssid_deploymentstatus` als Board mit
       Drag & Drop (None → To be deployed → In progress → Completed).
 - [ ] **Power-Platform-Pipelines-Integration**: Pipeline-Run aus der App

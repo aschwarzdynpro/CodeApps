@@ -302,3 +302,39 @@ export interface MergeRun {
   /** Components added in this run (parsed from sst_addedcomponents_txt). */
   components: MergeRunComponent[]
 }
+
+/**
+ * A published release-notes snapshot — one row of the `sst_releasenote` table,
+ * frozen at publish time (both render formats stored) and linked to its
+ * release solution.
+ */
+export interface ReleaseNote {
+  /** sst_releasenoteid */
+  id: string
+  /** ssid_workingsolutionid of the release this belongs to. */
+  releaseRecordId: string
+  /** sst_name — generated title. */
+  name: string
+  /** Release version at publish time. */
+  version: string
+  /** Published Markdown. */
+  markdown: string
+  /** Published plain text. */
+  text: string
+  /** "N solutions · M components". */
+  summary: string
+  /** createdon (ISO date-time) — when it was published. */
+  createdOn: string
+  /** createdby display name, when resolvable. */
+  createdBy?: string
+}
+
+/** Payload for publishing a new release-notes snapshot. */
+export interface PublishReleaseNotesInput {
+  releaseRecordId: string
+  name: string
+  version: string
+  markdown: string
+  text: string
+  summary: string
+}

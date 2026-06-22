@@ -14,6 +14,7 @@ import { MergeWorkbench } from './components/MergeWorkbench'
 import { MergeRules } from './components/MergeRules'
 import { ReadinessWorkspace } from './components/ReadinessWorkspace'
 import { AnalyzeWorkspace } from './components/AnalyzeWorkspace'
+import { ReleaseNotesWorkspace } from './components/ReleaseNotesWorkspace'
 import { ActivityBar } from './components/ActivityBar'
 // ALM Detective is temporarily hidden from the UI — component + service
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
@@ -37,7 +38,13 @@ import {
   type WorkingSolution,
 } from './types/solution'
 
-type Tab = 'workbench' | 'merge' | 'mergeRules' | 'readiness' | 'analyze'
+type Tab =
+  | 'workbench'
+  | 'merge'
+  | 'mergeRules'
+  | 'releaseNotes'
+  | 'readiness'
+  | 'analyze'
 
 interface NavItem {
   key: Tab
@@ -55,6 +62,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { key: 'workbench', label: 'Workbench', icon: '🧰', gated: false },
       { key: 'merge', label: 'Merge', icon: '⇉', gated: false },
       { key: 'mergeRules', label: 'Merge Rules', icon: '⚙', gated: true },
+      { key: 'releaseNotes', label: 'Release Notes', icon: '📝', gated: false },
     ],
   },
   {
@@ -76,6 +84,7 @@ const TAB_TITLES: Record<Tab, string> = {
   workbench: 'Workbench',
   merge: 'Merge',
   mergeRules: 'Merge Rules',
+  releaseNotes: 'Release Notes',
   readiness: 'Deployment Readiness',
   analyze: 'Analyze',
 }
@@ -1146,6 +1155,13 @@ function App() {
             await solutionService.setMergeTypeRules(recordId, allowed, excluded)
             reload()
           }}
+        />
+      )}
+
+      {!loading && !error && tab === 'releaseNotes' && (
+        <ReleaseNotesWorkspace
+          solutions={allSolutions}
+          canPublish={isDeploymentManager}
         />
       )}
 

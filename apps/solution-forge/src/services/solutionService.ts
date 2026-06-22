@@ -2,7 +2,9 @@ import type {
   CreateWorkingSolutionInput,
   MergeResult,
   MergeRun,
+  PublishReleaseNotesInput,
   PublisherInfo,
+  ReleaseNote,
   SolutionComponentInfo,
   TrackSolutionInput,
   UserRef,
@@ -184,6 +186,16 @@ export interface SolutionService {
    * working-solution record id, newest first.
    */
   listMergeRuns(targetRecordId: string): Promise<MergeRun[]>
+
+  /**
+   * Published release-notes snapshots for a release solution (the
+   * `sst_releasenote` rows linked to the given working-solution record id),
+   * newest first.
+   */
+  listReleaseNotes(releaseRecordId: string): Promise<ReleaseNote[]>
+
+  /** Persist a new release-notes snapshot (one `sst_releasenote` row). */
+  publishReleaseNotes(input: PublishReleaseNotesInput): Promise<ReleaseNote>
 }
 
 export const solutionService: SolutionService = dataverseSolutionService
