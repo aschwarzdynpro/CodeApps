@@ -242,6 +242,10 @@ function App() {
   const [pendingDeletes, setPendingDeletes] = useState<
     { key: string; solution: WorkingSolution; mode: 'delete' | 'complete' }[]
   >([])
+  // Entries already deleted server-side this session — kept hidden without a
+  // reload (the row left the list on click; a successful delete just makes that
+  // permanent). A later reload drops them from the source list anyway.
+  const [removedKeys, setRemovedKeys] = useState<Set<string>>(new Set())
   const deleteTimers = useRef(new Map<string, number>())
   const [justCreated, setJustCreated] = useState<WorkingSolution | null>(null)
   // The "solution created" bar fades out and clears itself after 5s.
@@ -303,11 +307,13 @@ function App() {
   const allSolutions = useMemo(() => {
     const known = new Set(solutions.map((s) => s.id))
     const merged = [...created.filter((s) => !known.has(s.id)), ...solutions]
-    if (pendingDeletes.length === 0) return merged
-    // Entries awaiting their undo window are hidden from every view.
-    const pendingKeys = new Set(pendingDeletes.map((p) => p.key))
-    return merged.filter((s) => !pendingKeys.has(s.recordId ?? s.id))
-  }, [solutions, created, pendingDeletes])
+    if (pendingDeletes.length === 0 && removedKeys.size === 0) return merged
+    // Entries awaiting their undo window — and entries already deleted
+    // server-side this session — are hidden from every view.
+    const hidden = new Set(removedKeys)
+    for (const p of pendingDeletes) hidden.add(p.key)
+    return merged.filter((s) => !hidden.has(s.recordId ?? s.id))
+  }, [solutions, created, pendingDeletes, removedKeys])
 
   // Structural filters (open / tracked / owner) applied before kind and
   // search — the kind counts reflect this base set.
@@ -682,6 +688,7 @@ function App() {
     mode: 'delete' | 'complete',
   ) => {
     deleteTimers.current.delete(key)
+    let failed = false
     try {
       if (mode === 'complete') {
         if (solution.recordId)
@@ -694,6 +701,7 @@ function App() {
         await solutionService.deleteSolution(solution)
       }
     } catch (err) {
+      failed = true
       console.warn(`[solutions] ${mode} failed:`, err)
       setActionErrorFading(false)
       setActionError(
@@ -712,9 +720,20 @@ function App() {
       next.delete(solution.id)
       return next
     })
-    // Reload to reflect the truth — if the delete failed, the entry
-    // simply reappears.
-    reload()
+    if (failed) {
+      // The action didn't go through — reload so the entry reappears with the
+      // truth from the environment.
+      reload()
+    } else if (mode === 'delete') {
+      // Success: the row already left the list on click; keep it hidden
+      // permanently instead of reloading (the reload is what made the screen
+      // lag after the undo window).
+      setRemovedKeys((prev) => new Set(prev).add(key))
+    } else {
+      // Completed: the record itself stays (only its status changed and the
+      // underlying solution was removed) — reload to show the new state.
+      reload()
+    }
   }
 
   // Attach a working-solution record to an untracked solution, then
