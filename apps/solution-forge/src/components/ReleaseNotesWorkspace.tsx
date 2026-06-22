@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { MergeRun, ReleaseNote, WorkingSolution } from '../types/solution'
 import { solutionService } from '../services/solutionService'
 import {
@@ -17,7 +17,96 @@ interface Props {
 
 type SubTab = 'draft' | 'history'
 
-/** Raw|Markdown toggle + copy over a monospace box. */
+/**
+ * Render the inline span syntax we emit — `code`, [label](url), **bold** — to
+ * React nodes. Underscores are NOT treated as italic (component schema names
+ * contain them); whole-line italics are handled at the block level.
+ */
+function renderInline(text: string, keyPrefix: string): ReactNode[] {
+  const nodes: ReactNode[] = []
+  const re = /(`[^`]+`)|(\[[^\]]+\]\([^)]+\))|(\*\*[^*]+\*\*)/g
+  let last = 0
+  let i = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index))
+    const token = m[0]
+    if (token.startsWith('`')) {
+      nodes.push(<code key={`${keyPrefix}-${i}`}>{token.slice(1, -1)}</code>)
+    } else if (token.startsWith('[')) {
+      const lm = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token)
+      const label = lm ? lm[1] : token
+      const href = lm && /^https?:\/\//i.test(lm[2]) ? lm[2] : null
+      nodes.push(
+        href ? (
+          <a key={`${keyPrefix}-${i}`} href={href} target="_blank" rel="noreferrer">
+            {label}
+          </a>
+        ) : (
+          label
+        ),
+      )
+    } else {
+      nodes.push(<strong key={`${keyPrefix}-${i}`}>{token.slice(2, -2)}</strong>)
+    }
+    last = m.index + token.length
+    i++
+  }
+  if (last < text.length) nodes.push(text.slice(last))
+  return nodes
+}
+
+/**
+ * Minimal Markdown renderer for the subset we generate (headings, bullet
+ * lists, whole-line italics, and the inline spans above). Returns React nodes
+ * — no dangerouslySetInnerHTML, link hrefs restricted to http(s).
+ */
+function renderMarkdown(md: string): ReactNode {
+  const blocks: ReactNode[] = []
+  let list: ReactNode[] | null = null
+  let listKey = 0
+  const flushList = () => {
+    if (list) {
+      blocks.push(<ul key={`ul-${listKey++}`}>{list}</ul>)
+      list = null
+    }
+  }
+  md.split('\n').forEach((raw, idx) => {
+    const line = raw.trimEnd()
+    if (line === '') {
+      flushList()
+      return
+    }
+    if (line.startsWith('- ')) {
+      list ??= []
+      list.push(<li key={`li-${idx}`}>{renderInline(line.slice(2), `li-${idx}`)}</li>)
+      return
+    }
+    flushList()
+    if (line.startsWith('### '))
+      blocks.push(<h4 key={`h-${idx}`}>{renderInline(line.slice(4), `h-${idx}`)}</h4>)
+    else if (line.startsWith('## '))
+      blocks.push(<h3 key={`h-${idx}`}>{renderInline(line.slice(3), `h-${idx}`)}</h3>)
+    else if (line.startsWith('# '))
+      blocks.push(<h2 key={`h-${idx}`}>{renderInline(line.slice(2), `h-${idx}`)}</h2>)
+    else {
+      const italic = /^_(.+)_$/.exec(line)
+      blocks.push(
+        <p key={`p-${idx}`}>
+          {italic ? (
+            <em>{renderInline(italic[1], `p-${idx}`)}</em>
+          ) : (
+            renderInline(line, `p-${idx}`)
+          )}
+        </p>,
+      )
+    }
+  })
+  flushList()
+  return blocks
+}
+
+/** Markdown (rendered) | Raw (plain text) toggle + copy. */
 function NotesView({ markdown, text }: { markdown: string; text: string }) {
   const [format, setFormat] = useState<'markdown' | 'raw'>('markdown')
   const [copied, setCopied] = useState(false)
@@ -48,11 +137,23 @@ function NotesView({ markdown, text }: { markdown: string; text: string }) {
             Raw
           </button>
         </div>
-        <button className="btn btn--small" onClick={copy}>
+        <button
+          className="btn btn--small"
+          onClick={copy}
+          title={
+            format === 'markdown'
+              ? 'Copy the Markdown source'
+              : 'Copy the plain text'
+          }
+        >
           {copied ? 'Copied ✓' : 'Copy'}
         </button>
       </div>
-      <pre className="notes-pre">{content}</pre>
+      {format === 'markdown' ? (
+        <div className="notes-rendered">{renderMarkdown(markdown)}</div>
+      ) : (
+        <pre className="notes-pre">{text}</pre>
+      )}
     </div>
   )
 }
