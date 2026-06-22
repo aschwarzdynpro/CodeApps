@@ -1234,6 +1234,29 @@
   font-weight: 700;
   color: #1a56db;
 }
+/* Copy-unique-name control next to the solution name. */
+.copy-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: -2px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s, color 0.12s;
+}
+.copy-chip:hover {
+  background: #eef0fb;
+  color: var(--brand);
+}
+.copy-chip--done {
+  color: #1a8754;
+}
 /* Synced DevOps work-item state — blue while active, muted green when done. */
 .wi-status-chip {
   display: inline-block;
@@ -2842,6 +2865,25 @@
 .merge-plan-sources {
   font-size: 11px;
   white-space: nowrap;
+}
+/* Rolled-up summary row (e.g. "47 App Elements") — sits at the end of the
+   plan, visually separated and muted. */
+.merge-plan-rollup {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--muted);
+  background: transparent !important;
+  border-top: 1px dashed var(--border, #e2e6ec);
+  border-radius: 0;
+  margin-top: 2px;
+}
+.merge-components-rollup {
+  border-top: 1px dashed var(--border, #e2e6ec);
+  padding-top: 8px;
+}
+.merge-components-rollup-note {
+  font-style: italic;
+  margin: 2px 0 0;
 }
 .merge-actions {
   margin-bottom: 12px;

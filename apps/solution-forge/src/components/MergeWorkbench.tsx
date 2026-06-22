@@ -5,18 +5,14 @@ import type {
   SolutionComponentInfo,
   WorkingSolution,
 } from '../types/solution'
-import { MERGEABLE_COMPONENT_TYPES } from '../types/solution'
+import {
+  MERGEABLE_COMPONENT_TYPES,
+  COLLAPSED_COMPONENT_TYPE_LABELS,
+  canonicalCollapsedLabel,
+} from '../types/solution'
 import { solutionService } from '../services/solutionService'
 import { MultiSolutionSelect } from './MultiSolutionSelect'
 import { SolutionSelect } from './SolutionSelect'
-
-/**
- * Component types hidden from the plan display — they're still merged, just
- * not listed. App Element (10044) are the internal building blocks of a
- * model-driven app (the app shows as one object in the solution); listing
- * each as a GUID row is noise.
- */
-const HIDDEN_PLAN_TYPES = new Set<number>([10044])
 
 interface Props {
   solutions: WorkingSolution[]
@@ -53,6 +49,10 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
   // picker; selected entries stay visible as removable chips.
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [plan, setPlan] = useState<MergePlanItem[] | null>(null)
+  // Rolled-up component types (e.g. App Element) shown as one counter row.
+  const [planRollup, setPlanRollup] = useState<
+    { label: string; count: number }[]
+  >([])
   const [planLoading, setPlanLoading] = useState(false)
   const [progress, setProgress] = useState<[number, number] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -62,6 +62,7 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
   const buildPlan = async (ids: Set<string>) => {
     if (ids.size === 0) {
       setPlan(null)
+      setPlanRollup([])
       return
     }
     const request = ++planRequest.current
@@ -78,11 +79,19 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
         string,
         { component: SolutionComponentInfo; sources: string[] }
       >()
+      // Rolled-up types (e.g. App Element): counted by distinct object id and
+      // shown as one summary row instead of dozens of GUID rows. Still merged
+      // — the merge recomputes its own set, so this is display-only.
+      const rollup = new Map<string, Set<string>>()
       for (const { solution, components } of perSolution) {
         for (const component of components) {
-          // Hidden from the plan (e.g. App Element) — still merged, just not
-          // shown. The merge recomputes its own set, so this is display-only.
-          if (HIDDEN_PLAN_TYPES.has(component.typeCode)) continue
+          if (COLLAPSED_COMPONENT_TYPE_LABELS.has(component.typeName)) {
+            const label = canonicalCollapsedLabel(component.typeName)
+            const set = rollup.get(label) ?? new Set<string>()
+            set.add(component.objectId)
+            rollup.set(label, set)
+            continue
+          }
           const entry = byObject.get(component.objectId)
           const sourceTitle = solution?.title ?? '?'
           if (entry) entry.sources.push(sourceTitle)
@@ -97,6 +106,11 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
               a.component.typeName.localeCompare(b.component.typeName) ||
               a.component.displayName.localeCompare(b.component.displayName),
           ),
+      )
+      setPlanRollup(
+        [...rollup.entries()]
+          .map(([label, set]) => ({ label, count: set.size }))
+          .sort((a, b) => a.label.localeCompare(b.label)),
       )
     } catch {
       if (request === planRequest.current) setError('Could not load the component plan.')
@@ -273,6 +287,15 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
                   </li>
                 )
               })}
+              {planRollup.map((r) => (
+                <li key={r.label} className="merge-plan-rollup">
+                  {r.count} {r.count === 1 ? r.label : `${r.label}s`}
+                  <span className="muted">
+                    {' '}
+                    — merged, not listed individually
+                  </span>
+                </li>
+              ))}
             </ul>
           </>
         )}

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import {
   isOpenStatus,
   MERGEABLE_COMPONENT_TYPES,
+  COLLAPSED_COMPONENT_TYPE_LABELS,
+  canonicalCollapsedLabel,
   type ComponentCollision,
   type MergeRun,
   type SolutionComponentInfo,
@@ -267,8 +269,20 @@ function MergeRunComponentsModal({
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const byType = [...groupBy(run.components, (c) => c.t).entries()].sort(
-    (a, b) => a[0].localeCompare(b[0]),
+  const groups = [...groupBy(run.components, (c) => c.t).entries()]
+  // Normal types are listed in full; collapsed types (App Element) get a single
+  // counter row at the end so large model-driven-app merges stay readable.
+  const byType = groups
+    .filter(([type]) => !COLLAPSED_COMPONENT_TYPE_LABELS.has(type))
+    .sort((a, b) => a[0].localeCompare(b[0]))
+  const rollup = new Map<string, number>()
+  for (const [type, items] of groups) {
+    if (!COLLAPSED_COMPONENT_TYPE_LABELS.has(type)) continue
+    const label = canonicalCollapsedLabel(type)
+    rollup.set(label, (rollup.get(label) ?? 0) + items.length)
+  }
+  const rollupRows = [...rollup.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0]),
   )
 
   return (
@@ -309,6 +323,21 @@ function MergeRunComponentsModal({
                   </li>
                 ))}
               </ul>
+            </section>
+          ))}
+          {rollupRows.map(([label, count]) => (
+            <section
+              className="merge-components-group merge-components-rollup"
+              key={label}
+            >
+              <h3 className="merge-components-group-title">
+                <span className="merge-plan-type">{label}</span>
+                <span className="muted">{count}</span>
+              </h3>
+              <p className="muted merge-components-rollup-note">
+                {count} {count === 1 ? label : `${label}s`} — merged, not listed
+                individually
+              </p>
             </section>
           ))}
         </div>
