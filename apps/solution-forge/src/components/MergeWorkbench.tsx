@@ -10,6 +10,14 @@ import { solutionService } from '../services/solutionService'
 import { MultiSolutionSelect } from './MultiSolutionSelect'
 import { SolutionSelect } from './SolutionSelect'
 
+/**
+ * Component types hidden from the plan display — they're still merged, just
+ * not listed. App Element (10044) are the internal building blocks of a
+ * model-driven app (the app shows as one object in the solution); listing
+ * each as a GUID row is noise.
+ */
+const HIDDEN_PLAN_TYPES = new Set<number>([10044])
+
 interface Props {
   solutions: WorkingSolution[]
   /** Called after a merge with the target id, the result and the target title.
@@ -72,6 +80,9 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
       >()
       for (const { solution, components } of perSolution) {
         for (const component of components) {
+          // Hidden from the plan (e.g. App Element) — still merged, just not
+          // shown. The merge recomputes its own set, so this is display-only.
+          if (HIDDEN_PLAN_TYPES.has(component.typeCode)) continue
           const entry = byObject.get(component.objectId)
           const sourceTitle = solution?.title ?? '?'
           if (entry) entry.sources.push(sourceTitle)

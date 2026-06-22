@@ -145,6 +145,9 @@ const COMPONENT_TYPE_LABELS: Record<number, string> = {
   372: 'Connection Reference',
   380: 'Environment Variable',
   381: 'Environment Variable Value',
+  // Solution Component Framework types (codes > 10000) are NOT hard-listed
+  // here — they're resolved generically from solutioncomponentdefinition
+  // (see resolveScfTypeNames / layerComponentNames).
 }
 
 /**
@@ -229,6 +232,19 @@ function prettifyTypeName(name: string): string {
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
     .replace(/\bSdk\b/g, 'SDK')
+    .trim()
+}
+
+/**
+ * Space out a PascalCase SchemaName from `solutioncomponentdefinition`
+ * ("AppElement" → "App Element", "CustomAPI" → "Custom API") for display.
+ */
+function spaceSchemaName(name: string): string {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/\bSdk\b/g, 'SDK')
+    .replace(/\bApi\b/g, 'API')
     .trim()
 }
 
@@ -1826,6 +1842,22 @@ export class DataverseSolutionService implements SolutionService {
       )
       if (unresolved.size > 0)
         await this.resolveComponentNames(components, unresolved)
+      // Solution Component Framework types (codes > 10000: App Element, Custom
+      // API, …) aren't in the static label map — resolve their real names
+      // generically from solutioncomponentdefinition so the plan never shows a
+      // bare "Type <code>".
+      if (components.some((c) => !COMPONENT_TYPE_LABELS[c.typeCode])) {
+        try {
+          const scfNames = await layerComponentNames()
+          for (const c of components) {
+            if (COMPONENT_TYPE_LABELS[c.typeCode]) continue
+            const schema = scfNames.get(c.typeCode)
+            if (schema) c.typeName = spaceSchemaName(schema)
+          }
+        } catch (err) {
+          console.warn('[solutions] SCF type-name lookup failed:', err)
+        }
+      }
       return components.sort(
         (a, b) =>
           (a.typeCode === 1 ? 0 : 1) - (b.typeCode === 1 ? 0 : 1) ||
