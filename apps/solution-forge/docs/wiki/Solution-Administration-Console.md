@@ -214,10 +214,14 @@ zwei Sub-Tabs:
     bei eindeutig auflösbarem Titel zusätzlich der DevOps-**`#`-Work-Item-Link**.
   - **Components:** alle hinzugefügten Komponenten nach Typ gruppiert; **App
     Elements** als Counter zusammengefasst.
-  - Umschalter **Markdown | Raw** + **Copy** des aktiven Formats.
+  - **Inkrementell:** Nach dem ersten Publish zeigt der Draft nur noch, was
+    **seit der letzten veröffentlichten Release Note** gemergt wurde (mit „seit"-
+    Datum); ist nichts Neues da, gibt es nichts zu veröffentlichen.
+  - Umschalter **Markdown** (gerendert) **| Raw** (Rohtext) + **Copy** des
+    aktiven Formats (Markdown-Tab kopiert die Markdown-Quelle).
   - **Publish** friert den Draft als versionierten Snapshot ein (beide Formate
-    gespeichert). Deaktiviert, wenn identisch zum zuletzt veröffentlichten Stand.
-    **Publish nur mit Rolle „INT | Deployment Manager"**; Anzeigen/Kopieren offen.
+    gespeichert). **Publish nur mit Rolle „INT | Deployment Manager"**;
+    Anzeigen/Kopieren offen.
 - **History** — alle veröffentlichten Stände (Datum · Autor · Summary); Klick
   öffnet den gespeicherten Stand exakt wie veröffentlicht.
 

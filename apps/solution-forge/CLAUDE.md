@@ -123,9 +123,12 @@ enthaltene Quell-Solutions (best-effort DevOps-`#`-Link via `devOpsWorkItemUrl`)
 Komponenten nach Typ, App Elements per `COLLAPSED_COMPONENT_TYPE_LABELS`
 zusammengefasst. Service: `listReleaseNotes`/`publishReleaseNotes`. UI
 `ReleaseNotesWorkspace` (ungated Menü, Sub-Tabs Draft/History; **Publish nur
-Deployment Manager**, deaktiviert wenn = letzter Stand). Notes sind historisch
-(was gemergt wurde), nicht der Live-Stand; Komponente↔Quelle ist nicht
-zuordenbar (Merge-Log speichert kombinierte Liste).
+Deployment Manager**). **Inkrementell:** der Draft nutzt nur die `MergeRun`s mit
+`createdOn > createdOn der letzten Note` (Cutoff `notes[0]`); erster Publish =
+volle Historie, `buildReleaseNotes(..., sincePublishedOn)` setzt den „seit"-
+Subtitle; kein Delta ⇒ Publish deaktiviert. Notes sind historisch (was gemergt
+wurde), nicht der Live-Stand; Komponente↔Quelle ist nicht zuordenbar (Merge-Log
+speichert kombinierte Liste).
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 

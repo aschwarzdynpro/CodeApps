@@ -203,18 +203,28 @@ function ReleaseNotesForRelease({
     }
   }, [recordId])
 
+  // Release notes are incremental: each draft covers only the merges since the
+  // last published note. The first publish covers the full history.
+  const latest = notes && notes.length > 0 ? notes[0] : null
+  const cutoff = latest?.createdOn ?? null
+  const deltaRuns = useMemo(
+    () =>
+      runs ? (cutoff ? runs.filter((r) => r.createdOn > cutoff) : runs) : null,
+    [runs, cutoff],
+  )
   const draft = useMemo<ReleaseNotesContent | null>(
-    () => (runs ? buildReleaseNotes(release, runs, solutions, generatedAt) : null),
-    [runs, release, solutions, generatedAt],
+    () =>
+      deltaRuns
+        ? buildReleaseNotes(release, deltaRuns, solutions, generatedAt, cutoff)
+        : null,
+    [deltaRuns, release, solutions, generatedAt, cutoff],
   )
 
-  const latest = notes && notes.length > 0 ? notes[0] : null
-  const hasMerges = !!runs && runs.length > 0
-  const unchanged =
-    !!latest && !!draft && latest.markdown.trim() === draft.markdown.trim()
+  const everMerged = !!runs && runs.length > 0
+  const hasNew = !!deltaRuns && deltaRuns.length > 0
 
   const publish = () => {
-    if (!draft || publishing || unchanged || !hasMerges || !canPublish) return
+    if (!draft || publishing || !hasNew || !canPublish) return
     setPublishing(true)
     setPublishError(null)
     const version = release.version || '—'
@@ -243,11 +253,11 @@ function ReleaseNotesForRelease({
 
   const publishTitle = !canPublish
     ? `Publishing requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
-    : !hasMerges
-      ? 'Nothing merged into this release yet.'
-      : unchanged
-        ? 'Already up to date — identical to the latest published version.'
-        : undefined
+    : !hasNew
+      ? everMerged
+        ? 'Nothing new since the last published release notes.'
+        : 'Nothing merged into this release yet.'
+      : undefined
 
   if (error) return <div className="state state--error">{error}</div>
   if (runs === null || notes === null)
@@ -274,25 +284,29 @@ function ReleaseNotesForRelease({
 
       {subTab === 'draft' && (
         <>
-          {!hasMerges && (
+          {!hasNew && (
             <div className="state">
-              No merges logged for this release yet — nothing to generate.
+              {everMerged && latest
+                ? `Nothing new since the last published release notes (${formatDateTime(
+                    latest.createdOn,
+                  )}). The next notes will cover merges after that point.`
+                : 'No merges logged for this release yet — nothing to generate.'}
             </div>
           )}
-          {hasMerges && draft && (
+          {hasNew && draft && (
             <>
               <div className="card notes-actions">
                 <div className="notes-actions-meta">
                   <span className="muted">{draft.summary}</span>
-                  {unchanged && (
-                    <span className="notes-uptodate">
-                      ✓ Up to date with the latest published version
+                  {cutoff && (
+                    <span className="muted">
+                      · since {formatDateTime(cutoff)}
                     </span>
                   )}
                 </div>
                 <button
                   className="btn btn--primary"
-                  disabled={!canPublish || unchanged || publishing}
+                  disabled={!canPublish || !hasNew || publishing}
                   title={publishTitle}
                   onClick={publish}
                 >
