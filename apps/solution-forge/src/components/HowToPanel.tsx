@@ -156,6 +156,12 @@ export function HowToPanel({ onClose }: { onClose: () => void }) {
                 missing dependencies, unmanaged layers or unshared apps.
               </li>
               <li>
+                Generate <strong>Release Notes</strong> for the release from its
+                merge history — included solutions and components as Markdown or
+                raw text — and <strong>Publish</strong> a versioned snapshot you
+                can revisit later.
+              </li>
+              <li>
                 <strong>Export / deployment of the release itself runs through
                 your normal pipeline</strong>, outside this app — the Workbench
                 prepares and tracks the release, it doesn't push it.

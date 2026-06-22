@@ -3,7 +3,9 @@ import type {
   MergeResult,
   MergeRun,
   MergeRunComponent,
+  PublishReleaseNotesInput,
   PublisherInfo,
+  ReleaseNote,
   SolutionComponentInfo,
   TrackSolutionInput,
   UserRef,
@@ -535,6 +537,36 @@ export class MockSolutionService {
     return (this.mergeRuns.get(targetRecordId) ?? [])
       .map((r) => ({ ...r, components: r.components.map((c) => ({ ...c })) }))
       .sort((a, b) => b.createdOn.localeCompare(a.createdOn))
+  }
+
+  private releaseNotes = new Map<string, ReleaseNote[]>()
+  private releaseNoteSeq = 1
+
+  async listReleaseNotes(releaseRecordId: string): Promise<ReleaseNote[]> {
+    await delay(200)
+    return (this.releaseNotes.get(releaseRecordId) ?? [])
+      .map((n) => ({ ...n }))
+      .sort((a, b) => b.createdOn.localeCompare(a.createdOn))
+  }
+
+  async publishReleaseNotes(
+    input: PublishReleaseNotesInput,
+  ): Promise<ReleaseNote> {
+    await delay(250)
+    const note: ReleaseNote = {
+      id: `rn-${this.releaseNoteSeq++}`,
+      releaseRecordId: input.releaseRecordId,
+      name: input.name,
+      version: input.version,
+      markdown: input.markdown,
+      text: input.text,
+      summary: input.summary,
+      createdOn: new Date().toISOString(),
+      createdBy: 'You (demo)',
+    }
+    const list = this.releaseNotes.get(input.releaseRecordId) ?? []
+    this.releaseNotes.set(input.releaseRecordId, [note, ...list])
+    return { ...note }
   }
 }
 

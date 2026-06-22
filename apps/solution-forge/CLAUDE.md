@@ -36,6 +36,7 @@ power-apps init --display-name "Solution Administration Console" --environment-i
 ./scripts/add-data-source.ps1 -a dataverse -t ssid_workingsolution
 ./scripts/add-data-source.ps1 -a dataverse -t ssid_workbenchsettings
 ./scripts/add-data-source.ps1 -a dataverse -t sst_mergerun
+./scripts/add-data-source.ps1 -a dataverse -t sst_releasenote
 # Konnektor (Dataverse, „from selected environment"):
 ./scripts/add-data-source.ps1 -a shared_commondataserviceforapps -cr sst_CRDataverse -s 67315e76-c155-ed11-bba2-0022489de585
 # Cloud-Flow (npm-CLI, droppt danach den retrievemissingdependencies-Block
@@ -111,6 +112,20 @@ Lesen via `listMergeRuns(targetRecordId)` (Filter
 (nur Release-Solutions, lädt sich selbst, Remount je Solution); Klick auf eine
 Zeile öffnet ein **Overlay** (`MergeRunComponentsModal`) mit den hinzugefügten
 Komponenten gruppiert nach Typ.
+
+**Release Notes:** Tabelle `sst_releasenote` (1 Zeile = 1 veröffentlichter
+Snapshot), Lookup `sst_releasesolution_ref` → `ssid_workingsolution`. Spalten:
+`sst_name`, `sst_version_txt`, `sst_markdown_txt`, `sst_plaintext_txt`,
+`sst_summary_txt` (Audit createdon/by = veröffentlicht am/von). Reiner Builder
+`buildReleaseNotes(release, runs, solutions, generatedAt)` (`services/release-
+Notes.ts`) erzeugt aus den `MergeRun`s **Markdown + Rohtext + Summary** —
+enthaltene Quell-Solutions (best-effort DevOps-`#`-Link via `devOpsWorkItemUrl`),
+Komponenten nach Typ, App Elements per `COLLAPSED_COMPONENT_TYPE_LABELS`
+zusammengefasst. Service: `listReleaseNotes`/`publishReleaseNotes`. UI
+`ReleaseNotesWorkspace` (ungated Menü, Sub-Tabs Draft/History; **Publish nur
+Deployment Manager**, deaktiviert wenn = letzter Stand). Notes sind historisch
+(was gemergt wurde), nicht der Live-Stand; Komponente↔Quelle ist nicht
+zuordenbar (Merge-Log speichert kombinierte Liste).
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 

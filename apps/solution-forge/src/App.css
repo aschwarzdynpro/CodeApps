@@ -2888,6 +2888,96 @@
 .merge-actions {
   margin-bottom: 12px;
 }
+
+/* --- Release Notes --- */
+.notes-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+}
+.notes-actions-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.notes-uptodate {
+  color: #1a8754;
+  font-size: 12px;
+  font-weight: 600;
+}
+.notes-view-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.notes-pre {
+  margin: 0;
+  max-height: 520px;
+  overflow: auto;
+  padding: 14px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border, #e2e6ec);
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.notes-history {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.notes-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.notes-history-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.notes-history-row:hover {
+  background: var(--bg);
+}
+.notes-history-row--active {
+  background: #eef0fb;
+}
+.notes-history-when {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.notes-history-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.notes-history-by {
+  white-space: nowrap;
+  font-size: 12px;
+}
 .merge-errors {
   margin: 8px 0 0;
   padding-left: 18px;

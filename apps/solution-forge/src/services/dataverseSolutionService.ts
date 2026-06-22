@@ -3,7 +3,9 @@ import type {
   MergeResult,
   MergeRun,
   MergeRunComponent,
+  PublishReleaseNotesInput,
   PublisherInfo,
+  ReleaseNote,
   SolutionComponentInfo,
   SolutionKind,
   TrackSolutionInput,
@@ -57,6 +59,11 @@ import type {
   Sst_mergeruns,
   Sst_mergerunsBase,
 } from '../generated/models/Sst_mergerunsModel'
+import { Sst_releasenotesService } from '../generated/services/Sst_releasenotesService'
+import type {
+  Sst_releasenotes,
+  Sst_releasenotesBase,
+} from '../generated/models/Sst_releasenotesModel'
 import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
 import { SystemusersService } from '../generated/services/SystemusersService'
 import { RolesService } from '../generated/services/RolesService'
@@ -463,6 +470,21 @@ function toMergeRun(raw: Sst_mergeruns): MergeRun {
       .map((s) => s.trim())
       .filter(Boolean),
     components,
+  }
+}
+
+function toReleaseNote(raw: Sst_releasenotes, releaseRecordId: string): ReleaseNote {
+  const row = raw as Sst_releasenotes & Record<string, unknown>
+  return {
+    id: raw.sst_releasenoteid,
+    releaseRecordId: raw._sst_releasesolution_ref_value ?? releaseRecordId,
+    name: raw.sst_name ?? '',
+    version: raw.sst_version_txt ?? '',
+    markdown: raw.sst_markdown_txt ?? '',
+    text: raw.sst_plaintext_txt ?? '',
+    summary: raw.sst_summary_txt ?? '',
+    createdOn: raw.createdon ?? '',
+    createdBy: formatted(row, '_createdby_value') ?? raw.createdbyname,
   }
 }
 
@@ -2205,6 +2227,61 @@ export class DataverseSolutionService implements SolutionService {
       console.warn('[solutions] listMergeRuns() threw:', err)
       return []
     }
+  }
+
+  /**
+   * Published release-notes snapshots for a release solution — the
+   * sst_releasenote rows linked to its working-solution record, newest first.
+   */
+  async listReleaseNotes(releaseRecordId: string): Promise<ReleaseNote[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.listReleaseNotes(releaseRecordId)
+    if (!releaseRecordId) return []
+    try {
+      const rows = await fetchAll((o) => Sst_releasenotesService.getAll(o), {
+        select: [
+          'sst_releasenoteid',
+          'sst_name',
+          'sst_version_txt',
+          'sst_markdown_txt',
+          'sst_plaintext_txt',
+          'sst_summary_txt',
+          '_createdby_value',
+          'createdon',
+        ],
+        filter: `_sst_releasesolution_ref_value eq ${releaseRecordId}`,
+        orderBy: ['createdon desc'],
+      })
+      if (!rows) return []
+      return rows.map((r) => toReleaseNote(r, releaseRecordId))
+    } catch (err) {
+      console.warn('[solutions] listReleaseNotes() threw:', err)
+      return []
+    }
+  }
+
+  /** Persist a new release-notes snapshot (one sst_releasenote row). */
+  async publishReleaseNotes(
+    input: PublishReleaseNotesInput,
+  ): Promise<ReleaseNote> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.publishReleaseNotes(input)
+    const record = {
+      sst_name: input.name,
+      sst_version_txt: input.version,
+      sst_markdown_txt: input.markdown,
+      sst_plaintext_txt: input.text,
+      sst_summary_txt: input.summary,
+      'sst_releasesolution_ref@odata.bind': `/ssid_workingsolutions(${input.releaseRecordId})`,
+    } as unknown as Omit<Sst_releasenotesBase, 'sst_releasenoteid'>
+    const result = await Sst_releasenotesService.create(record)
+    if (!result.success || !result.data) {
+      console.warn('[solutions] publishReleaseNotes rejected:', result)
+      throw new Error('Publishing the release notes failed.')
+    }
+    return toReleaseNote(result.data, input.releaseRecordId)
   }
 }
 

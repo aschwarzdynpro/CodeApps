@@ -359,6 +359,36 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>📝 Release Notes</h3>
+            <ul>
+              <li>
+                Pick a <strong>release solution</strong> — the{' '}
+                <strong>Draft</strong> is generated from its{' '}
+                <strong>merge history</strong>: all included source solutions
+                (with a DevOps <strong>#work-item link</strong> where the title
+                resolves uniquely) and every added component grouped by type
+                (App Elements rolled up to a counter).
+              </li>
+              <li>
+                Toggle between <strong>Markdown</strong> and <strong>Raw</strong>{' '}
+                text and <strong>Copy</strong> the active format.
+              </li>
+              <li>
+                <strong>Publish</strong> freezes the current draft as a
+                versioned snapshot (both formats stored). It's disabled when the
+                draft is identical to the latest published version. Publishing
+                requires the “INT | Deployment Manager” role; viewing and copying
+                are open to everyone.
+              </li>
+              <li>
+                The <strong>History</strong> tab lists every published snapshot
+                (date · author · summary) — click one to read it back exactly as
+                published.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
             <h3>Deployment Readiness (Dependency Check)</h3>
             <ul>
               <li>
