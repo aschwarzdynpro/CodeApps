@@ -252,6 +252,24 @@ export const MERGEABLE_COMPONENT_TYPES: { code: number; label: string }[] = [
 ]
 
 /**
+ * Component-type labels that are rolled up to a single counter row (instead of
+ * listed individually) in the merge component plan and the merge history.
+ * App Elements are the internal building blocks of a model-driven app — dozens
+ * of GUID rows are noise; they're still merged, just summarised. Matched by
+ * label so it covers both the resolved "App Element" name and the legacy
+ * "Type 10044" fallback stored in older merge-run logs.
+ */
+export const COLLAPSED_COMPONENT_TYPE_LABELS = new Set<string>([
+  'App Element',
+  'Type 10044',
+])
+
+/** Canonical display label for a rolled-up component type. */
+export function canonicalCollapsedLabel(label: string): string {
+  return label === 'Type 10044' ? 'App Element' : label
+}
+
+/**
  * One added component captured in a merge run. Stored compactly (type + name,
  * short keys) so the whole list fits in a single multiline column on the
  * `sst_mergerun` row — no child table. The type label drives grouping/icons

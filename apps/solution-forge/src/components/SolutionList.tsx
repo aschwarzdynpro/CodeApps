@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import type {
   ComponentCollision,
   SolutionComponentInfo,
@@ -62,6 +62,47 @@ function StateBanner({ solution }: { solution: WorkingSolution }) {
   return (
     <span className={`sol-state sol-state--${state}`} title={m.title}>
       {m.label}
+    </span>
+  )
+}
+
+/**
+ * Copy the solution's unique name to the clipboard. Rendered as a span (not a
+ * button) because the whole row is already a <button>; clicks stop propagating
+ * so they don't also open the detail pane.
+ */
+function CopyUniqueName({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    void navigator.clipboard
+      ?.writeText(value)
+      .then(() => {
+        setCopied(true)
+        window.setTimeout(() => setCopied(false), 1200)
+      })
+      .catch(() => {})
+  }
+  return (
+    <span
+      className={`copy-chip ${copied ? 'copy-chip--done' : ''}`}
+      role="button"
+      tabIndex={0}
+      title={copied ? 'Copied!' : `Copy unique name “${value}”`}
+      aria-label={`Copy unique name ${value}`}
+      onClick={(e) => {
+        e.stopPropagation()
+        e.preventDefault()
+        copy()
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.stopPropagation()
+          e.preventDefault()
+          copy()
+        }
+      }}
+    >
+      {copied ? '✓' : '⧉'}
     </span>
   )
 }
@@ -173,6 +214,7 @@ export function SolutionList({
             </span>
             <span className="solution-row-meta">
               <code>{s.uniqueName}</code>
+              <CopyUniqueName value={s.uniqueName} />
               {s.devOpsId && <span className="ado-chip">#{s.devOpsId}</span>}
               {s.workItemStatus && (
                 <WorkItemStatusChip status={s.workItemStatus} />
