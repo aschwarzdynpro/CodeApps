@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type {
   MergePlanItem,
   MergeResult,
@@ -24,6 +24,10 @@ interface Props {
     result: MergeResult,
     targetTitle: string,
   ) => void
+  /** A source solution id to pre-select (from a Workbench row's Merge action). */
+  seedSourceId?: string | null
+  /** Called once the seed has been applied, so the parent can clear it. */
+  onSeedConsumed?: () => void
 }
 
 /**
@@ -31,7 +35,12 @@ interface Props {
  * bug solutions to merge, review the combined component plan (with conflict
  * markers when several sources carry the same object), then execute.
  */
-export function MergeWorkbench({ solutions, onMerged }: Props) {
+export function MergeWorkbench({
+  solutions,
+  onMerged,
+  seedSourceId,
+  onSeedConsumed,
+}: Props) {
   // Merge is restricted to tracked solutions (working-solution record
   // present) whose real solution exists.
   const targets = solutions.filter(
@@ -46,8 +55,11 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
 
   const [targetId, setTargetId] = useState<string>('')
   // The selection is keyed by id and survives any filter change inside the
-  // picker; selected entries stay visible as removable chips.
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  // picker; selected entries stay visible as removable chips. A seed source
+  // (from a Workbench row's Merge action) starts the selection off.
+  const [selected, setSelected] = useState<Set<string>>(() =>
+    seedSourceId ? new Set([seedSourceId]) : new Set(),
+  )
   const [plan, setPlan] = useState<MergePlanItem[] | null>(null)
   // Rolled-up component types (e.g. App Element) shown as one counter row.
   const [planRollup, setPlanRollup] = useState<
@@ -127,6 +139,17 @@ export function MergeWorkbench({ solutions, onMerged }: Props) {
     setError(null)
     void buildPlan(next)
   }
+
+  // Seeded from a Workbench row's Merge action: build the plan for the
+  // pre-selected source once, then let the parent clear the seed.
+  useEffect(() => {
+    if (!seedSourceId) return
+    void Promise.resolve().then(() => {
+      void buildPlan(new Set([seedSourceId]))
+      onSeedConsumed?.()
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const target = targets.find((s) => s.id === targetId) ?? null
   // Release merge rules: allow-list (empty = all) + exclude-list on top.

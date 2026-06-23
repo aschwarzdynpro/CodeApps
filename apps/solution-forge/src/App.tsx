@@ -22,6 +22,7 @@ import { HelpPanel } from './components/HelpPanel'
 import { HowToPanel } from './components/HowToPanel'
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog'
 import { CompleteSolutionDialog } from './components/CompleteSolutionDialog'
+import { AssignDialog } from './components/AssignDialog'
 import {
   DEPLOYMENT_MANAGER_ROLE,
   DEVOPS_PANEL_ENABLED,
@@ -248,6 +249,15 @@ function App() {
   const [completeTarget, setCompleteTarget] = useState<WorkingSolution | null>(
     null,
   )
+  // Owner-reassignment dialog target (opened from a row's quick actions).
+  const [assignTarget, setAssignTarget] = useState<WorkingSolution | null>(null)
+  // When a row's "Merge" action fires, the Merge tab opens with this id
+  // pre-selected as a source; cleared once the Merge workspace consumes it.
+  const [mergeSeedId, setMergeSeedId] = useState<string | null>(null)
+  const handleMergeFromList = (s: WorkingSolution) => {
+    setMergeSeedId(s.id)
+    setTab('merge')
+  }
   const [pendingDeletes, setPendingDeletes] = useState<
     { key: string; solution: WorkingSolution; mode: 'delete' | 'complete' }[]
   >([])
@@ -1082,43 +1092,31 @@ function App() {
               solutions={filtered}
               activeId={selectedId}
               onOpen={openSolution}
+              environmentId={environmentId}
               componentMatches={componentMatches}
               collisions={collisions}
               groupByWorkItem={groupByWorkItem}
               detailClosing={detailClosing}
               onDetailClosed={finishCloseDetail}
+              onComplete={(s) => setCompleteTarget(s)}
+              onDelete={(s) => setConfirmDelete(s)}
+              onRequestAssign={(s) => setAssignTarget(s)}
+              onMerge={handleMergeFromList}
               detail={
                 selected ? (
                   <SolutionDetail
                     key={selected.id}
                     solution={selected}
-                    environmentId={environmentId}
                     components={components}
                     loadingComponents={componentsLoading}
                     onRefreshComponents={() => loadComponents(selected.id, true)}
                     collisions={collisions?.get(selected.id) ?? null}
                     onTrack={handleTrack}
-                    onDelete={(s) => setConfirmDelete(s)}
-                    onComplete={(s) => setCompleteTarget(s)}
                     onChangeType={async (s, kind) => {
                       if (!s.recordId) return
                       await solutionService.updateSolutionType(s.recordId, kind)
                       reload()
                     }}
-                    onAssignToMe={async (s) => {
-                      if (!s.recordId) return
-                      const me = await solutionService.getCurrentUser()
-                      if (!me.id)
-                        throw new Error('Could not resolve your user account.')
-                      await solutionService.assignOwner(s.recordId, me.id)
-                      reload()
-                    }}
-                    onAssign={async (s, userId) => {
-                      if (!s.recordId) return
-                      await solutionService.assignOwner(s.recordId, userId)
-                      reload()
-                    }}
-                    onSearchUsers={(q) => solutionService.searchUsers(q)}
                     linkCandidates={linkCandidates}
                     onLink={async (record, target) => {
                       if (!record.recordId) return
@@ -1150,7 +1148,12 @@ function App() {
       )}
 
       {!loading && !error && tab === 'merge' && (
-        <MergeWorkbench solutions={allSolutions} onMerged={handleMerged} />
+        <MergeWorkbench
+          solutions={allSolutions}
+          onMerged={handleMerged}
+          seedSourceId={mergeSeedId}
+          onSeedConsumed={() => setMergeSeedId(null)}
+        />
       )}
 
       {!loading && !error && tab === 'mergeRules' && isDeploymentManager && (
@@ -1214,6 +1217,27 @@ function App() {
             void handleComplete(completeTarget, deleteUnderlying)
           }
           onCancel={() => setCompleteTarget(null)}
+        />
+      )}
+
+      {assignTarget && (
+        <AssignDialog
+          solution={assignTarget}
+          onAssignToMe={async (s) => {
+            if (!s.recordId) return
+            const me = await solutionService.getCurrentUser()
+            if (!me.id)
+              throw new Error('Could not resolve your user account.')
+            await solutionService.assignOwner(s.recordId, me.id)
+            reload()
+          }}
+          onAssign={async (s, userId) => {
+            if (!s.recordId) return
+            await solutionService.assignOwner(s.recordId, userId)
+            reload()
+          }}
+          onSearchUsers={(q) => solutionService.searchUsers(q)}
+          onClose={() => setAssignTarget(null)}
         />
       )}
 

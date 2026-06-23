@@ -5,14 +5,16 @@ import type {
   SolutionKind,
   WorkingSolution,
 } from '../types/solution'
-import { isClosedWorkItemState } from '../types/solution'
+import { isClosedWorkItemState, isOpenStatus } from '../types/solution'
 import { formatRelative } from '../utils/format'
-import { devOpsWorkItemUrl } from '../config'
+import { devOpsWorkItemUrl, makerSolutionUrl } from '../config'
 
 interface Props {
   solutions: WorkingSolution[]
   activeId: string | null
   onOpen: (id: string) => void
+  /** Maker-portal links need the host environment id. */
+  environmentId: string | null
   /** Components that matched the active search, keyed by solution id. */
   componentMatches?: Map<string, SolutionComponentInfo[]>
   /** Collision-radar result, keyed by solution id (null = not scanned). */
@@ -25,6 +27,12 @@ interface Props {
   detailClosing?: boolean
   /** Fired when the fade-out animation ends so the parent can drop selection. */
   onDetailClosed?: () => void
+  /** Row quick-actions (also available without opening the detail). */
+  onComplete: (solution: WorkingSolution) => void
+  onDelete: (solution: WorkingSolution) => void
+  onRequestAssign: (solution: WorkingSolution) => void
+  /** Jump to Merge with this solution pre-selected as a source. */
+  onMerge: (solution: WorkingSolution) => void
 }
 
 const MAX_SHOWN_MATCHES = 2
@@ -180,6 +188,7 @@ function TableHead() {
         DevOps Item
       </div>
       <div className="ws-hcell ws-hcell--bl ws-hcell--right">Status</div>
+      <div className="ws-hcell ws-hcell--bl" aria-hidden="true" />
     </div>
   )
 }
@@ -188,12 +197,17 @@ export function SolutionList({
   solutions,
   activeId,
   onOpen,
+  environmentId,
   componentMatches,
   collisions,
   groupByWorkItem,
   detail,
   detailClosing,
   onDetailClosed,
+  onComplete,
+  onDelete,
+  onRequestAssign,
+  onMerge,
 }: Props) {
   // Several working-solution records pointing at the same real solution is
   // a data smell worth surfacing (e.g. duplicate tracking rows).
@@ -232,7 +246,11 @@ export function SolutionList({
       </div>
     ) : null
 
+  // Running index across all rendered rows (groups included) for zebra striping.
+  let rowSeq = 0
+
   const renderRow = (s: WorkingSolution) => {
+    const alt = rowSeq++ % 2 === 1
     const hits = componentMatches?.get(s.id) ?? []
     const duplicateLink = (linkCounts.get(s.id) ?? 0) > 1
     const collCount = collisions?.get(s.id)?.length ?? 0
@@ -240,10 +258,20 @@ export function SolutionList({
     const status = STATUS_STYLE[stateKey(s)]
     const dev = s.workItemStatus ? deriveDev(s.workItemStatus) : null
     const devUrl = s.devOpsId ? devOpsWorkItemUrl(s.devOpsId) : null
+    const makerUrl = s.solutionMissing
+      ? null
+      : makerSolutionUrl(environmentId, s.id)
+    const canComplete = !!s.recordId && isOpenStatus(s)
+    const canMerge =
+      (s.kind === 'feature' || s.kind === 'bug') &&
+      !!s.recordId &&
+      !s.solutionMissing
     return (
       <Fragment key={s.recordId ?? s.id}>
         <div
-          className={`wsrow ${s.id === activeId ? 'wsrow--active' : ''}`}
+          className={`wsrow ${s.id === activeId ? 'wsrow--active' : ''} ${
+            alt ? 'wsrow--alt' : ''
+          }`}
           role="button"
           tabIndex={0}
           onClick={() => onOpen(s.id)}
@@ -335,7 +363,23 @@ export function SolutionList({
                     <path d="M12 3 3 8l9 5 9-5-9-5Z" />
                     <path d="m3 13 9 5 9-5" />
                   </svg>
-                  <code>{s.uniqueName}</code>
+                  {makerUrl ? (
+                    <a
+                      className="ws-sol-link"
+                      href={makerUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Open this solution in the Maker Portal"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <code>{s.uniqueName}</code>
+                      <span className="ws-sol-ext" aria-hidden="true">
+                        ↗
+                      </span>
+                    </a>
+                  ) : (
+                    <code>{s.uniqueName}</code>
+                  )}
                   <CopyUniqueName value={s.uniqueName} />
                 </div>
                 {s.version && <span className="ws-version">v{s.version}</span>}
@@ -399,6 +443,62 @@ export function SolutionList({
               {status.label}
             </span>
             <span className="ws-when">{formatRelative(s.modifiedOn)}</span>
+          </div>
+
+          {/* Quick actions (revealed on hover / focus / when open) */}
+          <div className="wscell wscell--actions">
+            <div className="ws-actions">
+              {canComplete && (
+                <button
+                  className="ws-act"
+                  title="Mark completed"
+                  aria-label="Mark completed"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onComplete(s)
+                  }}
+                >
+                  ✓
+                </button>
+              )}
+              {canMerge && (
+                <button
+                  className="ws-act"
+                  title="Merge into a release"
+                  aria-label="Merge into a release"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onMerge(s)
+                  }}
+                >
+                  ⇉
+                </button>
+              )}
+              {s.recordId && (
+                <button
+                  className="ws-act"
+                  title="Reassign owner"
+                  aria-label="Reassign owner"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onRequestAssign(s)
+                  }}
+                >
+                  👤
+                </button>
+              )}
+              <button
+                className="ws-act ws-act--danger"
+                title="Delete"
+                aria-label="Delete"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(s)
+                }}
+              >
+                🗑
+              </button>
+            </div>
           </div>
         </div>
         {renderInlineDetail(s)}

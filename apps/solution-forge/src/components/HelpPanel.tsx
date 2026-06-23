@@ -238,11 +238,20 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 again fades it back out. This keeps the table at full width.
               </li>
               <li>
-                A <strong>command bar</strong> with the entry's actions —{' '}
-                <strong>Open in Maker Portal</strong> on the left, and{' '}
-                <strong>Mark completed</strong> / <strong>Delete</strong> as
-                icons on the right (hover for their tooltips) — above the
-                metadata (version, publisher, owner, deployment status).
+                Each row has <strong>quick actions</strong> in the last column,
+                revealed on hover (and while the row is open):{' '}
+                <strong>✓ Complete</strong>, <strong>⇉ Merge</strong> (jumps to
+                Merge with this solution pre-selected as a source),{' '}
+                <strong>👤 Assign</strong> and <strong>🗑 Delete</strong>. Which
+                appear depends on the entry (e.g. Merge only for tracked
+                feature/bug solutions).
+              </li>
+              <li>
+                Open a solution in the <strong>Maker Portal</strong> via its{' '}
+                <strong>unique name</strong> in the Solution column — it's a link
+                (with a ↗ icon). The detail pane is kept short (type, title,
+                description, components, merge history); the row actions and this
+                link replace the old command bar and metadata block.
               </li>
               <li>
                 The list is a <strong>columnar table</strong> — Type ·{' '}
@@ -267,9 +276,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 (<code>sst_devopsworkitemstatus</code>).
               </li>
               <li>
-                <strong>👤 Assign</strong> (tracked entries) reassigns the
-                record's owner — <strong>Assign to me</strong>, or search a user
-                by name and pick them.
+                <strong>👤 Assign</strong> (tracked entries) opens a dialog to
+                reassign the record's owner — <strong>Assign to me</strong>, or
+                search a user by name and pick them.
               </li>
               <li>
                 For tracked entries the type badge has a <strong>✎</strong>{' '}

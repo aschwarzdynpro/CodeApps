@@ -1412,7 +1412,7 @@
 .wsrow {
   display: grid;
   grid-template-columns:
-    84px minmax(220px, 2.2fr) minmax(160px, 1.2fr) minmax(205px, 1.5fr) 128px;
+    96px minmax(210px, 2fr) minmax(150px, 1.1fr) minmax(200px, 1.4fr) 118px 150px;
 }
 .ws-head {
   position: sticky;
@@ -1450,8 +1450,11 @@
   cursor: pointer;
   text-align: left;
 }
+.wsrow--alt {
+  background: #f8f9fc;
+}
 .wsrow:hover {
-  background: #fafbff;
+  background: #f0f3ff;
 }
 .wsrow--active {
   background: #eef0fb;
@@ -1476,15 +1479,55 @@
 .wscell--status {
   align-items: flex-end;
 }
+.wscell--actions {
+  justify-content: center;
+  align-items: flex-end;
+  padding: 14px 12px;
+}
+/* Quick-action buttons — hidden until the row is hovered / focused / open. */
+.ws-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.wsrow:hover .ws-actions,
+.wsrow:focus-within .ws-actions,
+.wsrow--active .ws-actions {
+  opacity: 1;
+}
+.ws-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  line-height: 1;
+  border: 1px solid #e0e3ec;
+  border-radius: 7px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.ws-act:hover {
+  border-color: #bfc4d2;
+  background: #f7f8fb;
+}
+.ws-act--danger:hover {
+  border-color: #f0b5bd;
+  background: #fdecee;
+}
 .ws-type {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.05em;
-  padding: 5px 9px;
-  border-radius: 6px;
+  padding: 7px 12px;
+  border-radius: 7px;
 }
 .ws-title {
   font-size: 14.5px;
@@ -1547,6 +1590,24 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.ws-sol-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  text-decoration: none;
+}
+.ws-sol-link code {
+  color: #2563eb;
+}
+.ws-sol-link:hover code {
+  text-decoration: underline;
+}
+.ws-sol-ext {
+  font-size: 11px;
+  color: #2563eb;
+  flex: none;
 }
 .ws-version {
   align-self: flex-start;
