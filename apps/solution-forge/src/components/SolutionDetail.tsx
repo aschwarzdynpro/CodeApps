@@ -654,8 +654,6 @@ export function SolutionDetail({
               {typeError && <span className="form-error">{typeError}</span>}
             </div>
           )}
-          <h2 className="detail-title">{solution.title}</h2>
-          <code className="detail-uniquename">{solution.uniqueName}</code>
         </div>
       </div>
 

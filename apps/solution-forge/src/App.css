@@ -1412,7 +1412,7 @@
 .wsrow {
   display: grid;
   grid-template-columns:
-    96px minmax(210px, 2fr) minmax(150px, 1.1fr) minmax(200px, 1.4fr) 118px 150px;
+    96px minmax(210px, 2fr) minmax(150px, 1.1fr) minmax(200px, 1.4fr) 118px 108px;
 }
 .ws-head {
   position: sticky;
@@ -1484,11 +1484,13 @@
   align-items: flex-end;
   padding: 14px 12px;
 }
-/* Quick-action buttons — hidden until the row is hovered / focused / open. */
+/* Quick-action buttons — 2×2 grid, hidden until the row is hovered/focused/open. */
 .ws-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(2, 30px);
+  grid-auto-rows: 30px;
+  gap: 5px;
+  justify-content: flex-end;
   opacity: 0;
   transition: opacity 0.12s;
 }
@@ -1501,8 +1503,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   font-size: 14px;
   line-height: 1;
   border: 1px solid #e0e3ec;

@@ -188,7 +188,7 @@ function TableHead() {
         DevOps Item
       </div>
       <div className="ws-hcell ws-hcell--bl ws-hcell--right">Status</div>
-      <div className="ws-hcell ws-hcell--bl" aria-hidden="true" />
+      <div className="ws-hcell ws-hcell--bl ws-hcell--right">Actions</div>
     </div>
   )
 }
