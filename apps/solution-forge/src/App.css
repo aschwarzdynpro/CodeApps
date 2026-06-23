@@ -1150,18 +1150,22 @@
 .inline-detail .detail {
   max-height: none;
   overflow: visible;
-  /* Accent bar coloured by the entry's type (Bug/Feature/Release); the
-     .detail--* rules below override the colour, reusing the kind-badge hues. */
-  border-left: 3px solid var(--muted);
-}
-.inline-detail .detail--bug {
-  border-left-color: #b02a37;
+  /* Accent bar coloured by the entry's type — same hues as the list row's left
+     border (TYPE_META in SolutionList): feature violet, bug red, release
+     orange, other slate. */
+  border-left: 3px solid #475569;
 }
 .inline-detail .detail--feature {
-  border-left-color: #1a56db;
+  border-left-color: #7c4ca7;
+}
+.inline-detail .detail--bug {
+  border-left-color: #cf4b63;
 }
 .inline-detail .detail--deployment {
-  border-left-color: #6f42c1;
+  border-left-color: #c2620e;
+}
+.inline-detail .detail--other {
+  border-left-color: #475569;
 }
 @keyframes inline-detail-in {
   from {
