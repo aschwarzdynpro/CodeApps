@@ -245,7 +245,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 (jumps to Merge with this solution pre-selected as a source),{' '}
                 <strong>👤 Assign</strong> and <strong>🗑 Delete</strong>. Which
                 appear depends on the entry (e.g. Merge only for tracked
-                feature/bug solutions).
+                feature/bug solutions; <strong>Edit</strong> and{' '}
+                <strong>Delete</strong> on a <strong>Release</strong> need the
+                “INT | Deployment Manager” role).
               </li>
               <li>
                 Open a solution in the <strong>Maker Portal</strong> via its{' '}

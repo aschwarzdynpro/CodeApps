@@ -27,6 +27,8 @@ interface Props {
   detailClosing?: boolean
   /** Fired when the fade-out animation ends so the parent can drop selection. */
   onDetailClosed?: () => void
+  /** Deployment-manager role — gates Edit/Delete on Release solutions. */
+  canManageReleases: boolean
   /** Row quick-actions (also available without opening the detail). */
   onEdit: (solution: WorkingSolution) => void
   onComplete: (solution: WorkingSolution) => void
@@ -279,6 +281,7 @@ export function SolutionList({
   detail,
   detailClosing,
   onDetailClosed,
+  canManageReleases,
   onEdit,
   onComplete,
   onDelete,
@@ -342,6 +345,8 @@ export function SolutionList({
       (s.kind === 'feature' || s.kind === 'bug') &&
       !!s.recordId &&
       !s.solutionMissing
+    // Editing / deleting a Release is restricted to deployment managers.
+    const releaseLocked = s.kind === 'deployment' && !canManageReleases
     return (
       <Fragment key={s.recordId ?? s.id}>
         <div
@@ -527,7 +532,7 @@ export function SolutionList({
           {/* Quick actions (revealed on hover / focus / when open) */}
           <div className="wscell wscell--actions">
             <div className="ws-actions">
-              {s.recordId && (
+              {s.recordId && !releaseLocked && (
                 <button
                   className="ws-act"
                   title="Edit working solution"
@@ -579,17 +584,19 @@ export function SolutionList({
                   👤
                 </button>
               )}
-              <button
-                className="ws-act ws-act--danger"
-                title="Delete"
-                aria-label="Delete"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete(s)
-                }}
-              >
-                🗑
-              </button>
+              {!releaseLocked && (
+                <button
+                  className="ws-act ws-act--danger"
+                  title="Delete"
+                  aria-label="Delete"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete(s)
+                  }}
+                >
+                  🗑
+                </button>
+              )}
             </div>
           </div>
         </div>

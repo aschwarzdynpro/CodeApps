@@ -1101,6 +1101,7 @@ function App() {
               groupByWorkItem={groupByWorkItem}
               detailClosing={detailClosing}
               onDetailClosed={finishCloseDetail}
+              canManageReleases={isDeploymentManager}
               onEdit={(s) => setEditTarget(s)}
               onComplete={(s) => setCompleteTarget(s)}
               onDelete={(s) => setConfirmDelete(s)}
