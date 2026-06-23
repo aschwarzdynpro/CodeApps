@@ -240,8 +240,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 Each row has <strong>quick actions</strong> in the last column,
                 revealed on hover (and while the row is open):{' '}
-                <strong>✓ Complete</strong>, <strong>⇉ Merge</strong> (jumps to
-                Merge with this solution pre-selected as a source),{' '}
+                <strong>✎ Edit</strong> (change type / title / description in an
+                overlay), <strong>✓ Complete</strong>, <strong>⇉ Merge</strong>{' '}
+                (jumps to Merge with this solution pre-selected as a source),{' '}
                 <strong>👤 Assign</strong> and <strong>🗑 Delete</strong>. Which
                 appear depends on the entry (e.g. Merge only for tracked
                 feature/bug solutions).
@@ -281,9 +282,10 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 search a user by name and pick them.
               </li>
               <li>
-                For tracked entries the type badge has a <strong>✎</strong>{' '}
-                button — change Feature / Bug / Release there; it updates
-                the record's type choice.
+                <strong>✎ Edit</strong> (tracked entries) opens an overlay to
+                change the <strong>type</strong>, <strong>title</strong> and{' '}
+                <strong>description</strong> — like the create dialog. The unique
+                name and DevOps id stay fixed.
               </li>
               <li>
                 <strong>Components</strong> grouped by type in collapsible

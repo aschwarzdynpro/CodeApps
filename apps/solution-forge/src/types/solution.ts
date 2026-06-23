@@ -151,6 +151,19 @@ export interface CreateWorkingSolutionInput {
   publisherId: string
 }
 
+/** Edits to an existing working solution (type, title, description). */
+export interface UpdateWorkingSolutionInput {
+  /** ssid_workingsolution record id (type + name live here). */
+  recordId: string
+  /** Real solution id — friendlyname/description updated when it exists. */
+  solutionId: string
+  /** True when no real solution backs the record (skip the solution update). */
+  solutionMissing?: boolean
+  kind: Extract<SolutionKind, 'feature' | 'bug' | 'deployment'>
+  title: string
+  description: string
+}
+
 /**
  * ssid_deploymentstatus values that count as "closed" for the workbench's
  * default Open filter: Deployment completed, Merged into Deployment

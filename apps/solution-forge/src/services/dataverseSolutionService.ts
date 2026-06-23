@@ -9,6 +9,7 @@ import type {
   SolutionComponentInfo,
   SolutionKind,
   TrackSolutionInput,
+  UpdateWorkingSolutionInput,
   UserRef,
   WorkItemInfo,
   WorkingSolution,
@@ -817,6 +818,49 @@ export class DataverseSolutionService implements SolutionService {
     if (result && result.success === false) {
       console.warn('[solutions] type update failed:', result)
       throw new Error('Updating the type failed.')
+    }
+  }
+
+  /**
+   * Edit a working solution's type + title on the presentation record, and the
+   * friendlyname + description on the real solution (when it exists) — mirrors
+   * what create sets, so the two stay in sync.
+   */
+  async updateWorkingSolution(
+    input: UpdateWorkingSolutionInput,
+  ): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.updateWorkingSolution(input)
+    const recResult = await Ssid_workingsolutionsService.update(
+      input.recordId,
+      {
+        ssid_name: input.title,
+        sst_type_opt: TYPE_OPT_BY_KIND[input.kind],
+      } as unknown as Partial<
+        Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+      >,
+    )
+    if (recResult && recResult.success === false) {
+      console.warn('[solutions] working-solution update failed:', recResult)
+      throw new Error('Updating the working-solution record failed.')
+    }
+    if (
+      !input.solutionMissing &&
+      input.solutionId &&
+      !input.solutionId.startsWith('missing-')
+    ) {
+      const solResult = await SolutionsService.update(
+        input.solutionId,
+        {
+          friendlyname: input.title,
+          description: input.description,
+        } as unknown as Partial<Omit<SolutionsBase, 'solutionid'>>,
+      )
+      if (solResult && solResult.success === false) {
+        console.warn('[solutions] solution update failed:', solResult)
+        throw new Error('Updating the solution failed.')
+      }
     }
   }
 

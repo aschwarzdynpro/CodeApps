@@ -7,6 +7,7 @@ import type {
   ReleaseNote,
   SolutionComponentInfo,
   TrackSolutionInput,
+  UpdateWorkingSolutionInput,
   UserRef,
   WorkItemInfo,
   WorkingSolution,
@@ -120,6 +121,9 @@ export interface SolutionService {
     recordId: string,
     kind: TrackSolutionInput['kind'],
   ): Promise<void>
+
+  /** Edit a working solution's type, title and description in one go. */
+  updateWorkingSolution(input: UpdateWorkingSolutionInput): Promise<void>
   /**
    * Sets ssid_deploymentstatus on a working-solution record — e.g. to mark
    * it completed (DEPLOYMENT_COMPLETED_CODE) or to reopen it.

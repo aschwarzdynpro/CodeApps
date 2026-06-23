@@ -14,7 +14,6 @@ import {
 import { DEVOPS_PANEL_ENABLED, devOpsWorkItemUrl } from '../config'
 import { solutionService } from '../services/solutionService'
 import { formatDateTime, groupBy } from '../utils/format'
-import { KindBadge } from './KindBadge'
 
 interface Props {
   solution: WorkingSolution
@@ -28,11 +27,6 @@ interface Props {
   collisions?: ComponentCollision[] | null
   /** Creates the working-solution record for an untracked solution. */
   onTrack: (input: TrackSolutionInput) => Promise<void>
-  /** Persists a new type (sst_type_opt) for a tracked entry. */
-  onChangeType: (
-    solution: WorkingSolution,
-    kind: TrackSolutionInput['kind'],
-  ) => Promise<void>
   /** Unmanaged solutions without a record — candidates for re-linking. */
   linkCandidates: WorkingSolution[]
   /** Re-links an orphaned record to the chosen solution. */
@@ -578,31 +572,9 @@ export function SolutionDetail({
   workItemLoading,
   collisions,
   onTrack,
-  onChangeType,
   linkCandidates,
   onLink,
 }: Props) {
-  // Inline type editor for tracked entries (sst_type_opt).
-  const [editingType, setEditingType] = useState(false)
-  const [savingType, setSavingType] = useState(false)
-  const [typeError, setTypeError] = useState<string | null>(null)
-
-  const changeType = async (kind: TrackSolutionInput['kind']) => {
-    if (kind === solution.kind) {
-      setEditingType(false)
-      return
-    }
-    setSavingType(true)
-    setTypeError(null)
-    try {
-      await onChangeType(solution, kind)
-      setEditingType(false)
-    } catch (err) {
-      setTypeError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setSavingType(false)
-    }
-  }
   const adoUrl = workItem?.url ?? devOpsWorkItemUrl(solution.devOpsId)
   const grouped = [...groupBy(components, (c) => c.typeName).entries()].sort(
     (a, b) => a[0].localeCompare(b[0]),
@@ -622,41 +594,6 @@ export function SolutionDetail({
 
   return (
     <aside className={`card detail detail--${solution.kind}`}>
-      <div className="detail-header">
-        <div>
-          <span className="type-edit">
-            <KindBadge kind={solution.kind} />
-            {solution.recordId && (
-              <button
-                className="type-edit-btn"
-                title="Change type (Feature / Bug / Release)"
-                onClick={() => setEditingType((v) => !v)}
-              >
-                ✎
-              </button>
-            )}
-          </span>
-          {editingType && (
-            <div className="type-edit-row">
-              {TRACK_KIND_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  className={`chip ${
-                    solution.kind === opt.value ? 'chip--active' : ''
-                  }`}
-                  disabled={savingType}
-                  onClick={() => void changeType(opt.value)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-              {savingType && <span className="muted">Saving…</span>}
-              {typeError && <span className="form-error">{typeError}</span>}
-            </div>
-          )}
-        </div>
-      </div>
-
       {solution.description && (
         <p className="detail-description">{solution.description}</p>
       )}

@@ -28,6 +28,7 @@ interface Props {
   /** Fired when the fade-out animation ends so the parent can drop selection. */
   onDetailClosed?: () => void
   /** Row quick-actions (also available without opening the detail). */
+  onEdit: (solution: WorkingSolution) => void
   onComplete: (solution: WorkingSolution) => void
   onDelete: (solution: WorkingSolution) => void
   onRequestAssign: (solution: WorkingSolution) => void
@@ -278,6 +279,7 @@ export function SolutionList({
   detail,
   detailClosing,
   onDetailClosed,
+  onEdit,
   onComplete,
   onDelete,
   onRequestAssign,
@@ -525,6 +527,19 @@ export function SolutionList({
           {/* Quick actions (revealed on hover / focus / when open) */}
           <div className="wscell wscell--actions">
             <div className="ws-actions">
+              {s.recordId && (
+                <button
+                  className="ws-act"
+                  title="Edit working solution"
+                  aria-label="Edit working solution"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEdit(s)
+                  }}
+                >
+                  ✎
+                </button>
+              )}
               {canComplete && (
                 <button
                   className="ws-act"

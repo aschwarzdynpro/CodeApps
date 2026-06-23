@@ -23,6 +23,7 @@ import { HowToPanel } from './components/HowToPanel'
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog'
 import { CompleteSolutionDialog } from './components/CompleteSolutionDialog'
 import { AssignDialog } from './components/AssignDialog'
+import { EditSolutionDialog } from './components/EditSolutionDialog'
 import {
   DEPLOYMENT_MANAGER_ROLE,
   DEVOPS_PANEL_ENABLED,
@@ -251,6 +252,8 @@ function App() {
   )
   // Owner-reassignment dialog target (opened from a row's quick actions).
   const [assignTarget, setAssignTarget] = useState<WorkingSolution | null>(null)
+  // Edit-working-solution dialog target (type / title / description).
+  const [editTarget, setEditTarget] = useState<WorkingSolution | null>(null)
   // When a row's "Merge" action fires, the Merge tab opens with this id
   // pre-selected as a source; cleared once the Merge workspace consumes it.
   const [mergeSeedId, setMergeSeedId] = useState<string | null>(null)
@@ -1098,6 +1101,7 @@ function App() {
               groupByWorkItem={groupByWorkItem}
               detailClosing={detailClosing}
               onDetailClosed={finishCloseDetail}
+              onEdit={(s) => setEditTarget(s)}
               onComplete={(s) => setCompleteTarget(s)}
               onDelete={(s) => setConfirmDelete(s)}
               onRequestAssign={(s) => setAssignTarget(s)}
@@ -1112,11 +1116,6 @@ function App() {
                     onRefreshComponents={() => loadComponents(selected.id, true)}
                     collisions={collisions?.get(selected.id) ?? null}
                     onTrack={handleTrack}
-                    onChangeType={async (s, kind) => {
-                      if (!s.recordId) return
-                      await solutionService.updateSolutionType(s.recordId, kind)
-                      reload()
-                    }}
                     linkCandidates={linkCandidates}
                     onLink={async (record, target) => {
                       if (!record.recordId) return
@@ -1238,6 +1237,24 @@ function App() {
           }}
           onSearchUsers={(q) => solutionService.searchUsers(q)}
           onClose={() => setAssignTarget(null)}
+        />
+      )}
+
+      {editTarget && (
+        <EditSolutionDialog
+          solution={editTarget}
+          canSetRelease={isDeploymentManager}
+          onSave={async (changes) => {
+            if (!editTarget.recordId) return
+            await solutionService.updateWorkingSolution({
+              recordId: editTarget.recordId,
+              solutionId: editTarget.id,
+              solutionMissing: editTarget.solutionMissing,
+              ...changes,
+            })
+            reload()
+          }}
+          onClose={() => setEditTarget(null)}
         />
       )}
 
