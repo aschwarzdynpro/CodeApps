@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+*{box-sizing:border-box}
+body{margin:0}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#d3d7e0;border-radius:6px}
+::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#eef0f5;font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;color:#1f2330;padding:26px 28px 60px">
+  <div style="max-width:1340px;margin:0 auto">
+
+    <header style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <h1 style="margin:0;font-size:25px;font-weight:700;letter-spacing:-.01em">Workbench</h1>
+      <div style="display:flex;align-items:center;gap:14px">
+        <span style="font-size:12.5px;color:#8a8f9c">Aktualisiert 03:27:31</span>
+        <button style="display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:13px;font-weight:600;color:#3a3f4b;background:#fff;border:1px solid #e0e3ec;border-radius:8px;padding:7px 13px;cursor:pointer" style-hover="border-color:#bfc4d2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
+          Refresh
+        </button>
+      </div>
+    </header>
+
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:13px">
+      <sc-for list="{{ chips }}" as="chip" hint-placeholder-count="5">
+        <button onClick="{{ chip.onClick }}" style="display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:13px;font-weight:600;padding:7px 11px 7px 13px;border-radius:9px;cursor:pointer;background:{{ chip.bg }};color:{{ chip.fg }};border:1px solid {{ chip.border }}">
+          {{ chip.label }}
+          <span style="font-size:11.5px;font-weight:700;min-width:20px;text-align:center;padding:1px 6px;border-radius:20px;background:{{ chip.countBg }};color:{{ chip.countFg }}">{{ chip.count }}</span>
+        </button>
+      </sc-for>
+      <div style="width:1px;height:26px;background:#dcdfe8;margin:0 4px"></div>
+      <button style="font:inherit;font-size:13px;font-weight:600;color:#fff;background:#5b54e8;border:1px solid #5b54e8;border-radius:9px;padding:8px 15px;cursor:pointer">Open</button>
+      <button style="font:inherit;font-size:13px;font-weight:600;color:#fff;background:#5b54e8;border:1px solid #5b54e8;border-radius:9px;padding:8px 15px;cursor:pointer">Tracked</button>
+      <button style="display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:13px;font-weight:600;color:#3a3f4b;background:#fff;border:1px solid #e0e3ec;border-radius:9px;padding:8px 13px;cursor:pointer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"></circle><path d="M5 20a7 7 0 0 1 14 0"></path></svg>
+        Alle Owner
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+      <div style="flex:1"></div>
+      <div style="display:inline-flex;background:#e4e7ef;border-radius:10px;padding:3px;gap:3px">
+        <button onClick="{{ setList }}" style="display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:13px;padding:6px 13px;border-radius:7px;border:none;cursor:pointer;background:{{ vlBg }};color:{{ vlFg }};font-weight:{{ vlW }};box-shadow:{{ vlShadow }}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>
+          Liste
+        </button>
+        
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+      <button style="display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:13px;font-weight:600;color:#fff;background:#5b54e8;border:none;border-radius:9px;padding:9px 15px;cursor:pointer" style-hover="background:#4a44d6">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+        Neue Working Solution
+      </button>
+      <button style="display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:13px;font-weight:600;color:#3a3f4b;background:#fff;border:1px solid #e0e3ec;border-radius:9px;padding:9px 14px;cursor:pointer" style-hover="border-color:#bfc4d2">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg>
+        Kollisionen prüfen
+      </button>
+      <button style="display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:13px;font-weight:600;color:#3a3f4b;background:#fff;border:1px solid #e0e3ec;border-radius:9px;padding:9px 14px;cursor:pointer" style-hover="border-color:#bfc4d2">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
+        Sync mit DevOps
+      </button>
+      <div style="flex:1"></div>
+      <div style="position:relative;display:flex;align-items:center">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9aa0ad" stroke-width="2" stroke-linecap="round" style="position:absolute;left:12px;pointer-events:none"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        <input value="{{ query }}" onChange="{{ onSearch }}" placeholder="Titel, Unique Name, ADO-ID suchen…" style="font:inherit;font-size:13px;width:320px;padding:9px 12px 9px 34px;border:1px solid #e0e3ec;border-radius:9px;background:#fff;outline:none;color:#1f2330" style-focus="border-color:#5b54e8">
+      </div>
+      <label style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:#6b7280;cursor:pointer">
+        <input type="checkbox" style="width:15px;height:15px;accent-color:#5b54e8">
+        inkl. Komponenten
+      </label>
+    </div>
+
+    <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+      <div style="background:#fff;border:1px solid #e3e6ef;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(20,22,40,.05)">
+        <div style="display:grid;grid-template-columns:84px minmax(220px,2.2fr) minmax(160px,1.2fr) minmax(205px,1.5fr) 128px;align-items:center;background:#f7f8fb;border-bottom:1px solid #e8eaf1;padding:0">
+          <div style="padding:11px 16px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9097a3">Typ</div>
+          <div style="padding:11px 16px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6c5ce8"><span style="width:7px;height:7px;border-radius:50%;background:#5b54e8"></span>Working Solution</div>
+          <div style="padding:11px 16px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0e9384;border-left:1px solid #eaecf2"><span style="width:7px;height:7px;border-radius:50%;background:#0e9384"></span>Solution</div>
+          <div style="padding:11px 16px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#2563eb;border-left:1px solid #eaecf2"><span style="width:7px;height:7px;border-radius:50%;background:#2563eb"></span>DevOps Item</div>
+          <div style="padding:11px 16px;text-align:right;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9097a3;border-left:1px solid #eaecf2">Status</div>
+        </div>
+
+        <sc-for list="{{ entries }}" as="e" hint-placeholder-count="7">
+          <div style="display:grid;grid-template-columns:84px minmax(220px,2.2fr) minmax(160px,1.2fr) minmax(205px,1.5fr) 128px;align-items:stretch;border-bottom:1px solid #f1f2f7" style-hover="background:#fafbff">
+            <div style="padding:15px 16px;display:flex;align-items:flex-start">
+              <span style="display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;letter-spacing:.05em;padding:5px 9px;border-radius:6px;background:{{ e.typeBg }};color:{{ e.typeFg }}">{{ e.typeLabel }}</span>
+            </div>
+
+            <div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0">
+              <div style="font-size:14.5px;font-weight:600;line-height:1.3;color:#1f2330;text-wrap:pretty">{{ e.title }}</div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span style="display:inline-flex;align-items:center;gap:7px">
+                  <span style="width:21px;height:21px;border-radius:50%;background:#ece9fd;color:#5b54e8;font-size:9.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{ e.ownerInitials }}</span>
+                  <span style="font-size:12.5px;color:#5b6172">{{ e.owner }}</span>
+                </span>
+                <sc-if value="{{ e.showWsStatus }}" hint-placeholder-val="{{ true }}">
+                  <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;background:{{ e.wsBg }};color:{{ e.wsFg }}">✓ to be completed</span>
+                </sc-if>
+              </div>
+            </div>
+
+            <div style="padding:14px 16px;display:flex;flex-direction:column;gap:7px;justify-content:center;border-left:1px solid #f1f2f7;min-width:0">
+              <sc-if value="{{ e.solutionLinked }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;gap:7px;min-width:0">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0e9384" stroke-width="2" stroke-linejoin="round" style="flex:none"><path d="M12 3 3 8l9 5 9-5-9-5Z"></path><path d="m3 13 9 5 9-5"></path></svg>
+                  <span style="font-family:'Cascadia Code','SF Mono',ui-monospace,monospace;font-size:12px;color:#2f3440;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.solName }}</span>
+                </div>
+                <span style="align-self:flex-start;font-family:'Cascadia Code','SF Mono',ui-monospace,monospace;font-size:11px;padding:2px 7px;border-radius:5px;background:#eef6f5;color:#0e7d70">{{ e.solVersion }}</span>
+              </sc-if>
+              <sc-if value="{{ e.solMissing }}" hint-placeholder-val="{{ false }}">
+                <span style="display:inline-flex;align-items:center;gap:6px;align-self:flex-start;font-size:11.5px;color:#9aa0ad;border:1px dashed #d2d6e0;border-radius:7px;padding:4px 9px;background:#fbfbfd">Nicht verknüpft</span>
+              </sc-if>
+            </div>
+
+            <div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px;justify-content:center;border-left:1px solid #f1f2f7;min-width:0">
+              <sc-if value="{{ e.devopsLinked }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <span style="display:inline-flex;align-items:center;gap:6px">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><circle cx="6" cy="6" r="2.4"></circle><circle cx="6" cy="18" r="2.4"></circle><circle cx="18" cy="9" r="2.4"></circle><path d="M6 8.4v7.2M8.4 6H14a3 3 0 0 1 3 3v.4"></path></svg>
+                    <a href="#" style="font-size:13px;font-weight:600;color:#2563eb;text-decoration:none">{{ e.devId }}</a>
+                  </span>
+                  <span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;background:{{ e.devBg }};color:{{ e.devFg }}">{{ e.devState }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="flex:1;height:5px;border-radius:9px;background:#eef0f4;overflow:hidden"><div style="width:{{ e.devPctStr }};height:100%;border-radius:9px;background:{{ e.devBarColor }}"></div></div>
+                  <span style="font-size:10.5px;color:#9aa0ad;font-variant-numeric:tabular-nums">{{ e.devPctStr }}</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ e.devMissing }}" hint-placeholder-val="{{ false }}">
+                <span style="display:inline-flex;align-items:center;gap:6px;align-self:flex-start;font-size:11.5px;color:#9aa0ad;border:1px dashed #d2d6e0;border-radius:7px;padding:4px 9px;background:#fbfbfd">Nicht verknüpft</span>
+              </sc-if>
+            </div>
+
+            <div style="padding:14px 16px;display:flex;flex-direction:column;align-items:flex-end;gap:7px;justify-content:center;border-left:1px solid #f1f2f7">
+              <span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:4px 9px;border-radius:20px;background:{{ e.syncBg }};color:{{ e.syncFg }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ e.syncDot }}"></span>{{ e.syncLabel }}</span>
+              <span style="font-size:11.5px;color:#9aa0ad">vor {{ e.updated }}</span>
+            </div>
+          </div>
+        </sc-for>
+
+        <sc-if value="{{ emptyVisible }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:48px;text-align:center;color:#9aa0ad;font-size:14px">Keine Einträge gefunden.</div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isCards }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(345px,1fr));gap:16px">
+        <sc-for list="{{ entries }}" as="e" hint-placeholder-count="6">
+          <article style="background:#fff;border:1px solid #e3e6ef;border-radius:14px;padding:16px;box-shadow:0 1px 3px rgba(20,22,40,.05);display:flex;flex-direction:column;gap:13px" style-hover="border-color:#cdd0fa;box-shadow:0 6px 20px rgba(40,40,90,.09)">
+            <div style="display:flex;align-items:flex-start;gap:11px">
+              <span style="display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;letter-spacing:.05em;padding:5px 9px;border-radius:6px;background:{{ e.typeBg }};color:{{ e.typeFg }};flex:none;margin-top:1px">{{ e.typeLabel }}</span>
+              <div style="font-size:15px;font-weight:600;line-height:1.3;color:#1f2330;flex:1;text-wrap:pretty">{{ e.title }}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px">
+              <span style="width:22px;height:22px;border-radius:50%;background:#ece9fd;color:#5b54e8;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{ e.ownerInitials }}</span>
+              <span style="font-size:12.5px;color:#5b6172">{{ e.owner }}</span>
+              <span style="width:3px;height:3px;border-radius:50%;background:#c4c8d2"></span>
+              <span style="font-size:12px;color:#9aa0ad">vor {{ e.updated }}</span>
+              <sc-if value="{{ e.showWsStatus }}" hint-placeholder-val="{{ true }}">
+                <span style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;background:{{ e.wsBg }};color:{{ e.wsFg }}">✓ to be completed</span>
+              </sc-if>
+            </div>
+
+            <div style="border-left:3px solid #0e9384;background:#f6fbfb;border-radius:0 9px 9px 0;padding:10px 13px;display:flex;flex-direction:column;gap:7px">
+              <div style="display:flex;align-items:center;gap:7px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0e9384">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0e9384" stroke-width="2" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"></path><path d="m3 13 9 5 9-5"></path></svg>
+                Solution
+              </div>
+              <sc-if value="{{ e.solutionLinked }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+                  <span style="font-family:'Cascadia Code','SF Mono',ui-monospace,monospace;font-size:12.5px;color:#2f3440">{{ e.solName }}</span>
+                  <span style="font-family:'Cascadia Code','SF Mono',ui-monospace,monospace;font-size:11px;padding:2px 7px;border-radius:5px;background:#eaf4f3;color:#0e7d70">{{ e.solVersion }}</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ e.solMissing }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:12px;color:#9aa0ad">Nicht verknüpft</span>
+              </sc-if>
+            </div>
+
+            <div style="border-left:3px solid #2563eb;background:#f5f8ff;border-radius:0 9px 9px 0;padding:10px 13px;display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;gap:7px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#2563eb">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"></circle><circle cx="6" cy="18" r="2.4"></circle><circle cx="18" cy="9" r="2.4"></circle><path d="M6 8.4v7.2M8.4 6H14a3 3 0 0 1 3 3v.4"></path></svg>
+                DevOps Item
+              </div>
+              <sc-if value="{{ e.devopsLinked }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+                  <a href="#" style="font-size:13.5px;font-weight:700;color:#2563eb;text-decoration:none">{{ e.devId }}</a>
+                  <span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;background:{{ e.devBg }};color:{{ e.devFg }}">{{ e.devState }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="flex:1;height:5px;border-radius:9px;background:#e7ebf2;overflow:hidden"><div style="width:{{ e.devPctStr }};height:100%;border-radius:9px;background:{{ e.devBarColor }}"></div></div>
+                  <span style="font-size:10.5px;color:#9aa0ad;font-variant-numeric:tabular-nums">{{ e.devPctStr }}</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ e.devMissing }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:12px;color:#9aa0ad">Nicht verknüpft</span>
+              </sc-if>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:flex-end;border-top:1px solid #f1f2f7;padding-top:11px">
+              <span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:20px;background:{{ e.syncBg }};color:{{ e.syncFg }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ e.syncDot }}"></span>{{ e.syncLabel }}</span>
+            </div>
+          </article>
+        </sc-for>
+      </div>
+      <sc-if value="{{ emptyVisible }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:48px;text-align:center;color:#9aa0ad;font-size:14px;background:#fff;border:1px solid #e3e6ef;border-radius:14px">Keine Einträge gefunden.</div>
+      </sc-if>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { view: 'list', type: 'all', query: '' };
+
+  CHIP = {
+    green:  { bg:'#e7f6ec', fg:'#15803d' },
+    gray:   { bg:'#eef0f4', fg:'#5b6172' },
+    blue:   { bg:'#e7effd', fg:'#1d4ed8' },
+    amber:  { bg:'#fdefda', fg:'#b45309' },
+    violet: { bg:'#efeafe', fg:'#6d3fd1' },
+    slate:  { bg:'#eef1f6', fg:'#475569' },
+    red:    { bg:'#fdecee', fg:'#c0392b' },
+  };
+
+  data = [
+    { id:13486, type:'feature', title:'PQC | Bug 13486 (MT)', owner:'Marius Thoma', toBeCompleted:true, sync:'synced', updated:'21 h', solution:{name:'feature_13486', version:'v1.0.0'}, devops:{id:13486, state:'Closed'} },
+    { id:13382, type:'bug', title:'DualWrite Error bei Änderung oder Datensatzanlage', owner:'Andy Schwarz', toBeCompleted:false, sync:'synced', updated:'22 h', solution:{name:'bug_13382', version:'v1.0.1'}, devops:{id:13382, state:'12-Test HSO auf INT/DEV'} },
+    { id:13473, type:'feature', title:'PQC | CR 13473 (SML)', owner:'Stefan Mlodoch', toBeCompleted:false, sync:'synced', updated:'4 d', solution:{name:'feature_13473', version:'v1.0.0'}, devops:{id:13473, state:'14a-UAT Test Schulz'} },
+    { id:13471, type:'bug', title:'PQC | Bug 13471 (MT)', owner:'Marius Thoma', toBeCompleted:false, sync:'synced', updated:'4 d', solution:{name:'bug_13471', version:'v1.0.0'}, devops:{id:13471, state:'13a-UAT Deployment'} },
+    { id:13032, type:'bug', title:'MS | Bug 13032', owner:'# Extern Mahmoud Samir', toBeCompleted:true, sync:'synced', updated:'5 d', solution:{name:'bug_13032', version:'v1.0.0'}, devops:{id:13032, state:'Closed'} },
+    { id:11941, type:'feature', title:'Hotfix 11941', owner:'Andy Schwarz', toBeCompleted:false, sync:'synced', updated:'5 d', solution:{name:'feature_11941', version:'v1.0.0'}, devops:{id:11941, state:'14a-UAT Test Schulz'} },
+    { id:13463, type:'bug', title:'PQC | Bug 13463 (MT)', owner:'Marius Thoma', toBeCompleted:true, sync:'synced', updated:'6 d', solution:{name:'bug_13463', version:'v1.0.0'}, devops:{id:13463, state:'Closed'} },
+    { id:13451, type:'feature', title:'CRM | CR 13451 (SML)', owner:'Stefan Mlodoch', toBeCompleted:true, sync:'synced', updated:'6 d', solution:{name:'feature_13451', version:'v1.0.0'}, devops:{id:13451, state:'Closed'} },
+    { id:13459, type:'bug', title:'PO | BUG 13459 (AA)', owner:'Askarbek Asanaliev', toBeCompleted:true, sync:'synced', updated:'6 d', solution:{name:'bug_13459', version:'v1.0.0'}, devops:{id:13459, state:'Closed'} },
+    { id:12175, type:'feature', title:'CRM | CR 12175 (SML)', owner:'Andy Schwarz', toBeCompleted:false, sync:'synced', updated:'7 d', solution:{name:'feature_12175', version:'v1.0.0'}, devops:{id:12175, state:'05-Prüfung Schulz'} },
+    { id:13387, type:'bug', title:'PQC | Bug 13387 (CS + MT)', owner:'Christian Sander', toBeCompleted:true, sync:'synced', updated:'7 d', solution:{name:'bug_13387', version:'v1.0.0'}, devops:{id:13387, state:'Closed'} },
+    { id:13455, type:'bug', title:'Empty Work Time Entry', owner:'Andy Schwarz', toBeCompleted:false, sync:'pending', updated:'7 d', solution:{name:'bug_13455', version:'v1.0.0'}, devops:{id:13455, state:'01-Proposed'} },
+    { id:12678, type:'bug', title:'PQC | BUG 12678 (AA)', owner:'Askarbek Asanaliev', toBeCompleted:true, sync:'synced', updated:'7 d', solution:{name:'bug_12678', version:'v1.0.0'}, devops:{id:12678, state:'Closed'} },
+    { id:13428, type:'feature', title:'VCM | CR 13428 (SML)', owner:'Stefan Mlodoch', toBeCompleted:false, sync:'synced', updated:'8 d', solution:{name:'feature_13428', version:'v1.0.0'}, devops:{id:13428, state:'14a-UAT Test Schulz'} },
+    { id:13501, type:'feature', title:'Neue Kundenportal-Ansicht', owner:'Marius Thoma', toBeCompleted:false, sync:'pending', updated:'9 d', solution:{name:'feature_13501', version:'v1.0.0'}, devops:null },
+    { id:13510, type:'bug', title:'Performance Fix Reporting', owner:'Andy Schwarz', toBeCompleted:false, sync:'collision', updated:'10 d', solution:null, devops:{id:13510, state:'01-Proposed'} },
+  ];
+
+  initials(name) {
+    const clean = String(name).replace(/^#\s*/, '').replace(/^Extern\s+/i, '').trim();
+    const p = clean.split(/\s+/).filter(Boolean);
+    return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase();
+  }
+
+  devCat(state) {
+    if (state === 'Closed') return { cat:'gray', num:15 };
+    const m = state.match(/^(\d+)/);
+    const num = m ? parseInt(m[1], 10) : 8;
+    let cat = 'blue';
+    if (/Proposed/i.test(state)) cat = 'slate';
+    else if (/Deployment/i.test(state)) cat = 'violet';
+    else if (/UAT|Pr(ü|ue)fung|Test|Review/i.test(state)) cat = 'amber';
+    return { cat, num };
+  }
+
+  decorate(e) {
+    const sol = e.solution, dev = e.devops;
+    const type = e.type === 'feature'
+      ? { bg:'#e9f0ff', fg:'#3551d6' }
+      : { bg:'#fdeef1', fg:'#cf4b63' };
+
+    let devBg = '', devFg = '', devBar = '', devPct = '0%', devState = '';
+    if (dev) {
+      const c = this.devCat(dev.state);
+      const ch = this.CHIP[c.cat];
+      devBg = ch.bg; devFg = ch.fg; devBar = ch.fg;
+      devState = dev.state;
+      const pct = dev.state === 'Closed' ? 100 : Math.max(8, Math.round(c.num / 15 * 100));
+      devPct = pct + '%';
+    }
+
+    const syncMap = {
+      synced:    { label:'Synced',          cat:'green', dot:'#16a34a' },
+      pending:   { label:'Sync ausstehend', cat:'amber', dot:'#d97706' },
+      collision: { label:'Kollision',       cat:'red',   dot:'#c0392b' },
+    };
+    const s = syncMap[e.sync] || syncMap.synced;
+    const sc = this.CHIP[s.cat];
+
+    return {
+      id: e.id,
+      typeLabel: e.type.toUpperCase(),
+      typeBg: type.bg, typeFg: type.fg,
+      title: e.title,
+      owner: String(e.owner).replace(/^#\s*/, ''),
+      ownerInitials: this.initials(e.owner),
+      updated: e.updated,
+      showWsStatus: !!e.toBeCompleted,
+      wsBg: this.CHIP.green.bg, wsFg: this.CHIP.green.fg,
+      solutionLinked: !!sol, solMissing: !sol,
+      solName: sol ? sol.name : '', solVersion: sol ? sol.version : '',
+      devopsLinked: !!dev, devMissing: !dev,
+      devId: dev ? ('#' + dev.id) : '', devState,
+      devBg, devFg, devBarColor: devBar, devPctStr: devPct,
+      syncBg: sc.bg, syncFg: sc.fg, syncDot: s.dot, syncLabel: s.label,
+    };
+  }
+
+  renderVals() {
+    const { view, type, query } = this.state;
+    const all = this.data;
+    const fcount = all.filter(x => x.type === 'feature').length;
+    const bcount = all.filter(x => x.type === 'bug').length;
+
+    let list = all;
+    if (type === 'feature') list = list.filter(x => x.type === 'feature');
+    else if (type === 'bug') list = list.filter(x => x.type === 'bug');
+    else if (type === 'release' || type === 'other') list = [];
+
+    const q = query.trim().toLowerCase();
+    if (q) {
+      list = list.filter(x =>
+        x.title.toLowerCase().includes(q) ||
+        (x.solution && x.solution.name.toLowerCase().includes(q)) ||
+        String(x.id).includes(q) ||
+        (x.devops && String(x.devops.id).includes(q))
+      );
+    }
+
+    const entries = list.map(e => this.decorate(e));
+
+    const defs = [
+      ['all', 'All', all.length],
+      ['feature', 'Features', fcount],
+      ['bug', 'Bugs', bcount],
+      ['release', 'Releases', 0],
+      ['other', 'Other', 0],
+    ];
+    const chips = defs.map(([key, label, count]) => {
+      const active = type === key;
+      return {
+        key, label, count,
+        bg: active ? '#5b54e8' : '#ffffff',
+        fg: active ? '#ffffff' : '#3a3f4b',
+        border: active ? '#5b54e8' : '#e3e6ef',
+        countBg: active ? 'rgba(255,255,255,.22)' : '#eef0f4',
+        countFg: active ? '#ffffff' : '#6b7280',
+        onClick: () => this.setState({ type: key }),
+      };
+    });
+
+    return {
+      entries,
+      isList: view === 'list',
+      isCards: view === 'cards',
+      setList: () => this.setState({ view: 'list' }),
+      setCards: () => this.setState({ view: 'cards' }),
+      onSearch: (ev) => this.setState({ query: ev.target.value }),
+      query,
+      chips,
+      emptyVisible: entries.length === 0,
+      vlBg: view === 'list' ? '#ffffff' : 'transparent',
+      vlFg: view === 'list' ? '#5b54e8' : '#71757f',
+      vlW: view === 'list' ? '600' : '500',
+      vlShadow: view === 'list' ? '0 1px 2px rgba(20,20,40,.1)' : 'none',
+      vcBg: view === 'cards' ? '#ffffff' : 'transparent',
+      vcFg: view === 'cards' ? '#5b54e8' : '#71757f',
+      vcW: view === 'cards' ? '600' : '500',
+      vcShadow: view === 'cards' ? '0 1px 2px rgba(20,20,40,.1)' : 'none',
+    };
+  }
+}
+</script>
+</body>
+</html>

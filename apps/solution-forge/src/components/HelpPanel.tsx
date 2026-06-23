@@ -245,10 +245,18 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 metadata (version, publisher, owner, deployment status).
               </li>
               <li>
-                Each list row shows the synced{' '}
-                <strong>DevOps work-item status</strong> as a chip next to its{' '}
-                <strong>#number</strong> — blue while active, muted when
-                Closed/Done (from <code>sst_devopsworkitemstatus</code>).
+                The list is a <strong>columnar table</strong> — Type ·{' '}
+                <strong>Working Solution</strong> (title, owner, status chips) ·{' '}
+                <strong>Solution</strong> (unique name + version) ·{' '}
+                <strong>DevOps Item</strong> · <strong>Status</strong>.
+              </li>
+              <li>
+                The <strong>DevOps Item</strong> column shows the linked{' '}
+                <strong>#number</strong>, the synced work-item{' '}
+                <strong>status</strong> (colour-coded by stage) and a{' '}
+                <strong>progress bar</strong> derived from the numbered workflow
+                stage (e.g. “13a-UAT…” → ~87%, Closed → 100%; from{' '}
+                <code>sst_devopsworkitemstatus</code>).
               </li>
               <li>
                 When an open entry's DevOps work item is <strong>Closed</strong>,

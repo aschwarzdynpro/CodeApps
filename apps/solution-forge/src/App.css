@@ -1401,6 +1401,256 @@
   padding: 1px 8px;
 }
 
+/* === Working Solution table (columnar layout, per design sample) === */
+.ws-table {
+  padding: 0;
+  max-height: calc(100vh - 300px);
+  min-height: 240px;
+  overflow-y: auto;
+}
+.ws-head,
+.wsrow {
+  display: grid;
+  grid-template-columns:
+    84px minmax(220px, 2.2fr) minmax(160px, 1.2fr) minmax(205px, 1.5fr) 128px;
+}
+.ws-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f7f8fb;
+  border-bottom: 1px solid #e8eaf1;
+  border-radius: 12px 12px 0 0;
+}
+.ws-hcell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9097a3;
+}
+.ws-hcell--bl {
+  border-left: 1px solid #eaecf2;
+}
+.ws-hcell--right {
+  justify-content: flex-end;
+}
+.ws-hdot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+.wsrow {
+  border-bottom: 1px solid #f1f2f7;
+  cursor: pointer;
+  text-align: left;
+}
+.wsrow:hover {
+  background: #fafbff;
+}
+.wsrow--active {
+  background: #eef0fb;
+}
+.wscell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 14px 16px;
+  min-width: 0;
+}
+.wscell--sol,
+.wscell--dev,
+.wscell--status {
+  border-left: 1px solid #f1f2f7;
+}
+.wscell--type {
+  justify-content: flex-start;
+  padding-top: 15px;
+}
+.wscell--status {
+  align-items: flex-end;
+}
+.ws-type {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 5px 9px;
+  border-radius: 6px;
+}
+.ws-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #1f2330;
+  overflow-wrap: anywhere;
+}
+.ws-subline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ws-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.ws-avatar {
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: #ece9fd;
+  color: #5b54e8;
+  font-size: 9.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.ws-owner-name {
+  font-size: 12.5px;
+  color: #5b6172;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+.ws-hits {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ws-sol-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.ws-sol-name svg {
+  flex: none;
+}
+.ws-sol-name code {
+  font-size: 12px;
+  color: #2f3440;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ws-version {
+  align-self: flex-start;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #eef6f5;
+  color: #0e7d70;
+}
+.ws-notlinked {
+  align-self: flex-start;
+  font-size: 11.5px;
+  color: #9aa0ad;
+  border: 1px dashed #d2d6e0;
+  border-radius: 7px;
+  padding: 4px 9px;
+  background: #fbfbfd;
+}
+.ws-dev-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ws-dev-id {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: none;
+}
+.ws-dev-id:hover {
+  text-decoration: underline;
+}
+.ws-devstate {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.ws-dev-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ws-bar {
+  flex: 1;
+  height: 5px;
+  border-radius: 9px;
+  background: #eef0f4;
+  overflow: hidden;
+}
+.ws-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 9px;
+}
+.ws-pct {
+  font-size: 10.5px;
+  color: #9aa0ad;
+  font-variant-numeric: tabular-nums;
+}
+.ws-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 20px;
+}
+.ws-sync-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.ws-when {
+  font-size: 11.5px;
+  color: #9aa0ad;
+  white-space: nowrap;
+}
+.ws-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #f3f4f8;
+  border-bottom: 1px solid #e8eaf1;
+}
+.ws-group-title {
+  font-weight: 700;
+  font-size: 13px;
+  color: #3a3f4b;
+}
+.ws-group-count {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.ws-group-count--multi {
+  color: #b45309;
+  font-weight: 600;
+}
+
 /* Detail — same viewport cap as the list; long component lists scroll
    inside the card. */
 .detail {
