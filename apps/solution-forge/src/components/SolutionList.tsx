@@ -40,12 +40,86 @@ const MAX_SHOWN_MATCHES = 2
 /** Key for entries without a work item number when grouping. */
 const NO_WORK_ITEM = ''
 
-/** Type pill colour + label per kind. */
-const TYPE_STYLE: Record<SolutionKind, { label: string; bg: string; fg: string }> = {
-  feature: { label: 'FEATURE', bg: '#e9f0ff', fg: '#3551d6' },
-  bug: { label: 'BUG', bg: '#fdeef1', fg: '#cf4b63' },
-  deployment: { label: 'RELEASE', bg: '#efeafe', fg: '#6d3fd1' },
-  other: { label: 'OTHER', bg: '#eef1f6', fg: '#475569' },
+/** Accent colour + label per kind (drives the row's left border + type icon). */
+const TYPE_META: Record<SolutionKind, { label: string; color: string }> = {
+  feature: { label: 'Feature', color: '#7c4ca7' },
+  bug: { label: 'Bug', color: '#cf4b63' },
+  deployment: { label: 'Release', color: '#c2620e' },
+  other: { label: 'Other', color: '#475569' },
+}
+
+/** A distinct line icon per kind (inherits the accent colour via currentColor). */
+const TYPE_ICON: Record<SolutionKind, ReactNode> = {
+  feature: (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </svg>
+  ),
+  bug: (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <ellipse cx="12" cy="13" rx="7.5" ry="8" />
+      <path d="M12 5.5V21" />
+      <path d="M9.5 3.5 11 5.5M14.5 3.5 13 5.5" />
+      <circle cx="12" cy="6.5" r="1.8" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="11.5" r="1" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="11.5" r="1" fill="currentColor" stroke="none" />
+      <circle cx="8.5" cy="16" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15.5" cy="16" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  deployment: (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 11.5 11.5 3H20a1 1 0 0 1 1 1v8.5L12.5 21a1.4 1.4 0 0 1-2 0L3 13.5a1.4 1.4 0 0 1 0-2Z" />
+      <circle cx="16.4" cy="7.6" r="1.3" />
+    </svg>
+  ),
+  other: (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="4" y="4" width="16" height="16" rx="2.5" />
+      <path d="M9 9h6M9 13h6" />
+    </svg>
+  ),
 }
 
 type StateKey = 'both' | 'record-only' | 'solution-only'
@@ -254,7 +328,7 @@ export function SolutionList({
     const hits = componentMatches?.get(s.id) ?? []
     const duplicateLink = (linkCounts.get(s.id) ?? 0) > 1
     const collCount = collisions?.get(s.id)?.length ?? 0
-    const type = TYPE_STYLE[s.kind]
+    const type = TYPE_META[s.kind]
     const status = STATUS_STYLE[stateKey(s)]
     const dev = s.workItemStatus ? deriveDev(s.workItemStatus) : null
     const devUrl = s.devOpsId ? devOpsWorkItemUrl(s.devOpsId) : null
@@ -272,6 +346,7 @@ export function SolutionList({
           className={`wsrow ${s.id === activeId ? 'wsrow--active' : ''} ${
             alt ? 'wsrow--alt' : ''
           }`}
+          style={{ borderLeftColor: type.color }}
           role="button"
           tabIndex={0}
           onClick={() => onOpen(s.id)}
@@ -285,10 +360,12 @@ export function SolutionList({
           {/* Type */}
           <div className="wscell wscell--type">
             <span
-              className="ws-type"
-              style={{ background: type.bg, color: type.fg }}
+              className="ws-typeicon"
+              style={{ color: type.color }}
+              title={type.label}
+              aria-label={type.label}
             >
-              {type.label}
+              {TYPE_ICON[s.kind]}
             </span>
           </div>
 

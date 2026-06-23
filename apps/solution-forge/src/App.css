@@ -1420,6 +1420,8 @@
   z-index: 1;
   background: #f7f8fb;
   border-bottom: 1px solid #e8eaf1;
+  /* Transparent accent gutter so columns line up with the rows' coloured one. */
+  border-left: 3px solid transparent;
   border-radius: 12px 12px 0 0;
 }
 .ws-hcell {
@@ -1447,6 +1449,8 @@
 }
 .wsrow {
   border-bottom: 1px solid #f1f2f7;
+  /* Left accent gutter coloured per type (set inline); transparent fallback. */
+  border-left: 3px solid transparent;
   cursor: pointer;
   text-align: left;
 }
@@ -1473,8 +1477,9 @@
   border-left: 1px solid #f1f2f7;
 }
 .wscell--type {
-  justify-content: flex-start;
-  padding-top: 15px;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 8px;
 }
 .wscell--status {
   align-items: flex-end;
@@ -1521,15 +1526,12 @@
   border-color: #f0b5bd;
   background: #fdecee;
 }
-.ws-type {
+.ws-typeicon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  padding: 7px 12px;
-  border-radius: 7px;
+  width: 36px;
+  height: 36px;
 }
 .ws-title {
   font-size: 14.5px;

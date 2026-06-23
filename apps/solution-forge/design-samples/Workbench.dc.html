@@ -81,7 +81,7 @@ body{margin:0}
 
     <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
       <div style="background:#fff;border:1px solid #e3e6ef;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(20,22,40,.05)">
-        <div style="display:grid;grid-template-columns:84px minmax(220px,2.2fr) minmax(160px,1.2fr) minmax(205px,1.5fr) 128px;align-items:center;background:#f7f8fb;border-bottom:1px solid #e8eaf1;padding:0">
+        <div style="display:grid;grid-template-columns:96px minmax(220px,2.2fr) minmax(160px,1.2fr) minmax(205px,1.5fr) 128px;align-items:center;background:#f7f8fb;border-bottom:1px solid #e8eaf1;border-left:3px solid transparent;padding:0">
           <div style="padding:11px 16px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9097a3">Typ</div>
           <div style="padding:11px 16px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6c5ce8"><span style="width:7px;height:7px;border-radius:50%;background:#5b54e8"></span>Working Solution</div>
           <div style="padding:11px 16px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0e9384;border-left:1px solid #eaecf2"><span style="width:7px;height:7px;border-radius:50%;background:#0e9384"></span>Solution</div>
@@ -90,9 +90,19 @@ body{margin:0}
         </div>
 
         <sc-for list="{{ entries }}" as="e" hint-placeholder-count="7">
-          <div style="display:grid;grid-template-columns:84px minmax(220px,2.2fr) minmax(160px,1.2fr) minmax(205px,1.5fr) 128px;align-items:stretch;border-bottom:1px solid #f1f2f7" style-hover="background:#fafbff">
-            <div style="padding:15px 16px;display:flex;align-items:flex-start">
-              <span style="display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;letter-spacing:.05em;padding:5px 9px;border-radius:6px;background:{{ e.typeBg }};color:{{ e.typeFg }}">{{ e.typeLabel }}</span>
+          <div style="display:grid;grid-template-columns:96px minmax(220px,2.2fr) minmax(160px,1.2fr) minmax(205px,1.5fr) 128px;align-items:stretch;border-bottom:1px solid #f1f2f7;border-left:3px solid {{ e.typeFg }}" style-hover="background:#fafbff">
+            <div style="padding:15px 14px;display:flex;align-items:center;justify-content:center">
+              <span title="{{ e.typeLabel }}" style="width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;color:{{ e.typeFg }};cursor:default">
+                <sc-if value="{{ e.isFeature }}" hint-placeholder-val="{{ true }}">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
+                </sc-if>
+                <sc-if value="{{ e.isBug }}" hint-placeholder-val="{{ false }}">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="13" rx="7.5" ry="8"></ellipse><path d="M12 5.5V21"></path><path d="M9.5 3.5 11 5.5M14.5 3.5 13 5.5"></path><circle cx="12" cy="6.5" r="1.8" fill="currentColor" stroke="none"></circle><circle cx="8" cy="11.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="16" cy="11.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="8.5" cy="16" r="1" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="16" r="1" fill="currentColor" stroke="none"></circle></svg>
+                </sc-if>
+                <sc-if value="{{ e.isRelease }}" hint-placeholder-val="{{ false }}">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 11.5 3H20a1 1 0 0 1 1 1v8.5L12.5 21a1.4 1.4 0 0 1-2 0L3 13.5a1.4 1.4 0 0 1 0-2Z"></path><circle cx="16.4" cy="7.6" r="1.3"></circle></svg>
+                </sc-if>
+              </span>
             </div>
 
             <div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0">
@@ -236,6 +246,7 @@ class Component extends DCLogic {
   };
 
   data = [
+    { id:13600, type:'release', title:'Release 2025.06 — Sprint 42', owner:'Stefan Mlodoch', toBeCompleted:false, sync:'synced', updated:'2 d', solution:{name:'release_2025_06', version:'v1.1.0'}, devops:{id:13600, state:'13a-UAT Deployment'} },
     { id:13486, type:'feature', title:'PQC | Bug 13486 (MT)', owner:'Marius Thoma', toBeCompleted:true, sync:'synced', updated:'21 h', solution:{name:'feature_13486', version:'v1.0.0'}, devops:{id:13486, state:'Closed'} },
     { id:13382, type:'bug', title:'DualWrite Error bei Änderung oder Datensatzanlage', owner:'Andy Schwarz', toBeCompleted:false, sync:'synced', updated:'22 h', solution:{name:'bug_13382', version:'v1.0.1'}, devops:{id:13382, state:'12-Test HSO auf INT/DEV'} },
     { id:13473, type:'feature', title:'PQC | CR 13473 (SML)', owner:'Stefan Mlodoch', toBeCompleted:false, sync:'synced', updated:'4 d', solution:{name:'feature_13473', version:'v1.0.0'}, devops:{id:13473, state:'14a-UAT Test Schulz'} },
@@ -273,9 +284,12 @@ class Component extends DCLogic {
 
   decorate(e) {
     const sol = e.solution, dev = e.devops;
-    const type = e.type === 'feature'
-      ? { bg:'#e9f0ff', fg:'#3551d6' }
-      : { bg:'#fdeef1', fg:'#cf4b63' };
+    const typeColors = {
+      feature: { bg:'#f1ebf8', fg:'#7c4ca7' },
+      bug:     { bg:'#fdeef1', fg:'#cf4b63' },
+      release: { bg:'#ffefe0', fg:'#c2620e' },
+    };
+    const type = typeColors[e.type] || typeColors.feature;
 
     let devBg = '', devFg = '', devBar = '', devPct = '0%', devState = '';
     if (dev) {
@@ -298,6 +312,7 @@ class Component extends DCLogic {
     return {
       id: e.id,
       typeLabel: e.type.toUpperCase(),
+      isFeature: e.type === 'feature', isBug: e.type === 'bug', isRelease: e.type === 'release',
       typeBg: type.bg, typeFg: type.fg,
       title: e.title,
       owner: String(e.owner).replace(/^#\s*/, ''),
@@ -319,11 +334,13 @@ class Component extends DCLogic {
     const all = this.data;
     const fcount = all.filter(x => x.type === 'feature').length;
     const bcount = all.filter(x => x.type === 'bug').length;
+    const rcount = all.filter(x => x.type === 'release').length;
 
     let list = all;
     if (type === 'feature') list = list.filter(x => x.type === 'feature');
     else if (type === 'bug') list = list.filter(x => x.type === 'bug');
-    else if (type === 'release' || type === 'other') list = [];
+    else if (type === 'release') list = list.filter(x => x.type === 'release');
+    else if (type === 'other') list = [];
 
     const q = query.trim().toLowerCase();
     if (q) {
@@ -341,7 +358,7 @@ class Component extends DCLogic {
       ['all', 'All', all.length],
       ['feature', 'Features', fcount],
       ['bug', 'Bugs', bcount],
-      ['release', 'Releases', 0],
+      ['release', 'Releases', rcount],
       ['other', 'Other', 0],
     ];
     const chips = defs.map(([key, label, count]) => {
