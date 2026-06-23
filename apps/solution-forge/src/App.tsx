@@ -1036,22 +1036,27 @@ function App() {
                 )}
               </label>
             </div>
-            {collisionStats &&
-              !collisionProgress &&
-              (collisionStats.components > 0 ? (
-                <span className="collision-summary collision-summary--warn">
-                  {collisionStats.components} component
-                  {collisionStats.components === 1 ? '' : 's'} contained in
-                  more than one working solution ({collisionStats.solutions}{' '}
-                  solutions affected)
-                </span>
-              ) : (
-                <span className="collision-summary muted">
-                  No component collisions across the tracked working
-                  solutions.
-                </span>
-              ))}
           </div>
+
+          {collisionStats && !collisionProgress && (
+            <div
+              className={`state collision-banner ${
+                collisionStats.components > 0
+                  ? 'collision-banner--warn'
+                  : 'state--success'
+              }`}
+            >
+              {collisionStats.components > 0
+                ? `⚠ ${collisionStats.components} component${
+                    collisionStats.components === 1 ? '' : 's'
+                  } contained in more than one working solution (${
+                    collisionStats.solutions
+                  } solution${
+                    collisionStats.solutions === 1 ? '' : 's'
+                  } affected)`
+                : '✓ No component collisions across the tracked working solutions.'}
+            </div>
+          )}
 
           {syncingDevOps && (
             <div className="sharing-progress" aria-live="polite">

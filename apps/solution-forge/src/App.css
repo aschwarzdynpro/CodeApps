@@ -609,6 +609,18 @@
   color: #b7791f;
   font-weight: 600;
 }
+/* Collision-scan result banner — green when clean, amber on findings (shown
+   like the DevOps-sync banner, below the toolbar so it doesn't reflow it). */
+.collision-banner {
+  margin-bottom: 14px;
+}
+.collision-banner--warn {
+  border-style: solid;
+  border-color: #f0c987;
+  background: #fdf6e7;
+  color: #b7791f;
+  font-weight: 600;
+}
 .coll-chip {
   display: inline-block;
   font-size: 10px;
