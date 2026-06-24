@@ -5,7 +5,7 @@ import type { PublisherInfo, WorkingSolution } from '../types/solution'
 interface UseSolutionsResult {
   solutions: WorkingSolution[]
   publishers: PublisherInfo[]
-  /** Configured default publisher (raw ssid_publisher_str), or null. */
+  /** Configured default publisher (raw pro_publisher_str), or null. */
   defaultPublisher: string | null
   loading: boolean
   error: string | null

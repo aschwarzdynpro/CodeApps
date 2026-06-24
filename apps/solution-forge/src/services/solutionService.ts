@@ -41,7 +41,7 @@ export interface SolutionService {
   listPublishers(): Promise<PublisherInfo[]>
   /**
    * Configured default publisher for new working solutions, read from the
-   * single Workbench Settings record (`ssid_publisher_str`). Returns the
+   * single Workbench Settings record (`pro_publisher_str`). Returns the
    * raw string (unique name / prefix / friendly name) or null when unset.
    */
   getDefaultPublisher(): Promise<string | null>
@@ -50,7 +50,7 @@ export interface SolutionService {
     input: CreateWorkingSolutionInput,
   ): Promise<WorkingSolution>
   /**
-   * Creates only the ssid_workingsolution presentation record for an
+   * Creates only the pro_workingsolution presentation record for an
    * already existing solution ("nacherfassen").
    */
   trackSolution(input: TrackSolutionInput): Promise<void>
@@ -116,7 +116,7 @@ export interface SolutionService {
    * the Merge and Compare tabs.
    */
   hasRole(roleName: string): Promise<boolean>
-  /** Updates sst_type_opt on an existing working-solution record. */
+  /** Updates pro_type_opt on an existing working-solution record. */
   updateSolutionType(
     recordId: string,
     kind: TrackSolutionInput['kind'],
@@ -125,7 +125,7 @@ export interface SolutionService {
   /** Edit a working solution's type, title and description in one go. */
   updateWorkingSolution(input: UpdateWorkingSolutionInput): Promise<void>
   /**
-   * Sets ssid_deploymentstatus on a working-solution record — e.g. to mark
+   * Sets pro_deploymentstatus on a working-solution record — e.g. to mark
    * it completed (DEPLOYMENT_COMPLETED_CODE) or to reopen it.
    */
   setDeploymentStatus(recordId: string, statusCode: number): Promise<void>
@@ -147,14 +147,14 @@ export interface SolutionService {
   deleteUnderlyingSolution(solutionId: string): Promise<void>
   /**
    * Runs the "Sync DevOps Work Item Status" cloud flow, which refreshes each
-   * working solution's sst_devopsworkitemstatus from Azure DevOps. Returns the
+   * working solution's pro_devopsworkitemstatus from Azure DevOps. Returns the
    * count the flow reports. Callers should reload the list afterwards so the
    * "to be completed" reconciliation re-runs.
    */
   syncDevOpsWorkItemStatus(): Promise<number>
   /**
    * Re-links an orphaned working-solution record to an existing solution
-   * (updates ssid_uniquesolutionname and the maker link).
+   * (updates pro_uniquesolutionname and the maker link).
    */
   linkSolution(
     recordId: string,
@@ -193,12 +193,12 @@ export interface SolutionService {
 
   /**
    * Published release-notes snapshots for a release solution (the
-   * `sst_releasenote` rows linked to the given working-solution record id),
+   * `pro_releasenote` rows linked to the given working-solution record id),
    * newest first.
    */
   listReleaseNotes(releaseRecordId: string): Promise<ReleaseNote[]>
 
-  /** Persist a new release-notes snapshot (one `sst_releasenote` row). */
+  /** Persist a new release-notes snapshot (one `pro_releasenote` row). */
   publishReleaseNotes(input: PublishReleaseNotesInput): Promise<ReleaseNote>
 }
 

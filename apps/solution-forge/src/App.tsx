@@ -123,7 +123,7 @@ function App() {
   const { solutions, publishers, defaultPublisher, loading, error, loadedAt, reload } =
     useSolutions()
 
-  // Resolve the configured default publisher (ssid_publisher_str) to a
+  // Resolve the configured default publisher (pro_publisher_str) to a
   // publisher id — matched defensively by unique name, prefix or friendly
   // name; falls back to the first publisher in the dialog when unset.
   const defaultPublisherId = useMemo(() => {

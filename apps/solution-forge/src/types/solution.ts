@@ -2,12 +2,12 @@
  * Domain model for managing Dataverse solutions during feature / bug
  * development.
  *
- * A "working solution" is a row of the custom table `ssid_workingsolution`
+ * A "working solution" is a row of the custom table `pro_workingsolution`
  * (the curated presentation layer: title, dedicated DevOps id, type, owner,
- * deployment status) linked via `ssid_uniquesolutionname` to the real
+ * deployment status) linked via `pro_uniquesolutionname` to the real
  * unmanaged Dataverse solution that carries the components.
  *
- * The classification (`SolutionKind`) comes from the row's `sst_type_opt`
+ * The classification (`SolutionKind`) comes from the row's `pro_type_opt`
  * choice (Feature / Bug / Release — internal key `deployment`). Solutions
  * without a working-solution row fall back to the unique-name convention
  * (feature_<id> / bug_<id> / deploy_<name>) and are otherwise `other`.
@@ -43,15 +43,15 @@ export interface WorkingSolution {
    * {@link solutionMissing} before using it against Dataverse.
    */
   id: string
-  /** ssid_workingsolutionid of the presentation row, when one exists. */
+  /** pro_workingsolutionid of the presentation row, when one exists. */
   recordId?: string
   /** Owner of the working-solution row (owneridname). */
   owner?: string
   /** Raw owner id (systemuser/team guid) for the "Mine" filter. */
   ownerId?: string
-  /** Formatted ssid_deploymentstatus label, e.g. "Deployment completed". */
+  /** Formatted pro_deploymentstatus label, e.g. "Deployment completed". */
   deploymentStatus?: string
-  /** Raw ssid_deploymentstatus option value (informational only). */
+  /** Raw pro_deploymentstatus option value (informational only). */
   deploymentStatusCode?: number
   /**
    * statecode of the working-solution record: 0 = active (open), 1 = inactive
@@ -61,21 +61,21 @@ export interface WorkingSolution {
   recordStateCode?: number
   /**
    * Release solutions only: component-type codes allowed when merging into
-   * this release (from the sst_allowedmergetypes multi-select). Empty/undefined
+   * this release (from the pro_allowedmergetypes multi-select). Empty/undefined
    * means no restriction (all types allowed). See {@link MERGEABLE_COMPONENT_TYPES}.
    */
   allowedMergeTypes?: number[]
   /**
    * Release solutions only: component-type codes blocked on merge
-   * (sst_excludedmergetypes). Applied on top of the allow-list — a type is
+   * (pro_excludedmergetypes). Applied on top of the allow-list — a type is
    * mergeable when (allow empty or in allow) AND not in exclude.
    */
   excludedMergeTypes?: number[]
-  /** True when the row's ssid_uniquesolutionname matches no real solution. */
+  /** True when the row's pro_uniquesolutionname matches no real solution. */
   solutionMissing?: boolean
   /**
    * Derived flag: the entry is still open but its DevOps work item is closed
-   * (sst_devopsworkitemstatus), so it's ready to be marked completed. Not
+   * (pro_devopsworkitemstatus), so it's ready to be marked completed. Not
    * persisted — computed when the list loads.
    */
   toBeCompleted?: boolean
@@ -89,7 +89,7 @@ export interface WorkingSolution {
   /** Azure DevOps work item id parsed from the unique name (null for deploy/other). */
   devOpsId: string | null
   /**
-   * DevOps work-item state synced onto the record (sst_devopsworkitemstatus),
+   * DevOps work-item state synced onto the record (pro_devopsworkitemstatus),
    * e.g. "New", "Active", "Resolved", "Closed". Undefined when never synced.
    * Drives the work-item status chip in the list; {@link isClosedWorkItemState}
    * classifies it.
@@ -153,7 +153,7 @@ export interface CreateWorkingSolutionInput {
 
 /** Edits to an existing working solution (type, title, description). */
 export interface UpdateWorkingSolutionInput {
-  /** ssid_workingsolution record id (type + name live here). */
+  /** pro_workingsolution record id (type + name live here). */
   recordId: string
   /** Real solution id — friendlyname/description updated when it exists. */
   solutionId: string
@@ -165,14 +165,14 @@ export interface UpdateWorkingSolutionInput {
 }
 
 /**
- * ssid_deploymentstatus values that count as "closed" for the workbench's
+ * pro_deploymentstatus values that count as "closed" for the workbench's
  * default Open filter: Deployment completed, Merged into Deployment
  * Solution, Merged into Core Solution. Everything else (None, To be
  * deployed, Deployment in progress, unset) is open.
  */
 export const CLOSED_STATUS_CODES = new Set([500870003, 867520001, 867520002])
 
-/** ssid_deploymentstatus value for "Deployment completed". */
+/** pro_deploymentstatus value for "Deployment completed". */
 export const DEPLOYMENT_COMPLETED_CODE = 500870003
 
 /**
@@ -186,7 +186,7 @@ export function isOpenStatus(s: WorkingSolution): boolean {
 }
 
 /**
- * DevOps work-item states (sst_devopsworkitemstatus, lower-cased) that count
+ * DevOps work-item states (pro_devopsworkitemstatus, lower-cased) that count
  * as closed/done — an open working solution in one of these is "to be
  * completed". Extend if the process adds other terminal states.
  */
@@ -237,7 +237,7 @@ export interface MergeResult {
 /**
  * Component types selectable in a release's merge allow-list. The codes are
  * the Dataverse `componenttype` values and MUST mirror the option values of
- * the `sst_allowedmergetypes` multi-select choice in Dataverse — add an option
+ * the `pro_allowedmergetypes` multi-select choice in Dataverse — add an option
  * there and a matching entry here together.
  */
 export const MERGEABLE_COMPONENT_TYPES: { code: number; label: string }[] = [
@@ -285,7 +285,7 @@ export function canonicalCollapsedLabel(label: string): string {
 /**
  * One added component captured in a merge run. Stored compactly (type + name,
  * short keys) so the whole list fits in a single multiline column on the
- * `sst_mergerun` row — no child table. The type label drives grouping/icons
+ * `pro_mergerun` row — no child table. The type label drives grouping/icons
  * in the UI; the name is what the release notes need.
  */
 export interface MergeRunComponent {
@@ -297,11 +297,11 @@ export interface MergeRunComponent {
 
 /**
  * One logged merge into a release/deployment solution (a row of the
- * `sst_mergerun` table). Counts plus the source solution titles and the
+ * `pro_mergerun` table). Counts plus the source solution titles and the
  * concrete components that were added in that run.
  */
 export interface MergeRun {
-  /** sst_mergerunid */
+  /** pro_mergerunid */
   id: string
   /** createdon (ISO date-time) — when the merge ran. */
   createdOn: string
@@ -312,21 +312,21 @@ export interface MergeRun {
   errors: number
   /** Titles of the source solutions merged in this run. */
   sources: string[]
-  /** Components added in this run (parsed from sst_addedcomponents_txt). */
+  /** Components added in this run (parsed from pro_addedcomponents_txt). */
   components: MergeRunComponent[]
 }
 
 /**
- * A published release-notes snapshot — one row of the `sst_releasenote` table,
+ * A published release-notes snapshot — one row of the `pro_releasenote` table,
  * frozen at publish time (both render formats stored) and linked to its
  * release solution.
  */
 export interface ReleaseNote {
-  /** sst_releasenoteid */
+  /** pro_releasenoteid */
   id: string
-  /** ssid_workingsolutionid of the release this belongs to. */
+  /** pro_workingsolutionid of the release this belongs to. */
   releaseRecordId: string
-  /** sst_name — generated title. */
+  /** pro_name — generated title. */
   name: string
   /** Release version at publish time. */
   version: string

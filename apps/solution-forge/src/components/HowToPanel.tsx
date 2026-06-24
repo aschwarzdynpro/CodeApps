@@ -45,7 +45,7 @@ export function HowToPanel({ onClose }: { onClose: () => void }) {
               </li>
               <li>
                 a <strong>tracking record</strong> (the{' '}
-                <code>ssid_workingsolution</code> table) that adds the title,
+                <code>pro_workingsolution</code> table) that adds the title,
                 type (Feature / Bug / Release), owner, Azure DevOps id,
                 deployment status and merge log on top, linked to the real
                 solution by its unique name.

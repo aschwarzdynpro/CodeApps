@@ -10,8 +10,10 @@ Verwaltet Dataverse-Solutions für Feature-/Bug-Entwicklung. Lies zuerst:
 | --- | --- |
 | Umgebung (Host) | **D365-SCHULZ-INT-11**, `431783f6-367c-eb49-984b-4e70e4c0424d`, https://operations-d365-schulz-int-11.crm4.dynamics.com |
 | UAT / PROD | siehe `ENVIRONMENTS` in `src/config.ts` (Compare/Dependency-Check-Ziele) |
-| App-ID | `459ee5cd-2138-4556-b472-058c676f72ef` (appDisplayName in power.config.json noch „Solution Forge") |
-| Solution | `WorkbenchSchulz` (`67315e76-c155-ed11-bba2-0022489de585`) — App-Mitgliedschaft via Maker-Portal „Add existing → App → Code app" (`power-apps push -s` registriert sie NICHT) |
+| App-ID (NEU, `pro_`-Modell) | `cade30e1-dd5c-4532-82eb-fd8520ba7b29` — „Solution Administration Console (Pro)", läuft auf dem `pro_`-Datenmodell. **Das ist ab jetzt die aktive App.** |
+| App-ID (ALT, `ssid_`/`sst_`-Modell) | `459ee5cd-2138-4556-b472-058c676f72ef` — „Solution Administration Console", läuft noch auf dem alten Modell. Bleibt zur Parallelnutzung bestehen, wird NICHT mehr deployed; nach Abnahme der Pro-App entfernbar. |
+| Datenmodell-Solution | `DynamicsProSolutionAdminConsole` (`e1e38a6e-b06f-f111-ab0d-000d3ab526d3`), Publisher **Dynamics Pro** (`DynamicsPro`, Prefix `pro`). Erzeugt mit `installer/provision-model.ps1`. |
+| App-Mitgliedschaft | via Maker-Portal „Add existing → App → Code app" (`power-apps push -s` registriert sie NICHT) |
 | DevOps | Org `SchulzD365`, Projekt `D365UO` — Panel deaktiviert (`DEVOPS_PANEL_ENABLED=false`), Reaktivierung siehe TODO.md |
 | Rolle für die Validate-Gruppe (Compare/DependencyCheck/Layers/App Sharing) | `INT | Deployment Manager` (`DEPLOYMENT_MANAGER_ROLE` in config.ts) — Workbench + Merge sind NICHT gated |
 | pac-Auth | Profil `EX-Andy.Schwarz@schulz.st`; ggf. `-env <INT-11-URL>` |
@@ -25,7 +27,7 @@ Sources einführte, fehlen sie lokal und der Build bricht ab
 
 ```
 npm install                       # bringt auch Laufzeit-Deps wie `diff`
-power-apps init --display-name "Solution Administration Console" --environment-id 431783f6-367c-eb49-984b-4e70e4c0424d
+power-apps init --non-interactive -n "Solution Administration Console (Pro)" --cloud prod -e 431783f6-367c-eb49-984b-4e70e4c0424d -b ./dist -f index.html -a http://localhost:3000
 # Tabellen (Wrapper-Skript, NICHT pac direkt):
 ./scripts/add-data-source.ps1 -a dataverse -t solution
 ./scripts/add-data-source.ps1 -a dataverse -t publisher
@@ -33,16 +35,22 @@ power-apps init --display-name "Solution Administration Console" --environment-i
 ./scripts/add-data-source.ps1 -a dataverse -t msdyn_solutioncomponentsummary
 ./scripts/add-data-source.ps1 -a dataverse -t systemuser
 ./scripts/add-data-source.ps1 -a dataverse -t role
-./scripts/add-data-source.ps1 -a dataverse -t ssid_workingsolution
-./scripts/add-data-source.ps1 -a dataverse -t ssid_workbenchsettings
-./scripts/add-data-source.ps1 -a dataverse -t sst_mergerun
-./scripts/add-data-source.ps1 -a dataverse -t sst_releasenote
-# Konnektor (Dataverse, „from selected environment"):
-./scripts/add-data-source.ps1 -a shared_commondataserviceforapps -cr sst_CRDataverse -s 67315e76-c155-ed11-bba2-0022489de585
+./scripts/add-data-source.ps1 -a dataverse -t pro_workingsolution
+./scripts/add-data-source.ps1 -a dataverse -t pro_workbenchsettings
+./scripts/add-data-source.ps1 -a dataverse -t pro_mergerun
+./scripts/add-data-source.ps1 -a dataverse -t pro_releasenote
+# Konnektor (Dataverse) — direkte Connection-Bindung per -c (Connection „App-Reg
+# D365-CE nonProd", SP). Für den Installer/ALM stattdessen Connection-Reference
+# `pro_CRDataverse` (muss vorab existieren, sonst „Failed to resolve connection ID"):
+./scripts/add-data-source.ps1 -a shared_commondataserviceforapps -c 73569138b7c4466d9ee6933ad6e66a3c
 # Cloud-Flow (npm-CLI, droppt danach den retrievemissingdependencies-Block
 # aus dataSourcesInfo.ts → manuell wieder einsetzen, Vorlage im Wrapper-Skript):
+# (Optional/derzeit weggelassen — DevOps deaktiviert; der Flow zielt noch aufs Altmodell.)
 power-apps add-flow --flow-id e8d6ad6b-abd5-f011-8544-000d3ab3220a   # PA | MANUAL | Working Solution | Sync DevOps Work Item Status
 ```
+**Datenmodell auf neuem Environment erzeugen** (statt Maker-Handarbeit):
+`pwsh installer/provision-model.ps1 -EnvironmentUrl <url> [-TenantId <guid>]`
+legt Publisher `DynamicsPro` (Prefix `pro`) + Solution + alle 4 `pro_`-Tabellen an.
 Welche generated services der committete Code erwartet ⇔ Soll-Liste:
 `grep -rho "generated/services/\w*" src` gegen `ls src/generated/services`.
 
@@ -71,21 +79,21 @@ phasenweise zu einem Severity-Report — kein eigener Datenpfad, daher auch
 ohne eigenen Mock (erbt die Mock-Fallbacks der genutzten Services). Caches
 (Komponenten, Suche-Index, Kollisionsradar, WorkItems) leben in `App.tsx`.
 
-**Datenmodell:** `ssid_workingsolution` = Darstellungs-Schicht, verlinkt
-über `ssid_uniquesolutionname` zur echten Solution. Typ-Kaskade:
-`sst_type_opt` (867520000 F / …001 B / …002 R) → `sst_devopsworkitemtype`
+**Datenmodell:** `pro_workingsolution` = Darstellungs-Schicht, verlinkt
+über `pro_uniquesolutionname` zur echten Solution. Typ-Kaskade:
+`pro_type_opt` (867520000 F / …001 B / …002 R) → `pro_devopsworkitemtype`
 (Bug→Bug, CR/Feature/Backlog→Feature) → Namenskonvention
 (`feature_|bug_|deploy_`) → Other. Releases: keine DevOps-ID anzeigen,
-Pflichtfeld bekommt `'N/A'`. Pflicht-Lookup `ssid_WorkbenchSetting` wird
-aus erstem `ssid_workbenchsettings`-Datensatz aufgelöst. **Offen/Geschlossen
+Pflichtfeld bekommt `'N/A'`. Pflicht-Lookup `pro_WorkbenchSetting` wird
+aus erstem `pro_workbenchsettings`-Datensatz aufgelöst. **Offen/Geschlossen
 richtet sich allein nach dem `statecode` des Records** (0 = offen, 1 =
 geschlossen), NICHT nach dem Deployment-Status (`isOpenStatus`); `listSolutions`
 lädt daher auch inaktive Records (kein `statecode eq 0`-Filter mehr) und der
 Open-Toggle blendet sie aus. „Mark completed" setzt nur das Status-Label
-`ssid_deploymentstatus`, deaktiviert den Record (noch) nicht.
+`pro_deploymentstatus`, deaktiviert den Record (noch) nicht.
 
 **Merge-Regeln je Release:** zwei Multi-Select-Choices auf
-`ssid_workingsolution` — `sst_allowedmergetypes` (Allow) + `sst_excludedmergetypes`
+`pro_workingsolution` — `pro_allowedmergetypes` (Allow) + `pro_excludedmergetypes`
 (Exclude), **Optionswerte = die `componenttype`-Codes** (1, 2, 26, 61, …) → kein
 Mapping nötig. Gelesen als `allowedMergeTypes`/`excludedMergeTypes` (`number[]`,
 Comma-Values-Parse in `parseTypeCodes`), gesetzt via
@@ -99,24 +107,24 @@ Read-only-Übersicht (`AllowedTypesSummary`). **Kopplung:** das Konstanten-Array
 `MERGEABLE_COMPONENT_TYPES` (types/solution.ts) muss die Choice-Optionen
 spiegeln — neue Option in Dataverse ⇒ Eintrag dort ergänzen.
 
-**Merge-Historie:** Tabelle `sst_mergerun` (1 Zeile je Merge) — Counts
-(`sst_added_int`/`sst_skipped_int`/`sst_errors_int`), Quell-Titel
-(`sst_sources_txt`, `\n`-getrennt), Ziel via Lookup `sst_targetsolution_ref`
-→ `ssid_workingsolution`. **Welche Komponenten** hinzugefügt wurden, liegen
+**Merge-Historie:** Tabelle `pro_mergerun` (1 Zeile je Merge) — Counts
+(`pro_added_int`/`pro_skipped_int`/`pro_errors_int`), Quell-Titel
+(`pro_sources_txt`, `\n`-getrennt), Ziel via Lookup `pro_targetsolution_ref`
+→ `pro_workingsolution`. **Welche Komponenten** hinzugefügt wurden, liegen
 bewusst denormalisiert als kompaktes JSON-Array (`[{t:Typ,n:Name}]`) in der
-Multiline-Spalte `sst_addedcomponents_txt` — eine Spalte statt Kind-Tabelle,
+Multiline-Spalte `pro_addedcomponents_txt` — eine Spalte statt Kind-Tabelle,
 defensiv geparst (`toMergeRun`). Schreiben in
 `dataverseSolutionService.logMergeRun` (best-effort, scheitert nie den Merge);
 Lesen via `listMergeRuns(targetRecordId)` (Filter
-`_sst_targetsolution_ref_value eq <id>`). UI: Tabelle im `SolutionDetail`
+`_pro_targetsolution_ref_value eq <id>`). UI: Tabelle im `SolutionDetail`
 (nur Release-Solutions, lädt sich selbst, Remount je Solution); Klick auf eine
 Zeile öffnet ein **Overlay** (`MergeRunComponentsModal`) mit den hinzugefügten
 Komponenten gruppiert nach Typ.
 
-**Release Notes:** Tabelle `sst_releasenote` (1 Zeile = 1 veröffentlichter
-Snapshot), Lookup `sst_releasesolution_ref` → `ssid_workingsolution`. Spalten:
-`sst_name`, `sst_version_txt`, `sst_markdown_txt`, `sst_plaintext_txt`,
-`sst_summary_txt` (Audit createdon/by = veröffentlicht am/von). Reiner Builder
+**Release Notes:** Tabelle `pro_releasenote` (1 Zeile = 1 veröffentlichter
+Snapshot), Lookup `pro_releasesolution_ref` → `pro_workingsolution`. Spalten:
+`pro_name`, `pro_version_txt`, `pro_markdown_txt`, `pro_plaintext_txt`,
+`pro_summary_txt` (Audit createdon/by = veröffentlicht am/von). Reiner Builder
 `buildReleaseNotes(release, runs, solutions, generatedAt)` (`services/release-
 Notes.ts`) erzeugt aus den `MergeRun`s **Markdown + Rohtext + Summary** —
 enthaltene Quell-Solutions (best-effort DevOps-`#`-Link via `devOpsWorkItemUrl`),
@@ -174,7 +182,7 @@ speichert kombinierte Liste).
    sie noch → werfen). Fehler-Banner in `App.tsx` (`actionError`, 5s-Fade,
    `describeError` zieht die innere OData-`message` aus dem Batch-Body).
 5. **Identitäten:** Native Dataverse-Sources laufen als angemeldeter User;
-   Konnektor-Sources als Connection (`sst_CRDataverse` → SP „App-Reg
+   Konnektor-Sources als Connection (`pro_CRDataverse` → SP „App-Reg
    D365-CE nonProd"). Current User ⇒ native `SystemusersService` mit
    Filter `Microsoft.Dynamics.CRM.EqualUserId(PropertyName='systemuserid')`.
    Rolle ⇒ native `RolesService` mit

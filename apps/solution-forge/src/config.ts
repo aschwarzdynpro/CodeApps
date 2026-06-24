@@ -17,7 +17,7 @@ const DEFAULT_ENVIRONMENT_ID = '431783f6-367c-eb49-984b-4e70e4c0424d'
 
 /**
  * Environments for the ALM comparison. Hardcoded for now; the planned
- * upgrade is a Dataverse control table (e.g. sst_environmentconfig) read at
+ * upgrade is a Dataverse control table (e.g. pro_environmentconfig) read at
  * startup, with these values as fallback. The connector's GetOrganizations()
  * can validate the URLs against what the signed-in user can actually reach.
  */
@@ -66,7 +66,7 @@ export const ADO_PROJECT_NAME: string = ADO_PROJECT
  * (see TODO.md "Auth auf Service Principal umstellen"). While false, the
  * panel is hidden, no work items are fetched, and the DevOps connector is
  * removed from the app so users get no connection prompt at startup.
- * Re-enable: re-add the connector data source (-cr sst_CRDevOps), restore
+ * Re-enable: re-add the connector data source (-cr pro_CRDevOps), restore
  * the AzureDevOpsService call in dataverseSolutionService.getWorkItem(),
  * then flip this to true.
  */

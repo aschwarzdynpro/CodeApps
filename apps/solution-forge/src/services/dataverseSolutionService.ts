@@ -49,22 +49,22 @@ import { Msdyn_solutioncomponentsummariesService } from '../generated/services/M
 import type { Msdyn_solutioncomponentsummaries } from '../generated/models/Msdyn_solutioncomponentsummariesModel'
 import { AddSolutionComponentService } from '../generated/services/AddSolutionComponentService'
 import { PA_MANUAL_WorkingSolution_SyncDevOpsWorkItemStatusService } from '../generated/services/PA_MANUAL_WorkingSolution_SyncDevOpsWorkItemStatusService'
-import { Ssid_workingsolutionsService } from '../generated/services/Ssid_workingsolutionsService'
-import { Ssid_workbenchsettingsesService } from '../generated/services/Ssid_workbenchsettingsesService'
+import { Pro_workingsolutionsService } from '../generated/services/Pro_workingsolutionsService'
+import { Pro_workbenchsettingsesService } from '../generated/services/Pro_workbenchsettingsesService'
 import type {
-  Ssid_workingsolutions,
-  Ssid_workingsolutionsBase,
-} from '../generated/models/Ssid_workingsolutionsModel'
-import { Sst_mergerunsService } from '../generated/services/Sst_mergerunsService'
+  Pro_workingsolutions,
+  Pro_workingsolutionsBase,
+} from '../generated/models/Pro_workingsolutionsModel'
+import { Pro_mergerunsService } from '../generated/services/Pro_mergerunsService'
 import type {
-  Sst_mergeruns,
-  Sst_mergerunsBase,
-} from '../generated/models/Sst_mergerunsModel'
-import { Sst_releasenotesService } from '../generated/services/Sst_releasenotesService'
+  Pro_mergeruns,
+  Pro_mergerunsBase,
+} from '../generated/models/Pro_mergerunsModel'
+import { Pro_releasenotesService } from '../generated/services/Pro_releasenotesService'
 import type {
-  Sst_releasenotes,
-  Sst_releasenotesBase,
-} from '../generated/models/Sst_releasenotesModel'
+  Pro_releasenotes,
+  Pro_releasenotesBase,
+} from '../generated/models/Pro_releasenotesModel'
 import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
 import { SystemusersService } from '../generated/services/SystemusersService'
 import { RolesService } from '../generated/services/RolesService'
@@ -165,7 +165,7 @@ const COMPONENT_TYPE_LABELS: Record<number, string> = {
  * display values arrive as OData formatted-value annotations instead.
  */
 /**
- * ssid_workingsolution presentation layer: sst_type_opt choice values ↔
+ * pro_workingsolution presentation layer: pro_type_opt choice values ↔
  * SolutionKind (the internal key for Release stays 'deployment').
  */
 const KIND_BY_TYPE_OPT: Record<number, SolutionKind> = {
@@ -178,22 +178,22 @@ const TYPE_OPT_BY_KIND: Record<CreateWorkingSolutionInput['kind'], number> = {
   bug: 867520001,
   deployment: 867520002,
 }
-/** ssid_deploymentstatus: initial value and the "merged" log state. */
+/** pro_deploymentstatus: initial value and the "merged" log state. */
 const DEPLOYMENT_STATUS_NONE = 500870000
 const DEPLOYMENT_STATUS_MERGED = 867520001
 
 const WORKING_ROW_SELECT = [
-  'ssid_workingsolutionid',
-  'ssid_name',
-  'ssid_devopsid',
-  'ssid_uniquesolutionname',
-  'sst_type_opt',
-  'sst_devopsworkitemtype',
-  'sst_devopsworkitemstatus',
-  'ssid_deploymentstatus',
+  'pro_workingsolutionid',
+  'pro_name',
+  'pro_devopsid',
+  'pro_uniquesolutionname',
+  'pro_type_opt',
+  'pro_devopsworkitemtype',
+  'pro_devopsworkitemstatus',
+  'pro_deploymentstatus',
   'statecode',
-  'sst_allowedmergetypes',
-  'sst_excludedmergetypes',
+  'pro_allowedmergetypes',
+  'pro_excludedmergetypes',
   '_ownerid_value',
   'createdon',
   'modifiedon',
@@ -210,7 +210,7 @@ function parseTypeCodes(value: unknown): number[] {
 
 /**
  * Derive the kind from the synced DevOps work item type whenever
- * sst_type_opt is not set explicitly:
+ * pro_type_opt is not set explicitly:
  *   Bug → Bug; Change Request / Feature / Product Backlog Item → Feature.
  */
 function kindFromWorkItemType(workItemType?: string): SolutionKind | undefined {
@@ -437,15 +437,15 @@ function toComponentInfo(raw: Solutioncomponents): SolutionComponentInfo {
 }
 
 /**
- * Map one `sst_mergerun` row to the domain {@link MergeRun}. The added
+ * Map one `pro_mergerun` row to the domain {@link MergeRun}. The added
  * components live denormalized as a compact JSON array in
- * sst_addedcomponents_txt — parsed defensively so a malformed/legacy value
+ * pro_addedcomponents_txt — parsed defensively so a malformed/legacy value
  * just yields an empty component list instead of throwing.
  */
-function toMergeRun(raw: Sst_mergeruns): MergeRun {
-  const row = raw as Sst_mergeruns & Record<string, unknown>
+function toMergeRun(raw: Pro_mergeruns): MergeRun {
+  const row = raw as Pro_mergeruns & Record<string, unknown>
   let components: MergeRunComponent[] = []
-  const json = raw.sst_addedcomponents_txt
+  const json = raw.pro_addedcomponents_txt
   if (json) {
     try {
       const parsed = JSON.parse(json)
@@ -460,13 +460,13 @@ function toMergeRun(raw: Sst_mergeruns): MergeRun {
     }
   }
   return {
-    id: raw.sst_mergerunid,
+    id: raw.pro_mergerunid,
     createdOn: raw.createdon ?? '',
     createdBy: formatted(row, '_createdby_value') ?? raw.createdbyname,
-    added: Number(raw.sst_added_int ?? 0),
-    skipped: Number(raw.sst_skipped_int ?? 0),
-    errors: Number(raw.sst_errors_int ?? 0),
-    sources: (raw.sst_sources_txt ?? '')
+    added: Number(raw.pro_added_int ?? 0),
+    skipped: Number(raw.pro_skipped_int ?? 0),
+    errors: Number(raw.pro_errors_int ?? 0),
+    sources: (raw.pro_sources_txt ?? '')
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean),
@@ -474,16 +474,16 @@ function toMergeRun(raw: Sst_mergeruns): MergeRun {
   }
 }
 
-function toReleaseNote(raw: Sst_releasenotes, releaseRecordId: string): ReleaseNote {
-  const row = raw as Sst_releasenotes & Record<string, unknown>
+function toReleaseNote(raw: Pro_releasenotes, releaseRecordId: string): ReleaseNote {
+  const row = raw as Pro_releasenotes & Record<string, unknown>
   return {
-    id: raw.sst_releasenoteid,
-    releaseRecordId: raw._sst_releasesolution_ref_value ?? releaseRecordId,
-    name: raw.sst_name ?? '',
-    version: raw.sst_version_txt ?? '',
-    markdown: raw.sst_markdown_txt ?? '',
-    text: raw.sst_plaintext_txt ?? '',
-    summary: raw.sst_summary_txt ?? '',
+    id: raw.pro_releasenoteid,
+    releaseRecordId: raw._pro_releasesolution_ref_value ?? releaseRecordId,
+    name: raw.pro_name ?? '',
+    version: raw.pro_version_txt ?? '',
+    markdown: raw.pro_markdown_txt ?? '',
+    text: raw.pro_plaintext_txt ?? '',
+    summary: raw.pro_summary_txt ?? '',
     createdOn: raw.createdon ?? '',
     createdBy: formatted(row, '_createdby_value') ?? raw.createdbyname,
   }
@@ -513,22 +513,22 @@ async function fetchAll<T>(
 
 export class DataverseSolutionService implements SolutionService {
   /**
-   * Rows of the ssid_workingsolution presentation table — active AND inactive.
+   * Rows of the pro_workingsolution presentation table — active AND inactive.
    * Open/closed is derived from statecode (0 = open, 1 = closed), so inactive
    * rows are loaded too and just filtered out by the workbench's Open toggle.
    */
-  private async fetchWorkingRows(): Promise<Ssid_workingsolutions[]> {
-    const rows = await fetchAll((o) => Ssid_workingsolutionsService.getAll(o), {
+  private async fetchWorkingRows(): Promise<Pro_workingsolutions[]> {
+    const rows = await fetchAll((o) => Pro_workingsolutionsService.getAll(o), {
       select: WORKING_ROW_SELECT,
     })
     return rows ?? []
   }
 
   /**
-   * The workbench list: ssid_workingsolution rows (curated layer — title,
+   * The workbench list: pro_workingsolution rows (curated layer — title,
    * DevOps id, type, owner, deployment status) enriched with the linked
    * real solution (version, publisher, dates), joined on
-   * ssid_uniquesolutionname. Real unmanaged solutions without a row keep
+   * pro_uniquesolutionname. Real unmanaged solutions without a row keep
    * showing up, classified by the unique-name convention (mostly "Other").
    */
   async listSolutions(): Promise<WorkingSolution[]> {
@@ -545,7 +545,7 @@ export class DataverseSolutionService implements SolutionService {
         }),
         this.fetchWorkingRows().catch((err) => {
           console.warn('[solutions] working-solution rows failed:', err)
-          return [] as Ssid_workingsolutions[]
+          return [] as Pro_workingsolutions[]
         }),
       ])
       if (!rows) return mockSolutionService.listSolutions()
@@ -559,22 +559,22 @@ export class DataverseSolutionService implements SolutionService {
       const result: WorkingSolution[] = []
       const linkedSolutionIds = new Set<string>()
       for (const raw of workingRows) {
-        const row = raw as Ssid_workingsolutions & Record<string, unknown>
-        const uniqueName = raw.ssid_uniquesolutionname ?? ''
+        const row = raw as Pro_workingsolutions & Record<string, unknown>
+        const uniqueName = raw.pro_uniquesolutionname ?? ''
         const solution = uniqueName
           ? byUniqueName.get(uniqueName.toLowerCase())
           : undefined
         if (solution) linkedSolutionIds.add(solution.id)
         const kind =
-          KIND_BY_TYPE_OPT[Number(raw.sst_type_opt ?? -1)] ??
-          kindFromWorkItemType(raw.sst_devopsworkitemtype) ??
+          KIND_BY_TYPE_OPT[Number(raw.pro_type_opt ?? -1)] ??
+          kindFromWorkItemType(raw.pro_devopsworkitemtype) ??
           solution?.kind ??
           classifyUniqueName(uniqueName).kind
         result.push({
-          id: solution?.id ?? `missing-${raw.ssid_workingsolutionid}`,
-          recordId: raw.ssid_workingsolutionid,
+          id: solution?.id ?? `missing-${raw.pro_workingsolutionid}`,
+          recordId: raw.pro_workingsolutionid,
           uniqueName: solution?.uniqueName ?? uniqueName,
-          title: raw.ssid_name || (solution?.title ?? uniqueName),
+          title: raw.pro_name || (solution?.title ?? uniqueName),
           description: solution?.description ?? '',
           kind,
           // Releases carry no work item id — hide placeholder values
@@ -582,7 +582,7 @@ export class DataverseSolutionService implements SolutionService {
           devOpsId:
             kind === 'deployment'
               ? null
-              : raw.ssid_devopsid || solution?.devOpsId || null,
+              : raw.pro_devopsid || solution?.devOpsId || null,
           version: solution?.version ?? '',
           isManaged: solution?.isManaged ?? false,
           createdOn: solution?.createdOn ?? raw.createdon ?? '',
@@ -594,23 +594,23 @@ export class DataverseSolutionService implements SolutionService {
               ? row._ownerid_value
               : undefined,
           deploymentStatus:
-            formatted(row, 'ssid_deploymentstatus') ??
-            raw.ssid_deploymentstatusname,
+            formatted(row, 'pro_deploymentstatus') ??
+            raw.pro_deploymentstatusname,
           deploymentStatusCode:
-            raw.ssid_deploymentstatus !== undefined
-              ? Number(raw.ssid_deploymentstatus)
+            raw.pro_deploymentstatus !== undefined
+              ? Number(raw.pro_deploymentstatus)
               : undefined,
           // 0 = active/open, 1 = inactive/closed — drives the Open filter.
           recordStateCode:
             raw.statecode !== undefined ? Number(raw.statecode) : undefined,
-          allowedMergeTypes: parseTypeCodes(row.sst_allowedmergetypes),
-          excludedMergeTypes: parseTypeCodes(row.sst_excludedmergetypes),
+          allowedMergeTypes: parseTypeCodes(row.pro_allowedmergetypes),
+          excludedMergeTypes: parseTypeCodes(row.pro_excludedmergetypes),
           // Raw synced DevOps work-item state for the list status chip.
-          workItemStatus: raw.sst_devopsworkitemstatus || undefined,
+          workItemStatus: raw.pro_devopsworkitemstatus || undefined,
           // Open record + closed DevOps work item → ready to be completed.
           toBeCompleted:
             Number(raw.statecode) === 0 &&
-            isClosedWorkItemState(raw.sst_devopsworkitemstatus),
+            isClosedWorkItemState(raw.pro_devopsworkitemstatus),
           ...(solution ? {} : { solutionMissing: true as const }),
         })
       }
@@ -658,8 +658,8 @@ export class DataverseSolutionService implements SolutionService {
 
   /**
    * The single Workbench Settings config record, fetched once and cached:
-   * supplies both the required ssid_WorkbenchSetting lookup id and the
-   * configured default publisher (ssid_publisher_str).
+   * supplies both the required pro_WorkbenchSetting lookup id and the
+   * configured default publisher (pro_publisher_str).
    */
   private settingsPromise: Promise<{
     id: string | null
@@ -673,16 +673,16 @@ export class DataverseSolutionService implements SolutionService {
     this.settingsPromise ??= (async () => {
       try {
         // Native generated data source (runs as the signed-in user).
-        // NB the real names: PK = ssid_workbenchsettingsid, entity set =
-        // ssid_workbenchsettingses (both carry the extra "s").
-        const result = await Ssid_workbenchsettingsesService.getAll({
-          select: ['ssid_workbenchsettingsid', 'ssid_publisher_str'],
+        // NB the real names: PK = pro_workbenchsettingsid, entity set =
+        // pro_workbenchsettingses (both carry the extra "s").
+        const result = await Pro_workbenchsettingsesService.getAll({
+          select: ['pro_workbenchsettingsid', 'pro_publisher_str'],
         })
         const row = result.data?.[0] as
-          | { ssid_workbenchsettingsid?: string; ssid_publisher_str?: string }
+          | { pro_workbenchsettingsid?: string; pro_publisher_str?: string }
           | undefined
-        const id = row?.ssid_workbenchsettingsid
-        const publisher = row?.ssid_publisher_str
+        const id = row?.pro_workbenchsettingsid
+        const publisher = row?.pro_publisher_str
         return {
           id: typeof id === 'string' && id ? id : null,
           publisher:
@@ -738,7 +738,7 @@ export class DataverseSolutionService implements SolutionService {
     }
     const solution = toWorkingSolution(result.data)
 
-    // Presentation layer: the ssid_workingsolution row carrying title,
+    // Presentation layer: the pro_workingsolution row carrying title,
     // DevOps id, type and the link back to the real solution.
     let recordId: string | undefined
     try {
@@ -767,36 +767,36 @@ export class DataverseSolutionService implements SolutionService {
     }
   }
 
-  /** Create the ssid_workingsolution row for a solution. */
+  /** Create the pro_workingsolution row for a solution. */
   private async createPresentationRow(
     input: TrackSolutionInput,
   ): Promise<string | undefined> {
     const workbenchSettingId = await this.defaultWorkbenchSettingId()
     const rowRecord = {
-      ssid_name: input.title,
-      // ssid_devopsid is required by the table; releases store the
+      pro_name: input.title,
+      // pro_devopsid is required by the table; releases store the
       // conventional "N/A" placeholder (never shown in the UI).
-      ssid_devopsid:
+      pro_devopsid:
         input.kind === 'deployment'
           ? input.devOpsId.trim() || 'N/A'
           : input.devOpsId,
-      ssid_uniquesolutionname: input.uniqueName,
-      ssid_solutionlink: makerSolutionUrl(null, input.solutionId),
-      sst_type_opt: TYPE_OPT_BY_KIND[input.kind],
-      ssid_deploymentstatus: DEPLOYMENT_STATUS_NONE,
+      pro_uniquesolutionname: input.uniqueName,
+      pro_solutionlink: makerSolutionUrl(null, input.solutionId),
+      pro_type_opt: TYPE_OPT_BY_KIND[input.kind],
+      pro_deploymentstatus: DEPLOYMENT_STATUS_NONE,
       ...(workbenchSettingId
         ? {
-            // Entity set name carries the extra "s": ssid_workbenchsettingses.
-            'ssid_WorkbenchSetting@odata.bind': `/ssid_workbenchsettingses(${workbenchSettingId})`,
+            // Entity set name carries the extra "s": pro_workbenchsettingses.
+            'pro_WorkbenchSetting@odata.bind': `/pro_workbenchsettingses(${workbenchSettingId})`,
           }
         : {}),
-    } as unknown as Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
-    const rowResult = await Ssid_workingsolutionsService.create(rowRecord)
+    } as unknown as Omit<Pro_workingsolutionsBase, 'pro_workingsolutionid'>
+    const rowResult = await Pro_workingsolutionsService.create(rowRecord)
     if (!rowResult.success) {
       console.warn('[solutions] working-solution row create failed:', rowResult)
       throw new Error('Saving the working-solution record failed.')
     }
-    return rowResult.data?.ssid_workingsolutionid
+    return rowResult.data?.pro_workingsolutionid
   }
 
   /** Change the Feature / Bug / Release classification of a record. */
@@ -807,12 +807,12 @@ export class DataverseSolutionService implements SolutionService {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
       return mockSolutionService.updateSolutionType(recordId, kind)
-    const result = await Ssid_workingsolutionsService.update(
+    const result = await Pro_workingsolutionsService.update(
       recordId,
       {
-        sst_type_opt: TYPE_OPT_BY_KIND[kind],
+        pro_type_opt: TYPE_OPT_BY_KIND[kind],
       } as unknown as Partial<
-        Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+        Omit<Pro_workingsolutionsBase, 'pro_workingsolutionid'>
       >,
     )
     if (result && result.success === false) {
@@ -832,13 +832,13 @@ export class DataverseSolutionService implements SolutionService {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
       return mockSolutionService.updateWorkingSolution(input)
-    const recResult = await Ssid_workingsolutionsService.update(
+    const recResult = await Pro_workingsolutionsService.update(
       input.recordId,
       {
-        ssid_name: input.title,
-        sst_type_opt: TYPE_OPT_BY_KIND[input.kind],
+        pro_name: input.title,
+        pro_type_opt: TYPE_OPT_BY_KIND[input.kind],
       } as unknown as Partial<
-        Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+        Omit<Pro_workingsolutionsBase, 'pro_workingsolutionid'>
       >,
     )
     if (recResult && recResult.success === false) {
@@ -872,12 +872,12 @@ export class DataverseSolutionService implements SolutionService {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
       return mockSolutionService.setDeploymentStatus(recordId, statusCode)
-    const result = await Ssid_workingsolutionsService.update(
+    const result = await Pro_workingsolutionsService.update(
       recordId,
       {
-        ssid_deploymentstatus: statusCode,
+        pro_deploymentstatus: statusCode,
       } as unknown as Partial<
-        Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+        Omit<Pro_workingsolutionsBase, 'pro_workingsolutionid'>
       >,
     )
     if (result && result.success === false) {
@@ -899,14 +899,14 @@ export class DataverseSolutionService implements SolutionService {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
       return mockSolutionService.setMergeTypeRules(recordId, allowed, excluded)
-    const result = await Ssid_workingsolutionsService.update(
+    const result = await Pro_workingsolutionsService.update(
       recordId,
       {
         // Multi-select choice: comma-separated values, or null to clear.
-        sst_allowedmergetypes: allowed.length ? allowed.join(',') : null,
-        sst_excludedmergetypes: excluded.length ? excluded.join(',') : null,
+        pro_allowedmergetypes: allowed.length ? allowed.join(',') : null,
+        pro_excludedmergetypes: excluded.length ? excluded.join(',') : null,
       } as unknown as Partial<
-        Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+        Omit<Pro_workingsolutionsBase, 'pro_workingsolutionid'>
       >,
     )
     if (result && result.success === false) {
@@ -957,12 +957,12 @@ export class DataverseSolutionService implements SolutionService {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
       return mockSolutionService.assignOwner(recordId, userId)
-    const result = await Ssid_workingsolutionsService.update(
+    const result = await Pro_workingsolutionsService.update(
       recordId,
       {
         'ownerid@odata.bind': `/systemusers(${userId})`,
       } as unknown as Partial<
-        Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+        Omit<Pro_workingsolutionsBase, 'pro_workingsolutionid'>
       >,
     )
     if (result && result.success === false) {
@@ -975,7 +975,7 @@ export class DataverseSolutionService implements SolutionService {
    * Trigger the "Sync DevOps Work Item Status" cloud flow (Power Apps trigger,
    * invoked through the generated flow service). The flow writes the latest
    * DevOps work-item state onto each working solution's
-   * sst_devopsworkitemstatus; the caller then reloads to re-derive the
+   * pro_devopsworkitemstatus; the caller then reloads to re-derive the
    * "to be completed" flags.
    */
   async syncDevOpsWorkItemStatus(): Promise<number> {
@@ -1040,13 +1040,13 @@ export class DataverseSolutionService implements SolutionService {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
       return mockSolutionService.linkSolution(recordId, target)
-    const result = await Ssid_workingsolutionsService.update(
+    const result = await Pro_workingsolutionsService.update(
       recordId,
       {
-        ssid_uniquesolutionname: target.uniqueName,
-        ssid_solutionlink: makerSolutionUrl(null, target.id),
+        pro_uniquesolutionname: target.uniqueName,
+        pro_solutionlink: makerSolutionUrl(null, target.id),
       } as unknown as Partial<
-        Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+        Omit<Pro_workingsolutionsBase, 'pro_workingsolutionid'>
       >,
     )
     if (result && result.success === false) {
@@ -1760,7 +1760,7 @@ export class DataverseSolutionService implements SolutionService {
       await this.assertSolutionDeleted(solution.id)
     }
     if (solution.recordId) {
-      await Ssid_workingsolutionsService.delete(solution.recordId)
+      await Pro_workingsolutionsService.delete(solution.recordId)
     }
   }
 
@@ -2070,7 +2070,7 @@ export class DataverseSolutionService implements SolutionService {
    *
    * To restore (see TODO.md):
    *   pac code add-data-source -a shared_visualstudioteamservices
-   *     -cr sst_CRDevOps -s <WorkbenchSchulz-id> -env <INT-11-url>
+   *     -cr pro_CRDevOps -s <WorkbenchSchulz-id> -env <INT-11-url>
    * then re-import AzureDevOpsService and map ListWorkItems(ADO_ACCOUNT,
    * ADO_PROJECT_NAME, devOpsId): System_WorkItemType / System_Title /
    * System_State / System_AssignedTo → WorkItemInfo, with
@@ -2175,14 +2175,14 @@ export class DataverseSolutionService implements SolutionService {
       for (const source of sourceSolutions) {
         if (!source.recordId) continue
         try {
-          await Ssid_workingsolutionsService.update(
+          await Pro_workingsolutionsService.update(
             source.recordId,
             {
-              sst_mergeintodeploymentsolution: true,
-              sst_lastmergeintodeploymentsolution: mergedAt,
-              ssid_deploymentstatus: DEPLOYMENT_STATUS_MERGED,
+              pro_mergeintodeploymentsolution: true,
+              pro_lastmergeintodeploymentsolution: mergedAt,
+              pro_deploymentstatus: DEPLOYMENT_STATUS_MERGED,
             } as unknown as Partial<
-              Omit<Ssid_workingsolutionsBase, 'ssid_workingsolutionid'>
+              Omit<Pro_workingsolutionsBase, 'pro_workingsolutionid'>
             >,
           )
         } catch (err) {
@@ -2193,7 +2193,7 @@ export class DataverseSolutionService implements SolutionService {
 
       // Append one merge-run history row on the target. The added components
       // ride along as a compact JSON array in a single multiline column
-      // (sst_addedcomponents_txt) — no child table to keep the schema lean.
+      // (pro_addedcomponents_txt) — no child table to keep the schema lean.
       try {
         await this.logMergeRun(target, sourceSolutions, result, added, mergedAt)
       } catch (err) {
@@ -2204,7 +2204,7 @@ export class DataverseSolutionService implements SolutionService {
     return result
   }
 
-  /** Create the sst_mergerun row for one completed merge. */
+  /** Create the pro_mergerun row for one completed merge. */
   private async logMergeRun(
     target: WorkingSolution,
     sourceSolutions: WorkingSolution[],
@@ -2217,31 +2217,31 @@ export class DataverseSolutionService implements SolutionService {
       n: c.displayName,
     }))
     const record = {
-      sst_name_str: `${target.title} · ${mergedAt.slice(0, 10)}`,
-      sst_added_int: result.added,
-      sst_skipped_int: result.skipped,
-      sst_errors_int: result.errors.length,
-      sst_sources_txt: sourceSolutions.map((s) => s.title).join('\n'),
-      sst_addedcomponents_txt: components.length
+      pro_name_str: `${target.title} · ${mergedAt.slice(0, 10)}`,
+      pro_added_int: result.added,
+      pro_skipped_int: result.skipped,
+      pro_errors_int: result.errors.length,
+      pro_sources_txt: sourceSolutions.map((s) => s.title).join('\n'),
+      pro_addedcomponents_txt: components.length
         ? JSON.stringify(components)
         : '',
       // Link back to the target's working-solution record so the history can
       // be queried per release. Skip the bind when the target is untracked.
       ...(target.recordId
         ? {
-            'sst_targetsolution_ref@odata.bind': `/ssid_workingsolutions(${target.recordId})`,
+            'pro_targetsolution_ref@odata.bind': `/pro_workingsolutions(${target.recordId})`,
           }
         : {}),
-    } as unknown as Omit<Sst_mergerunsBase, 'sst_mergerunid'>
-    const created = await Sst_mergerunsService.create(record)
+    } as unknown as Omit<Pro_mergerunsBase, 'pro_mergerunid'>
+    const created = await Pro_mergerunsService.create(record)
     if (!created.success) {
-      console.warn('[solutions] sst_mergerun create rejected:', created)
+      console.warn('[solutions] pro_mergerun create rejected:', created)
       throw new Error('Merge-run history record was rejected.')
     }
   }
 
   /**
-   * Merge history of one release solution — the sst_mergerun rows linked to
+   * Merge history of one release solution — the pro_mergerun rows linked to
    * its working-solution record, newest first. Best-effort: returns an empty
    * list on miss or error so the detail view degrades gracefully.
    */
@@ -2251,18 +2251,18 @@ export class DataverseSolutionService implements SolutionService {
       return mockSolutionService.listMergeRuns(targetRecordId)
     if (!targetRecordId) return []
     try {
-      const rows = await fetchAll((o) => Sst_mergerunsService.getAll(o), {
+      const rows = await fetchAll((o) => Pro_mergerunsService.getAll(o), {
         select: [
-          'sst_mergerunid',
-          'sst_added_int',
-          'sst_skipped_int',
-          'sst_errors_int',
-          'sst_sources_txt',
-          'sst_addedcomponents_txt',
+          'pro_mergerunid',
+          'pro_added_int',
+          'pro_skipped_int',
+          'pro_errors_int',
+          'pro_sources_txt',
+          'pro_addedcomponents_txt',
           '_createdby_value',
           'createdon',
         ],
-        filter: `_sst_targetsolution_ref_value eq ${targetRecordId}`,
+        filter: `_pro_targetsolution_ref_value eq ${targetRecordId}`,
         orderBy: ['createdon desc'],
       })
       if (!rows) return []
@@ -2275,7 +2275,7 @@ export class DataverseSolutionService implements SolutionService {
 
   /**
    * Published release-notes snapshots for a release solution — the
-   * sst_releasenote rows linked to its working-solution record, newest first.
+   * pro_releasenote rows linked to its working-solution record, newest first.
    */
   async listReleaseNotes(releaseRecordId: string): Promise<ReleaseNote[]> {
     const mode = await powerModeReady
@@ -2283,18 +2283,18 @@ export class DataverseSolutionService implements SolutionService {
       return mockSolutionService.listReleaseNotes(releaseRecordId)
     if (!releaseRecordId) return []
     try {
-      const rows = await fetchAll((o) => Sst_releasenotesService.getAll(o), {
+      const rows = await fetchAll((o) => Pro_releasenotesService.getAll(o), {
         select: [
-          'sst_releasenoteid',
-          'sst_name',
-          'sst_version_txt',
-          'sst_markdown_txt',
-          'sst_plaintext_txt',
-          'sst_summary_txt',
+          'pro_releasenoteid',
+          'pro_name',
+          'pro_version_txt',
+          'pro_markdown_txt',
+          'pro_plaintext_txt',
+          'pro_summary_txt',
           '_createdby_value',
           'createdon',
         ],
-        filter: `_sst_releasesolution_ref_value eq ${releaseRecordId}`,
+        filter: `_pro_releasesolution_ref_value eq ${releaseRecordId}`,
         orderBy: ['createdon desc'],
       })
       if (!rows) return []
@@ -2305,7 +2305,7 @@ export class DataverseSolutionService implements SolutionService {
     }
   }
 
-  /** Persist a new release-notes snapshot (one sst_releasenote row). */
+  /** Persist a new release-notes snapshot (one pro_releasenote row). */
   async publishReleaseNotes(
     input: PublishReleaseNotesInput,
   ): Promise<ReleaseNote> {
@@ -2313,14 +2313,14 @@ export class DataverseSolutionService implements SolutionService {
     if (mode !== 'power-platform')
       return mockSolutionService.publishReleaseNotes(input)
     const record = {
-      sst_name: input.name,
-      sst_version_txt: input.version,
-      sst_markdown_txt: input.markdown,
-      sst_plaintext_txt: input.text,
-      sst_summary_txt: input.summary,
-      'sst_releasesolution_ref@odata.bind': `/ssid_workingsolutions(${input.releaseRecordId})`,
-    } as unknown as Omit<Sst_releasenotesBase, 'sst_releasenoteid'>
-    const result = await Sst_releasenotesService.create(record)
+      pro_name: input.name,
+      pro_version_txt: input.version,
+      pro_markdown_txt: input.markdown,
+      pro_plaintext_txt: input.text,
+      pro_summary_txt: input.summary,
+      'pro_releasesolution_ref@odata.bind': `/pro_workingsolutions(${input.releaseRecordId})`,
+    } as unknown as Omit<Pro_releasenotesBase, 'pro_releasenoteid'>
+    const result = await Pro_releasenotesService.create(record)
     if (!result.success || !result.data) {
       console.warn('[solutions] publishReleaseNotes rejected:', result)
       throw new Error('Publishing the release notes failed.')

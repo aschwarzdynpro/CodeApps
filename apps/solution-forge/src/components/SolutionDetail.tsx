@@ -136,7 +136,7 @@ function LinkSolutionPanel({
 }
 
 /**
- * Inline form to attach a ssid_workingsolution record to an untracked
+ * Inline form to attach a pro_workingsolution record to an untracked
  * solution ("nacherfassen"). Prefilled from what the solution already
  * reveals (title, detected DevOps number, classified kind).
  */
@@ -350,7 +350,7 @@ function MergeRulesSummary({ solution }: { solution: WorkingSolution }) {
 }
 
 /**
- * Merge history of a release solution: the logged sst_mergerun rows, newest
+ * Merge history of a release solution: the logged pro_mergerun rows, newest
  * first, as a table. Each row expands to the concrete components that merge
  * added (stored compactly on the row, so no extra query). Loads itself on
  * mount — the parent remounts the detail per solution, so a record-id effect
