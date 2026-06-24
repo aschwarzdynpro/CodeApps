@@ -40,14 +40,17 @@ Auth uses an existing Az context for the tenant if present, otherwise an Az
 device-code sign-in (per the standing device-code preference). The
 `power-apps`/`pac` CLIs sign in separately (device code / browser SSO).
 
+**Connection binding:** by default the connector is bound **directly** to a
+Dataverse connection (its GUID is baked into `power.config.json` at push) — the
+installer discovers it via `pac connection list` or you pass `-ConnectionId`. A
+Code App resolves the connection at push time, so a managed-solution-style
+post-import rebind does not apply; the direct binding is simplest and identical at
+runtime. Pass `-UseConnectionReference` to additionally wire a `pro_CRDataverse`
+connection reference — only worthwhile if you later distribute the app via a
+managed solution import rather than `power-apps push`.
+
 ## Remaining enhancements
 
-- **Connection binding at runtime**: a Code App resolves its connector connection
-  from the connection reference *at push time* (pac bakes `sharedConnectionId` into
-  `power.config.json`), so the connection must be assigned to `pro_CRDataverse`
-  before the push — the installer lets you assign it yourself in the Maker, or binds
-  one it discovers/you pass via `-ConnectionId`. A managed-solution-style post-import
-  binding is not available for Code Apps.
 - **Security role** with privileges on the `pro_*` tables shipped in the package
   (today the admin assigns table privileges manually — see the checklist).
 - **Fully data-driven config** via a `pro_environmentconfig` Dataverse table read

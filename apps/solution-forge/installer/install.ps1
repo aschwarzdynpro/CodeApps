@@ -29,6 +29,7 @@ param(
   [string]$TenantId,
   [string]$ConnectionId,
   [string]$AppDisplayName = 'Solution Administration Console',
+  [switch]$UseConnectionReference,   # also wire a pro_CRDataverse connection reference (only needed for managed-solution distribution)
   [switch]$SkipProvision,
   [switch]$SkipPush
 )
@@ -111,19 +112,14 @@ if ($SkipProvision) {
 }
 $solutionId = (Invoke-Dv -Method GET -Path "solutions?`$select=solutionid&`$filter=uniquename eq 'DynamicsProSolutionAdminConsole'").value[0].solutionid
 
-# ---- 4. Connection reference -----------------------------------------------
-# The app binds Dataverse through the connection reference `pro_CRDataverse`.
-# A connection must be assigned to it before the app is pushed (pac resolves the
-# connection from the reference at add-data-source time). You can assign it
-# yourself in the Maker, or the installer binds one it discovers / you pass.
-Title 'Dataverse-Connection-Reference'
-$connRefName = 'pro_CRDataverse'
+# ---- 4. Dataverse connection ----------------------------------------------
+# The connector is bound directly to a connection (its GUID is baked into
+# power.config at push). We discover it via `pac connection list` (uses the pac
+# auth profile — no npm-CLI hang). -UseConnectionReference additionally wires a
+# pro_CRDataverse connection reference (only worthwhile for managed-solution
+# distribution; for power-apps push it makes no runtime difference).
+Title 'Dataverse-Connection'
 $connectorId = '/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps'
-$ref = New-DvConnectionReference -LogicalName $connRefName -ConnectorId $connectorId `
-  -DisplayName 'Dynamics Pro — Dataverse' -Solution 'DynamicsProSolutionAdminConsole'
-Write-Host ("  Connection-Reference: {0}" -f $connRefName) -ForegroundColor DarkGray
-
-# Determine a connection to bind (param > pac discovery), else let the user assign it.
 $connectionId = $ConnectionId
 if (-not $connectionId) {
   $rows = @(pac connection list 2>$null) | Where-Object { $_ -match 'shared_commondataserviceforapps' -and $_ -match 'Connected' }
@@ -132,24 +128,26 @@ if (-not $connectionId) {
     if ($r -match '^\s*(\S+)\s+(.*?)\s+/providers/') { $parsed += [pscustomobject]@{ id = $Matches[1]; name = $Matches[2].Trim() } }
   }
   if ($parsed.Count -eq 1) { $connectionId = $parsed[0].id; Write-Host ("  Connection gefunden: {0}" -f $parsed[0].name) -ForegroundColor DarkGray }
-  elseif ($parsed.Count -gt 1) { $pick = Select-One $parsed { param($c) "{0}  ({1})" -f $c.name, $c.id } 'Connection-Nummer (oder Enter = selbst im Maker zuordnen)'; if ($pick) { $connectionId = $pick.id } }
+  elseif ($parsed.Count -gt 1) { $pick = Select-One $parsed { param($c) "{0}  ({1})" -f $c.name, $c.id } 'Connection-Nummer wählen'; if ($pick) { $connectionId = $pick.id } }
 }
-if ($connectionId) {
-  Set-DvConnectionReferenceConnection -ReferenceId $ref.Id -ConnectionId $connectionId
-  Write-Host ("  Connection {0} der Reference zugeordnet." -f $connectionId) -ForegroundColor DarkGray
-} else {
-  $solUrl = "https://make.powerapps.com/environments/$envId/solutions/$solutionId/connectionReferences"
-  Write-Host "Keine Connection automatisch zugeordnet — ordne sie SELBST zu:" -ForegroundColor Yellow
-  Write-Host ("  $solUrl") -ForegroundColor Cyan
-  Write-Host "  -> Connection-Reference 'pro_CRDataverse' -> Dataverse-Connection auswählen/anlegen." -ForegroundColor Yellow
-  Read-Host "Enter drücken, wenn die Connection im Maker zugeordnet ist"
+if (-not $connectionId) {
+  Write-Host "Keine Dataverse-Connection im Ziel-Environment gefunden." -ForegroundColor Yellow
+  Write-Host "Lege EINMALIG eine an (Maker -> Connections -> Microsoft Dataverse) und" -ForegroundColor Yellow
+  Write-Host "starte erneut, oder gib sie direkt mit: install.ps1 ... -ConnectionId <id>" -ForegroundColor Yellow
+  $connectionId = Ask 'Connection-ID (leer = abbrechen)' ''
+  if (-not $connectionId) { throw "Ohne Dataverse-Connection kann der Connector nicht gebunden werden." }
 }
-# Verify the reference is bound before continuing (pac -cr needs it resolved).
-$bound = Get-DvConnectionReferenceConnection -LogicalName $connRefName
-if (-not $bound -or -not $bound.ConnectionId) {
-  throw "Connection-Reference '$connRefName' ist nicht gebunden. Ordne ihr eine Dataverse-Connection zu und starte erneut (Provisioning wird übersprungen)."
+Write-Host ("  Connection: {0}" -f $connectionId) -ForegroundColor DarkGray
+
+# Optional connection reference (managed-solution distribution only).
+$connRefName = $null
+if ($UseConnectionReference) {
+  $connRefName = 'pro_CRDataverse'
+  $ref = New-DvConnectionReference -LogicalName $connRefName -ConnectorId $connectorId `
+    -ConnectionId $connectionId -DisplayName 'Dynamics Pro — Dataverse' -Solution 'DynamicsProSolutionAdminConsole'
+  if (-not $ref.ConnectionId) { Set-DvConnectionReferenceConnection -ReferenceId $ref.Id -ConnectionId $connectionId }
+  Write-Host ("  Connection-Reference {0} gebunden." -f $connRefName) -ForegroundColor DarkGray
 }
-Write-Host ("  Reference gebunden an Connection {0}." -f $bound.ConnectionId) -ForegroundColor Green
 
 # ---- 5. Customer configuration --------------------------------------------
 Title 'Konfiguration'
@@ -220,7 +218,11 @@ try {
     foreach ($t in 'solution','publisher','solutioncomponent','msdyn_solutioncomponentsummary','systemuser','role','pro_workingsolution','pro_workbenchsettings','pro_mergerun','pro_releasenote') {
       & .\scripts\add-data-source.ps1 -a dataverse -t $t 2>&1 | Select-Object -Last 1
     }
-    & .\scripts\add-data-source.ps1 -a shared_commondataserviceforapps -cr $connRefName -s $solutionId 2>&1 | Select-Object -Last 1
+    if ($connRefName) {
+      & .\scripts\add-data-source.ps1 -a shared_commondataserviceforapps -cr $connRefName -s $solutionId 2>&1 | Select-Object -Last 1
+    } else {
+      & .\scripts\add-data-source.ps1 -a shared_commondataserviceforapps -c $connectionId 2>&1 | Select-Object -Last 1
+    }
     npm install 2>&1 | Select-Object -Last 1
     npm run build 2>&1 | Select-Object -Last 1
     power-apps push 2>&1 | Select-Object -Last 3
