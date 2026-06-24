@@ -245,15 +245,13 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "npm install fehlgeschlagen (Exit $LASTEXITCODE)." }
     npm run build 2>&1 | Select-Object -Last 3
     if ($LASTEXITCODE -ne 0) { throw "npm run build fehlgeschlagen (Exit $LASTEXITCODE)." }
-    # power-apps push aborts on exit with a libuv assertion even on success, so
-    # judge by the output, not the exit code.
-    $pushOut = power-apps push 2>&1
-    $pushOut | Select-Object -Last 4
-    if ($pushOut -match 'pushed successfully' -or $pushOut -match '/play/') {
-      Write-Host "  App erfolgreich deployed." -ForegroundColor Green
-    } else {
-      Write-Host "  WARN: Push-Ergebnis unklar — Ausgabe oben prüfen." -ForegroundColor Yellow
-    }
+    # Stream the push output live (do NOT capture): power-apps push prints
+    # "App pushed successfully" + the play URL and only THEN aborts on exit with
+    # the libuv assertion, which can hang an interactive console. So show output
+    # as it comes — once the play URL appears the deploy is done.
+    Write-Host "  power-apps push … sobald die Play-URL erscheint, ist der Deploy fertig." -ForegroundColor Cyan
+    Write-Host "  (Hängt das Terminal danach am libuv-Exit: Ctrl+C ist ok — der Push war erfolgreich.)" -ForegroundColor Cyan
+    power-apps push
   }
 } finally { Pop-Location }
 
