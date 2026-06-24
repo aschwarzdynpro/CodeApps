@@ -197,10 +197,14 @@ try {
   if ($SkipPush) {
     Write-Host "  Push übersprungen (-SkipPush). Manuelle Schritte siehe CLAUDE.md Bootstrap." -ForegroundColor Yellow
   } else {
-    Write-Host "  pac auth: stelle sicher, dass pac auf dieses Environment zeigt …"
-    $hasProfile = $false
-    try { $hasProfile = [bool](pac auth list 2>&1 | Select-String -SimpleMatch $EnvironmentUrl.TrimEnd('/')) } catch {}
-    if (-not $hasProfile) { pac auth create --deviceCode --environment $EnvironmentUrl 2>&1 | Select-Object -Last 3 }
+    Write-Host "  pac auth: aktiviere ein Profil für dieses Environment …"
+    $authList = @(pac auth list 2>&1)
+    $line = $authList | Where-Object { $_ -match [regex]::Escape($EnvironmentUrl.TrimEnd('/')) } | Select-Object -First 1
+    if ($line -and $line -match '^\s*\[(\d+)\]') {
+      pac auth select --index $Matches[1] 2>&1 | Select-Object -Last 1
+    } else {
+      pac auth create --deviceCode --environment $EnvironmentUrl 2>&1 | Select-Object -Last 3
+    }
     if (Test-Path 'power.config.json') { Remove-Item 'power.config.json' -Force }
     power-apps init --non-interactive -n "$AppDisplayName" --cloud prod -e $envId -b ./dist -f index.html -a http://localhost:3000 2>&1 | Select-Object -Last 2
     if (-not (Test-Path 'power.config.json')) { throw "power-apps init hat keine power.config.json erzeugt — Abbruch." }
