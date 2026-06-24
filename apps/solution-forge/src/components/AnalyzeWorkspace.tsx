@@ -27,10 +27,6 @@ interface Props {
   ) => void
 }
 
-const targetEnvs = ENVIRONMENTS.filter(
-  (e) => e.key === 'uat' || e.key === 'prod',
-)
-
 /** The post-deployment checks the Analyze sweep can include. */
 const POST_CHECKS: { key: DetectivePhaseKey; label: string }[] = [
   { key: 'compare', label: 'Compare' },
@@ -63,6 +59,10 @@ export function AnalyzeWorkspace({
       solutions.findIndex((o) => o.id === s.id) === index,
   )
   const solution = releases.find((s) => s.id === solutionId) ?? null
+  // Per render (not module-level) so it reflects runtime config from Dataverse.
+  const targetEnvs = ENVIRONMENTS.filter(
+    (e) => e.key === 'uat' || e.key === 'prod',
+  )
 
   const [checks, setChecks] = useState<Record<DetectivePhaseKey, boolean>>({
     compare: true,

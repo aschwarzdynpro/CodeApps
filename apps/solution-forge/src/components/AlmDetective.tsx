@@ -21,8 +21,6 @@ interface Props {
   solutions: WorkingSolution[]
 }
 
-const TARGET_ENVS = ENVIRONMENTS.filter((e) => e.key === 'uat' || e.key === 'prod')
-
 /**
  * ALM Detective: a phased pre-deployment investigation. Runs the selected
  * ALM checks against a release solution, lighting up a phase stepper as it
@@ -54,6 +52,10 @@ export function AlmDetective({ solutions }: Props) {
 
   const solution = candidates.find((s) => s.id === solutionId) ?? null
   const selectedPhases = PHASE_ORDER.filter((p) => phases.has(p))
+  // Per render (not module-level) so it reflects runtime config from Dataverse.
+  const TARGET_ENVS = ENVIRONMENTS.filter(
+    (e) => e.key === 'uat' || e.key === 'prod',
+  )
 
   const togglePhase = (key: DetectivePhaseKey) =>
     setPhases((prev) => {

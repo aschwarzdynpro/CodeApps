@@ -17,10 +17,6 @@ interface Props {
   onCheck: () => void
 }
 
-const targetEnvs = ENVIRONMENTS.filter(
-  (e) => e.key === 'uat' || e.key === 'prod',
-)
-
 /**
  * Dependency check for a release solution: RetrieveMissingDependencies
  * lists every required component the solution doesn't contain; each one is
@@ -40,6 +36,11 @@ export function DependencyCheck({
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
   const [addError, setAddError] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  // Computed per render (not module-level) so it reflects the runtime config
+  // loaded from Dataverse via applyRuntimeConfig (ENVIRONMENTS is a live binding).
+  const targetEnvs = ENVIRONMENTS.filter(
+    (e) => e.key === 'uat' || e.key === 'prod',
+  )
 
   const running = run?.running ?? false
   const progress = run?.progress ?? ''
