@@ -14,6 +14,7 @@ import type {
 } from '../types/solution'
 import type { DependencyCheckResult } from '../types/dependency'
 import type { LayerInspectionResult, LayerSection } from '../types/layers'
+import type { RuntimeConfig } from '../config'
 import { dataverseSolutionService } from './dataverseSolutionService'
 
 /**
@@ -37,6 +38,13 @@ import { dataverseSolutionService } from './dataverseSolutionService'
 export interface SolutionService {
   /** All visible unmanaged solutions, newest-created first. */
   listSolutions(): Promise<WorkingSolution[]>
+  /**
+   * Runtime config read from Dataverse (Compare/Dependency target environments
+   * from `pro_environmentconfig`; ADO org/project + deployment-manager role from
+   * `pro_workbenchsettings`). Applied over the build-time defaults at startup so
+   * config is data-driven, not baked into the bundle. Missing values fall back.
+   */
+  getRuntimeConfig(): Promise<RuntimeConfig>
   /** Publishers available for new working solutions. */
   listPublishers(): Promise<PublisherInfo[]>
   /**

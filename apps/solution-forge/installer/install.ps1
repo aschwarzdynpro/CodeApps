@@ -149,53 +149,46 @@ if ($UseConnectionReference) {
   Write-Host ("  Connection-Reference {0} gebunden." -f $connRefName) -ForegroundColor DarkGray
 }
 
-# ---- 5. Customer configuration --------------------------------------------
-Title 'Konfiguration'
-$pubs = (Invoke-Dv -Method GET -Path "publishers?`$select=publisherid,uniquename,friendlyname,customizationprefix&`$orderby=friendlyname").value |
-  Where-Object { $_.customizationprefix -ne 'mscrm' }
-Write-Host "Publisher, mit dem die App NEUE Working Solutions anlegt:"
-$pub = Select-One $pubs { param($p) "{0}  (prefix {1})" -f $p.friendlyname, $p.customizationprefix } 'Publisher-Nummer'
-
-# Compare/Dependency target environments
-$envs = @([ordered]@{ key='dev'; label='Current'; url=$EnvironmentUrl; environmentId=$envId; isCurrent=$true })
-if (AskYesNo 'Weitere Compare-Ziele (UAT/PROD) hinzufügen?' $false) {
-  foreach ($k in 'uat','prod') {
-    $u = Ask ("URL für '{0}' (leer = überspringen)" -f $k) ''
-    if ($u) { $envs += [ordered]@{ key=$k; label=$k.ToUpper(); url=$u; environmentId=''; isCurrent=$false } }
-  }
-}
-$adoOrgUrl = Ask 'Azure DevOps Org-URL (optional, z.B. https://dev.azure.com/Contoso)' ''
-$adoProject = if ($adoOrgUrl) { Ask 'Azure DevOps Projekt' '' } else { '' }
-$roleName = Ask 'Name der Deployment-Manager-Security-Rolle' 'Dynamics Pro — Deployment Manager'
-
-# ---- 6. Seed bootstrap settings -------------------------------------------
-Title 'Bootstrap-Settings'
+# ---- 5. Bootstrap rows (config itself is managed in Dataverse) ------------
+# No config prompts: default publisher, Compare/Dependency targets, ADO
+# org/project and the deployment-manager role are all maintained in the
+# Dataverse config tables (pro_workbenchsettings / pro_environmentconfig), which
+# the app reads at startup. The wizard only seeds the mandatory bootstrap rows;
+# the admin fills in the values in the Maker afterwards.
+Title 'Bootstrap-Records (Config wird in Dataverse gepflegt)'
 $existing = (Invoke-Dv -Method GET -Path "pro_workbenchsettingses?`$select=pro_workbenchsettingsid&`$filter=statecode eq 0&`$top=1").value
 if ($existing -and $existing.Count -gt 0) {
-  Write-Host "  Aktiver pro_workbenchsettings-Record existiert bereits — übersprungen." -ForegroundColor DarkGray
+  Write-Host "  pro_workbenchsettings 'Default' existiert bereits — übersprungen." -ForegroundColor DarkGray
 } else {
-  $body = @{
-    pro_name = 'Default'
-    pro_publisher_str = $pub.publisherid
-    pro_publisherid = $pub.publisherid
-  }
-  Invoke-Dv -Method POST -Path 'pro_workbenchsettingses' -Body $body | Out-Null
-  Write-Host ("  + pro_workbenchsettings 'Default' (Publisher {0})" -f $pub.friendlyname) -ForegroundColor Green
+  Invoke-Dv -Method POST -Path 'pro_workbenchsettingses' -Body @{ pro_name = 'Default' } | Out-Null
+  Write-Host "  + pro_workbenchsettings 'Default' (Publisher/ADO/Rolle im Maker setzen)" -ForegroundColor Green
+}
+$curEnv = (Invoke-Dv -Method GET -Path "pro_environmentconfigs?`$select=pro_environmentconfigid&`$filter=pro_iscurrent eq true&`$top=1").value
+if ($curEnv -and $curEnv.Count -gt 0) {
+  Write-Host "  pro_environmentconfig (aktuelle Env) existiert bereits — übersprungen." -ForegroundColor DarkGray
+} else {
+  Invoke-Dv -Method POST -Path 'pro_environmentconfigs' -Body @{
+    pro_name = 'Current'; pro_key = 'dev'; pro_url = $EnvironmentUrl.TrimEnd('/')
+    pro_environmentid = $envId; pro_iscurrent = $true; pro_order_int = 0
+  } | Out-Null
+  Write-Host "  + pro_environmentconfig 'Current' (UAT/PROD im Maker ergänzen)" -ForegroundColor Green
 }
 
-# ---- 7. Configure + push the Code App -------------------------------------
+# ---- 6. Configure + push the Code App -------------------------------------
 Title 'Code App konfigurieren & deployen'
 Push-Location $appRoot
 try {
-  $envJson = ($envs | ForEach-Object { [pscustomobject]$_ }) | ConvertTo-Json -Compress -AsArray
+  # .env.local carries only the deploy-time intrinsics: this environment's id +
+  # URL. The current-env URL is needed for the very first read (before the
+  # config tables load); everything else is data-driven from Dataverse.
+  $curRow = [pscustomobject]@{ key='dev'; label='Current'; url=$EnvironmentUrl.TrimEnd('/'); environmentId=$envId; isCurrent=$true }
+  $envJson = (,$curRow) | ConvertTo-Json -Compress -AsArray
   $envLines = @(
     "VITE_ENVIRONMENT_ID=$envId",
     "VITE_ENVIRONMENTS=$envJson"
   )
-  if ($adoOrgUrl) { $envLines += "VITE_ADO_ORG_URL=$adoOrgUrl"; $envLines += "VITE_ADO_PROJECT=$adoProject" }
-  if ($roleName)  { $envLines += "VITE_DEPLOYMENT_MANAGER_ROLE=$roleName" }
   Set-Content -Path (Join-Path $appRoot '.env.local') -Value ($envLines -join "`n") -NoNewline
-  Write-Host "  .env.local geschrieben (datengetriebene Config)." -ForegroundColor DarkGray
+  Write-Host "  .env.local geschrieben (nur Env-Id/-URL; restliche Config aus Dataverse)." -ForegroundColor DarkGray
 
   if ($SkipPush) {
     Write-Host "  Push übersprungen (-SkipPush). Manuelle Schritte siehe CLAUDE.md Bootstrap." -ForegroundColor Yellow
@@ -225,14 +218,22 @@ try {
   }
 } finally { Pop-Location }
 
-# ---- 8. Checklist ----------------------------------------------------------
+# ---- 7. Checklist ----------------------------------------------------------
 Title 'Fertig — Nachbereitung'
+$cfgUrl = "https://make.powerapps.com/environments/$envId/solutions/$solutionId/objects"
 Write-Host @"
-1. Security-Rolle '$roleName' den Deployment-Managern zuweisen
-   (und allen Nutzern Lese-/Schreibrechte auf die pro_*-Tabellen geben).
-2. Connection '$connectionId' mit dem Team teilen (Can use).
-3. App im Maker einer Solution zuordnen: 'Add existing -> App -> Code app'.
-4. DevOps-Panel ist deaktiviert (config.ts DEVOPS_PANEL_ENABLED) — bei Bedarf
-   nach SP-Setup aktivieren.
+Config in Dataverse pflegen (die App liest sie beim Start):
+  - pro_workbenchsettings 'Default': Default-Publisher (pro_publisher_str),
+    ADO Org/Projekt, Deployment-Manager-Rollenname.
+  - pro_environmentconfig: UAT/PROD als weitere Compare-/Dependency-Ziele anlegen.
+  $cfgUrl
+
+Weitere Schritte:
+  1. Deployment-Manager-Security-Rolle den Managern zuweisen und allen Nutzern
+     Lese-/Schreibrechte auf die pro_*-Tabellen geben.
+  2. Connection '$connectionId' mit dem Team teilen (Can use).
+  3. App im Maker einer Solution zuordnen: 'Add existing -> App -> Code app'.
+  4. DevOps-Panel ist deaktiviert (config.ts DEVOPS_PANEL_ENABLED) — bei Bedarf
+     nach SP-Setup aktivieren.
 "@ -ForegroundColor Gray
 Write-Host "Installation abgeschlossen." -ForegroundColor Green

@@ -59,24 +59,29 @@ function parseEnvironments(): EnvironmentDef[] {
   }
   return DEFAULT_ENVIRONMENTS
 }
-export const ENVIRONMENTS: EnvironmentDef[] = parseEnvironments()
+// `let`, not `const`: hydrated from the Dataverse config tables at startup via
+// applyRuntimeConfig(). The build-time value (VITE / Schulz default) is the
+// fallback used until that load completes. Consumers read these as ES live
+// bindings, so they pick up the hydrated values on the next access.
+export let ENVIRONMENTS: EnvironmentDef[] = parseEnvironments()
 const DEFAULT_ADO_ORG_URL = 'https://dev.azure.com/SchulzD365'
 const DEFAULT_ADO_PROJECT = 'D365UO'
 
 export const FALLBACK_ENVIRONMENT_ID: string =
   import.meta.env.VITE_ENVIRONMENT_ID ?? DEFAULT_ENVIRONMENT_ID
 
-const ADO_ORG_URL: string =
+let ADO_ORG_URL: string =
   import.meta.env.VITE_ADO_ORG_URL ?? DEFAULT_ADO_ORG_URL
-const ADO_PROJECT: string =
+let ADO_PROJECT: string =
   import.meta.env.VITE_ADO_PROJECT ?? DEFAULT_ADO_PROJECT
+const adoAccount = (url: string): string =>
+  url.replace(/\/+$/, '').split('/').pop() ?? ''
 
 /** Organisation ("account") name for connector calls — the last path
  *  segment of the org URL, e.g. "SchulzD365". Empty when unconfigured. */
-export const ADO_ACCOUNT: string =
-  ADO_ORG_URL.replace(/\/+$/, '').split('/').pop() ?? ''
+export let ADO_ACCOUNT: string = adoAccount(ADO_ORG_URL)
 /** Project name for connector calls, e.g. "D365UO". */
-export const ADO_PROJECT_NAME: string = ADO_PROJECT
+export let ADO_PROJECT_NAME: string = ADO_PROJECT
 
 /**
  * TEMPORARY: the Azure DevOps work item panel is disabled until the
@@ -90,10 +95,37 @@ export const ADO_PROJECT_NAME: string = ADO_PROJECT
  */
 export const DEVOPS_PANEL_ENABLED = false
 
-/** Security role required for the Merge and Compare tabs. Customer-specific
- *  value comes from the installer via `VITE_DEPLOYMENT_MANAGER_ROLE`. */
-export const DEPLOYMENT_MANAGER_ROLE: string =
+/** Security role required for the Merge and Compare tabs. Hydrated from the
+ *  config table at startup; falls back to the build-time value. */
+export let DEPLOYMENT_MANAGER_ROLE: string =
   import.meta.env.VITE_DEPLOYMENT_MANAGER_ROLE ?? 'INT | Deployment Manager'
+
+/** Config values the app loads from Dataverse at startup (see configService). */
+export interface RuntimeConfig {
+  environments?: EnvironmentDef[]
+  adoOrgUrl?: string
+  adoProject?: string
+  deploymentManagerRole?: string
+}
+
+/**
+ * Overlay runtime config (read from the `pro_environmentconfig` /
+ * `pro_workbenchsettings` tables) onto the build-time defaults. Each field is
+ * only applied when present, so partial config keeps the fallbacks. Consumers
+ * see the new values via ES live bindings on their next read.
+ */
+export function applyRuntimeConfig(cfg: RuntimeConfig): void {
+  if (cfg.environments && cfg.environments.length > 0) ENVIRONMENTS = cfg.environments
+  if (cfg.adoOrgUrl) {
+    ADO_ORG_URL = cfg.adoOrgUrl
+    ADO_ACCOUNT = adoAccount(ADO_ORG_URL)
+  }
+  if (cfg.adoProject) {
+    ADO_PROJECT = cfg.adoProject
+    ADO_PROJECT_NAME = cfg.adoProject
+  }
+  if (cfg.deploymentManagerRole) DEPLOYMENT_MANAGER_ROLE = cfg.deploymentManagerRole
+}
 
 /** Maker-portal deep link to one solution (objects list), or the solutions
  *  area when no environment id is known. */

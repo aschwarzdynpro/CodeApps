@@ -138,6 +138,9 @@ $entities = @(
   @{ schema="${p}_ReleaseNote";       logical="${p}_releasenote";       set="${p}_releasenotes"
      display='Release Note'; coll='Release Notes'; ownership='OrganizationOwned'
      primary=@{ schema="${p}_name"; max=850; req='ApplicationRequired' } }
+  @{ schema="${p}_EnvironmentConfig"; logical="${p}_environmentconfig"; set="${p}_environmentconfigs"
+     display='Environment Config'; coll='Environment Configs'; ownership='OrganizationOwned'
+     primary=@{ schema="${p}_name"; max=200; req='ApplicationRequired' } }
 )
 foreach ($e in $entities) {
   if (Test-DvExists "EntityDefinitions(LogicalName='$($e.logical)')?`$select=LogicalName") {
@@ -180,7 +183,17 @@ $columns = @{
     (StrAttr "${p}_mastersolutionuniquename" 20 'Recommended' 'Master solution unique name'),
     (StrAttr "${p}_publisher_str" 100 'None' 'Publisher'),
     (StrAttr "${p}_publisherid" 40 'Recommended' 'Publisher Id'),
-    (StrAttr "${p}_deploymentsolutionuniquename" 200 'Recommended' 'Deployment solution unique name')
+    (StrAttr "${p}_deploymentsolutionuniquename" 200 'Recommended' 'Deployment solution unique name'),
+    (StrAttr "${p}_adoorgurl" 400 'None' 'Azure DevOps Org URL' 'Url'),
+    (StrAttr "${p}_adoproject" 200 'None' 'Azure DevOps Project'),
+    (StrAttr "${p}_deploymentmanagerrole" 200 'None' 'Deployment Manager role name')
+  )
+  "${p}_environmentconfig" = @(
+    (StrAttr  "${p}_key" 50 'None' 'Key'),
+    (StrAttr  "${p}_url" 400 'None' 'Environment URL' 'Url'),
+    (StrAttr  "${p}_environmentid" 100 'None' 'Environment Id'),
+    (BoolAttr "${p}_iscurrent" 'None' 'Is current'),
+    (IntAttr  "${p}_order_int" 0 1000 'None' 'Order')
   )
   "${p}_mergerun" = @(
     (IntAttr  "${p}_added_int" 0 10000 'None' 'Added'),
