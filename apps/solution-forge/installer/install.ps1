@@ -27,6 +27,7 @@
 param(
   [string]$EnvironmentUrl,
   [string]$TenantId,
+  [string]$EnvironmentId,
   [string]$ConnectionId,
   [string]$AppDisplayName = 'Solution Administration Console',
   [switch]$UseConnectionReference,   # also wire a pro_CRDataverse connection reference (only needed for managed-solution distribution)
@@ -95,13 +96,16 @@ if (-not $TenantId) { $TenantId = Ask 'Tenant-ID (optional, Enter = automatisch)
 $null = Connect-Dataverse -EnvironmentUrl $EnvironmentUrl -TenantId $TenantId
 
 # Power Platform environment id (NOT the Dataverse organizationid) — needed for
-# maker deep links and `power-apps init`. Try to resolve from pac, else ask.
-$envId = $null
-try {
-  $list = pac env list --json 2>$null | ConvertFrom-Json
-  $match = $list | Where-Object { $_.EnvironmentUrl -and ($_.EnvironmentUrl.TrimEnd('/') -eq $EnvironmentUrl.TrimEnd('/')) } | Select-Object -First 1
-  if ($match) { $envId = $match.EnvironmentId }
-} catch {}
+# maker deep links and `power-apps init`. Use the -EnvironmentId parameter when
+# given; otherwise resolve from pac, else ask.
+$envId = $EnvironmentId
+if (-not $envId) {
+  try {
+    $list = pac env list --json 2>$null | ConvertFrom-Json
+    $match = $list | Where-Object { $_.EnvironmentUrl -and ($_.EnvironmentUrl.TrimEnd('/') -eq $EnvironmentUrl.TrimEnd('/')) } | Select-Object -First 1
+    if ($match) { $envId = $match.EnvironmentId }
+  } catch {}
+}
 if (-not $envId) { $envId = Ask 'Power Platform Environment-ID (aus Maker-URL .../environments/<ID>/...)' '' }
 if (-not $envId) { throw "Environment-ID erforderlich (für Maker-Links und power-apps init)." }
 Write-Host ("  Environment-ID: {0}" -f $envId) -ForegroundColor DarkGray

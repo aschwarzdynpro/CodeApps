@@ -22,7 +22,7 @@ install is correct by construction (no per-customer prefix rewrite).
 # Full guided install into a target environment:
 pwsh installer/install.ps1
 #   or non-interactively seed the first answers:
-pwsh installer/install.ps1 -EnvironmentUrl https://<org>.crm4.dynamics.com -TenantId <guid>
+pwsh installer/install.ps1 -EnvironmentUrl https://<org>.crm4.dynamics.com -TenantId <guid> -EnvironmentId <pp-env-guid> [-ConnectionId <id>]
 
 # Re-run pieces individually:
 pwsh installer/provision-model.ps1 -EnvironmentUrl https://<org>.crm4.dynamics.com   # just the data model
