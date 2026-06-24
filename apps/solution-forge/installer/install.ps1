@@ -27,6 +27,7 @@
 param(
   [string]$EnvironmentUrl,
   [string]$TenantId,
+  [string]$ConnectionId,
   [string]$AppDisplayName = 'Solution Administration Console',
   [switch]$SkipProvision,
   [switch]$SkipPush
@@ -111,22 +112,31 @@ if ($SkipProvision) {
 $solutionId = (Invoke-Dv -Method GET -Path "solutions?`$select=solutionid&`$filter=uniquename eq 'DynamicsProSolutionAdminConsole'").value[0].solutionid
 
 # ---- 4. Connection ---------------------------------------------------------
+# The Dataverse connector needs exactly ONE connection behind the reference
+# (used for the cross-environment Compare/Layers/Sharing features). We discover
+# it via `pac connection list` (uses the pac auth profile — no npm-CLI hang).
 Title 'Dataverse-Connection'
-Write-Host "Vorhandene Dataverse-Connections in diesem Environment:"
-Push-Location $appRoot
-$conns = @()
-try { $conns = (power-apps list-connections --json 2>$null | ConvertFrom-Json) | Where-Object { $_.properties.apiId -like '*commondataserviceforapps*' -and $_.properties.statuses.status -eq 'Connected' } } catch {}
-Pop-Location
-$connectionId = $null
-if ($conns -and $conns.Count -gt 0) {
-  $pick = Select-One $conns { param($c) "{0}  ({1})" -f $c.properties.displayName, $c.name } 'Connection-Nummer wählen (oder Enter für neue)'
-  if ($pick) { $connectionId = $pick.name }
+$connectionId = $ConnectionId
+if (-not $connectionId) {
+  $rows = @(pac connection list 2>$null) | Where-Object { $_ -match 'shared_commondataserviceforapps' -and $_ -match 'Connected' }
+  $parsed = @()
+  foreach ($r in $rows) {
+    if ($r -match '^\s*(\S+)\s+(.*?)\s+/providers/') { $parsed += [pscustomobject]@{ id = $Matches[1]; name = $Matches[2].Trim() } }
+  }
+  if ($parsed.Count -eq 1) {
+    $connectionId = $parsed[0].id
+    Write-Host ("  Dataverse-Connection automatisch gewählt: {0}" -f $parsed[0].name) -ForegroundColor DarkGray
+  } elseif ($parsed.Count -gt 1) {
+    $pick = Select-One $parsed { param($c) "{0}  ({1})" -f $c.name, $c.id } 'Connection-Nummer wählen'
+    if ($pick) { $connectionId = $pick.id }
+  }
 }
 if (-not $connectionId) {
-  Write-Host "Keine Connection gewählt. Lege im Maker eine Dataverse-Connection an" -ForegroundColor Yellow
-  Write-Host "(Service Principal empfohlen) und starte den Installer erneut, ODER gib die Connection-ID jetzt ein." -ForegroundColor Yellow
+  Write-Host "Keine Dataverse-Connection im Ziel-Environment gefunden." -ForegroundColor Yellow
+  Write-Host "Lege EINMALIG eine an (Maker -> Connections -> Microsoft Dataverse, oder" -ForegroundColor Yellow
+  Write-Host "pac connection create mit SP), dann erneut starten mit -ConnectionId <id>." -ForegroundColor Yellow
   $connectionId = Ask 'Connection-ID (leer = abbrechen)' ''
-  if (-not $connectionId) { throw "Ohne Dataverse-Connection kann die App nicht laufen." }
+  if (-not $connectionId) { throw "Ohne Dataverse-Connection kann der Connector nicht gebunden werden." }
 }
 Write-Host ("  Connection: {0}" -f $connectionId) -ForegroundColor DarkGray
 
