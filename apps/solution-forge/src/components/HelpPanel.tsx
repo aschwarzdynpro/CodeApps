@@ -33,7 +33,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <h3>Concept</h3>
             <p>
               A <strong>working solution</strong> has two parts: a record in
-              the <code>ssid_workingsolution</code> table (title, DevOps id,
+              the <code>pro_workingsolution</code> table (title, DevOps id,
               type, owner, deployment status, merge log) and the{' '}
               <strong>real unmanaged solution</strong> carrying the
               components, linked by its unique name. A banner at the right edge
@@ -268,7 +268,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 <strong>status</strong> (colour-coded by stage) and a{' '}
                 <strong>progress bar</strong> derived from the numbered workflow
                 stage (e.g. “13a-UAT…” → ~87%, Closed → 100%; from{' '}
-                <code>sst_devopsworkitemstatus</code>).
+                <code>pro_devopsworkitemstatus</code>).
               </li>
               <li>
                 When an open entry's DevOps work item is <strong>Closed</strong>,
@@ -276,7 +276,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 <span className="tbc-chip">✓ to be completed</span> in the list
                 and its <strong>Mark completed</strong> command is highlighted —
                 a startup check over the synced work-item status
-                (<code>sst_devopsworkitemstatus</code>).
+                (<code>pro_devopsworkitemstatus</code>).
               </li>
               <li>
                 <strong>👤 Assign</strong> (tracked entries) opens a dialog to

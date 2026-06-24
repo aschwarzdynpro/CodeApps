@@ -28,12 +28,12 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       je Release-Solution aus der Merge-Historie generiert (enthaltene
       Solutions inkl. DevOps-`#`-Link, Komponenten nach Typ, App Elements als
       Counter), Umschalter Markdown | Raw + Copy. **Publish** speichert
-      versionierte Snapshots (`sst_releasenote`, nur Deployment Manager),
+      versionierte Snapshots (`pro_releasenote`, nur Deployment Manager),
       **History**-Tab zum Wiederabruf.
-- [ ] **Deployment-Kanban**: `ssid_deploymentstatus` als Board mit
+- [ ] **Deployment-Kanban**: `pro_deploymentstatus` als Board mit
       Drag & Drop (None → To be deployed → In progress → Completed).
 - [ ] **Power-Platform-Pipelines-Integration**: Pipeline-Run aus der App
-      starten, Run-Status nach `ssid_deploymentstatus` zurückspiegeln.
+      starten, Run-Status nach `pro_deploymentstatus` zurückspiegeln.
 - [ ] **Version-Bump & Export**: Versionsnummer der Release-Solution
       hochzählen und Export anstoßen.
 
@@ -57,41 +57,41 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 
 ## DevOps-Synergien (sobald der Service Principal steht, siehe TODO.md)
 
-- [~] **Work-Item-Sync**: `sst_devopsworkitemstatus/-type`, Area/Iteration
+- [~] **Work-Item-Sync**: `pro_devopsworkitemstatus/-type`, Area/Iteration
       Path automatisch aktuell halten. „WI: Done, Solution: offen" wird bereits
       markiert (Badge „to be completed", liest den synchronisierten
-      `sst_devopsworkitemstatus`), und der **„Sync with DevOps"-Button** stößt
+      `pro_devopsworkitemstatus`), und der **„Sync with DevOps"-Button** stößt
       den Sync-Cloud-Flow on-demand an. Offen: automatischer/zeitgesteuerter
       Sync ohne Klick, Area/Iteration-Path, Typ-Sync (SP, siehe TODO.md).
 - [ ] **Working Solution aus Work Item anlegen**: „Meine zugewiesenen Work
       Items" listen, Klick → Dialog vorbefüllt.
 - [ ] **Branch/PR-Verknüpfung**: PRs zur Branch-Konvention `feature/<id>` am
-      Eintrag zeigen (`ssid_devopslink`).
+      Eintrag zeigen (`pro_devopslink`).
 - [ ] **DevOps-Panel reaktivieren** (`DEVOPS_PANEL_ENABLED`, siehe TODO.md).
 
 ## Team & Komfort
 
 - [x] **Merge-Historie als Tabelle** (statt nur „letzter Merge") — Grundlage
-      für die Release Notes. *(Tabelle `sst_mergerun`, Detail-Panel der
+      für die Release Notes. *(Tabelle `pro_mergerun`, Detail-Panel der
       Release-Solution)*
 - [ ] **Teams-Benachrichtigungen**: neuer Konflikt im Radar / Merge fertig →
       Post in den Dev-Channel.
 - [ ] **Notizen am Eintrag** (Annotations im Detail-Panel).
-- [ ] **Steuertabelle ausbauen** (`ssid_workbenchsetting`): Umgebungs-URLs,
+- [ ] **Steuertabelle ausbauen** (`pro_workbenchsetting`): Umgebungs-URLs,
       Rollen-Name, Feature-Flags konfigurierbar statt hart in `config.ts`.
 - [ ] **Rollen-Check um Team-Vererbung erweitern** (aktuell nur direkte
       Zuweisung von „INT | Deployment Manager").
 
 ## Umgesetzt
 
-- [x] Darstellungs-Schicht `ssid_workingsolution` (Join, Anlage, Nacherfassen,
+- [x] Darstellungs-Schicht `pro_workingsolution` (Join, Anlage, Nacherfassen,
       Re-Link, Typ-Pflege, Löschen mit Undo)
 - [x] „Mark completed": offene Working Solution auf „Deployment completed"
       setzen, optional die unterliegende Solution löschen — mit 3s-Undo
       (Restore + Wieder-Öffnen); erster Baustein Richtung Deployment-Kanban
 - [x] Kollisions-Radar, Komponenten-Suche, Work-Item-Gruppierung
 - [x] Merge mit Plan, Konflikt-Markierung und Status-Logging
-- [x] Merge-Historie: jeder Merge schreibt eine `sst_mergerun`-Zeile (Counts +
+- [x] Merge-Historie: jeder Merge schreibt eine `pro_mergerun`-Zeile (Counts +
       Quell-Solutions + hinzugefügte Komponenten als kompaktes JSON in einer
       Multiline-Spalte, keine Kind-Tabelle); im Detail der Release-Solution als
       ausklappbare Tabelle (pro Lauf die Komponenten nach Typ gruppiert)

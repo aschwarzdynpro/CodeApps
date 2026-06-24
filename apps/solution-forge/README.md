@@ -12,13 +12,13 @@ durchläuft und einen nach Kritikalität sortierten Bericht erstellt.
 Eine **Working Solution** besteht aus zwei Teilen:
 
 1. **Darstellungs-Schicht**: ein Datensatz der Tabelle
-   `ssid_workingsolution` mit Titel (`ssid_name`), dediziertem
-   DevOps-ID-Feld (`ssid_devopsid`), Typ (`sst_type_opt`: Feature / Bug /
-   Release), Owner, Deployment-Status (`ssid_deploymentstatus`) und
-   Merge-Log-Feldern (`sst_mergeintodeploymentsolution`,
-   `sst_lastmergeintodeploymentsolution`).
+   `pro_workingsolution` mit Titel (`pro_name`), dediziertem
+   DevOps-ID-Feld (`pro_devopsid`), Typ (`pro_type_opt`: Feature / Bug /
+   Release), Owner, Deployment-Status (`pro_deploymentstatus`) und
+   Merge-Log-Feldern (`pro_mergeintodeploymentsolution`,
+   `pro_lastmergeintodeploymentsolution`).
 2. **Echte Solution**: die unmanaged Dataverse-Solution mit den
-   Komponenten, verlinkt über `ssid_uniquesolutionname`.
+   Komponenten, verlinkt über `pro_uniquesolutionname`.
 
 Beim Anlegen erzeugt die App beides; der Unique Name folgt weiterhin der
 Konvention (`feature_<id>` / `bug_<id>` / `deploy_<name>`). Unmanaged
@@ -28,9 +28,9 @@ Findet sich zur Row keine echte Solution, wird das im Detail markiert
 (Komponenten/Merge/Compare sind dann deaktiviert).
 
 Nach einem Merge setzt die App auf den Quell-Datensätzen automatisch
-`sst_mergeintodeploymentsolution`, den Zeitstempel und den
+`pro_mergeintodeploymentsolution`, den Zeitstempel und den
 Deployment-Status „Merged into Deployment Solution". Zusätzlich wird je
-Merge eine **Historien-Zeile** in der Tabelle `sst_mergerun` geschrieben
+Merge eine **Historien-Zeile** in der Tabelle `pro_mergerun` geschrieben
 (Counts, Quell-Solutions und die hinzugefügten Komponenten als kompaktes
 JSON in einer Multiline-Spalte — keine Kind-Tabelle). Im Detail einer
 Release-Solution erscheint sie als **Merge-Historie**-Tabelle; ein Klick auf
@@ -92,7 +92,7 @@ nach Typ.
   Deep-Link **Open in Maker Portal** (Environment-ID kommt zur Laufzeit aus dem
   Host-Kontext) sowie ein Azure-DevOps-Link zum Work Item.
 - **„To be completed"-Check**: Beim Laden wird je offener Working Solution der
-  synchronisierte DevOps-Work-Item-Status (`sst_devopsworkitemstatus`) geprüft;
+  synchronisierte DevOps-Work-Item-Status (`pro_devopsworkitemstatus`) geprüft;
   ist er *Closed/Done*, wird der Eintrag in der Liste als **„to be completed"**
   markiert und die Mark-completed-Aktion hervorgehoben (abgeleitetes Flag,
   nicht persistiert).
@@ -112,7 +112,7 @@ nach Typ.
   Namenssuche einen User wählen (`assignOwner` setzt `ownerid@odata.bind`;
   `searchUsers` über `SystemusersService`).
 - **Mark completed**: aktive getrackte Einträge auf
-  `ssid_deploymentstatus = Deployment completed` (500870003) setzen (reines
+  `pro_deploymentstatus = Deployment completed` (500870003) setzen (reines
   Status-Label — schließt den Eintrag nicht, das macht der statecode). Im
   Dialog wird gefragt, ob die unterliegende Solution gelöscht werden soll;
   falls ja, läuft das (wie beim Delete) über das 3-Sekunden-Undo — Statuswechsel
@@ -124,8 +124,8 @@ nach Typ.
   übersprungen) und mergen (`AddSolutionComponent` je Komponente).
 - **Merge-Regeln je Release** (optional): zwei Multi-Select-Choices am
   Release-Record (Optionswerte = `componenttype`-Codes) — **Allow-Liste**
-  `sst_allowedmergetypes` (leer = alle) und **Exclude-Liste**
-  `sst_excludedmergetypes`. Mergebar ist ein Typ, wenn (Allow leer ODER drin)
+  `pro_allowedmergetypes` (leer = alle) und **Exclude-Liste**
+  `pro_excludedmergetypes`. Mergebar ist ein Typ, wenn (Allow leer ODER drin)
   UND nicht in Exclude. Verwaltet im eigenen **Merge-Rules**-Tab
   (Deployment-Manager-gated, Allow-/Exclude-Chips je Release); die
   Workbench-Detailansicht zeigt nur eine **Read-only-Übersicht**. Blockierte
@@ -137,7 +137,7 @@ nach Typ.
   DevOps-`#`-Link, wenn der Titel eindeutig auflösbar ist) und alle
   hinzugefügten Komponenten nach Typ (App Elements als Counter). Umschalter
   **Markdown | Raw** + Copy. **Publish** friert den aktuellen Draft als
-  versionierten Snapshot ein (Tabelle `sst_releasenote`, beide Formate
+  versionierten Snapshot ein (Tabelle `pro_releasenote`, beide Formate
   gespeichert) — nur Deployment Manager; Anzeigen/Kopieren offen.
   **Inkrementell:** nach dem ersten Publish listet der Draft nur noch, was
   **seit der letzten veröffentlichten Release Note** gemergt wurde (Cutoff =
@@ -238,9 +238,9 @@ Die UI hängt nur am Interface `SolutionService` in
   nichts liefert)
 - `mergeIntoDeployment(target, sources)` – `AddSolutionComponent` pro
   Komponente, bereits vorhandene Objekte werden übersprungen; schreibt
-  anschließend eine `sst_mergerun`-Historien-Zeile
+  anschließend eine `pro_mergerun`-Historien-Zeile
 - `listMergeRuns(targetRecordId)` – Merge-Historie einer Release-Solution
-  (`sst_mergerun`-Zeilen, neueste zuerst; hinzugefügte Komponenten aus dem
+  (`pro_mergerun`-Zeilen, neueste zuerst; hinzugefügte Komponenten aus dem
   JSON-Feld geparst)
 
 Implementierungen:
