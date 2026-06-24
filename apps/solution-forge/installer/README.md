@@ -30,11 +30,16 @@ pwsh installer/install.ps1 -SkipProvision                                       
 pwsh installer/install.ps1 -SkipPush                                                 # configure only, push by hand
 ```
 
-The wizard captures customer-specific config (default publisher for new working
-solutions, core/deployment solution names, Compare target environments, Azure
-DevOps org/project, deployment-manager role name) and writes it to `.env.local`
-as `VITE_*` build vars, which `src/config.ts` reads (Schulz values are the
-fallback). The data model schema itself stays fixed (`pro_`).
+The wizard captures customer-specific config and stores it in two places:
+- **`pro_workbenchsettings`** (the in-app config table, read at startup): the
+  **default publisher** for new working solutions (`pro_publisher_str`).
+- **`.env.local`** (`VITE_*` build vars read by `src/config.ts`, Schulz values as
+  fallback): Compare target environments, Azure DevOps org/project, deployment-
+  manager role name.
+
+The data model schema itself stays fixed (`pro_`). (Note: the
+`pro_mastersolutionuniquename` / `pro_deploymentsolutionuniquename` columns exist
+but are currently unused by the app, so the wizard no longer prompts for them.)
 
 Auth uses an existing Az context for the tenant if present, otherwise an Az
 device-code sign-in (per the standing device-code preference). The

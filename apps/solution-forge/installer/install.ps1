@@ -155,8 +155,6 @@ $pubs = (Invoke-Dv -Method GET -Path "publishers?`$select=publisherid,uniquename
   Where-Object { $_.customizationprefix -ne 'mscrm' }
 Write-Host "Publisher, mit dem die App NEUE Working Solutions anlegt:"
 $pub = Select-One $pubs { param($p) "{0}  (prefix {1})" -f $p.friendlyname, $p.customizationprefix } 'Publisher-Nummer'
-$masterSolution = Ask 'Unique-Name der Core-/Master-Solution (Merge-Ziel „Core")'
-$deploySolution = Ask 'Unique-Name der Deployment-Solution (Merge-Ziel „Deployment")'
 
 # Compare/Dependency target environments
 $envs = @([ordered]@{ key='dev'; label='Current'; url=$EnvironmentUrl; environmentId=$envId; isCurrent=$true })
@@ -180,11 +178,9 @@ if ($existing -and $existing.Count -gt 0) {
     pro_name = 'Default'
     pro_publisher_str = $pub.publisherid
     pro_publisherid = $pub.publisherid
-    pro_mastersolutionuniquename = $masterSolution
-    pro_deploymentsolutionuniquename = $deploySolution
   }
   Invoke-Dv -Method POST -Path 'pro_workbenchsettingses' -Body $body | Out-Null
-  Write-Host "  + pro_workbenchsettings 'Default'" -ForegroundColor Green
+  Write-Host ("  + pro_workbenchsettings 'Default' (Publisher {0})" -f $pub.friendlyname) -ForegroundColor Green
 }
 
 # ---- 7. Configure + push the Code App -------------------------------------
