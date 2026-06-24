@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  isOpenStatus,
   MERGEABLE_COMPONENT_TYPES,
   COLLAPSED_COMPONENT_TYPE_LABELS,
   canonicalCollapsedLabel,
@@ -12,18 +11,12 @@ import {
   type WorkItemInfo,
   type WorkingSolution,
 } from '../types/solution'
-import {
-  DEVOPS_PANEL_ENABLED,
-  devOpsWorkItemUrl,
-  makerSolutionUrl,
-} from '../config'
+import { DEVOPS_PANEL_ENABLED, devOpsWorkItemUrl } from '../config'
 import { solutionService } from '../services/solutionService'
 import { formatDateTime, groupBy } from '../utils/format'
-import { KindBadge } from './KindBadge'
 
 interface Props {
   solution: WorkingSolution
-  environmentId: string | null
   components: SolutionComponentInfo[]
   loadingComponents: boolean
   onRefreshComponents: () => void
@@ -34,21 +27,6 @@ interface Props {
   collisions?: ComponentCollision[] | null
   /** Creates the working-solution record for an untracked solution. */
   onTrack: (input: TrackSolutionInput) => Promise<void>
-  /** Opens the delete confirmation for this entry. */
-  onDelete: (solution: WorkingSolution) => void
-  /** Opens the "mark completed" dialog for an open tracked entry. */
-  onComplete: (solution: WorkingSolution) => void
-  /** Persists a new type (sst_type_opt) for a tracked entry. */
-  onChangeType: (
-    solution: WorkingSolution,
-    kind: TrackSolutionInput['kind'],
-  ) => Promise<void>
-  /** Reassign the record's owner to the signed-in user. */
-  onAssignToMe: (solution: WorkingSolution) => Promise<void>
-  /** Reassign the record's owner to a chosen user. */
-  onAssign: (solution: WorkingSolution, userId: string) => Promise<void>
-  /** Search active users by name/login fragment (owner picker). */
-  onSearchUsers: (query: string) => Promise<UserRef[]>
   /** Unmanaged solutions without a record — candidates for re-linking. */
   linkCandidates: WorkingSolution[]
   /** Re-links an orphaned record to the chosen solution. */
@@ -482,7 +460,7 @@ function MergeHistoryPanel({ recordId }: { recordId: string }) {
  * Reassign-owner panel: a quick "Assign to me" plus a name search to assign
  * to any active user. The parent reloads on success (which unmounts this).
  */
-function AssignOwnerPanel({
+export function AssignOwnerPanel({
   solution,
   onAssignToMe,
   onAssign,
@@ -587,7 +565,6 @@ function stateBucket(state: string): string {
 
 export function SolutionDetail({
   solution,
-  environmentId,
   components,
   loadingComponents,
   onRefreshComponents,
@@ -595,37 +572,9 @@ export function SolutionDetail({
   workItemLoading,
   collisions,
   onTrack,
-  onDelete,
-  onComplete,
-  onChangeType,
-  onAssignToMe,
-  onAssign,
-  onSearchUsers,
   linkCandidates,
   onLink,
 }: Props) {
-  // Inline type editor for tracked entries (sst_type_opt).
-  const [editingType, setEditingType] = useState(false)
-  const [assigning, setAssigning] = useState(false)
-  const [savingType, setSavingType] = useState(false)
-  const [typeError, setTypeError] = useState<string | null>(null)
-
-  const changeType = async (kind: TrackSolutionInput['kind']) => {
-    if (kind === solution.kind) {
-      setEditingType(false)
-      return
-    }
-    setSavingType(true)
-    setTypeError(null)
-    try {
-      await onChangeType(solution, kind)
-      setEditingType(false)
-    } catch (err) {
-      setTypeError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setSavingType(false)
-    }
-  }
   const adoUrl = workItem?.url ?? devOpsWorkItemUrl(solution.devOpsId)
   const grouped = [...groupBy(components, (c) => c.typeName).entries()].sort(
     (a, b) => a[0].localeCompare(b[0]),
@@ -645,108 +594,8 @@ export function SolutionDetail({
 
   return (
     <aside className={`card detail detail--${solution.kind}`}>
-      <div className="detail-header">
-        <div>
-          <span className="type-edit">
-            <KindBadge kind={solution.kind} />
-            {solution.recordId && (
-              <button
-                className="type-edit-btn"
-                title="Change type (Feature / Bug / Release)"
-                onClick={() => setEditingType((v) => !v)}
-              >
-                ✎
-              </button>
-            )}
-          </span>
-          {editingType && (
-            <div className="type-edit-row">
-              {TRACK_KIND_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  className={`chip ${
-                    solution.kind === opt.value ? 'chip--active' : ''
-                  }`}
-                  disabled={savingType}
-                  onClick={() => void changeType(opt.value)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-              {savingType && <span className="muted">Saving…</span>}
-              {typeError && <span className="form-error">{typeError}</span>}
-            </div>
-          )}
-          <h2 className="detail-title">{solution.title}</h2>
-          <code className="detail-uniquename">{solution.uniqueName}</code>
-        </div>
-      </div>
-
       {solution.description && (
         <p className="detail-description">{solution.description}</p>
-      )}
-
-      <div className="command-bar">
-        {solution.solutionMissing ? (
-          <span
-            className="command-bar-item command-bar-item--disabled"
-            title="No Dataverse solution matches this record's unique solution name."
-          >
-            <span className="cmd-icon">↗</span> Maker Portal
-          </span>
-        ) : (
-          <a
-            className="command-bar-item"
-            href={makerSolutionUrl(environmentId, solution.id)}
-            target="_blank"
-            rel="noreferrer"
-            title="Open this solution in the maker portal"
-          >
-            <span className="cmd-icon">↗</span> Maker Portal
-          </a>
-        )}
-        {solution.recordId && isOpenStatus(solution) && (
-          <button
-            className={`command-bar-item ${
-              solution.toBeCompleted ? 'command-bar-item--accent' : ''
-            }`}
-            title={
-              solution.toBeCompleted
-                ? 'Work item is closed — set deployment status to completed (optionally delete the solution)'
-                : 'Set deployment status to completed (optionally delete the solution)'
-            }
-            onClick={() => onComplete(solution)}
-          >
-            <span className="cmd-icon">✓</span> Complete
-          </button>
-        )}
-        {solution.recordId && (
-          <button
-            className={`command-bar-item ${
-              assigning ? 'command-bar-item--accent' : ''
-            }`}
-            title="Reassign the owner of this working solution"
-            onClick={() => setAssigning((v) => !v)}
-          >
-            <span className="cmd-icon">👤</span> Assign
-          </button>
-        )}
-        <button
-          className="command-bar-item command-bar-item--danger"
-          title="Remove the record / solution, with a 3-second undo"
-          onClick={() => onDelete(solution)}
-        >
-          <span className="cmd-icon">🗑</span> Delete
-        </button>
-      </div>
-
-      {assigning && solution.recordId && (
-        <AssignOwnerPanel
-          solution={solution}
-          onAssignToMe={onAssignToMe}
-          onAssign={onAssign}
-          onSearchUsers={onSearchUsers}
-        />
       )}
 
       {solution.solutionMissing && (
@@ -817,37 +666,6 @@ export function SolutionDetail({
           )}
         </div>
       )}
-
-      <dl className="detail-meta">
-        <div>
-          <dt>Version</dt>
-          <dd>{solution.version || '—'}</dd>
-        </div>
-        <div>
-          <dt>Publisher</dt>
-          <dd>{solution.publisher?.friendlyName || '—'}</dd>
-        </div>
-        {solution.owner && (
-          <div>
-            <dt>Owner</dt>
-            <dd>{solution.owner}</dd>
-          </div>
-        )}
-        {solution.deploymentStatus && (
-          <div>
-            <dt>Deployment status</dt>
-            <dd>{solution.deploymentStatus}</dd>
-          </div>
-        )}
-        <div>
-          <dt>Created</dt>
-          <dd>{formatDateTime(solution.createdOn)}</dd>
-        </div>
-        <div>
-          <dt>Modified</dt>
-          <dd>{formatDateTime(solution.modifiedOn)}</dd>
-        </div>
-      </dl>
 
       {!!collisions?.length && (
         <section className="collision-card">

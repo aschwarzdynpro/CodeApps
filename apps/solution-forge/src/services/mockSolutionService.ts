@@ -8,6 +8,7 @@ import type {
   ReleaseNote,
   SolutionComponentInfo,
   TrackSolutionInput,
+  UpdateWorkingSolutionInput,
   UserRef,
   WorkItemInfo,
   WorkingSolution,
@@ -388,6 +389,17 @@ export class MockSolutionService {
     const solution = this.solutions.find((s) => s.recordId === recordId)
     if (!solution) throw new Error('Unknown working-solution record.')
     solution.kind = kind
+  }
+
+  async updateWorkingSolution(
+    input: UpdateWorkingSolutionInput,
+  ): Promise<void> {
+    await delay(250)
+    const solution = this.solutions.find((s) => s.recordId === input.recordId)
+    if (!solution) throw new Error('Unknown working-solution record.')
+    solution.kind = input.kind
+    solution.title = input.title
+    solution.description = input.description
   }
 
   async setDeploymentStatus(

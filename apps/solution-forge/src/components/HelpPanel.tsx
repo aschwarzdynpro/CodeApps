@@ -238,17 +238,37 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 again fades it back out. This keeps the table at full width.
               </li>
               <li>
-                A <strong>command bar</strong> with the entry's actions —{' '}
-                <strong>Open in Maker Portal</strong> on the left, and{' '}
-                <strong>Mark completed</strong> / <strong>Delete</strong> as
-                icons on the right (hover for their tooltips) — above the
-                metadata (version, publisher, owner, deployment status).
+                Each row has <strong>quick actions</strong> in the last column,
+                revealed on hover (and while the row is open):{' '}
+                <strong>✎ Edit</strong> (change type / title / description in an
+                overlay), <strong>✓ Complete</strong>, <strong>⇉ Merge</strong>{' '}
+                (jumps to Merge with this solution pre-selected as a source),{' '}
+                <strong>👤 Assign</strong> and <strong>🗑 Delete</strong>. Which
+                appear depends on the entry (e.g. Merge only for tracked
+                feature/bug solutions; <strong>Edit</strong> and{' '}
+                <strong>Delete</strong> on a <strong>Release</strong> need the
+                “INT | Deployment Manager” role).
               </li>
               <li>
-                Each list row shows the synced{' '}
-                <strong>DevOps work-item status</strong> as a chip next to its{' '}
-                <strong>#number</strong> — blue while active, muted when
-                Closed/Done (from <code>sst_devopsworkitemstatus</code>).
+                Open a solution in the <strong>Maker Portal</strong> via its{' '}
+                <strong>unique name</strong> in the Solution column — it's a link
+                (with a ↗ icon). The detail pane is kept short (type, title,
+                description, components, merge history); the row actions and this
+                link replace the old command bar and metadata block.
+              </li>
+              <li>
+                The list is a <strong>columnar table</strong> — Type ·{' '}
+                <strong>Working Solution</strong> (title, owner, status chips) ·{' '}
+                <strong>Solution</strong> (unique name + version) ·{' '}
+                <strong>DevOps Item</strong> · <strong>Status</strong>.
+              </li>
+              <li>
+                The <strong>DevOps Item</strong> column shows the linked{' '}
+                <strong>#number</strong>, the synced work-item{' '}
+                <strong>status</strong> (colour-coded by stage) and a{' '}
+                <strong>progress bar</strong> derived from the numbered workflow
+                stage (e.g. “13a-UAT…” → ~87%, Closed → 100%; from{' '}
+                <code>sst_devopsworkitemstatus</code>).
               </li>
               <li>
                 When an open entry's DevOps work item is <strong>Closed</strong>,
@@ -259,14 +279,15 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 (<code>sst_devopsworkitemstatus</code>).
               </li>
               <li>
-                <strong>👤 Assign</strong> (tracked entries) reassigns the
-                record's owner — <strong>Assign to me</strong>, or search a user
-                by name and pick them.
+                <strong>👤 Assign</strong> (tracked entries) opens a dialog to
+                reassign the record's owner — <strong>Assign to me</strong>, or
+                search a user by name and pick them.
               </li>
               <li>
-                For tracked entries the type badge has a <strong>✎</strong>{' '}
-                button — change Feature / Bug / Release there; it updates
-                the record's type choice.
+                <strong>✎ Edit</strong> (tracked entries) opens an overlay to
+                change the <strong>type</strong>, <strong>title</strong> and{' '}
+                <strong>description</strong> — like the create dialog. The unique
+                name and DevOps id stay fixed.
               </li>
               <li>
                 <strong>Components</strong> grouped by type in collapsible

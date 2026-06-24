@@ -104,10 +104,52 @@
   border-right: 1px solid var(--border);
   padding: 18px 12px;
 }
+.sidebar-toggle {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.sidebar-toggle:hover {
+  background: var(--bg);
+  border-color: #bfc4d2;
+}
 .sidebar-nav {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+/* Collapsed (icon-only) sidebar. */
+.sidebar--collapsed {
+  --sidebar-w: 64px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.sidebar--collapsed .sidebar-toggle {
+  align-self: center;
+}
+.sidebar--collapsed .nav-group-label,
+.sidebar--collapsed .nav-label,
+.sidebar--collapsed .nav-lock {
+  display: none;
+}
+.sidebar--collapsed .nav-item {
+  justify-content: center;
+  gap: 0;
+  padding: 10px 0;
+}
+.sidebar--collapsed .nav-icon {
+  width: auto;
+  font-size: 16px;
 }
 .nav-group {
   display: flex;
@@ -1150,18 +1192,22 @@
 .inline-detail .detail {
   max-height: none;
   overflow: visible;
-  /* Accent bar coloured by the entry's type (Bug/Feature/Release); the
-     .detail--* rules below override the colour, reusing the kind-badge hues. */
-  border-left: 3px solid var(--muted);
-}
-.inline-detail .detail--bug {
-  border-left-color: #b02a37;
+  /* Accent bar coloured by the entry's type — same hues as the list row's left
+     border (TYPE_META in SolutionList): feature violet, bug red, release
+     orange, other slate. */
+  border-left: 3px solid #475569;
 }
 .inline-detail .detail--feature {
-  border-left-color: #1a56db;
+  border-left-color: #7c4ca7;
+}
+.inline-detail .detail--bug {
+  border-left-color: #cf4b63;
 }
 .inline-detail .detail--deployment {
-  border-left-color: #6f42c1;
+  border-left-color: #c2620e;
+}
+.inline-detail .detail--other {
+  border-left-color: #475569;
 }
 @keyframes inline-detail-in {
   from {
@@ -1399,6 +1445,321 @@
   border: 1px solid #f0c987;
   border-radius: 999px;
   padding: 1px 8px;
+}
+
+/* === Working Solution table (columnar layout, per design sample) === */
+.ws-table {
+  padding: 0;
+  max-height: calc(100vh - 300px);
+  min-height: 240px;
+  overflow-y: auto;
+}
+.ws-head,
+.wsrow {
+  display: grid;
+  grid-template-columns:
+    96px minmax(210px, 2fr) minmax(150px, 1.1fr) minmax(200px, 1.4fr) 118px 132px;
+}
+.ws-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f7f8fb;
+  border-bottom: 1px solid #e8eaf1;
+  /* Transparent accent gutter so columns line up with the rows' coloured one. */
+  border-left: 3px solid transparent;
+  border-radius: 12px 12px 0 0;
+}
+.ws-hcell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9097a3;
+}
+.ws-hcell--bl {
+  border-left: 1px solid #eaecf2;
+}
+.ws-hcell--right {
+  justify-content: flex-end;
+}
+.ws-hdot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+.wsrow {
+  border-bottom: 1px solid #f1f2f7;
+  /* Left accent gutter coloured per type (set inline); transparent fallback. */
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.wsrow--alt {
+  background: #f8f9fc;
+}
+.wsrow:hover {
+  background: #f0f3ff;
+}
+.wsrow--active {
+  background: #eef0fb;
+}
+.wscell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 14px 16px;
+  min-width: 0;
+}
+.wscell--sol,
+.wscell--dev,
+.wscell--status {
+  border-left: 1px solid #f1f2f7;
+}
+.wscell--type {
+  align-items: center;
+  justify-content: center;
+  padding: 14px 8px;
+}
+.wscell--status {
+  align-items: flex-end;
+}
+.wscell--actions {
+  justify-content: center;
+  align-items: flex-end;
+  padding: 14px 12px;
+}
+/* Quick-action buttons — 3-per-row grid, hidden until hovered/focused/open. */
+.ws-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  grid-auto-rows: 30px;
+  gap: 5px;
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.wsrow:hover .ws-actions,
+.wsrow:focus-within .ws-actions,
+.wsrow--active .ws-actions {
+  opacity: 1;
+}
+.ws-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+  line-height: 1;
+  border: 1px solid #e0e3ec;
+  border-radius: 7px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.ws-act:hover {
+  border-color: #bfc4d2;
+  background: #f7f8fb;
+}
+.ws-act--danger:hover {
+  border-color: #f0b5bd;
+  background: #fdecee;
+}
+.ws-typeicon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+.ws-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #1f2330;
+  overflow-wrap: anywhere;
+}
+.ws-subline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ws-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.ws-avatar {
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: #ece9fd;
+  color: #5b54e8;
+  font-size: 9.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.ws-owner-name {
+  font-size: 12.5px;
+  color: #5b6172;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+.ws-hits {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ws-sol-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.ws-sol-name svg {
+  flex: none;
+}
+.ws-sol-name code {
+  font-size: 12px;
+  color: #2f3440;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ws-sol-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  text-decoration: none;
+}
+.ws-sol-link code {
+  color: #2563eb;
+}
+.ws-sol-link:hover code {
+  text-decoration: underline;
+}
+.ws-sol-ext {
+  font-size: 11px;
+  color: #2563eb;
+  flex: none;
+}
+.ws-version {
+  align-self: flex-start;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #eef6f5;
+  color: #0e7d70;
+}
+.ws-notlinked {
+  align-self: flex-start;
+  font-size: 11.5px;
+  color: #9aa0ad;
+  border: 1px dashed #d2d6e0;
+  border-radius: 7px;
+  padding: 4px 9px;
+  background: #fbfbfd;
+}
+.ws-dev-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ws-dev-id {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: none;
+}
+.ws-dev-id:hover {
+  text-decoration: underline;
+}
+.ws-devstate {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.ws-dev-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ws-bar {
+  flex: 1;
+  height: 5px;
+  border-radius: 9px;
+  background: #eef0f4;
+  overflow: hidden;
+}
+.ws-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 9px;
+}
+.ws-pct {
+  font-size: 10.5px;
+  color: #9aa0ad;
+  font-variant-numeric: tabular-nums;
+}
+.ws-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 20px;
+}
+.ws-sync-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.ws-when {
+  font-size: 11.5px;
+  color: #9aa0ad;
+  white-space: nowrap;
+}
+.ws-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #f3f4f8;
+  border-bottom: 1px solid #e8eaf1;
+}
+.ws-group-title {
+  font-weight: 700;
+  font-size: 13px;
+  color: #3a3f4b;
+}
+.ws-group-count {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.ws-group-count--multi {
+  color: #b45309;
+  font-weight: 600;
 }
 
 /* Detail — same viewport cap as the list; long component lists scroll
