@@ -39,6 +39,7 @@ power-apps init --non-interactive -n "Solution Administration Console (Pro)" --c
 ./scripts/add-data-source.ps1 -a dataverse -t pro_workbenchsettings
 ./scripts/add-data-source.ps1 -a dataverse -t pro_mergerun
 ./scripts/add-data-source.ps1 -a dataverse -t pro_releasenote
+./scripts/add-data-source.ps1 -a dataverse -t pro_environmentconfig
 # Konnektor (Dataverse) — direkte Connection-Bindung per -c (Connection „App-Reg
 # D365-CE nonProd", SP). Für den Installer/ALM stattdessen Connection-Reference
 # `pro_CRDataverse` (muss vorab existieren, sonst „Failed to resolve connection ID"):

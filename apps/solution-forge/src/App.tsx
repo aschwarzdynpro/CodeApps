@@ -25,6 +25,7 @@ import { CompleteSolutionDialog } from './components/CompleteSolutionDialog'
 import { AssignDialog } from './components/AssignDialog'
 import { EditSolutionDialog } from './components/EditSolutionDialog'
 import {
+  applyRuntimeConfig,
   DEPLOYMENT_MANAGER_ROLE,
   DEVOPS_PANEL_ENABLED,
   makerSolutionUrl,
@@ -160,13 +161,33 @@ function App() {
   // Merge and Compare are restricted to deployment managers; tabs stay
   // visible but disabled until the role check confirms access.
   const [isDeploymentManager, setIsDeploymentManager] = useState(false)
+  // Bumped once startup config is applied, so children re-read the (live-bound)
+  // ENVIRONMENTS / role / ADO values from config.ts.
+  const [, setConfigVersion] = useState(0)
 
   useEffect(() => {
-    // One-time role probe — drives the tab gating as it resolves.
-    solutionService
-      .hasRole(DEPLOYMENT_MANAGER_ROLE)
-      .then((granted) => setIsDeploymentManager(granted))
-      .catch(() => setIsDeploymentManager(false))
+    // Load runtime config (Compare targets, ADO, role) from Dataverse and apply
+    // it over the build-time defaults BEFORE the role probe, so gating uses the
+    // configured role name. Then bump configVersion to re-render dependents.
+    let cancelled = false
+    void (async () => {
+      try {
+        const cfg = await solutionService.getRuntimeConfig()
+        if (!cancelled) applyRuntimeConfig(cfg)
+      } catch {
+        /* keep build-time defaults */
+      }
+      try {
+        const granted = await solutionService.hasRole(DEPLOYMENT_MANAGER_ROLE)
+        if (!cancelled) setIsDeploymentManager(granted)
+      } catch {
+        if (!cancelled) setIsDeploymentManager(false)
+      }
+      if (!cancelled) setConfigVersion((v) => v + 1)
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
   // Analyze sweep + Validate selection are lifted here so the run keeps
   // going (and the selection stays put) while navigating between tabs.

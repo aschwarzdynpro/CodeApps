@@ -22,7 +22,7 @@ install is correct by construction (no per-customer prefix rewrite).
 # Full guided install into a target environment:
 pwsh installer/install.ps1
 #   or non-interactively seed the first answers:
-pwsh installer/install.ps1 -EnvironmentUrl https://<org>.crm4.dynamics.com -TenantId <guid>
+pwsh installer/install.ps1 -EnvironmentUrl https://<org>.crm4.dynamics.com -TenantId <guid> -EnvironmentId <pp-env-guid> [-ConnectionId <id>]
 
 # Re-run pieces individually:
 pwsh installer/provision-model.ps1 -EnvironmentUrl https://<org>.crm4.dynamics.com   # just the data model
@@ -30,21 +30,32 @@ pwsh installer/install.ps1 -SkipProvision                                       
 pwsh installer/install.ps1 -SkipPush                                                 # configure only, push by hand
 ```
 
-The wizard captures customer-specific config (default publisher for new working
-solutions, core/deployment solution names, Compare target environments, Azure
-DevOps org/project, deployment-manager role name) and writes it to `.env.local`
-as `VITE_*` build vars, which `src/config.ts` reads (Schulz values are the
-fallback). The data model schema itself stays fixed (`pro_`).
+The wizard captures customer-specific config and stores it in two places:
+- **`pro_workbenchsettings`** (the in-app config table, read at startup): the
+  **default publisher** for new working solutions (`pro_publisher_str`).
+- **`.env.local`** (`VITE_*` build vars read by `src/config.ts`, Schulz values as
+  fallback): Compare target environments, Azure DevOps org/project, deployment-
+  manager role name.
+
+The data model schema itself stays fixed (`pro_`). (Note: the
+`pro_mastersolutionuniquename` / `pro_deploymentsolutionuniquename` columns exist
+but are currently unused by the app, so the wizard no longer prompts for them.)
 
 Auth uses an existing Az context for the tenant if present, otherwise an Az
 device-code sign-in (per the standing device-code preference). The
 `power-apps`/`pac` CLIs sign in separately (device code / browser SSO).
 
+**Connection binding:** by default the connector is bound **directly** to a
+Dataverse connection (its GUID is baked into `power.config.json` at push) — the
+installer discovers it via `pac connection list` or you pass `-ConnectionId`. A
+Code App resolves the connection at push time, so a managed-solution-style
+post-import rebind does not apply; the direct binding is simplest and identical at
+runtime. Pass `-UseConnectionReference` to additionally wire a `pro_CRDataverse`
+connection reference — only worthwhile if you later distribute the app via a
+managed solution import rather than `power-apps push`.
+
 ## Remaining enhancements
 
-- **Connection reference** (`pro_CRDataverse`) instead of the direct connection
-  binding the wizard currently uses (cleaner ALM; the reference must be created
-  before `add-data-source -cr`).
 - **Security role** with privileges on the `pro_*` tables shipped in the package
   (today the admin assigns table privileges manually — see the checklist).
 - **Fully data-driven config** via a `pro_environmentconfig` Dataverse table read

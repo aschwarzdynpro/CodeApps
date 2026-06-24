@@ -27,11 +27,19 @@
 param(
   [string]$EnvironmentUrl,
   [string]$TenantId,
+  [string]$EnvironmentId,
+  [string]$ConnectionId,
   [string]$AppDisplayName = 'Solution Administration Console',
+  [switch]$UseConnectionReference,   # also wire a pro_CRDataverse connection reference (only needed for managed-solution distribution)
   [switch]$SkipProvision,
   [switch]$SkipPush
 )
 $ErrorActionPreference = 'Stop'
+# The power-apps (npm) CLI reliably aborts on process exit with a libuv
+# assertion (exit 9) AFTER doing its work — init/push still succeed. Don't let
+# that native exit code throw (PS 7.4 would, under ErrorActionPreference=Stop);
+# cmdlet errors still stop the script. We verify the actual results explicitly.
+$PSNativeCommandUseErrorActionPreference = $false
 $here    = $PSScriptRoot
 $appRoot = Split-Path $here -Parent
 . (Join-Path $here 'lib/Dataverse.ps1')
@@ -49,7 +57,7 @@ function AskYesNo($prompt, [bool]$default = $true) {
   if ([string]::IsNullOrWhiteSpace($v)) { return $default }
   return $v.Trim() -match '^(y|j)'
 }
-function Select-One($items, [string]$display, [string]$prompt) {
+function Select-One($items, [scriptblock]$display, [string]$prompt) {
   if (-not $items -or $items.Count -eq 0) { return $null }
   for ($i = 0; $i -lt $items.Count; $i++) {
     Write-Host ("  [{0}] {1}" -f ($i + 1), (& $display $items[$i]))
@@ -88,13 +96,16 @@ if (-not $TenantId) { $TenantId = Ask 'Tenant-ID (optional, Enter = automatisch)
 $null = Connect-Dataverse -EnvironmentUrl $EnvironmentUrl -TenantId $TenantId
 
 # Power Platform environment id (NOT the Dataverse organizationid) — needed for
-# maker deep links and `power-apps init`. Try to resolve from pac, else ask.
-$envId = $null
-try {
-  $list = pac env list --json 2>$null | ConvertFrom-Json
-  $match = $list | Where-Object { $_.EnvironmentUrl -and ($_.EnvironmentUrl.TrimEnd('/') -eq $EnvironmentUrl.TrimEnd('/')) } | Select-Object -First 1
-  if ($match) { $envId = $match.EnvironmentId }
-} catch {}
+# maker deep links and `power-apps init`. Use the -EnvironmentId parameter when
+# given; otherwise resolve from pac, else ask.
+$envId = $EnvironmentId
+if (-not $envId) {
+  try {
+    $list = pac env list --json 2>$null | ConvertFrom-Json
+    $match = $list | Where-Object { $_.EnvironmentUrl -and ($_.EnvironmentUrl.TrimEnd('/') -eq $EnvironmentUrl.TrimEnd('/')) } | Select-Object -First 1
+    if ($match) { $envId = $match.EnvironmentId }
+  } catch {}
+}
 if (-not $envId) { $envId = Ask 'Power Platform Environment-ID (aus Maker-URL .../environments/<ID>/...)' '' }
 if (-not $envId) { throw "Environment-ID erforderlich (für Maker-Links und power-apps init)." }
 Write-Host ("  Environment-ID: {0}" -f $envId) -ForegroundColor DarkGray
@@ -110,103 +121,156 @@ if ($SkipProvision) {
 }
 $solutionId = (Invoke-Dv -Method GET -Path "solutions?`$select=solutionid&`$filter=uniquename eq 'DynamicsProSolutionAdminConsole'").value[0].solutionid
 
-# ---- 4. Connection ---------------------------------------------------------
+# ---- 4. Dataverse connection ----------------------------------------------
+# The connector is bound directly to a connection (its GUID is baked into
+# power.config at push). We discover it via `pac connection list` (uses the pac
+# auth profile — no npm-CLI hang). -UseConnectionReference additionally wires a
+# pro_CRDataverse connection reference (only worthwhile for managed-solution
+# distribution; for power-apps push it makes no runtime difference).
 Title 'Dataverse-Connection'
-Write-Host "Vorhandene Dataverse-Connections in diesem Environment:"
-Push-Location $appRoot
-$conns = @()
-try { $conns = (power-apps list-connections --json 2>$null | ConvertFrom-Json) | Where-Object { $_.properties.apiId -like '*commondataserviceforapps*' -and $_.properties.statuses.status -eq 'Connected' } } catch {}
-Pop-Location
-$connectionId = $null
-if ($conns -and $conns.Count -gt 0) {
-  $pick = Select-One $conns { param($c) "{0}  ({1})" -f $c.properties.displayName, $c.name } 'Connection-Nummer wählen (oder Enter für neue)'
-  if ($pick) { $connectionId = $pick.name }
+$connectorId = '/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps'
+$connectionId = $ConnectionId
+if (-not $connectionId) {
+  $rows = @(pac connection list 2>$null) | Where-Object { $_ -match 'shared_commondataserviceforapps' -and $_ -match 'Connected' }
+  $parsed = @()
+  foreach ($r in $rows) {
+    if ($r -match '^\s*(\S+)\s+(.*?)\s+/providers/') { $parsed += [pscustomobject]@{ id = $Matches[1]; name = $Matches[2].Trim() } }
+  }
+  if ($parsed.Count -eq 1) { $connectionId = $parsed[0].id; Write-Host ("  Connection gefunden: {0}" -f $parsed[0].name) -ForegroundColor DarkGray }
+  elseif ($parsed.Count -gt 1) { $pick = Select-One $parsed { param($c) "{0}  ({1})" -f $c.name, $c.id } 'Connection-Nummer wählen'; if ($pick) { $connectionId = $pick.id } }
 }
 if (-not $connectionId) {
-  Write-Host "Keine Connection gewählt. Lege im Maker eine Dataverse-Connection an" -ForegroundColor Yellow
-  Write-Host "(Service Principal empfohlen) und starte den Installer erneut, ODER gib die Connection-ID jetzt ein." -ForegroundColor Yellow
+  Write-Host "Keine Dataverse-Connection im Ziel-Environment gefunden." -ForegroundColor Yellow
+  Write-Host "Lege EINMALIG eine an (Maker -> Connections -> Microsoft Dataverse) und" -ForegroundColor Yellow
+  Write-Host "starte erneut, oder gib sie direkt mit: install.ps1 ... -ConnectionId <id>" -ForegroundColor Yellow
   $connectionId = Ask 'Connection-ID (leer = abbrechen)' ''
-  if (-not $connectionId) { throw "Ohne Dataverse-Connection kann die App nicht laufen." }
+  if (-not $connectionId) { throw "Ohne Dataverse-Connection kann der Connector nicht gebunden werden." }
 }
 Write-Host ("  Connection: {0}" -f $connectionId) -ForegroundColor DarkGray
 
-# ---- 5. Customer configuration --------------------------------------------
-Title 'Konfiguration'
-$pubs = (Invoke-Dv -Method GET -Path "publishers?`$select=publisherid,uniquename,friendlyname,customizationprefix&`$orderby=friendlyname").value |
-  Where-Object { $_.customizationprefix -ne 'mscrm' }
-Write-Host "Publisher, mit dem die App NEUE Working Solutions anlegt:"
-$pub = Select-One $pubs { param($p) "{0}  (prefix {1})" -f $p.friendlyname, $p.customizationprefix } 'Publisher-Nummer'
-$masterSolution = Ask 'Unique-Name der Core-/Master-Solution (Merge-Ziel „Core")'
-$deploySolution = Ask 'Unique-Name der Deployment-Solution (Merge-Ziel „Deployment")'
-
-# Compare/Dependency target environments
-$envs = @([ordered]@{ key='dev'; label='Current'; url=$EnvironmentUrl; environmentId=$envId; isCurrent=$true })
-if (AskYesNo 'Weitere Compare-Ziele (UAT/PROD) hinzufügen?' $false) {
-  foreach ($k in 'uat','prod') {
-    $u = Ask ("URL für '{0}' (leer = überspringen)" -f $k) ''
-    if ($u) { $envs += [ordered]@{ key=$k; label=$k.ToUpper(); url=$u; environmentId=''; isCurrent=$false } }
-  }
+# Optional connection reference (managed-solution distribution only).
+$connRefName = $null
+if ($UseConnectionReference) {
+  $connRefName = 'pro_CRDataverse'
+  $ref = New-DvConnectionReference -LogicalName $connRefName -ConnectorId $connectorId `
+    -ConnectionId $connectionId -DisplayName 'Dynamics Pro — Dataverse' -Solution 'DynamicsProSolutionAdminConsole'
+  if (-not $ref.ConnectionId) { Set-DvConnectionReferenceConnection -ReferenceId $ref.Id -ConnectionId $connectionId }
+  Write-Host ("  Connection-Reference {0} gebunden." -f $connRefName) -ForegroundColor DarkGray
 }
-$adoOrgUrl = Ask 'Azure DevOps Org-URL (optional, z.B. https://dev.azure.com/Contoso)' ''
-$adoProject = if ($adoOrgUrl) { Ask 'Azure DevOps Projekt' '' } else { '' }
-$roleName = Ask 'Name der Deployment-Manager-Security-Rolle' 'Dynamics Pro — Deployment Manager'
 
-# ---- 6. Seed bootstrap settings -------------------------------------------
-Title 'Bootstrap-Settings'
+# ---- 5. Bootstrap rows (config itself is managed in Dataverse) ------------
+# No config prompts: default publisher, Compare/Dependency targets, ADO
+# org/project and the deployment-manager role are all maintained in the
+# Dataverse config tables (pro_workbenchsettings / pro_environmentconfig), which
+# the app reads at startup. The wizard only seeds the mandatory bootstrap rows;
+# the admin fills in the values in the Maker afterwards.
+Title 'Bootstrap-Records (Config wird in Dataverse gepflegt)'
 $existing = (Invoke-Dv -Method GET -Path "pro_workbenchsettingses?`$select=pro_workbenchsettingsid&`$filter=statecode eq 0&`$top=1").value
 if ($existing -and $existing.Count -gt 0) {
-  Write-Host "  Aktiver pro_workbenchsettings-Record existiert bereits — übersprungen." -ForegroundColor DarkGray
+  Write-Host "  pro_workbenchsettings 'Default' existiert bereits — übersprungen." -ForegroundColor DarkGray
 } else {
-  $body = @{
-    pro_name = 'Default'
-    pro_publisher_str = $pub.publisherid
-    pro_publisherid = $pub.publisherid
-    pro_mastersolutionuniquename = $masterSolution
-    pro_deploymentsolutionuniquename = $deploySolution
-  }
-  Invoke-Dv -Method POST -Path 'pro_workbenchsettingses' -Body $body | Out-Null
-  Write-Host "  + pro_workbenchsettings 'Default'" -ForegroundColor Green
+  Invoke-Dv -Method POST -Path 'pro_workbenchsettingses' -Body @{ pro_name = 'Default' } | Out-Null
+  Write-Host "  + pro_workbenchsettings 'Default' (Publisher/ADO/Rolle im Maker setzen)" -ForegroundColor Green
+}
+$curEnv = (Invoke-Dv -Method GET -Path "pro_environmentconfigs?`$select=pro_environmentconfigid&`$filter=pro_iscurrent eq true&`$top=1").value
+if ($curEnv -and $curEnv.Count -gt 0) {
+  Write-Host "  pro_environmentconfig (aktuelle Env) existiert bereits — übersprungen." -ForegroundColor DarkGray
+} else {
+  Invoke-Dv -Method POST -Path 'pro_environmentconfigs' -Body @{
+    pro_name = 'Current'; pro_key = 'dev'; pro_url = $EnvironmentUrl.TrimEnd('/')
+    pro_environmentid = $envId; pro_iscurrent = $true; pro_order_int = 0
+  } | Out-Null
+  Write-Host "  + pro_environmentconfig 'Current' (UAT/PROD im Maker ergänzen)" -ForegroundColor Green
 }
 
-# ---- 7. Configure + push the Code App -------------------------------------
+# ---- 6. Configure + push the Code App -------------------------------------
 Title 'Code App konfigurieren & deployen'
 Push-Location $appRoot
 try {
-  $envJson = ($envs | ForEach-Object { [pscustomobject]$_ }) | ConvertTo-Json -Compress -AsArray
+  # .env.local carries only the deploy-time intrinsics: this environment's id +
+  # URL. The current-env URL is needed for the very first read (before the
+  # config tables load); everything else is data-driven from Dataverse.
+  $curRow = [pscustomobject]@{ key='dev'; label='Current'; url=$EnvironmentUrl.TrimEnd('/'); environmentId=$envId; isCurrent=$true }
+  $envJson = (,$curRow) | ConvertTo-Json -Compress -AsArray
   $envLines = @(
     "VITE_ENVIRONMENT_ID=$envId",
     "VITE_ENVIRONMENTS=$envJson"
   )
-  if ($adoOrgUrl) { $envLines += "VITE_ADO_ORG_URL=$adoOrgUrl"; $envLines += "VITE_ADO_PROJECT=$adoProject" }
-  if ($roleName)  { $envLines += "VITE_DEPLOYMENT_MANAGER_ROLE=$roleName" }
   Set-Content -Path (Join-Path $appRoot '.env.local') -Value ($envLines -join "`n") -NoNewline
-  Write-Host "  .env.local geschrieben (datengetriebene Config)." -ForegroundColor DarkGray
+  Write-Host "  .env.local geschrieben (nur Env-Id/-URL; restliche Config aus Dataverse)." -ForegroundColor DarkGray
 
   if ($SkipPush) {
     Write-Host "  Push übersprungen (-SkipPush). Manuelle Schritte siehe CLAUDE.md Bootstrap." -ForegroundColor Yellow
   } else {
-    Write-Host "  pac auth: stelle sicher, dass pac auf dieses Environment zeigt …"
-    pac auth create --deviceCode --environment $EnvironmentUrl 2>&1 | Select-Object -Last 3
-    if (Test-Path 'power.config.json') { Remove-Item 'power.config.json' -Force }
-    power-apps init --non-interactive -n "$AppDisplayName" --cloud prod -e $envId -b ./dist -f index.html -a http://localhost:3000 2>&1 | Select-Object -Last 2
-    foreach ($t in 'solution','publisher','solutioncomponent','msdyn_solutioncomponentsummary','systemuser','role','pro_workingsolution','pro_workbenchsettings','pro_mergerun','pro_releasenote') {
+    # The CLI tools (power-apps/pac/npm) write progress + the libuv abort to
+    # stderr; under ErrorActionPreference=Stop the `2>&1` merge turns that into a
+    # terminating error. Switch to Continue here — real failures are caught via
+    # explicit exit-code / result checks below.
+    $ErrorActionPreference = 'Continue'
+    Write-Host "  pac auth: aktiviere ein Profil für dieses Environment …"
+    $authList = @(pac auth list 2>&1)
+    $line = $authList | Where-Object { $_ -match [regex]::Escape($EnvironmentUrl.TrimEnd('/')) } | Select-Object -First 1
+    if ($line -and $line -match '^\s*\[(\d+)\]') {
+      pac auth select --index $Matches[1] 2>&1 | Select-Object -Last 1
+    } else {
+      pac auth create --deviceCode --environment $EnvironmentUrl 2>&1 | Select-Object -Last 3
+    }
+    # Write power.config.json directly instead of `power-apps init`: that CLI
+    # aborts on exit with a libuv assertion that hangs an interactive console.
+    # The config is deterministic. Preserve an existing appId so re-runs update
+    # the same app instead of creating a new one; data sources are repopulated
+    # by the add-data-source loop below.
+    $existingAppId = $null
+    if (Test-Path 'power.config.json') {
+      try { $existingAppId = (Get-Content 'power.config.json' -Raw | ConvertFrom-Json).appId } catch {}
+    }
+    $pc = [ordered]@{
+      version = '1.0'; appId = $existingAppId; appDisplayName = $AppDisplayName
+      region = 'prod'; environmentId = $envId; description = ' '
+      buildPath = './dist'; buildEntryPoint = 'index.html'
+      localAppUrl = 'http://localhost:3000'; logoPath = 'Default'
+      connectionReferences = [ordered]@{}; databaseReferences = [ordered]@{}
+    }
+    ($pc | ConvertTo-Json -Depth 6) | Set-Content -Path 'power.config.json' -NoNewline
+    Write-Host ("  power.config.json geschrieben (Env {0}, appId {1})." -f $envId, ($existingAppId ? $existingAppId : '<neu beim Push>')) -ForegroundColor DarkGray
+    foreach ($t in 'solution','publisher','solutioncomponent','msdyn_solutioncomponentsummary','systemuser','role','pro_workingsolution','pro_workbenchsettings','pro_mergerun','pro_releasenote','pro_environmentconfig') {
       & .\scripts\add-data-source.ps1 -a dataverse -t $t 2>&1 | Select-Object -Last 1
     }
-    & .\scripts\add-data-source.ps1 -a shared_commondataserviceforapps -c $connectionId 2>&1 | Select-Object -Last 1
+    if ($connRefName) {
+      & .\scripts\add-data-source.ps1 -a shared_commondataserviceforapps -cr $connRefName -s $solutionId 2>&1 | Select-Object -Last 1
+    } else {
+      & .\scripts\add-data-source.ps1 -a shared_commondataserviceforapps -c $connectionId 2>&1 | Select-Object -Last 1
+    }
     npm install 2>&1 | Select-Object -Last 1
-    npm run build 2>&1 | Select-Object -Last 1
-    power-apps push 2>&1 | Select-Object -Last 3
+    if ($LASTEXITCODE -ne 0) { throw "npm install fehlgeschlagen (Exit $LASTEXITCODE)." }
+    npm run build 2>&1 | Select-Object -Last 3
+    if ($LASTEXITCODE -ne 0) { throw "npm run build fehlgeschlagen (Exit $LASTEXITCODE)." }
+    # Stream the push output live (do NOT capture): power-apps push prints
+    # "App pushed successfully" + the play URL and only THEN aborts on exit with
+    # the libuv assertion, which can hang an interactive console. So show output
+    # as it comes — once the play URL appears the deploy is done.
+    Write-Host "  power-apps push … sobald die Play-URL erscheint, ist der Deploy fertig." -ForegroundColor Cyan
+    Write-Host "  (Hängt das Terminal danach am libuv-Exit: Ctrl+C ist ok — der Push war erfolgreich.)" -ForegroundColor Cyan
+    power-apps push
   }
 } finally { Pop-Location }
 
-# ---- 8. Checklist ----------------------------------------------------------
+# ---- 7. Checklist ----------------------------------------------------------
 Title 'Fertig — Nachbereitung'
+$cfgUrl = "https://make.powerapps.com/environments/$envId/solutions/$solutionId/objects"
 Write-Host @"
-1. Security-Rolle '$roleName' den Deployment-Managern zuweisen
-   (und allen Nutzern Lese-/Schreibrechte auf die pro_*-Tabellen geben).
-2. Connection '$connectionId' mit dem Team teilen (Can use).
-3. App im Maker einer Solution zuordnen: 'Add existing -> App -> Code app'.
-4. DevOps-Panel ist deaktiviert (config.ts DEVOPS_PANEL_ENABLED) — bei Bedarf
-   nach SP-Setup aktivieren.
+Config in Dataverse pflegen (die App liest sie beim Start):
+  - pro_workbenchsettings 'Default': Default-Publisher (pro_publisher_str),
+    ADO Org/Projekt, Deployment-Manager-Rollenname.
+  - pro_environmentconfig: UAT/PROD als weitere Compare-/Dependency-Ziele anlegen.
+  $cfgUrl
+
+Weitere Schritte:
+  1. Deployment-Manager-Security-Rolle den Managern zuweisen und allen Nutzern
+     Lese-/Schreibrechte auf die pro_*-Tabellen geben.
+  2. Connection '$connectionId' mit dem Team teilen (Can use).
+  3. App im Maker einer Solution zuordnen: 'Add existing -> App -> Code app'.
+  4. DevOps-Panel ist deaktiviert (config.ts DEVOPS_PANEL_ENABLED) — bei Bedarf
+     nach SP-Setup aktivieren.
 "@ -ForegroundColor Gray
 Write-Host "Installation abgeschlossen." -ForegroundColor Green

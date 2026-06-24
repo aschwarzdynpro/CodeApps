@@ -20,6 +20,7 @@ import type {
   LayerSection,
 } from '../types/layers'
 import { buildUniqueName } from '../utils/naming'
+import type { RuntimeConfig } from '../config'
 import { LAYER_IGNORED_TYPES } from './componentLayerNames'
 import {
   mockComponentsBySolutionId,
@@ -131,6 +132,11 @@ export class MockSolutionService {
     await delay(100)
     // Mimics the Workbench Settings default (matched by unique name).
     return mockPublishers[1]?.uniqueName ?? null
+  }
+
+  async getRuntimeConfig(): Promise<RuntimeConfig> {
+    // Offline/mock: keep the build-time defaults (config.ts) — no overrides.
+    return {}
   }
 
   async createWorkingSolution(

@@ -30,6 +30,8 @@ import {
   makerLayerPath,
   makerSolutionUrl,
 } from '../config'
+import type { RuntimeConfig } from '../config'
+import type { EnvKey } from '../types/comparison'
 import { RetrieveMissingDependenciesService } from './retrieveMissingDependenciesService'
 import { LAYER_IGNORED_TYPES, layerComponentNames } from './componentLayerNames'
 import type {
@@ -65,6 +67,7 @@ import type {
   Pro_releasenotes,
   Pro_releasenotesBase,
 } from '../generated/models/Pro_releasenotesModel'
+import { Pro_environmentconfigsService } from '../generated/services/Pro_environmentconfigsService'
 import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
 import { SystemusersService } from '../generated/services/SystemusersService'
 import { RolesService } from '../generated/services/RolesService'
@@ -705,6 +708,73 @@ export class DataverseSolutionService implements SolutionService {
     if (mode !== 'power-platform')
       return mockSolutionService.getDefaultPublisher()
     return (await this.firstWorkbenchSettings()).publisher
+  }
+
+  async getRuntimeConfig(): Promise<RuntimeConfig> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.getRuntimeConfig()
+    const cfg: RuntimeConfig = {}
+    // ADO + role from the single Workbench Settings record.
+    try {
+      const s = await Pro_workbenchsettingsesService.getAll({
+        select: ['pro_adoorgurl', 'pro_adoproject', 'pro_deploymentmanagerrole'],
+      })
+      const row = s.data?.[0] as
+        | {
+            pro_adoorgurl?: string
+            pro_adoproject?: string
+            pro_deploymentmanagerrole?: string
+          }
+        | undefined
+      if (row?.pro_adoorgurl) cfg.adoOrgUrl = row.pro_adoorgurl
+      if (row?.pro_adoproject) cfg.adoProject = row.pro_adoproject
+      if (row?.pro_deploymentmanagerrole)
+        cfg.deploymentManagerRole = row.pro_deploymentmanagerrole
+    } catch (err) {
+      console.warn('[config] workbench settings read failed:', err)
+    }
+    // Compare/Dependency target environments from pro_environmentconfig.
+    try {
+      const e = await Pro_environmentconfigsService.getAll({
+        select: [
+          'pro_key',
+          'pro_name',
+          'pro_url',
+          'pro_environmentid',
+          'pro_iscurrent',
+          'pro_order_int',
+        ],
+      })
+      const rows = (e.data ?? []) as Array<{
+        pro_key?: string
+        pro_name?: string
+        pro_url?: string
+        pro_environmentid?: string
+        pro_iscurrent?: boolean
+        pro_order_int?: number
+      }>
+      const toKey = (k: string | undefined, current: boolean): EnvKey =>
+        k === 'dev' || k === 'uat' || k === 'prod'
+          ? k
+          : current
+            ? 'dev'
+            : 'uat'
+      const envs = rows
+        .filter((r) => r.pro_url)
+        .sort((a, b) => (a.pro_order_int ?? 0) - (b.pro_order_int ?? 0))
+        .map((r) => ({
+          key: toKey(r.pro_key, !!r.pro_iscurrent),
+          label: r.pro_name ?? r.pro_key ?? 'Environment',
+          url: (r.pro_url ?? '').replace(/\/+$/, ''),
+          environmentId: r.pro_environmentid ?? '',
+          isCurrent: !!r.pro_iscurrent,
+        }))
+      if (envs.length > 0) cfg.environments = envs
+    } catch (err) {
+      console.warn('[config] environment config read failed:', err)
+    }
+    return cfg
   }
 
   async createWorkingSolution(

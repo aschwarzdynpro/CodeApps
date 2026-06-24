@@ -133,3 +133,44 @@ function New-DvOption {
   @{ '@odata.type' = 'Microsoft.Dynamics.CRM.OptionMetadata'; Value = $Value; Label = (New-DvLabel $Label) }
 }
 function New-DvReq { param([string]$Level = 'None') @{ Value = $Level } }
+
+# Ensure a connection reference record exists so `pac code add-data-source -cr`
+# can later resolve the connection. ConnectionId is optional — when omitted the
+# reference is created UNBOUND (a connection is assigned afterwards, e.g. by the
+# admin in the Maker). Returns a PSCustomObject { Id; ConnectionId }. Idempotent.
+function New-DvConnectionReference {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$LogicalName,   # e.g. pro_CRDataverse (publisher-prefixed)
+    [Parameter(Mandatory)][string]$ConnectorId,   # /providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps
+    [string]$ConnectionId,                         # optional: the connection's name GUID
+    [string]$DisplayName,
+    [string]$Solution
+  )
+  $existing = (Invoke-Dv -Method GET -Path "connectionreferences?`$select=connectionreferenceid,connectionid&`$filter=connectionreferencelogicalname eq '$LogicalName'").value
+  if ($existing -and $existing.Count) {
+    return [pscustomobject]@{ Id = $existing[0].connectionreferenceid; ConnectionId = $existing[0].connectionid }
+  }
+  $body = @{
+    connectionreferencelogicalname = $LogicalName
+    connectionreferencedisplayname = ($DisplayName ? $DisplayName : $LogicalName)
+    connectorid  = $ConnectorId
+  }
+  if ($ConnectionId) { $body.connectionid = $ConnectionId }
+  $r = Invoke-Dv -Method POST -Path 'connectionreferences' -Body $body -Solution $Solution
+  [pscustomobject]@{ Id = $r.MetadataId; ConnectionId = $ConnectionId }
+}
+
+# Bind (or rebind) a connection to an existing connection reference.
+function Set-DvConnectionReferenceConnection {
+  param([Parameter(Mandatory)][string]$ReferenceId, [Parameter(Mandatory)][string]$ConnectionId)
+  Invoke-Dv -Method PATCH -Path "connectionreferences($ReferenceId)" -Body @{ connectionid = $ConnectionId } | Out-Null
+}
+
+# Read a connection reference's bound connection id (empty if unbound).
+function Get-DvConnectionReferenceConnection {
+  param([Parameter(Mandatory)][string]$LogicalName)
+  $r = (Invoke-Dv -Method GET -Path "connectionreferences?`$select=connectionreferenceid,connectionid&`$filter=connectionreferencelogicalname eq '$LogicalName'").value
+  if ($r -and $r.Count) { return [pscustomobject]@{ Id = $r[0].connectionreferenceid; ConnectionId = $r[0].connectionid } }
+  return $null
+}
