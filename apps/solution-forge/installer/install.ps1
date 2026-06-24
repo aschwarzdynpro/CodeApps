@@ -215,9 +215,24 @@ try {
     } else {
       pac auth create --deviceCode --environment $EnvironmentUrl 2>&1 | Select-Object -Last 3
     }
-    if (Test-Path 'power.config.json') { Remove-Item 'power.config.json' -Force }
-    power-apps init --non-interactive -n "$AppDisplayName" --cloud prod -e $envId -b ./dist -f index.html -a http://localhost:3000 2>&1 | Select-Object -Last 2
-    if (-not (Test-Path 'power.config.json')) { throw "power-apps init hat keine power.config.json erzeugt — Abbruch." }
+    # Write power.config.json directly instead of `power-apps init`: that CLI
+    # aborts on exit with a libuv assertion that hangs an interactive console.
+    # The config is deterministic. Preserve an existing appId so re-runs update
+    # the same app instead of creating a new one; data sources are repopulated
+    # by the add-data-source loop below.
+    $existingAppId = $null
+    if (Test-Path 'power.config.json') {
+      try { $existingAppId = (Get-Content 'power.config.json' -Raw | ConvertFrom-Json).appId } catch {}
+    }
+    $pc = [ordered]@{
+      version = '1.0'; appId = $existingAppId; appDisplayName = $AppDisplayName
+      region = 'prod'; environmentId = $envId; description = ' '
+      buildPath = './dist'; buildEntryPoint = 'index.html'
+      localAppUrl = 'http://localhost:3000'; logoPath = 'Default'
+      connectionReferences = [ordered]@{}; databaseReferences = [ordered]@{}
+    }
+    ($pc | ConvertTo-Json -Depth 6) | Set-Content -Path 'power.config.json' -NoNewline
+    Write-Host ("  power.config.json geschrieben (Env {0}, appId {1})." -f $envId, ($existingAppId ? $existingAppId : '<neu beim Push>')) -ForegroundColor DarkGray
     foreach ($t in 'solution','publisher','solutioncomponent','msdyn_solutioncomponentsummary','systemuser','role','pro_workingsolution','pro_workbenchsettings','pro_mergerun','pro_releasenote','pro_environmentconfig') {
       & .\scripts\add-data-source.ps1 -a dataverse -t $t 2>&1 | Select-Object -Last 1
     }
