@@ -42,9 +42,6 @@ device-code sign-in (per the standing device-code preference). The
 
 ## Remaining enhancements
 
-- **Connection reference** (`pro_CRDataverse`) instead of the direct connection
-  binding the wizard currently uses (cleaner ALM; the reference must be created
-  before `add-data-source -cr`).
 - **Security role** with privileges on the `pro_*` tables shipped in the package
   (today the admin assigns table privileges manually — see the checklist).
 - **Fully data-driven config** via a `pro_environmentconfig` Dataverse table read

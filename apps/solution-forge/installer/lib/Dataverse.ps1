@@ -133,3 +133,26 @@ function New-DvOption {
   @{ '@odata.type' = 'Microsoft.Dynamics.CRM.OptionMetadata'; Value = $Value; Label = (New-DvLabel $Label) }
 }
 function New-DvReq { param([string]$Level = 'None') @{ Value = $Level } }
+
+# Ensure a connection reference record exists (bound to a connection), so that
+# `pac code add-data-source -cr <logicalName>` can resolve the connection.
+# Returns the connectionreferenceid. Idempotent.
+function New-DvConnectionReference {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$LogicalName,   # e.g. pro_CRDataverse (publisher-prefixed)
+    [Parameter(Mandatory)][string]$ConnectorId,   # /providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps
+    [Parameter(Mandatory)][string]$ConnectionId,  # the connection's name GUID
+    [string]$DisplayName,
+    [string]$Solution
+  )
+  $existing = (Invoke-Dv -Method GET -Path "connectionreferences?`$select=connectionreferenceid&`$filter=connectionreferencelogicalname eq '$LogicalName'").value
+  if ($existing -and $existing.Count) { return $existing[0].connectionreferenceid }
+  $body = @{
+    connectionreferencelogicalname = $LogicalName
+    connectionreferencedisplayname = ($DisplayName ? $DisplayName : $LogicalName)
+    connectorid  = $ConnectorId
+    connectionid = $ConnectionId
+  }
+  (Invoke-Dv -Method POST -Path 'connectionreferences' -Body $body -Solution $Solution).MetadataId
+}

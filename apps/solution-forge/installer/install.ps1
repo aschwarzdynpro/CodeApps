@@ -130,6 +130,18 @@ if (-not $connectionId) {
 }
 Write-Host ("  Connection: {0}" -f $connectionId) -ForegroundColor DarkGray
 
+# Connection reference (clean ALM) — create it so `add-data-source -cr` resolves.
+$connRefName = 'pro_CRDataverse'
+try {
+  $null = New-DvConnectionReference -LogicalName $connRefName `
+    -ConnectorId '/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps' `
+    -ConnectionId $connectionId -DisplayName 'Dynamics Pro — Dataverse' -Solution 'DynamicsProSolutionAdminConsole'
+  Write-Host ("  Connection-Reference: {0}" -f $connRefName) -ForegroundColor DarkGray
+} catch {
+  Write-Host ("  Connection-Reference konnte nicht angelegt werden ({0}) — fallback auf Direktbindung." -f $_.Exception.Message) -ForegroundColor Yellow
+  $connRefName = $null
+}
+
 # ---- 5. Customer configuration --------------------------------------------
 Title 'Konfiguration'
 $pubs = (Invoke-Dv -Method GET -Path "publishers?`$select=publisherid,uniquename,friendlyname,customizationprefix&`$orderby=friendlyname").value |
@@ -192,7 +204,11 @@ try {
     foreach ($t in 'solution','publisher','solutioncomponent','msdyn_solutioncomponentsummary','systemuser','role','pro_workingsolution','pro_workbenchsettings','pro_mergerun','pro_releasenote') {
       & .\scripts\add-data-source.ps1 -a dataverse -t $t 2>&1 | Select-Object -Last 1
     }
-    & .\scripts\add-data-source.ps1 -a shared_commondataserviceforapps -c $connectionId 2>&1 | Select-Object -Last 1
+    if ($connRefName) {
+      & .\scripts\add-data-source.ps1 -a shared_commondataserviceforapps -cr $connRefName -s $solutionId 2>&1 | Select-Object -Last 1
+    } else {
+      & .\scripts\add-data-source.ps1 -a shared_commondataserviceforapps -c $connectionId 2>&1 | Select-Object -Last 1
+    }
     npm install 2>&1 | Select-Object -Last 1
     npm run build 2>&1 | Select-Object -Last 1
     power-apps push 2>&1 | Select-Object -Last 3
