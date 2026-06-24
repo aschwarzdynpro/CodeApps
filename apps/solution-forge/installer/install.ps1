@@ -198,9 +198,12 @@ try {
     Write-Host "  Push übersprungen (-SkipPush). Manuelle Schritte siehe CLAUDE.md Bootstrap." -ForegroundColor Yellow
   } else {
     Write-Host "  pac auth: stelle sicher, dass pac auf dieses Environment zeigt …"
-    pac auth create --deviceCode --environment $EnvironmentUrl 2>&1 | Select-Object -Last 3
+    $hasProfile = $false
+    try { $hasProfile = [bool](pac auth list 2>&1 | Select-String -SimpleMatch $EnvironmentUrl.TrimEnd('/')) } catch {}
+    if (-not $hasProfile) { pac auth create --deviceCode --environment $EnvironmentUrl 2>&1 | Select-Object -Last 3 }
     if (Test-Path 'power.config.json') { Remove-Item 'power.config.json' -Force }
     power-apps init --non-interactive -n "$AppDisplayName" --cloud prod -e $envId -b ./dist -f index.html -a http://localhost:3000 2>&1 | Select-Object -Last 2
+    if (-not (Test-Path 'power.config.json')) { throw "power-apps init hat keine power.config.json erzeugt — Abbruch." }
     foreach ($t in 'solution','publisher','solutioncomponent','msdyn_solutioncomponentsummary','systemuser','role','pro_workingsolution','pro_workbenchsettings','pro_mergerun','pro_releasenote') {
       & .\scripts\add-data-source.ps1 -a dataverse -t $t 2>&1 | Select-Object -Last 1
     }
