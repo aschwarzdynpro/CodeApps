@@ -104,10 +104,52 @@
   border-right: 1px solid var(--border);
   padding: 18px 12px;
 }
+.sidebar-toggle {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.sidebar-toggle:hover {
+  background: var(--bg);
+  border-color: #bfc4d2;
+}
 .sidebar-nav {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+/* Collapsed (icon-only) sidebar. */
+.sidebar--collapsed {
+  --sidebar-w: 64px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.sidebar--collapsed .sidebar-toggle {
+  align-self: center;
+}
+.sidebar--collapsed .nav-group-label,
+.sidebar--collapsed .nav-label,
+.sidebar--collapsed .nav-lock {
+  display: none;
+}
+.sidebar--collapsed .nav-item {
+  justify-content: center;
+  gap: 0;
+  padding: 10px 0;
+}
+.sidebar--collapsed .nav-icon {
+  width: auto;
+  font-size: 16px;
 }
 .nav-group {
   display: flex;

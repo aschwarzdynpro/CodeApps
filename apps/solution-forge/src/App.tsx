@@ -139,6 +139,24 @@ function App() {
   }, [defaultPublisher, publishers])
 
   const [tab, setTab] = useState<Tab>('workbench')
+  // Sidebar collapse (icon-only) — remembered across sessions.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('sac.sidebarCollapsed') === '1'
+    } catch {
+      return false
+    }
+  })
+  const toggleSidebar = () =>
+    setSidebarCollapsed((v) => {
+      const next = !v
+      try {
+        localStorage.setItem('sac.sidebarCollapsed', next ? '1' : '0')
+      } catch {
+        /* storage unavailable — keep the in-memory state only */
+      }
+      return next
+    })
   // Merge and Compare are restricted to deployment managers; tabs stay
   // visible but disabled until the role check confirms access.
   const [isDeploymentManager, setIsDeploymentManager] = useState(false)
@@ -846,7 +864,16 @@ function App() {
         </div>
       </header>
       <div className="app-body">
-        <aside className="sidebar">
+        <aside className={`sidebar ${sidebarCollapsed ? 'sidebar--collapsed' : ''}`}>
+          <button
+            className="sidebar-toggle"
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? 'Expand menu' : 'Collapse menu'}
+            aria-label={sidebarCollapsed ? 'Expand menu' : 'Collapse menu'}
+            aria-expanded={!sidebarCollapsed}
+          >
+            ☰
+          </button>
           <nav className="sidebar-nav">
             {NAV_GROUPS.map((group) => (
               <div className="nav-group" key={group.label}>
@@ -859,8 +886,10 @@ function App() {
                       className={`nav-item ${tab === item.key ? 'nav-item--active' : ''} ${locked ? 'nav-item--locked' : ''}`}
                       title={
                         locked
-                          ? `Requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
-                          : undefined
+                          ? `${item.label} — requires the security role “${DEPLOYMENT_MANAGER_ROLE}”.`
+                          : sidebarCollapsed
+                            ? item.label
+                            : undefined
                       }
                       onClick={() => {
                         if (!locked) setTab(item.key)
