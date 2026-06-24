@@ -51,7 +51,7 @@ function AskYesNo($prompt, [bool]$default = $true) {
   if ([string]::IsNullOrWhiteSpace($v)) { return $default }
   return $v.Trim() -match '^(y|j)'
 }
-function Select-One($items, [string]$display, [string]$prompt) {
+function Select-One($items, [scriptblock]$display, [string]$prompt) {
   if (-not $items -or $items.Count -eq 0) { return $null }
   for ($i = 0; $i -lt $items.Count; $i++) {
     Write-Host ("  [{0}] {1}" -f ($i + 1), (& $display $items[$i]))
