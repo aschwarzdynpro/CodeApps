@@ -42,6 +42,12 @@ device-code sign-in (per the standing device-code preference). The
 
 ## Remaining enhancements
 
+- **Connection binding at runtime**: a Code App resolves its connector connection
+  from the connection reference *at push time* (pac bakes `sharedConnectionId` into
+  `power.config.json`), so the connection must be assigned to `pro_CRDataverse`
+  before the push — the installer lets you assign it yourself in the Maker, or binds
+  one it discovers/you pass via `-ConnectionId`. A managed-solution-style post-import
+  binding is not available for Code Apps.
 - **Security role** with privileges on the `pro_*` tables shipped in the package
   (today the admin assigns table privileges manually — see the checklist).
 - **Fully data-driven config** via a `pro_environmentconfig` Dataverse table read
