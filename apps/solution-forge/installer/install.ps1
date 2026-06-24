@@ -1,0 +1,212 @@
+<#
+.SYNOPSIS
+  Interactive installer for the Solution Administration Console Code App into a
+  Dataverse environment (new customer or new environment).
+
+.DESCRIPTION
+  Walks through:
+    1. Prerequisite check (pac, power-apps npm CLI, node, Az.Accounts).
+    2. Target environment + device-code sign-in.
+    3. Data model provisioning (publisher "Dynamics Pro", prefix pro, 4 tables).
+    4. Dataverse connection selection.
+    5. Customer configuration (default publisher for new working solutions,
+       core/deployment solution unique names, Compare target environments,
+       optional Azure DevOps org/project, deployment-manager role name).
+    6. Seed the mandatory pro_workbenchsettings bootstrap record.
+    7. Write .env.local (data-driven runtime config) and push the Code App.
+    8. Post-install checklist.
+
+  The product schema is fixed (prefix `pro`), so the pushed app references the
+  data model correctly with no per-customer code changes.
+
+.EXAMPLE
+  pwsh installer/install.ps1
+  pwsh installer/install.ps1 -EnvironmentUrl https://contoso.crm4.dynamics.com -TenantId <guid>
+#>
+[CmdletBinding()]
+param(
+  [string]$EnvironmentUrl,
+  [string]$TenantId,
+  [string]$AppDisplayName = 'Solution Administration Console',
+  [switch]$SkipProvision,
+  [switch]$SkipPush
+)
+$ErrorActionPreference = 'Stop'
+$here    = $PSScriptRoot
+$appRoot = Split-Path $here -Parent
+. (Join-Path $here 'lib/Dataverse.ps1')
+
+function Title($t) { Write-Host ""; Write-Host "== $t ==" -ForegroundColor Cyan }
+function Ask($prompt, $default) {
+  $suffix = if ($default) { " [$default]" } else { '' }
+  $v = Read-Host ("{0}{1}" -f $prompt, $suffix)
+  if ([string]::IsNullOrWhiteSpace($v)) { return $default }
+  $v.Trim()
+}
+function AskYesNo($prompt, [bool]$default = $true) {
+  $d = if ($default) { 'Y/n' } else { 'y/N' }
+  $v = Read-Host "$prompt ($d)"
+  if ([string]::IsNullOrWhiteSpace($v)) { return $default }
+  return $v.Trim() -match '^(y|j)'
+}
+function Select-One($items, [string]$display, [string]$prompt) {
+  if (-not $items -or $items.Count -eq 0) { return $null }
+  for ($i = 0; $i -lt $items.Count; $i++) {
+    Write-Host ("  [{0}] {1}" -f ($i + 1), (& $display $items[$i]))
+  }
+  while ($true) {
+    $sel = Read-Host $prompt
+    if ($sel -match '^\d+$' -and [int]$sel -ge 1 -and [int]$sel -le $items.Count) {
+      return $items[[int]$sel - 1]
+    }
+    Write-Host "  Bitte eine Nummer aus der Liste wählen." -ForegroundColor Yellow
+  }
+}
+
+Write-Host "Solution Administration Console — Installer" -ForegroundColor Green
+Write-Host "(publisher 'Dynamics Pro', prefix 'pro')" -ForegroundColor DarkGray
+
+# ---- 1. Prerequisites ------------------------------------------------------
+Title 'Voraussetzungen'
+foreach ($cmd in 'pac','power-apps','node') {
+  $exe = Get-Command $cmd -ErrorAction SilentlyContinue
+  if (-not $exe) { throw "Erforderliches Tool fehlt: '$cmd'. Bitte installieren und erneut starten." }
+  Write-Host ("  ok  {0}" -f $cmd) -ForegroundColor DarkGray
+}
+if (-not (Get-Module -ListAvailable Az.Accounts)) {
+  throw "Az.Accounts fehlt. Install-Module Az.Accounts -Scope CurrentUser"
+}
+Write-Host "  ok  Az.Accounts" -ForegroundColor DarkGray
+
+# ---- 2. Target environment + sign-in --------------------------------------
+Title 'Ziel-Environment'
+if (-not $EnvironmentUrl) {
+  $EnvironmentUrl = Ask 'Dataverse Environment-URL (https://<org>.crm*.dynamics.com)'
+}
+if (-not $EnvironmentUrl) { throw "Keine Environment-URL angegeben." }
+if (-not $TenantId) { $TenantId = Ask 'Tenant-ID (optional, Enter = automatisch)' '' }
+$null = Connect-Dataverse -EnvironmentUrl $EnvironmentUrl -TenantId $TenantId
+
+# Power Platform environment id (NOT the Dataverse organizationid) — needed for
+# maker deep links and `power-apps init`. Try to resolve from pac, else ask.
+$envId = $null
+try {
+  $list = pac env list --json 2>$null | ConvertFrom-Json
+  $match = $list | Where-Object { $_.EnvironmentUrl -and ($_.EnvironmentUrl.TrimEnd('/') -eq $EnvironmentUrl.TrimEnd('/')) } | Select-Object -First 1
+  if ($match) { $envId = $match.EnvironmentId }
+} catch {}
+if (-not $envId) { $envId = Ask 'Power Platform Environment-ID (aus Maker-URL .../environments/<ID>/...)' '' }
+if (-not $envId) { throw "Environment-ID erforderlich (für Maker-Links und power-apps init)." }
+Write-Host ("  Environment-ID: {0}" -f $envId) -ForegroundColor DarkGray
+
+# ---- 3. Provision data model ----------------------------------------------
+Title 'Datenmodell'
+if ($SkipProvision) {
+  Write-Host "  übersprungen (-SkipProvision)" -ForegroundColor DarkGray
+} else {
+  $provArgs = @{ EnvironmentUrl = $EnvironmentUrl }
+  if ($TenantId) { $provArgs.TenantId = $TenantId }
+  & (Join-Path $here 'provision-model.ps1') @provArgs
+}
+$solutionId = (Invoke-Dv -Method GET -Path "solutions?`$select=solutionid&`$filter=uniquename eq 'DynamicsProSolutionAdminConsole'").value[0].solutionid
+
+# ---- 4. Connection ---------------------------------------------------------
+Title 'Dataverse-Connection'
+Write-Host "Vorhandene Dataverse-Connections in diesem Environment:"
+Push-Location $appRoot
+$conns = @()
+try { $conns = (power-apps list-connections --json 2>$null | ConvertFrom-Json) | Where-Object { $_.properties.apiId -like '*commondataserviceforapps*' -and $_.properties.statuses.status -eq 'Connected' } } catch {}
+Pop-Location
+$connectionId = $null
+if ($conns -and $conns.Count -gt 0) {
+  $pick = Select-One $conns { param($c) "{0}  ({1})" -f $c.properties.displayName, $c.name } 'Connection-Nummer wählen (oder Enter für neue)'
+  if ($pick) { $connectionId = $pick.name }
+}
+if (-not $connectionId) {
+  Write-Host "Keine Connection gewählt. Lege im Maker eine Dataverse-Connection an" -ForegroundColor Yellow
+  Write-Host "(Service Principal empfohlen) und starte den Installer erneut, ODER gib die Connection-ID jetzt ein." -ForegroundColor Yellow
+  $connectionId = Ask 'Connection-ID (leer = abbrechen)' ''
+  if (-not $connectionId) { throw "Ohne Dataverse-Connection kann die App nicht laufen." }
+}
+Write-Host ("  Connection: {0}" -f $connectionId) -ForegroundColor DarkGray
+
+# ---- 5. Customer configuration --------------------------------------------
+Title 'Konfiguration'
+$pubs = (Invoke-Dv -Method GET -Path "publishers?`$select=publisherid,uniquename,friendlyname,customizationprefix&`$orderby=friendlyname").value |
+  Where-Object { $_.customizationprefix -ne 'mscrm' }
+Write-Host "Publisher, mit dem die App NEUE Working Solutions anlegt:"
+$pub = Select-One $pubs { param($p) "{0}  (prefix {1})" -f $p.friendlyname, $p.customizationprefix } 'Publisher-Nummer'
+$masterSolution = Ask 'Unique-Name der Core-/Master-Solution (Merge-Ziel „Core")'
+$deploySolution = Ask 'Unique-Name der Deployment-Solution (Merge-Ziel „Deployment")'
+
+# Compare/Dependency target environments
+$envs = @([ordered]@{ key='dev'; label='Current'; url=$EnvironmentUrl; environmentId=$envId; isCurrent=$true })
+if (AskYesNo 'Weitere Compare-Ziele (UAT/PROD) hinzufügen?' $false) {
+  foreach ($k in 'uat','prod') {
+    $u = Ask ("URL für '{0}' (leer = überspringen)" -f $k) ''
+    if ($u) { $envs += [ordered]@{ key=$k; label=$k.ToUpper(); url=$u; environmentId=''; isCurrent=$false } }
+  }
+}
+$adoOrgUrl = Ask 'Azure DevOps Org-URL (optional, z.B. https://dev.azure.com/Contoso)' ''
+$adoProject = if ($adoOrgUrl) { Ask 'Azure DevOps Projekt' '' } else { '' }
+$roleName = Ask 'Name der Deployment-Manager-Security-Rolle' 'Dynamics Pro — Deployment Manager'
+
+# ---- 6. Seed bootstrap settings -------------------------------------------
+Title 'Bootstrap-Settings'
+$existing = (Invoke-Dv -Method GET -Path "pro_workbenchsettingses?`$select=pro_workbenchsettingsid&`$filter=statecode eq 0&`$top=1").value
+if ($existing -and $existing.Count -gt 0) {
+  Write-Host "  Aktiver pro_workbenchsettings-Record existiert bereits — übersprungen." -ForegroundColor DarkGray
+} else {
+  $body = @{
+    pro_name = 'Default'
+    pro_publisher_str = $pub.publisherid
+    pro_publisherid = $pub.publisherid
+    pro_mastersolutionuniquename = $masterSolution
+    pro_deploymentsolutionuniquename = $deploySolution
+  }
+  Invoke-Dv -Method POST -Path 'pro_workbenchsettingses' -Body $body | Out-Null
+  Write-Host "  + pro_workbenchsettings 'Default'" -ForegroundColor Green
+}
+
+# ---- 7. Configure + push the Code App -------------------------------------
+Title 'Code App konfigurieren & deployen'
+Push-Location $appRoot
+try {
+  $envJson = ($envs | ForEach-Object { [pscustomobject]$_ }) | ConvertTo-Json -Compress -AsArray
+  $envLines = @(
+    "VITE_ENVIRONMENT_ID=$envId",
+    "VITE_ENVIRONMENTS=$envJson"
+  )
+  if ($adoOrgUrl) { $envLines += "VITE_ADO_ORG_URL=$adoOrgUrl"; $envLines += "VITE_ADO_PROJECT=$adoProject" }
+  if ($roleName)  { $envLines += "VITE_DEPLOYMENT_MANAGER_ROLE=$roleName" }
+  Set-Content -Path (Join-Path $appRoot '.env.local') -Value ($envLines -join "`n") -NoNewline
+  Write-Host "  .env.local geschrieben (datengetriebene Config)." -ForegroundColor DarkGray
+
+  if ($SkipPush) {
+    Write-Host "  Push übersprungen (-SkipPush). Manuelle Schritte siehe CLAUDE.md Bootstrap." -ForegroundColor Yellow
+  } else {
+    Write-Host "  pac auth: stelle sicher, dass pac auf dieses Environment zeigt …"
+    pac auth create --deviceCode --environment $EnvironmentUrl 2>&1 | Select-Object -Last 3
+    if (Test-Path 'power.config.json') { Remove-Item 'power.config.json' -Force }
+    power-apps init --non-interactive -n "$AppDisplayName" --cloud prod -e $envId -b ./dist -f index.html -a http://localhost:3000 2>&1 | Select-Object -Last 2
+    foreach ($t in 'solution','publisher','solutioncomponent','msdyn_solutioncomponentsummary','systemuser','role','pro_workingsolution','pro_workbenchsettings','pro_mergerun','pro_releasenote') {
+      & .\scripts\add-data-source.ps1 -a dataverse -t $t 2>&1 | Select-Object -Last 1
+    }
+    & .\scripts\add-data-source.ps1 -a shared_commondataserviceforapps -c $connectionId 2>&1 | Select-Object -Last 1
+    npm install 2>&1 | Select-Object -Last 1
+    npm run build 2>&1 | Select-Object -Last 1
+    power-apps push 2>&1 | Select-Object -Last 3
+  }
+} finally { Pop-Location }
+
+# ---- 8. Checklist ----------------------------------------------------------
+Title 'Fertig — Nachbereitung'
+Write-Host @"
+1. Security-Rolle '$roleName' den Deployment-Managern zuweisen
+   (und allen Nutzern Lese-/Schreibrechte auf die pro_*-Tabellen geben).
+2. Connection '$connectionId' mit dem Team teilen (Can use).
+3. App im Maker einer Solution zuordnen: 'Add existing -> App -> Code app'.
+4. DevOps-Panel ist deaktiviert (config.ts DEVOPS_PANEL_ENABLED) — bei Bedarf
+   nach SP-Setup aktivieren.
+"@ -ForegroundColor Gray
+Write-Host "Installation abgeschlossen." -ForegroundColor Green

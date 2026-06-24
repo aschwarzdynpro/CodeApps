@@ -16,12 +16,14 @@ import type { EnvironmentDef } from './types/comparison'
 const DEFAULT_ENVIRONMENT_ID = '431783f6-367c-eb49-984b-4e70e4c0424d'
 
 /**
- * Environments for the ALM comparison. Hardcoded for now; the planned
- * upgrade is a Dataverse control table (e.g. pro_environmentconfig) read at
- * startup, with these values as fallback. The connector's GetOrganizations()
- * can validate the URLs against what the signed-in user can actually reach.
+ * Default environments for the ALM comparison (Schulz). The installer
+ * overrides these per customer by writing a `VITE_ENVIRONMENTS` JSON array to
+ * `.env.local` at build time (see {@link ENVIRONMENTS}); the planned further
+ * upgrade is a Dataverse control table (`pro_environmentconfig`) read at
+ * startup. The connector's GetOrganizations() can validate the URLs against
+ * what the signed-in user can actually reach.
  */
-export const ENVIRONMENTS: EnvironmentDef[] = [
+const DEFAULT_ENVIRONMENTS: EnvironmentDef[] = [
   {
     key: 'dev',
     label: 'INT-11 · current',
@@ -42,6 +44,22 @@ export const ENVIRONMENTS: EnvironmentDef[] = [
     environmentId: '0cb8d3e7-faf3-eb34-a648-e3e309c3164d',
   },
 ]
+
+/** Compare/Dependency-Check target environments. Customer-specific value comes
+ *  from the installer via `VITE_ENVIRONMENTS` (a JSON array of EnvironmentDef);
+ *  falls back to the Schulz defaults for local dev. */
+function parseEnvironments(): EnvironmentDef[] {
+  const raw = import.meta.env.VITE_ENVIRONMENTS as string | undefined
+  if (!raw) return DEFAULT_ENVIRONMENTS
+  try {
+    const parsed = JSON.parse(raw) as EnvironmentDef[]
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed
+  } catch {
+    console.warn('[config] VITE_ENVIRONMENTS is not valid JSON — using defaults')
+  }
+  return DEFAULT_ENVIRONMENTS
+}
+export const ENVIRONMENTS: EnvironmentDef[] = parseEnvironments()
 const DEFAULT_ADO_ORG_URL = 'https://dev.azure.com/SchulzD365'
 const DEFAULT_ADO_PROJECT = 'D365UO'
 
@@ -72,8 +90,10 @@ export const ADO_PROJECT_NAME: string = ADO_PROJECT
  */
 export const DEVOPS_PANEL_ENABLED = false
 
-/** Security role required for the Merge and Compare tabs. */
-export const DEPLOYMENT_MANAGER_ROLE = 'INT | Deployment Manager'
+/** Security role required for the Merge and Compare tabs. Customer-specific
+ *  value comes from the installer via `VITE_DEPLOYMENT_MANAGER_ROLE`. */
+export const DEPLOYMENT_MANAGER_ROLE: string =
+  import.meta.env.VITE_DEPLOYMENT_MANAGER_ROLE ?? 'INT | Deployment Manager'
 
 /** Maker-portal deep link to one solution (objects list), or the solutions
  *  area when no environment id is known. */
