@@ -202,6 +202,11 @@ try {
   if ($SkipPush) {
     Write-Host "  Push übersprungen (-SkipPush). Manuelle Schritte siehe CLAUDE.md Bootstrap." -ForegroundColor Yellow
   } else {
+    # The CLI tools (power-apps/pac/npm) write progress + the libuv abort to
+    # stderr; under ErrorActionPreference=Stop the `2>&1` merge turns that into a
+    # terminating error. Switch to Continue here — real failures are caught via
+    # explicit exit-code / result checks below.
+    $ErrorActionPreference = 'Continue'
     Write-Host "  pac auth: aktiviere ein Profil für dieses Environment …"
     $authList = @(pac auth list 2>&1)
     $line = $authList | Where-Object { $_ -match [regex]::Escape($EnvironmentUrl.TrimEnd('/')) } | Select-Object -First 1
