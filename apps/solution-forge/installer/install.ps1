@@ -34,6 +34,11 @@ param(
   [switch]$SkipPush
 )
 $ErrorActionPreference = 'Stop'
+# The power-apps (npm) CLI reliably aborts on process exit with a libuv
+# assertion (exit 9) AFTER doing its work — init/push still succeed. Don't let
+# that native exit code throw (PS 7.4 would, under ErrorActionPreference=Stop);
+# cmdlet errors still stop the script. We verify the actual results explicitly.
+$PSNativeCommandUseErrorActionPreference = $false
 $here    = $PSScriptRoot
 $appRoot = Split-Path $here -Parent
 . (Join-Path $here 'lib/Dataverse.ps1')
@@ -204,7 +209,7 @@ try {
     if (Test-Path 'power.config.json') { Remove-Item 'power.config.json' -Force }
     power-apps init --non-interactive -n "$AppDisplayName" --cloud prod -e $envId -b ./dist -f index.html -a http://localhost:3000 2>&1 | Select-Object -Last 2
     if (-not (Test-Path 'power.config.json')) { throw "power-apps init hat keine power.config.json erzeugt — Abbruch." }
-    foreach ($t in 'solution','publisher','solutioncomponent','msdyn_solutioncomponentsummary','systemuser','role','pro_workingsolution','pro_workbenchsettings','pro_mergerun','pro_releasenote') {
+    foreach ($t in 'solution','publisher','solutioncomponent','msdyn_solutioncomponentsummary','systemuser','role','pro_workingsolution','pro_workbenchsettings','pro_mergerun','pro_releasenote','pro_environmentconfig') {
       & .\scripts\add-data-source.ps1 -a dataverse -t $t 2>&1 | Select-Object -Last 1
     }
     if ($connRefName) {
@@ -213,8 +218,18 @@ try {
       & .\scripts\add-data-source.ps1 -a shared_commondataserviceforapps -c $connectionId 2>&1 | Select-Object -Last 1
     }
     npm install 2>&1 | Select-Object -Last 1
-    npm run build 2>&1 | Select-Object -Last 1
-    power-apps push 2>&1 | Select-Object -Last 3
+    if ($LASTEXITCODE -ne 0) { throw "npm install fehlgeschlagen (Exit $LASTEXITCODE)." }
+    npm run build 2>&1 | Select-Object -Last 3
+    if ($LASTEXITCODE -ne 0) { throw "npm run build fehlgeschlagen (Exit $LASTEXITCODE)." }
+    # power-apps push aborts on exit with a libuv assertion even on success, so
+    # judge by the output, not the exit code.
+    $pushOut = power-apps push 2>&1
+    $pushOut | Select-Object -Last 4
+    if ($pushOut -match 'pushed successfully' -or $pushOut -match '/play/') {
+      Write-Host "  App erfolgreich deployed." -ForegroundColor Green
+    } else {
+      Write-Host "  WARN: Push-Ergebnis unklar — Ausgabe oben prüfen." -ForegroundColor Yellow
+    }
   }
 } finally { Pop-Location }
 
