@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
 import type { DependencyItem } from '../types/dependency'
 import type { ReadinessRun } from '../hooks/useReadinessRun'
@@ -73,23 +73,60 @@ export function DependencyCheck({
   const envLabel =
     ENVIRONMENTS.find((e) => e.key === envKey)?.label ?? envKey.toUpperCase()
   const missing = result?.items.filter((i) => i.targetStatus === 'missing') ?? []
-  const others = result?.items.filter((i) => i.targetStatus !== 'missing') ?? []
+  // "unknown" = presence in the target could NOT be verified (metadata types,
+  // unmapped component types). These are NOT safe: real imports fail on exactly
+  // these (columns, custom controls, connection references). They must never be
+  // folded into a green verdict — see the WaldmannCore false-green incident.
+  const unknown = result?.items.filter((i) => i.targetStatus === 'unknown') ?? []
+  const present = result?.items.filter((i) => i.targetStatus === 'present') ?? []
 
-  // Missing dependencies grouped by required component type — collapsible
-  // sections, like the Workbench component overview.
-  const missingByType = useMemo(() => {
+  // Required components grouped by type — collapsible sections, used for both
+  // the "missing" and the "could not verify" lists. (Plain compute: cheap, and
+  // the React Compiler memoizes it.)
+  const groupByStatus = (status: DependencyItem['targetStatus']) => {
     const groups = new Map<string, DependencyItem[]>()
     for (const item of result?.items ?? []) {
-      if (item.targetStatus !== 'missing') continue
+      if (item.targetStatus !== status) continue
       const list = groups.get(item.requiredTypeName)
       if (list) list.push(item)
       else groups.set(item.requiredTypeName, [item])
     }
     return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))
-  }, [result])
-  const isOpen = (typeName: string) => !collapsed[typeName]
-  const toggle = (typeName: string) =>
-    setCollapsed((prev) => ({ ...prev, [typeName]: isOpen(typeName) }))
+  }
+  const missingByType = groupByStatus('missing')
+  const unknownByType = groupByStatus('unknown')
+  // Collapse keys are section-qualified — a type can appear in both lists.
+  const isOpen = (key: string) => !collapsed[key]
+  const toggle = (key: string) =>
+    setCollapsed((prev) => ({ ...prev, [key]: isOpen(key) }))
+
+  const renderGroup = (
+    groupKey: string,
+    title: string,
+    items: DependencyItem[],
+  ) => {
+    const open = isOpen(groupKey)
+    return (
+      <div key={groupKey} className="component-group">
+        <button
+          className="component-group-toggle"
+          onClick={() => toggle(groupKey)}
+          aria-expanded={open}
+        >
+          <span
+            className={`component-group-chevron ${
+              open ? 'component-group-chevron--open' : ''
+            }`}
+          >
+            ▸
+          </span>
+          <span className="component-group-title">{title}</span>
+          <span className="muted">({items.length})</span>
+        </button>
+        {open && <ul className="dep-list">{items.map(renderItem)}</ul>}
+      </div>
+    )
+  }
 
   const renderItem = (item: DependencyItem) => {
     const added = addedIds.has(item.requiredObjectId)
@@ -161,52 +198,48 @@ export function DependencyCheck({
 
       {!running && result && (
         <>
-          {missing.length === 0 && (
+          {missing.length === 0 && unknown.length === 0 && (
             <div className="state state--success">
-              Nothing is missing in {envLabel} — the import should not fail
-              on dependencies.
+              Nothing is missing in {envLabel} — all required components are
+              present; the import should not fail on dependencies.
             </div>
           )}
+
+          {addError && <div className="state state--error">{addError}</div>}
 
           {missing.length > 0 && (
             <section className="card">
               <h3 className="card-title">
                 Missing in {envLabel} ({missing.length}) — import would fail
               </h3>
-              {addError && <div className="state state--error">{addError}</div>}
-              {missingByType.map(([typeName, items]) => {
-                const open = isOpen(typeName)
-                return (
-                  <div key={typeName} className="component-group">
-                    <button
-                      className="component-group-toggle"
-                      onClick={() => toggle(typeName)}
-                      aria-expanded={open}
-                    >
-                      <span
-                        className={`component-group-chevron ${
-                          open ? 'component-group-chevron--open' : ''
-                        }`}
-                      >
-                        ▸
-                      </span>
-                      <span className="component-group-title">{typeName}</span>
-                      <span className="muted">({items.length})</span>
-                    </button>
-                    {open && (
-                      <ul className="dep-list">{items.map(renderItem)}</ul>
-                    )}
-                  </div>
-                )
-              })}
+              {missingByType.map(([typeName, items]) =>
+                renderGroup(`missing:${typeName}`, typeName, items),
+              )}
             </section>
           )}
 
-          {others.length > 0 && (
+          {unknown.length > 0 && (
+            <section className="card">
+              <h3 className="card-title">
+                Could not verify in {envLabel} ({unknown.length}) — the import
+                may still fail on these
+              </h3>
+              <p className="muted dep-hint">
+                These required components can&apos;t be checked from here
+                (columns, custom controls, connection references,
+                relationships, …). If they aren&apos;t already in {envLabel},
+                use <strong>Add to Solution</strong> so they ship with it.
+              </p>
+              {unknownByType.map(([typeName, items]) =>
+                renderGroup(`unknown:${typeName}`, typeName, items),
+              )}
+            </section>
+          )}
+
+          {present.length > 0 && (
             <p className="muted dep-hint">
-              {others.length} further required component
-              {others.length === 1 ? '' : 's'} (not part of the solution) are
-              already present in {envLabel} or not verifiable from here —
+              {present.length} required component
+              {present.length === 1 ? '' : 's'} already present in {envLabel} —
               nothing to do for those.
             </p>
           )}

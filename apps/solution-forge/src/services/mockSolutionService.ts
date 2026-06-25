@@ -488,7 +488,7 @@ export class MockSolutionService {
   async mergeIntoDeployment(
     targetUniqueName: string,
     sourceSolutionIds: string[],
-    onProgress?: (done: number, total: number) => void,
+    onProgress?: (done: number, total: number, current?: string) => void,
   ): Promise<MergeResult> {
     const target = this.solutions.find(
       (s) => s.uniqueName === targetUniqueName,
@@ -519,7 +519,7 @@ export class MockSolutionService {
         added.push({ t: component.typeName, n: component.displayName })
         result.added++
       }
-      onProgress?.(++done, queue.length)
+      onProgress?.(++done, queue.length, component.displayName || component.typeName)
     }
     this.components.set(target.id, targetComponents)
     target.modifiedOn = new Date().toISOString()

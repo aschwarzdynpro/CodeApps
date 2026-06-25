@@ -190,7 +190,7 @@ export interface SolutionService {
   mergeIntoDeployment(
     targetUniqueName: string,
     sourceSolutionIds: string[],
-    onProgress?: (done: number, total: number) => void,
+    onProgress?: (done: number, total: number, current?: string) => void,
   ): Promise<MergeResult>
   /**
    * Merge history of a release solution: the logged merge runs (counts,

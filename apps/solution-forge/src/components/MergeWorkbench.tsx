@@ -67,6 +67,9 @@ export function MergeWorkbench({
   >([])
   const [planLoading, setPlanLoading] = useState(false)
   const [progress, setProgress] = useState<[number, number] | null>(null)
+  // The component currently being added — shown live during the merge so a
+  // long run isn't a silent spinner.
+  const [currentItem, setCurrentItem] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Guards against out-of-order plan responses when toggling quickly.
   const planRequest = useRef(0)
@@ -178,12 +181,16 @@ export function MergeWorkbench({
   const merge = async () => {
     if (!target) return
     setProgress([0, plan?.length ?? 0])
+    setCurrentItem(null)
     setError(null)
     try {
       const res = await solutionService.mergeIntoDeployment(
         target.uniqueName,
         [...selected],
-        (done, total) => setProgress([done, total]),
+        (done, total, current) => {
+          setProgress([done, total])
+          setCurrentItem(current ?? null)
+        },
       )
       // The outcome banner lives at App level (survives the reload onMerged
       // triggers, which briefly unmounts this tab).
@@ -192,6 +199,7 @@ export function MergeWorkbench({
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setProgress(null)
+      setCurrentItem(null)
     }
   }
 
@@ -270,7 +278,12 @@ export function MergeWorkbench({
 
       <div className="card merge-pane">
         <h3 className="card-title">3 · Component plan</h3>
-        {planLoading && <div className="state">Building plan…</div>}
+        {planLoading && (
+          <div className="state">
+            Building plan… reading components and resolving names — this can take
+            a moment for large solutions.
+          </div>
+        )}
         {!planLoading && !plan && (
           <div className="state">Select working solutions to see the plan.</div>
         )}
@@ -329,11 +342,38 @@ export function MergeWorkbench({
             disabled={!canMerge}
             onClick={() => void merge()}
           >
-            {progress
-              ? `Merging… ${progress[0]}/${progress[1]}`
-              : 'Merge into deployment solution'}
+            {progress ? 'Merging…' : 'Merge into deployment solution'}
           </button>
         </div>
+
+        {progress && (
+          <div className="merge-progress" role="status" aria-live="polite">
+            <div
+              style={{
+                height: 6,
+                borderRadius: 3,
+                background: '#e5e7eb',
+                overflow: 'hidden',
+                marginTop: 10,
+              }}
+            >
+              <div
+                style={{
+                  height: '100%',
+                  width: `${progress[1] > 0 ? Math.round((progress[0] / progress[1]) * 100) : 0}%`,
+                  background: '#7c4ca7',
+                  transition: 'width 0.2s ease',
+                }}
+              />
+            </div>
+            <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+              Merging {progress[0]} / {progress[1]}
+              {progress[1] > 0 &&
+                ` (${Math.round((progress[0] / progress[1]) * 100)}%)`}
+              {currentItem && ` — adding ${currentItem}`}
+            </div>
+          </div>
+        )}
 
         {error && <div className="state state--error">{error}</div>}
       </div>
