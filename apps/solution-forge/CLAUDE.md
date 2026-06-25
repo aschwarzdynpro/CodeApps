@@ -67,6 +67,18 @@ ESLint: React-Compiler-Regeln aktiv — kein setState synchron in Effects
 (Pattern: `// eslint-disable-next-line react-hooks/set-state-in-effect`
 nur direkt über der Zeile); `src/generated` ist lint-ignoriert.
 
+## Per-Environment-Deploy (Direct-Push)
+
+`pwsh scripts/deploy-env.ps1 -Env <playground|schulz|waldmann>` pusht die App
+direkt (unmanaged) in die jeweilige Umgebung. EINE Registry im Skript ist die
+Quelle der Wahrheit (App-/Env-IDs, pac-Profil, Connector); pro Lauf: pac-Profil
+per Name wählen → **Guard** (`pac org who` muss die Ziel-URL sein, sonst Abbruch)
+→ `power.config.json` + `.env.local` schreiben → Data Sources + Connector (`-cr`
+Playground / `-c` Schulz) → build → `pac code push`. `waldmann` ist bewusst
+**deaktiviert** (managed Import statt Direct-Push). Details: `deploy/README.md`.
+Aktuell **ohne** DevOps-Sync-Flow (DevOps `false`) → `pac code push`; bei
+reaktiviertem DevOps stattdessen `power-apps push` (Gotcha #12).
+
 ## Architektur
 
 UI hängt NUR am Interface `SolutionService`
@@ -289,6 +301,19 @@ speichert kombinierte Liste).
     of type 'AppConnectionReference'") — die ältere pac-Push-API kennt den von
     add-flow geschriebenen `workflowDetails`-Block in `power.config.json` nicht.
     `power-apps push` braucht die npm-CLI im Schulz-Tenant angemeldet (s. o.).
+13. **Deployment Readiness muss konservativ sein — `unknown` ≠ grün.**
+    `checkDependencies` nutzt `RetrieveMissingDependencies` + Target-Presence je
+    Typ (`DEPENDENCY_SPECS`). Typen OHNE Spec-Eintrag bleiben `unknown` (nicht
+    verifizierbar). Die UI (`DependencyCheck.tsx`) darf `unknown` NIE als grün
+    werten — sonst falsche Entwarnung: real bei WaldmannCore importierte der
+    Import trotz „grün" nicht (fehlend: Spalte type **2**, PCF-Control type
+    **66**, Connection Reference). Grün nur bei **0 missing UND 0 unknown**;
+    `unknown` kommt in einen eigenen „could not verify"-Abschnitt (mit „Add to
+    Solution"). **Connection Reference = componenttype `10064`** (NICHT 372 — das
+    war der Bug); der Wert, den `RetrieveMissingDependencies`/`solutioncomponent`
+    liefern (deckt sich mit Merge/Layer-Inspector). Custom Control = `66`.
+    Spalten (type 2) sind cross-env (noch) nicht verifizierbar → bleiben
+    bewusst `unknown` (ehrlich), kein Auto-Check.
 
 ## Offen / Nächstes
 

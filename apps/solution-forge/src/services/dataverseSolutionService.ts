@@ -156,6 +156,10 @@ const COMPONENT_TYPE_LABELS: Record<number, string> = {
   372: 'Connection Reference',
   380: 'Environment Variable',
   381: 'Environment Variable Value',
+  // Connection reference is a newer component NOT in the classic componenttype
+  // optionset; solutioncomponent.componenttype (and RetrieveMissingDependencies)
+  // store it as 10064 (372 is wrong — see DEPENDENCY_SPECS).
+  10064: 'Connection Reference',
   // Solution Component Framework types (codes > 10000) are NOT hard-listed
   // here — they're resolved generically from solutioncomponentdefinition
   // (see resolveScfTypeNames / layerComponentNames).
@@ -291,6 +295,15 @@ const DEPENDENCY_SPECS: Record<number, DependencySpec> = {
     displayField: 'name',
     matchField: 'name',
   },
+  66: {
+    // Custom control (PCF). Forms (type 60) depend on these; a missing one
+    // fails the import. Matched cross-env by the control's unique name
+    // (e.g. wal_ChoicePicker.ChoicePickerControl).
+    entitySet: 'customcontrols',
+    idField: 'customcontrolid',
+    displayField: 'name',
+    matchField: 'name',
+  },
   70: {
     entitySet: 'fieldsecurityprofiles',
     idField: 'fieldsecurityprofileid',
@@ -318,7 +331,18 @@ const DEPENDENCY_SPECS: Record<number, DependencySpec> = {
     displayField: 'name',
     matchField: 'name',
   },
+  // Connection reference — the platform stores componenttype 10064 (the value
+  // RetrieveMissingDependencies returns and the merge/layer code uses). 372 is
+  // kept defensively but is not what real rows carry. Both map to the same
+  // table, matched cross-env by the connection reference's logical name (the
+  // flows that depend on it fail the import when it's absent).
   372: {
+    entitySet: 'connectionreferences',
+    idField: 'connectionreferenceid',
+    displayField: 'connectionreferencedisplayname',
+    matchField: 'connectionreferencelogicalname',
+  },
+  10064: {
     entitySet: 'connectionreferences',
     idField: 'connectionreferenceid',
     displayField: 'connectionreferencedisplayname',
@@ -2157,7 +2181,7 @@ export class DataverseSolutionService implements SolutionService {
   async mergeIntoDeployment(
     targetUniqueName: string,
     sourceSolutionIds: string[],
-    onProgress?: (done: number, total: number) => void,
+    onProgress?: (done: number, total: number, current?: string) => void,
   ): Promise<MergeResult> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
@@ -2232,7 +2256,11 @@ export class DataverseSolutionService implements SolutionService {
           )
         }
       }
-      onProgress?.(++done, queue.length)
+      onProgress?.(
+        ++done,
+        queue.length,
+        component.displayName || component.typeName,
+      )
     }
 
     // Log the merge on the source rows' presentation records — the table
