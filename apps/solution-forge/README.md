@@ -221,6 +221,40 @@ nach Typ.
   Lookup-Fehler). Kompakter als die Einzelseiten — für die volle Tiefe den
   jeweiligen Feature-Tab öffnen. Der Detective orchestriert nur die
   vorhandenen Services (kein eigener Datenpfad).
+- **Operate-Gruppe** (Betriebssicht auf die aktuelle Umgebung, eigene
+  Menüpunkte):
+  - **🧵 Plugin Traces** — Explorer über `plugintracelog`: Polling-**Stream**
+    (15 s, pausiert bei verstecktem Browser-Tab) mit Server-Filtern
+    (Zeitfenster, TypeName, Message, Entity, sync/async, nur Exceptions,
+    Opt-in-Volltext ≤ 24 h); Zeile aufklappen lädt den **MessageBlock** lazy
+    (Suche-im-Text, Copy) — im Stream wird das schwere Payload nie geladen.
+    **⛓ Chain** öffnet die **Correlation-Timeline** (Einrückung nach `depth`,
+    Balken ∝ Duration). **Performance**-Sub-Tab: serverseitige
+    Duration-Aggregate je Plugin × Message (count/avg/p95≈/max), Klick →
+    vorgefilterter Stream. **Trace-Level**-Steuerung
+    (`organization.plugintracelogsetting`, 0/1/2) mit Confirm-Warnung bei
+    „All" — Umschalten nur für Deployment Manager, läuft als angemeldeter
+    User (natives `organization`-Update).
+  - **📡 Job Monitor** — „Ist die Async-Verarbeitung gesund?" in < 10 s:
+    **Health**-Kacheln (Failed 24 h, Waiting-Backlog + älteste wartende Op,
+    Flow-Fehlerquote als gekennzeichnetes Sample, Watchdog-Ampeln; jede
+    Kachel klickt in ihren Detail-Tab), **System jobs**
+    (`asyncoperation`-Explorer mit erzwungenem Zeitfenster, Status-Chips,
+    Bulk-**Cancel/Retry** ≤ 50/Batch sequentiell mit Einzel-Ergebnis — nur
+    Deployment Manager, schreibt als User), **Flows** (Cloud Flows mit
+    gesampelter Fehlerquote; Runs je Flow aus der `flowrun`-Tabelle mit
+    Deep-Link in den Power-Automate-Portal-Run), **Watchdog**
+    (Heartbeat-Soll/Ist je Definition, pure function `evaluateHeartbeat`,
+    Tabellen konfigurierbar via `config.ts → WATCHDOG_TABLES`) und
+    **Trends** (Failed-Jobs/Tag 7/30 d, serverseitige Aggregate).
+  - **🛡 Role Analyzer** (gated, strikt read-only) — arbeitet auf einem
+    ~15 min gecachten Snapshot des Security-Modells, Rollen aggregiert auf
+    `parentrootroleid` (BU-Kopien kollabieren): **Matrix** (Rolle × Tabelle ×
+    Privileg mit Depth-Badges U/BU/P/O), **Diff** (zwei Rollen, nur Deltas,
+    Export Markdown/CSV), **User rights** (effektive Rechte aus direkten +
+    Team-Rollen, tiefste Depth gewinnt, mit Herkunftspfad), **Reverse
+    lookup** („Wer kann Delete auf account?" → User/Teams mit Pfad) und
+    **Hygiene** (Rollen ohne Zuweisung, User mit > N Rollen).
 
 ## Architektur
 
@@ -250,6 +284,22 @@ Implementierungen:
 - `mockSolutionService.ts` + `mockData.ts` – In-Memory-Beispieldaten; auch
   Anlage und Merge funktionieren offline.
 
+Die **Operate-Features** haben jeweils ihr eigenes Interface + Impl-Paar nach
+demselben Muster (Dataverse-Impl fällt auf Mock zurück, offline voll
+demobar): `traceService` / `jobMonitorService` / `roleAnalyzerService` mit
+`dataverse…`- und `mock…`-Implementierungen. Ihre **Reads laufen komplett
+über den vorhandenen Dataverse-Konnektor** als FetchXML-Passthrough gegen die
+aktuelle Umgebung (`src/services/currentEnvQuery.ts`, inkl. Paging und
+Aggregaten) — dadurch brauchen sie **keine neuen nativen Data Sources zum
+Lesen** (wichtig: Intersects wie `roleprivileges` sind ohnehin nur per
+FetchXML erreichbar; Identität ist die Konnektor-Connection/SP).
+**Schreibpfade** (Trace-Level umschalten, Job-Cancel/Retry) gehen dagegen
+über die nativen Data Sources `organization` und `asyncoperation` und laufen
+als angemeldeter User — Dataverse erzwingt die Privilegien pro Person und der
+Audit zeigt, wer gehandelt hat. Pure functions mit Vitest-Tests:
+`utils/heartbeat.ts` (`evaluateHeartbeat`) und `utils/privileges.ts`
+(Bitmasken-/Depth-Decoder) — `npm test`.
+
 ## Lokal starten
 
 ```bash
@@ -267,6 +317,9 @@ pac code add-data-source -a dataverse -t solution
 pac code add-data-source -a dataverse -t publisher
 pac code add-data-source -a dataverse -t solutioncomponent
 pac code add-data-source -a dataverse -t msdyn_solutioncomponentsummary
+# Operate-Gruppe (nur Schreibpfade — Reads laufen über den Konnektor):
+pac code add-data-source -a dataverse -t asyncoperation   # Job-Cancel/Retry
+pac code add-data-source -a dataverse -t organization     # Trace-Level-Switch
 ```
 
 > **Achtung beim Nachgenerieren:** Sobald die Action

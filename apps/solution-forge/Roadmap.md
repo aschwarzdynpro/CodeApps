@@ -84,6 +84,15 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 
 ## Umgesetzt
 
+- [x] ⭐ **Operate-Gruppe** (Ideen aus `docs/Ideas_v2.md`, je eigener
+      Menüpunkt): **Plugin Trace Explorer** (Stream + Correlation-Timeline +
+      Performance-Aggregate + Trace-Level-Switch), **Async Job / Flow
+      Monitor** (Health-Kacheln, asyncoperation-Explorer mit Bulk-
+      Cancel/Retry, Flow-Runs mit Portal-Deep-Link, Watchdog-Board, Trends)
+      und **Security Role Analyzer** (Matrix, Diff mit Export, effektive
+      Rechte mit Herkunftspfad, Reverse Lookup, Hygiene-Report; read-only).
+      Details/Offenes: `docs/Ideas_v2-Umsetzung.md`.
+
 - [x] Darstellungs-Schicht `pro_workingsolution` (Join, Anlage, Nacherfassen,
       Re-Link, Typ-Pflege, Löschen mit Undo)
 - [x] „Mark completed": offene Working Solution auf „Deployment completed"

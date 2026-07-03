@@ -16,6 +16,9 @@ import { ReadinessWorkspace } from './components/ReadinessWorkspace'
 import { AnalyzeWorkspace } from './components/AnalyzeWorkspace'
 import { ReleaseNotesWorkspace } from './components/ReleaseNotesWorkspace'
 import { ActivityBar } from './components/ActivityBar'
+import { TraceExplorer } from './components/TraceExplorer'
+import { JobMonitor } from './components/JobMonitor'
+import { RoleAnalyzer } from './components/RoleAnalyzer'
 // ALM Detective is temporarily hidden from the UI — component + service
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
 import { HelpPanel } from './components/HelpPanel'
@@ -48,6 +51,9 @@ type Tab =
   | 'releaseNotes'
   | 'readiness'
   | 'analyze'
+  | 'traces'
+  | 'jobs'
+  | 'roles'
 
 interface NavItem {
   key: Tab
@@ -80,6 +86,19 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { key: 'analyze', label: 'Analyze', icon: '📊', gated: true },
     ],
   },
+  {
+    // Operations views over the current environment (traces, async jobs,
+    // security roles). Trace Explorer and Job Monitor are open to everyone
+    // (their destructive actions are additionally deployment-manager-gated
+    // inside the workspace); the Role Analyzer exposes the whole security
+    // model and is gated as a whole.
+    label: 'Operate',
+    items: [
+      { key: 'traces', label: 'Plugin Traces', icon: '🧵', gated: false },
+      { key: 'jobs', label: 'Job Monitor', icon: '📡', gated: false },
+      { key: 'roles', label: 'Role Analyzer', icon: '🛡', gated: true },
+    ],
+  },
 ]
 
 /** Heading shown in the content header per section. */
@@ -90,6 +109,9 @@ const TAB_TITLES: Record<Tab, string> = {
   releaseNotes: 'Release Notes',
   readiness: 'Deployment Readiness',
   analyze: 'Analyze',
+  traces: 'Plugin Trace Explorer',
+  jobs: 'Async Job / Flow Monitor',
+  roles: 'Security Role Analyzer',
 }
 
 /**
@@ -1246,6 +1268,18 @@ function App() {
           onAnalyze={handleAnalyze}
         />
       )}
+
+      {/* Operate views are independent of the solutions list — they render
+          even while it is still loading (only a load error blocks). */}
+      {!error && tab === 'traces' && (
+        <TraceExplorer canManageTraceLevel={isDeploymentManager} />
+      )}
+
+      {!error && tab === 'jobs' && (
+        <JobMonitor canManageJobs={isDeploymentManager} />
+      )}
+
+      {!error && tab === 'roles' && isDeploymentManager && <RoleAnalyzer />}
         </main>
       </div>
 

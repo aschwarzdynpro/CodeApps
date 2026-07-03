@@ -593,6 +593,109 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🧵 Plugin Traces (Operate)</h3>
+            <ul>
+              <li>
+                A usable frontend over <code>plugintracelog</code>: the{' '}
+                <strong>Trace stream</strong> polls every 15 s (paused while
+                the browser tab is hidden) with server-side filters — time
+                window, plugin type, message, entity, sync/async,
+                exceptions-only, opt-in message-text search (≤ 24 h).
+              </li>
+              <li>
+                A row expands into the lazily-loaded{' '}
+                <strong>message block</strong> (find-in-text, copy); the heavy
+                payload is never loaded in the stream.
+              </li>
+              <li>
+                <strong>⛓ Chain</strong> opens the correlation timeline: every
+                trace of the request chain, indented by depth, bar length ∝
+                duration — one request cascade at a glance.
+              </li>
+              <li>
+                <strong>Performance</strong> aggregates duration per plugin ×
+                message server-side (count / avg / p95≈ / max); a click jumps
+                back into the pre-filtered stream.
+              </li>
+              <li>
+                The <strong>trace level</strong> control (top right) shows{' '}
+                <code>organization.plugintracelogsetting</code>; switching it
+                requires the deployment-manager role and runs as you — “All”
+                warns before enabling (log growth). The platform prunes
+                traces: this is an explorer, not an archive.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
+            <h3>📡 Job Monitor (Operate)</h3>
+            <ul>
+              <li>
+                <strong>Health</strong> answers “is async processing healthy?”
+                in one look: failed jobs (24 h), waiting backlog with the
+                oldest waiting operation, a sampled flow failure rate and the
+                watchdog lights. Every tile drills into its detail tab.
+              </li>
+              <li>
+                <strong>System jobs</strong> explores{' '}
+                <code>asyncoperation</code> with an enforced look-back window
+                and status/type/name filters. Deployment managers can{' '}
+                <strong>bulk-cancel / retry</strong> (max 50 per batch,
+                sequential, per-job outcome) — writes run as you.
+              </li>
+              <li>
+                <strong>Flows</strong> lists the cloud flows; “Load failure
+                rates” samples each flow's recent runs (marked as a sample —
+                connector-friendly). Selecting a flow shows its runs with a
+                deep link into the Power Automate portal run page.
+              </li>
+              <li>
+                <strong>Watchdog</strong> compares each heartbeat definition
+                (expected interval + grace) against the latest beat —
+                🔴 overdue / never beaten, ⚪ inactive. Table names are
+                configurable (<code>config.ts → WATCHDOG_TABLES</code>).
+              </li>
+              <li>
+                <strong>Trends</strong> charts failed jobs per day over 7/30
+                days (server-side aggregates).
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
+            <h3>🛡 Role Analyzer (Operate, read-only)</h3>
+            <ul>
+              <li>
+                Works on a snapshot of the security model, cached ~15 min;
+                roles are aggregated on their <strong>root copy</strong>{' '}
+                (<code>parentrootroleid</code> — BU copies collapse).
+              </li>
+              <li>
+                <strong>Matrix</strong>: role × table × privilege with the
+                classic depths (User / BU / Parent:Child / Organization).
+              </li>
+              <li>
+                <strong>Diff</strong>: two roles side-by-side, deltas only,
+                exportable as Markdown or CSV.
+              </li>
+              <li>
+                <strong>User rights</strong>: effective table privileges of
+                one user aggregated from direct + team roles — deepest depth
+                wins — with the provenance path per grant (“role ‘Vertrieb
+                Süd’ ← team ‘Sales DE’”).
+              </li>
+              <li>
+                <strong>Reverse lookup</strong>: “who can Delete on account?”
+                → all users/teams with their path.
+              </li>
+              <li>
+                <strong>Hygiene</strong>: roles without any assignment and
+                users above a role-count threshold.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
             <h3>Chips at a glance</h3>
             <ul className="help-legend">
               <li>

@@ -40,6 +40,9 @@ power-apps init --non-interactive -n "Solution Administration Console (Pro)" --c
 ./scripts/add-data-source.ps1 -a dataverse -t pro_mergerun
 ./scripts/add-data-source.ps1 -a dataverse -t pro_releasenote
 ./scripts/add-data-source.ps1 -a dataverse -t pro_environmentconfig
+# Operate-Gruppe (nur Schreibpfade; alle Reads laufen über den Konnektor):
+./scripts/add-data-source.ps1 -a dataverse -t asyncoperation
+./scripts/add-data-source.ps1 -a dataverse -t organization
 # Konnektor (Dataverse) — direkte Connection-Bindung per -c (Connection „App-Reg
 # D365-CE nonProd", SP). Für den Installer/ALM stattdessen Connection-Reference
 # `pro_CRDataverse` (muss vorab existieren, sonst „Failed to resolve connection ID"):
@@ -91,6 +94,27 @@ bei neuen Methoden IMMER Mock mitziehen). Compare separat:
 phasenweise zu einem Severity-Report — kein eigener Datenpfad, daher auch
 ohne eigenen Mock (erbt die Mock-Fallbacks der genutzten Services). Caches
 (Komponenten, Suche-Index, Kollisionsradar, WorkItems) leben in `App.tsx`.
+
+**Operate-Gruppe** (Menü „Operate": Plugin Traces / Job Monitor / Role
+Analyzer): je Feature ein eigenes Service-Paar nach demselben Muster —
+`traceService`/`jobMonitorService`/`roleAnalyzerService` (+ `dataverse…`/
+`mock…`). **Reads ausschließlich über den Konnektor** als FetchXML-
+Passthrough gegen die aktuelle Umgebung (`currentEnvQuery.ts`: `fetchXmlQuery`,
+`fetchXmlAllPages` mit page/count-Injection, Aggregate) ⇒ keine neuen nativen
+Data Sources fürs Lesen; Intersects (`roleprivileges`, `systemuserroles`,
+`teamroles`, `teammembership`) werden über **link-entity vom Parent aus**
+traversiert (Entity-Set-Namen der Intersects werden so nie gebraucht).
+Identität der Reads = Konnektor-SP (braucht Leserechte auf plugintracelog,
+asyncoperation, role/privilege usw.). **Writes nativ als User**: Trace-Level
+via `OrganizationsService.update` (organization), Bulk-Cancel/Retry via
+`AsyncoperationsService.update` (asyncoperation) — bewusst getrennt, damit
+Dataverse die Rechte pro Person erzwingt. UI-Gating: Role Analyzer als Tab
+gated; Trace-Level-Switch + Bulk-Aktionen zusätzlich Deployment-Manager-
+gated. Rollen IMMER auf `parentrootroleid` aggregieren (Modell-Snapshot
+~15 min gecacht, modulweiter Cache im Service). Watchdog-Tabellennamen in
+`config.ts → WATCHDOG_TABLES` (Default `cust_*`; Query-Fehler ⇒ „not
+installed"-Hinweis statt Crash). Pure functions mit Vitest (`npm test`):
+`utils/heartbeat.ts`, `utils/privileges.ts`.
 
 **Datenmodell:** `pro_workingsolution` = Darstellungs-Schicht, verlinkt
 über `pro_uniquesolutionname` zur echten Solution. Typ-Kaskade:

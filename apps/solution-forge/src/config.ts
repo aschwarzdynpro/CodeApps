@@ -228,6 +228,48 @@ export function makerCanvasAppUrl(
   return `https://make.powerapps.com/environments/${environmentId}/apps/${appName}/details`
 }
 
+/**
+ * Power Automate portal deep link to one flow run. `flowIdUnique` is the
+ * import-stable `workflow.workflowidunique`; `runName` is the flow-run id
+ * (`flowrun.name`, e.g. "08584690…").
+ */
+export function flowRunUrl(
+  environmentId: string | null,
+  flowIdUnique: string,
+  runName: string,
+): string {
+  const envId = environmentId || FALLBACK_ENVIRONMENT_ID
+  return `https://make.powerautomate.com/environments/${envId}/flows/${flowIdUnique}/runs/${runName}`
+}
+
+/**
+ * Watchdog (heartbeat) tables used by the Async Job / Flow Monitor. The
+ * pattern: integration flows write one heartbeat row per run; a definition
+ * row states how often a beat is expected (+ grace). The tables are
+ * customer-specific — adjust the logical names here (or leave them and the
+ * Watchdog board shows its "not installed" hint when the query fails).
+ */
+export const WATCHDOG_TABLES = {
+  /** FetchXML entity name of the definition table. */
+  definitionEntity: 'cust_heartbeatdefinition',
+  /** OData entity-set name of the definition table. */
+  definitionEntitySet: 'cust_heartbeatdefinitions',
+  definitionIdAttr: 'cust_heartbeatdefinitionid',
+  definitionNameAttr: 'cust_name',
+  intervalAttr: 'cust_expectedintervalminutes',
+  graceAttr: 'cust_graceminutes',
+  activeAttr: 'cust_isactive',
+  /** FetchXML entity name of the heartbeat table. */
+  beatEntity: 'cust_heartbeat',
+  /** OData entity-set name of the heartbeat table. */
+  beatEntitySet: 'cust_heartbeats',
+  /** Lookup attribute on the beat table pointing at its definition. */
+  beatDefinitionAttr: 'cust_heartbeatdefinition',
+  beatTimestampAttr: 'cust_timestamp',
+  beatStatusAttr: 'cust_status',
+  beatMessageAttr: 'cust_message',
+} as const
+
 /** Azure DevOps work item link, or null when the org isn't configured yet. */
 export function devOpsWorkItemUrl(devOpsId: string | null): string | null {
   if (!devOpsId || !ADO_ORG_URL || !ADO_PROJECT) return null
