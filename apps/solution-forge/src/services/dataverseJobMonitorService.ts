@@ -23,7 +23,13 @@ import {
   type Row,
 } from './currentEnvQuery'
 import { evaluateHeartbeat } from '../utils/heartbeat'
-import { flowRunUrl, WATCHDOG_TABLES } from '../config'
+import {
+  environmentIdForEnvKey,
+  flowRunUrl,
+  isCurrentEnvKey,
+  orgUrlForEnvKey,
+  WATCHDOG_TABLES,
+} from '../config'
 import { AsyncoperationsService } from '../generated/services/AsyncoperationsService'
 
 /**
@@ -74,6 +80,7 @@ function toJob(row: Row): AsyncJobInfo {
 /** count + min(createdon) aggregate over asyncoperation with a filter. */
 async function countJobs(
   conditions: string,
+  orgUrl: string,
   withOldest = false,
 ): Promise<{ count: number; oldest: string }> {
   const fetchXml =
@@ -85,12 +92,24 @@ async function countJobs(
       : '') +
     `<filter type="and">${conditions}</filter>` +
     `</entity></fetch>`
-  const rows = await fetchXmlQuery('asyncoperations', fetchXml)
+  const rows = await fetchXmlQuery('asyncoperations', fetchXml, orgUrl)
   const row = rows[0]
   return {
     count: row ? rowNum(row.cnt) : 0,
     oldest: row ? rowStr(row.oldest) : '',
   }
+}
+
+/**
+ * Guard the native write paths: the `asyncoperation` source always targets
+ * the host env, so refuse a cross-env write rather than silently changing
+ * jobs in the wrong environment. The UI disables the buttons too.
+ */
+function assertHostEnv(envKey: string, action: string): void {
+  if (!isCurrentEnvKey(envKey))
+    throw new Error(
+      `Cannot ${action} in another environment — native writes only target the host environment. Switch the target back to the current environment.`,
+    )
 }
 
 /** Sequential bulk state change with per-job outcome. */
@@ -125,16 +144,20 @@ async function bulkSetState(
 }
 
 class DataverseJobMonitorService implements JobMonitorService {
-  async getHealthSummary(): Promise<JobHealthSummary> {
+  async getHealthSummary(envKey: string): Promise<JobHealthSummary> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockJobMonitorService.getHealthSummary()
+    if (mode !== 'power-platform')
+      return mockJobMonitorService.getHealthSummary(envKey)
+    const orgUrl = orgUrlForEnvKey(envKey)
 
     const failedP = countJobs(
       `<condition attribute="createdon" operator="ge" value="${sinceIso(24)}" />` +
         `<condition attribute="statuscode" operator="eq" value="${ASYNC_STATUS.failed}" />`,
+      orgUrl,
     )
     const waitingP = countJobs(
       `<condition attribute="statuscode" operator="in"><value>${ASYNC_STATUS.waitingForResources}</value><value>${ASYNC_STATUS.waiting}</value></condition>`,
+      orgUrl,
       true,
     )
     // Flow failure rate from a bounded sample of the newest runs across all
@@ -150,7 +173,7 @@ class DataverseJobMonitorService implements JobMonitorService {
           `<filter><condition attribute="starttime" operator="ge" value="${sinceIso(24)}" /></filter>` +
           `<order attribute="starttime" descending="true" />` +
           `</entity></fetch>`
-        const rows = await fetchXmlQuery('flowruns', fetchXml)
+        const rows = await fetchXmlQuery('flowruns', fetchXml, orgUrl)
         const failed = rows.filter((r) =>
           rowStr(r.status).toLowerCase().includes('fail'),
         ).length
@@ -163,7 +186,7 @@ class DataverseJobMonitorService implements JobMonitorService {
         return null
       }
     })()
-    const watchdogP = this.listWatchdog()
+    const watchdogP = this.listWatchdog(envKey)
 
     const [failed, waiting, flowSample, watchdog] = await Promise.all([
       failedP,
@@ -184,9 +207,10 @@ class DataverseJobMonitorService implements JobMonitorService {
     }
   }
 
-  async listJobs(filter: JobFilter): Promise<AsyncJobInfo[]> {
+  async listJobs(filter: JobFilter, envKey: string): Promise<AsyncJobInfo[]> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockJobMonitorService.listJobs(filter)
+    if (mode !== 'power-platform')
+      return mockJobMonitorService.listJobs(filter, envKey)
     const conditions: string[] = [
       `<condition attribute="createdon" operator="ge" value="${sinceIso(filter.hours)}" />`,
     ]
@@ -222,17 +246,23 @@ class DataverseJobMonitorService implements JobMonitorService {
       `<filter type="and">${conditions.join('')}</filter>` +
       `<order attribute="createdon" descending="true" />` +
       `</entity></fetch>`
-    const rows = await fetchXmlQuery('asyncoperations', fetchXml)
+    const rows = await fetchXmlQuery(
+      'asyncoperations',
+      fetchXml,
+      orgUrlForEnvKey(envKey),
+    )
     return rows.map(toJob)
   }
 
   async cancelJobs(
     jobs: { id: string; name: string }[],
+    envKey: string,
     onProgress?: (done: number, total: number) => void,
   ): Promise<JobActionResult[]> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockJobMonitorService.cancelJobs(jobs, onProgress)
+      return mockJobMonitorService.cancelJobs(jobs, envKey, onProgress)
+    assertHostEnv(envKey, 'cancel jobs')
     return bulkSetState(
       jobs,
       { statecode: 3, statuscode: ASYNC_STATUS.canceled },
@@ -242,11 +272,13 @@ class DataverseJobMonitorService implements JobMonitorService {
 
   async retryJobs(
     jobs: { id: string; name: string }[],
+    envKey: string,
     onProgress?: (done: number, total: number) => void,
   ): Promise<JobActionResult[]> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockJobMonitorService.retryJobs(jobs, onProgress)
+      return mockJobMonitorService.retryJobs(jobs, envKey, onProgress)
+    assertHostEnv(envKey, 'retry jobs')
     // Back to Ready / Waiting for resources — the async service picks it up.
     return bulkSetState(
       jobs,
@@ -255,9 +287,9 @@ class DataverseJobMonitorService implements JobMonitorService {
     )
   }
 
-  async listFlows(): Promise<FlowInfo[]> {
+  async listFlows(envKey: string): Promise<FlowInfo[]> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockJobMonitorService.listFlows()
+    if (mode !== 'power-platform') return mockJobMonitorService.listFlows(envKey)
     // category 5 = modern (cloud) flow, type 1 = definition.
     const fetchXml =
       `<fetch count="100">` +
@@ -274,7 +306,7 @@ class DataverseJobMonitorService implements JobMonitorService {
       `</filter>` +
       `<order attribute="modifiedon" descending="true" />` +
       `</entity></fetch>`
-    const rows = await fetchXmlQuery('workflows', fetchXml)
+    const rows = await fetchXmlQuery('workflows', fetchXml, orgUrlForEnvKey(envKey))
     return rows.map((row) => ({
       workflowId: rowStr(row.workflowid),
       workflowIdUnique: rowStr(row.workflowidunique),
@@ -287,11 +319,13 @@ class DataverseJobMonitorService implements JobMonitorService {
 
   async sampleFlowStats(
     flows: FlowInfo[],
+    envKey: string,
     onProgress?: (done: number, total: number) => void,
   ): Promise<Map<string, FlowRunStats | undefined>> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockJobMonitorService.sampleFlowStats(flows, onProgress)
+      return mockJobMonitorService.sampleFlowStats(flows, envKey, onProgress)
+    const orgUrl = orgUrlForEnvKey(envKey)
     // Connector rate limits: sample only the given flows, hard-capped.
     const targets = flows.slice(0, FLOW_STATS_MAX_FLOWS)
     const map = new Map<string, FlowRunStats | undefined>()
@@ -307,7 +341,7 @@ class DataverseJobMonitorService implements JobMonitorService {
           `<filter><condition attribute="workflow" operator="eq" value="${fetchXmlEscape(flow.workflowId)}" /></filter>` +
           `<order attribute="starttime" descending="true" />` +
           `</entity></fetch>`
-        const rows = await fetchXmlQuery('flowruns', fetchXml)
+        const rows = await fetchXmlQuery('flowruns', fetchXml, orgUrl)
         const failed = rows.filter((r) =>
           rowStr(r.status).toLowerCase().includes('fail'),
         ).length
@@ -326,13 +360,11 @@ class DataverseJobMonitorService implements JobMonitorService {
     return map
   }
 
-  async listFlowRuns(
-    flow: FlowInfo,
-    environmentId: string | null,
-  ): Promise<FlowRunInfo[]> {
+  async listFlowRuns(flow: FlowInfo, envKey: string): Promise<FlowRunInfo[]> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockJobMonitorService.listFlowRuns(flow, environmentId)
+      return mockJobMonitorService.listFlowRuns(flow, envKey)
+    const environmentId = environmentIdForEnvKey(envKey)
     const fetchXml =
       `<fetch count="50">` +
       `<entity name="flowrun">` +
@@ -345,7 +377,7 @@ class DataverseJobMonitorService implements JobMonitorService {
       `<filter><condition attribute="workflow" operator="eq" value="${fetchXmlEscape(flow.workflowId)}" /></filter>` +
       `<order attribute="starttime" descending="true" />` +
       `</entity></fetch>`
-    const rows = await fetchXmlQuery('flowruns', fetchXml)
+    const rows = await fetchXmlQuery('flowruns', fetchXml, orgUrlForEnvKey(envKey))
     return rows.map((row) => {
       const start = rowStr(row.starttime)
       const end = rowStr(row.endtime)
@@ -366,12 +398,14 @@ class DataverseJobMonitorService implements JobMonitorService {
     })
   }
 
-  async listWatchdog(): Promise<{
+  async listWatchdog(envKey: string): Promise<{
     available: boolean
     entries: WatchdogEntry[]
   }> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockJobMonitorService.listWatchdog()
+    if (mode !== 'power-platform')
+      return mockJobMonitorService.listWatchdog(envKey)
+    const orgUrl = orgUrlForEnvKey(envKey)
     const t = WATCHDOG_TABLES
     let defRows: Row[]
     try {
@@ -384,7 +418,7 @@ class DataverseJobMonitorService implements JobMonitorService {
         `<attribute name="${t.graceAttr}" />` +
         `<attribute name="${t.activeAttr}" />` +
         `</entity></fetch>`
-      defRows = await fetchXmlQuery(t.definitionEntitySet, fetchXml)
+      defRows = await fetchXmlQuery(t.definitionEntitySet, fetchXml, orgUrl)
     } catch (err) {
       // The watchdog tables are optional — most likely they simply aren't
       // installed in this environment.
@@ -412,7 +446,7 @@ class DataverseJobMonitorService implements JobMonitorService {
           `<filter><condition attribute="${t.beatDefinitionAttr}" operator="eq" value="${fetchXmlEscape(definition.id)}" /></filter>` +
           `<order attribute="${t.beatTimestampAttr}" descending="true" />` +
           `</entity></fetch>`
-        const beatRows = await fetchXmlQuery(t.beatEntitySet, beatFetch)
+        const beatRows = await fetchXmlQuery(t.beatEntitySet, beatFetch, orgUrl)
         const beat = beatRows[0]
         if (beat)
           lastBeat = {
@@ -442,9 +476,11 @@ class DataverseJobMonitorService implements JobMonitorService {
     return { available: true, entries }
   }
 
-  async getTrends(days: number): Promise<JobTrendPoint[]> {
+  async getTrends(days: number, envKey: string): Promise<JobTrendPoint[]> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockJobMonitorService.getTrends(days)
+    if (mode !== 'power-platform')
+      return mockJobMonitorService.getTrends(days, envKey)
+    const orgUrl = orgUrlForEnvKey(envKey)
     const grouped = async (extra: string): Promise<Map<string, number>> => {
       const fetchXml =
         `<fetch aggregate="true">` +
@@ -458,7 +494,7 @@ class DataverseJobMonitorService implements JobMonitorService {
         extra +
         `</filter>` +
         `</entity></fetch>`
-      const rows = await fetchXmlQuery('asyncoperations', fetchXml)
+      const rows = await fetchXmlQuery('asyncoperations', fetchXml, orgUrl)
       const map = new Map<string, number>()
       for (const row of rows) {
         const key = `${rowNum(row.y)}-${String(rowNum(row.m)).padStart(2, '0')}-${String(rowNum(row.d)).padStart(2, '0')}`

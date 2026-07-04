@@ -13,6 +13,7 @@ import type {
 import { PRIVILEGE_ACTIONS } from '../types/roles'
 import { depthLabel, depthShort } from '../utils/privileges'
 import { roleAnalyzerService } from '../services/roleAnalyzerService'
+import { OperateEnvPicker } from './OperateEnvPicker'
 
 /**
  * Security Role Analyzer — the views the maker portal doesn't offer:
@@ -25,8 +26,15 @@ import { roleAnalyzerService } from '../services/roleAnalyzerService'
  * - Reverse lookup: "who can <action> on <table>?" — users/teams with path.
  * - Hygiene: unassigned roles and users with too many roles.
  *
- * Strictly read-only (v1) — analysis, not editing.
+ * Strictly read-only (v1) — analysis, not editing. Reads the whole security
+ * model of the selected target environment (cached per env in the service).
  */
+
+interface Props {
+  /** Selected target environment (shared across the Operate features). */
+  envKey: string
+  onEnvChange: (envKey: string) => void
+}
 
 type SubTab = 'matrix' | 'diff' | 'user' | 'reverse' | 'hygiene'
 
@@ -69,7 +77,7 @@ function download(filename: string, content: string, mime: string) {
   URL.revokeObjectURL(url)
 }
 
-export function RoleAnalyzer() {
+export function RoleAnalyzer({ envKey, onEnvChange }: Props) {
   const [subTab, setSubTab] = useState<SubTab>('matrix')
   const [model, setModel] = useState<SecurityModel | null>(null)
   // Starts in the loading state — the mount effect kicks off the first load.
@@ -82,7 +90,7 @@ export function RoleAnalyzer() {
     setProgress('Loading security model…')
     setError(null)
     roleAnalyzerService
-      .loadModel((message) => setProgress(message), force)
+      .loadModel(envKey, (message) => setProgress(message), force)
       .then(setModel)
       .catch((err) =>
         setError(err instanceof Error ? err.message : String(err)),
@@ -93,7 +101,7 @@ export function RoleAnalyzer() {
   useEffect(() => {
     let cancelled = false
     roleAnalyzerService
-      .loadModel((message) => {
+      .loadModel(envKey, (message) => {
         if (!cancelled) setProgress(message)
       })
       .then((m) => {
@@ -109,7 +117,7 @@ export function RoleAnalyzer() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [envKey])
 
   // --- matrix -------------------------------------------------------------
   const [matrixRoleId, setMatrixRoleId] = useState('')
@@ -194,19 +202,19 @@ export function RoleAnalyzer() {
     if (subTab !== 'user') return
     const t = window.setTimeout(() => {
       roleAnalyzerService
-        .searchUsers(userQuery)
+        .searchUsers(userQuery, envKey)
         .then(setUserHits)
         .catch(() => setUserHits([]))
     }, 250)
     return () => window.clearTimeout(t)
-  }, [subTab, userQuery])
+  }, [subTab, userQuery, envKey])
 
   const openUser = (user: PrincipalRef) => {
     setSelectedUser(user)
     setEffective(null)
     setEffectiveLoading(true)
     roleAnalyzerService
-      .getEffectiveRights(user.id)
+      .getEffectiveRights(user.id, envKey)
       .then(setEffective)
       .catch((err) =>
         setError(err instanceof Error ? err.message : String(err)),
@@ -225,7 +233,7 @@ export function RoleAnalyzer() {
     setReverseLoading(true)
     setReverseHits(null)
     roleAnalyzerService
-      .reverseLookup(reverseEntity, reverseAction)
+      .reverseLookup(reverseEntity, reverseAction, envKey)
       .then(setReverseHits)
       .catch((err) =>
         setError(err instanceof Error ? err.message : String(err)),
@@ -241,7 +249,7 @@ export function RoleAnalyzer() {
   const runHygiene = () => {
     setHygieneLoading(true)
     roleAnalyzerService
-      .getHygieneReport(threshold)
+      .getHygieneReport(threshold, envKey)
       .then(setHygiene)
       .catch((err) =>
         setError(err instanceof Error ? err.message : String(err)),
@@ -251,6 +259,7 @@ export function RoleAnalyzer() {
 
   return (
     <div>
+      <OperateEnvPicker envKey={envKey} onChange={onEnvChange} />
       <nav className="subtabs">
         {(
           [

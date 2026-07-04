@@ -27,23 +27,33 @@ import { dataverseRoleAnalyzerService } from './dataverseRoleAnalyzerService'
  * #8). The analyzer therefore aggregates client-side from direct roles +
  * team roles, which also yields the provenance path shown in the UI.
  */
+/**
+ * Every method takes the target-environment key (from the app's configured
+ * ENVIRONMENTS); the whole feature is read-only, so all of it goes cross-env
+ * through the connector. The snapshot is cached per environment.
+ */
 export interface RoleAnalyzerService {
   /**
-   * Load (or reuse) the security-model snapshot. `force` bypasses the
-   * 15-minute cache. Progress messages describe the current phase.
+   * Load (or reuse) the security-model snapshot of the target environment.
+   * `force` bypasses the 15-minute cache. Progress messages describe the
+   * current phase.
    */
   loadModel(
+    envKey: string,
     onProgress?: (message: string) => void,
     force?: boolean,
   ): Promise<SecurityModel>
   /** Enabled users matching a name fragment (from the snapshot). */
-  searchUsers(query: string): Promise<PrincipalRef[]>
+  searchUsers(query: string, envKey: string): Promise<PrincipalRef[]>
   /**
    * Effective table privileges of one user — aggregated from direct and
    * team-inherited roles, deepest depth wins, with the provenance path
    * ("prvDeleteAccount ← role 'Vertrieb Süd' ← team 'Sales DE'").
    */
-  getEffectiveRights(userId: string): Promise<{
+  getEffectiveRights(
+    userId: string,
+    envKey: string,
+  ): Promise<{
     entries: EffectiveEntry[]
     roles: RoleAssignmentPath[]
   }>
@@ -51,9 +61,13 @@ export interface RoleAnalyzerService {
   reverseLookup(
     entity: string,
     action: PrivilegeAction,
+    envKey: string,
   ): Promise<ReverseLookupHit[]>
   /** Unassigned roles + users holding more than `threshold` roles. */
-  getHygieneReport(threshold: number): Promise<RoleHygieneReport>
+  getHygieneReport(
+    threshold: number,
+    envKey: string,
+  ): Promise<RoleHygieneReport>
 }
 
 export const roleAnalyzerService: RoleAnalyzerService =

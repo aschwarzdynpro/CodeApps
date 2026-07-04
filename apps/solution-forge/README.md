@@ -221,8 +221,14 @@ nach Typ.
   Lookup-Fehler). Kompakter als die Einzelseiten — für die volle Tiefe den
   jeweiligen Feature-Tab öffnen. Der Detective orchestriert nur die
   vorhandenen Services (kein eigener Datenpfad).
-- **Operate-Gruppe** (Betriebssicht auf die aktuelle Umgebung, eigene
-  Menüpunkte):
+- **Operate-Gruppe** (Betriebssicht, eigene Menüpunkte). **Zielumgebung
+  wählbar:** oben in jedem der drei Features sitzt ein **Target-Environment-
+  Picker**, der aus dem konfigurierten `ENVIRONMENTS`-Set wählt (dev/uat/prod
+  bzw. was der Installer nach `pro_environmentconfig` schreibt) — Default ist
+  die Host-Umgebung. **Reads laufen cross-env** über den Konnektor; **native
+  Writes** (Trace-Level-Switch, Job-Cancel/Retry) treffen technisch nur die
+  Host-Umgebung, daher sind sie bei ausgewählter Fremdumgebung deaktiviert
+  (mit „read-only here"-Hinweis). Die Auswahl ist über die drei Tabs geteilt.
   - **🧵 Plugin Traces** — Explorer über `plugintracelog`: Polling-**Stream**
     (15 s, pausiert bei verstecktem Browser-Tab) mit Server-Filtern
     (Zeitfenster, TypeName, Message, Entity, sync/async, nur Exceptions,

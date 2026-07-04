@@ -29,6 +29,7 @@ import { AssignDialog } from './components/AssignDialog'
 import { EditSolutionDialog } from './components/EditSolutionDialog'
 import {
   applyRuntimeConfig,
+  currentEnvKey,
   DEPLOYMENT_MANAGER_ROLE,
   DEVOPS_PANEL_ENABLED,
   makerSolutionUrl,
@@ -162,6 +163,12 @@ function App() {
   }, [defaultPublisher, publishers])
 
   const [tab, setTab] = useState<Tab>('workbench')
+  // Shared target environment for the Operate features (Traces / Jobs /
+  // Roles) — lifted here so switching tabs keeps the selection. Defaults to
+  // the host env; resolved once startup config has hydrated ENVIRONMENTS.
+  const [operateEnvKey, setOperateEnvKey] = useState<string>(() =>
+    currentEnvKey(),
+  )
   // Sidebar collapse (icon-only) — remembered across sessions.
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
@@ -1270,16 +1277,35 @@ function App() {
       )}
 
       {/* Operate views are independent of the solutions list — they render
-          even while it is still loading (only a load error blocks). */}
+          even while it is still loading (only a load error blocks). Each
+          takes the shared target-environment selection. */}
       {!error && tab === 'traces' && (
-        <TraceExplorer canManageTraceLevel={isDeploymentManager} />
+        <TraceExplorer
+          canManageTraceLevel={isDeploymentManager}
+          envKey={operateEnvKey}
+          onEnvChange={setOperateEnvKey}
+        />
       )}
 
+      {/* Job Monitor and Role Analyzer remount on env change (key) so their
+          internal state resets and refetches cleanly against the new target;
+          the Trace Explorer reloads in place to keep its filters. */}
       {!error && tab === 'jobs' && (
-        <JobMonitor canManageJobs={isDeploymentManager} />
+        <JobMonitor
+          key={operateEnvKey}
+          canManageJobs={isDeploymentManager}
+          envKey={operateEnvKey}
+          onEnvChange={setOperateEnvKey}
+        />
       )}
 
-      {!error && tab === 'roles' && isDeploymentManager && <RoleAnalyzer />}
+      {!error && tab === 'roles' && isDeploymentManager && (
+        <RoleAnalyzer
+          key={operateEnvKey}
+          envKey={operateEnvKey}
+          onEnvChange={setOperateEnvKey}
+        />
+      )}
         </main>
       </div>
 

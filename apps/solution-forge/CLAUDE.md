@@ -116,6 +116,22 @@ gated. Rollen IMMER auf `parentrootroleid` aggregieren (Modell-Snapshot
 installed"-Hinweis statt Crash). Pure functions mit Vitest (`npm test`):
 `utils/heartbeat.ts`, `utils/privileges.ts`.
 
+**Zielumgebung wählbar (Operate):** Jedes der drei Features hat oben einen
+`OperateEnvPicker`, der aus `ENVIRONMENTS` wählt (geteilter State
+`operateEnvKey` in `App.tsx`, Default = Host via `currentEnvKey()`). Alle
+Service-Methoden nehmen `envKey`; die Query-Helfer (`fetchXmlQuery`/
+`fetchXmlAllPages`) bekommen die Ziel-`orgUrl` durchgereicht
+(`config.ts → orgUrlForEnvKey`). **Reads cross-env** über den Konnektor;
+**native Writes nur Host-Env** — `dataverseTraceService.setTraceLevel` und
+`dataverseJobMonitorService.cancel/retryJobs` werfen bei
+`!isCurrentEnvKey(envKey)` (UI deaktiviert zusätzlich, `canWrite =
+canManage… && isCurrentEnvKey`). Role-Analyzer-Snapshot-Cache ist **pro
+orgUrl** (`Map`), sonst würde eine Env die andere überschreiben. Job Monitor
++ Role Analyzer **remounten** bei Env-Wechsel (`key={operateEnvKey}` in
+App.tsx) → sauberer State-Reset; Trace Explorer lädt in-place (behält
+Filter). Flow-Run-Portal-Link nutzt die Ziel-`environmentId`
+(`environmentIdForEnvKey`).
+
 **Datenmodell:** `pro_workingsolution` = Darstellungs-Schicht, verlinkt
 über `pro_uniquesolutionname` zur echten Solution. Typ-Kaskade:
 `pro_type_opt` (867520000 F / …001 B / …002 R) → `pro_devopsworkitemtype`

@@ -20,6 +20,7 @@ import {
   rowStr,
   type Row,
 } from './currentEnvQuery'
+import { isCurrentEnvKey, orgUrlForEnvKey } from '../config'
 import { OrganizationsService } from '../generated/services/OrganizationsService'
 
 /**
@@ -105,9 +106,13 @@ function buildConditions(filter: TraceFilter): string {
 }
 
 class DataverseTraceService implements TraceService {
-  async listTraces(filter: TraceFilter): Promise<PluginTraceSummary[]> {
+  async listTraces(
+    filter: TraceFilter,
+    envKey: string,
+  ): Promise<PluginTraceSummary[]> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockTraceService.listTraces(filter)
+    if (mode !== 'power-platform')
+      return mockTraceService.listTraces(filter, envKey)
     if (
       filter.messageText?.trim() &&
       filter.hours > TRACE_TEXT_SEARCH_MAX_HOURS
@@ -115,6 +120,7 @@ class DataverseTraceService implements TraceService {
       throw new Error(
         `Message-text search is limited to a ${TRACE_TEXT_SEARCH_MAX_HOURS} h look-back.`,
       )
+    const orgUrl = orgUrlForEnvKey(envKey)
     const conditions = buildConditions(filter)
     const fetchXml =
       `<fetch count="${TRACE_STREAM_LIMIT}">` +
@@ -122,7 +128,7 @@ class DataverseTraceService implements TraceService {
       `<filter type="and">${conditions}</filter>` +
       `<order attribute="createdon" descending="true" />` +
       `</entity></fetch>`
-    const rows = await fetchXmlQuery('plugintracelogs', fetchXml)
+    const rows = await fetchXmlQuery('plugintracelogs', fetchXml, orgUrl)
 
     // Exception flag without loading the payload: a second id-only query for
     // rows that carry exceptiondetails. Skipped when the filter already
@@ -138,7 +144,7 @@ class DataverseTraceService implements TraceService {
         `<order attribute="createdon" descending="true" />` +
         `</entity></fetch>`
       try {
-        const exRows = await fetchXmlQuery('plugintracelogs', exFetch)
+        const exRows = await fetchXmlQuery('plugintracelogs', exFetch, orgUrl)
         exceptionIds = new Set(exRows.map((r) => rowStr(r.plugintracelogid)))
       } catch (err) {
         console.warn('[traces] exception-flag query failed:', err)
@@ -148,9 +154,10 @@ class DataverseTraceService implements TraceService {
     return rows.map((row) => toSummary(row, exceptionIds))
   }
 
-  async getTraceDetail(id: string): Promise<PluginTraceDetail> {
+  async getTraceDetail(id: string, envKey: string): Promise<PluginTraceDetail> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockTraceService.getTraceDetail(id)
+    if (mode !== 'power-platform')
+      return mockTraceService.getTraceDetail(id, envKey)
     const fetchXml =
       `<fetch count="1">` +
       `<entity name="plugintracelog">` +
@@ -159,7 +166,7 @@ class DataverseTraceService implements TraceService {
       `<attribute name="exceptiondetails" />` +
       `<filter><condition attribute="plugintracelogid" operator="eq" value="${fetchXmlEscape(id)}" /></filter>` +
       `</entity></fetch>`
-    const rows = await fetchXmlQuery('plugintracelogs', fetchXml)
+    const rows = await fetchXmlQuery('plugintracelogs', fetchXml, orgUrlForEnvKey(envKey))
     const row = rows[0]
     if (!row)
       throw new Error(
@@ -172,17 +179,21 @@ class DataverseTraceService implements TraceService {
     }
   }
 
-  async listCorrelation(correlationId: string): Promise<PluginTraceSummary[]> {
+  async listCorrelation(
+    correlationId: string,
+    envKey: string,
+  ): Promise<PluginTraceSummary[]> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockTraceService.listCorrelation(correlationId)
+      return mockTraceService.listCorrelation(correlationId, envKey)
+    const orgUrl = orgUrlForEnvKey(envKey)
     const fetchXml =
       `<fetch count="500">` +
       `<entity name="plugintracelog">${STREAM_ATTRIBUTES}` +
       `<filter><condition attribute="correlationid" operator="eq" value="${fetchXmlEscape(correlationId)}" /></filter>` +
       `<order attribute="performanceexecutionstarttime" />` +
       `</entity></fetch>`
-    const rows = await fetchXmlQuery('plugintracelogs', fetchXml)
+    const rows = await fetchXmlQuery('plugintracelogs', fetchXml, orgUrl)
     const exFetch =
       `<fetch count="500">` +
       `<entity name="plugintracelog">` +
@@ -193,7 +204,7 @@ class DataverseTraceService implements TraceService {
       `</filter></entity></fetch>`
     let exceptionIds = new Set<string>()
     try {
-      const exRows = await fetchXmlQuery('plugintracelogs', exFetch)
+      const exRows = await fetchXmlQuery('plugintracelogs', exFetch, orgUrl)
       exceptionIds = new Set(exRows.map((r) => rowStr(r.plugintracelogid)))
     } catch (err) {
       console.warn('[traces] correlation exception-flag query failed:', err)
@@ -201,9 +212,13 @@ class DataverseTraceService implements TraceService {
     return rows.map((row) => toSummary(row, exceptionIds))
   }
 
-  async getPerfBuckets(hours: number): Promise<TracePerfBucket[]> {
+  async getPerfBuckets(
+    hours: number,
+    envKey: string,
+  ): Promise<TracePerfBucket[]> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockTraceService.getPerfBuckets(hours)
+    if (mode !== 'power-platform')
+      return mockTraceService.getPerfBuckets(hours, envKey)
     const fetchXml =
       `<fetch aggregate="true">` +
       `<entity name="plugintracelog">` +
@@ -216,7 +231,7 @@ class DataverseTraceService implements TraceService {
       `</entity></fetch>`
     let rows: Row[]
     try {
-      rows = await fetchXmlQuery('plugintracelogs', fetchXml)
+      rows = await fetchXmlQuery('plugintracelogs', fetchXml, orgUrlForEnvKey(envKey))
     } catch (err) {
       // AggregateQueryRecordLimit (50 000 rows) is the usual failure here.
       throw new Error(
@@ -239,16 +254,16 @@ class DataverseTraceService implements TraceService {
       .sort((a, b) => b.count * b.avgMs - a.count * a.avgMs)
   }
 
-  async getTraceLevel(): Promise<TraceLevelInfo> {
+  async getTraceLevel(envKey: string): Promise<TraceLevelInfo> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockTraceService.getTraceLevel()
+    if (mode !== 'power-platform') return mockTraceService.getTraceLevel(envKey)
     const fetchXml =
       `<fetch count="1">` +
       `<entity name="organization">` +
       `<attribute name="organizationid" />` +
       `<attribute name="plugintracelogsetting" />` +
       `</entity></fetch>`
-    const rows = await fetchXmlQuery('organizations', fetchXml)
+    const rows = await fetchXmlQuery('organizations', fetchXml, orgUrlForEnvKey(envKey))
     const row = rows[0]
     if (!row) throw new Error('Could not read the organization row.')
     const level = rowNum(row.plugintracelogsetting)
@@ -258,10 +273,20 @@ class DataverseTraceService implements TraceService {
     }
   }
 
-  async setTraceLevel(organizationId: string, level: TraceLevel): Promise<void> {
+  async setTraceLevel(
+    organizationId: string,
+    level: TraceLevel,
+    envKey: string,
+  ): Promise<void> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockTraceService.setTraceLevel(organizationId, level)
+      return mockTraceService.setTraceLevel(organizationId, level, envKey)
+    // The native `organization` source always targets the host env; refuse a
+    // cross-env write rather than silently changing the wrong environment.
+    if (!isCurrentEnvKey(envKey))
+      throw new Error(
+        'The trace level can only be changed for the host environment — native writes cannot target another environment.',
+      )
     const result = await OrganizationsService.update(organizationId, {
       plugintracelogsetting: level,
     })

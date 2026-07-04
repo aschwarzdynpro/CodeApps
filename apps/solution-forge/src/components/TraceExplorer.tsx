@@ -19,6 +19,8 @@ import {
   TRACE_WINDOWS,
 } from '../types/traces'
 import { traceService } from '../services/traceService'
+import { isCurrentEnvKey } from '../config'
+import { OperateEnvPicker } from './OperateEnvPicker'
 
 /**
  * Plugin Trace Explorer — a usable frontend over `plugintracelog`:
@@ -38,6 +40,9 @@ const POLL_MS = 15_000
 interface Props {
   /** Deployment managers may switch the org-wide trace level. */
   canManageTraceLevel: boolean
+  /** Selected target environment (shared across the Operate features). */
+  envKey: string
+  onEnvChange: (envKey: string) => void
 }
 
 type SubTab = 'stream' | 'performance'
@@ -75,7 +80,7 @@ function highlight(text: string, needle: string) {
 }
 
 /** Lazily-loaded detail body of one trace (message block + exception). */
-function TraceDetailPane({ id }: { id: string }) {
+function TraceDetailPane({ id, envKey }: { id: string; envKey: string }) {
   const [detail, setDetail] = useState<PluginTraceDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -84,7 +89,7 @@ function TraceDetailPane({ id }: { id: string }) {
   useEffect(() => {
     let cancelled = false
     traceService
-      .getTraceDetail(id)
+      .getTraceDetail(id, envKey)
       .then((d) => {
         if (!cancelled) setDetail(d)
       })
@@ -95,7 +100,7 @@ function TraceDetailPane({ id }: { id: string }) {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, envKey])
 
   if (error) return <div className="state state--error">{error}</div>
   if (!detail) return <div className="state">Loading trace payload…</div>
@@ -152,9 +157,11 @@ function TraceDetailPane({ id }: { id: string }) {
 /** Correlation timeline overlay: the whole request chain of one trace. */
 function CorrelationOverlay({
   correlationId,
+  envKey,
   onClose,
 }: {
   correlationId: string
+  envKey: string
   onClose: () => void
 }) {
   const [rows, setRows] = useState<PluginTraceSummary[] | null>(null)
@@ -164,7 +171,7 @@ function CorrelationOverlay({
   useEffect(() => {
     let cancelled = false
     traceService
-      .listCorrelation(correlationId)
+      .listCorrelation(correlationId, envKey)
       .then((r) => {
         if (!cancelled) setRows(r)
       })
@@ -175,7 +182,7 @@ function CorrelationOverlay({
     return () => {
       cancelled = true
     }
-  }, [correlationId])
+  }, [correlationId, envKey])
 
   const maxMs = Math.max(1, ...(rows ?? []).map((r) => r.durationMs))
 
@@ -230,7 +237,7 @@ function CorrelationOverlay({
                   </span>
                   <span className="trace-timeline-ms num">{fmtMs(r.durationMs)}</span>
                 </button>
-                {openId === r.id && <TraceDetailPane id={r.id} />}
+                {openId === r.id && <TraceDetailPane id={r.id} envKey={envKey} />}
               </div>
             ))}
           </div>
@@ -240,7 +247,11 @@ function CorrelationOverlay({
   )
 }
 
-export function TraceExplorer({ canManageTraceLevel }: Props) {
+export function TraceExplorer({
+  canManageTraceLevel,
+  envKey,
+  onEnvChange,
+}: Props) {
   const [subTab, setSubTab] = useState<SubTab>('stream')
 
   // --- filters ---------------------------------------------------------
@@ -293,57 +304,66 @@ export function TraceExplorer({ canManageTraceLevel }: Props) {
       messageText,
     ],
   )
-  const load = useCallback(async (f: TraceFilter, silent = false) => {
-    if (!silent) setLoading(true)
-    try {
-      const rows = await traceService.listTraces(f)
-      setTraces(rows)
-      setError(null)
-      setLoadedAt(new Date())
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      if (!silent) setLoading(false)
-    }
-  }, [])
+  const load = useCallback(
+    async (f: TraceFilter, key: string, silent = false) => {
+      if (!silent) setLoading(true)
+      try {
+        const rows = await traceService.listTraces(f, key)
+        setTraces(rows)
+        setError(null)
+        setLoadedAt(new Date())
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      } finally {
+        if (!silent) setLoading(false)
+      }
+    },
+    [],
+  )
 
-  // Initial + filter-driven load (debounced so typing doesn't spam queries).
+  // Initial + filter/env-driven load (debounced so typing doesn't spam).
   useEffect(() => {
-    const t = window.setTimeout(() => void load(filter), 350)
+    const t = window.setTimeout(() => void load(filter, envKey), 350)
     return () => window.clearTimeout(t)
-  }, [filter, load])
+  }, [filter, envKey, load])
 
   // Poll every 15 s while auto-refresh is on and the browser tab is visible.
   useEffect(() => {
     if (!autoRefresh || subTab !== 'stream') return
     const timer = window.setInterval(() => {
-      if (!document.hidden) void load(filter, true)
+      if (!document.hidden) void load(filter, envKey, true)
     }, POLL_MS)
     return () => window.clearInterval(timer)
-  }, [autoRefresh, subTab, filter, load])
+  }, [autoRefresh, subTab, filter, envKey, load])
 
-  // Trace level, read once.
+  // Trace level, re-read whenever the target environment changes. Deferred
+  // via a timeout so the reset isn't a synchronous setState in the effect.
   useEffect(() => {
     let cancelled = false
-    traceService
-      .getTraceLevel()
-      .then((info) => {
-        if (!cancelled) setLevel(info)
-      })
-      .catch((err) => {
-        if (!cancelled)
-          setLevelError(err instanceof Error ? err.message : String(err))
-      })
+    const t = window.setTimeout(() => {
+      setLevel(null)
+      setLevelError(null)
+      traceService
+        .getTraceLevel(envKey)
+        .then((info) => {
+          if (!cancelled) setLevel(info)
+        })
+        .catch((err) => {
+          if (!cancelled)
+            setLevelError(err instanceof Error ? err.message : String(err))
+        })
+    }, 0)
     return () => {
       cancelled = true
+      window.clearTimeout(t)
     }
-  }, [])
+  }, [envKey])
 
-  const loadPerf = useCallback(async (h: number) => {
+  const loadPerf = useCallback(async (h: number, key: string) => {
     setPerfLoading(true)
     setPerfError(null)
     try {
-      setBuckets(await traceService.getPerfBuckets(h))
+      setBuckets(await traceService.getPerfBuckets(h, key))
     } catch (err) {
       setPerfError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -353,9 +373,9 @@ export function TraceExplorer({ canManageTraceLevel }: Props) {
 
   useEffect(() => {
     if (subTab !== 'performance') return
-    const t = window.setTimeout(() => void loadPerf(hours), 100)
+    const t = window.setTimeout(() => void loadPerf(hours, envKey), 100)
     return () => window.clearTimeout(t)
-  }, [subTab, hours, loadPerf])
+  }, [subTab, hours, envKey, loadPerf])
 
   const switchLevel = async (next: number) => {
     if (!level) return
@@ -371,7 +391,7 @@ export function TraceExplorer({ canManageTraceLevel }: Props) {
     setLevelSaving(true)
     setLevelError(null)
     try {
-      await traceService.setTraceLevel(level.organizationId, target.value)
+      await traceService.setTraceLevel(level.organizationId, target.value, envKey)
       setLevel({ ...level, level: target.value })
     } catch (err) {
       setLevelError(err instanceof Error ? err.message : String(err))
@@ -388,9 +408,12 @@ export function TraceExplorer({ canManageTraceLevel }: Props) {
   }
 
   const textSearchBlocked = textSearchOn && hours > TRACE_TEXT_SEARCH_MAX_HOURS
+  // The native organization write only lands on the host env.
+  const canWriteLevel = canManageTraceLevel && isCurrentEnvKey(envKey)
 
   return (
     <div>
+      <OperateEnvPicker envKey={envKey} onChange={onEnvChange} writeHint />
       <nav className="subtabs">
         <button
           className={`subtab ${subTab === 'stream' ? 'subtab--active' : ''}`}
@@ -410,11 +433,13 @@ export function TraceExplorer({ canManageTraceLevel }: Props) {
           {level ? (
             <select
               value={level.level}
-              disabled={!canManageTraceLevel || levelSaving}
+              disabled={!canWriteLevel || levelSaving}
               title={
-                canManageTraceLevel
-                  ? 'organization.plugintracelogsetting — "All" grows the log quickly.'
-                  : 'Switching the trace level requires the deployment-manager role (and the org update privilege).'
+                !canManageTraceLevel
+                  ? 'Switching the trace level requires the deployment-manager role (and the org update privilege).'
+                  : !isCurrentEnvKey(envKey)
+                    ? 'The trace level can only be changed for the host environment — native writes cannot target another environment.'
+                    : 'organization.plugintracelogsetting — "All" grows the log quickly.'
               }
               onChange={(e) => void switchLevel(Number(e.target.value))}
             >
@@ -527,7 +552,7 @@ export function TraceExplorer({ canManageTraceLevel }: Props) {
           </label>
           <button
             className="btn btn--small"
-            onClick={() => void load(filter)}
+            onClick={() => void load(filter, envKey)}
             disabled={loading}
           >
             {loading ? 'Refreshing…' : '⟳ Refresh'}
@@ -607,7 +632,7 @@ export function TraceExplorer({ canManageTraceLevel }: Props) {
                       {expandedId === t.id && (
                         <tr className="ops-detail-row">
                           <td colSpan={8}>
-                            <TraceDetailPane id={t.id} />
+                            <TraceDetailPane id={t.id} envKey={envKey} />
                           </td>
                         </tr>
                       )}
@@ -668,6 +693,7 @@ export function TraceExplorer({ canManageTraceLevel }: Props) {
       {correlationId && (
         <CorrelationOverlay
           correlationId={correlationId}
+          envKey={envKey}
           onClose={() => setCorrelationId(null)}
         />
       )}

@@ -151,7 +151,11 @@ const MOCK_TRACES = buildTraces()
 let mockLevel: TraceLevel = 2
 
 class MockTraceService implements TraceService {
-  async listTraces(filter: TraceFilter): Promise<PluginTraceSummary[]> {
+  async listTraces(
+    filter: TraceFilter,
+    _envKey: string,
+  ): Promise<PluginTraceSummary[]> {
+    void _envKey
     await delay(250)
     const since = Date.now() - filter.hours * 3600_000
     const needle = (v?: string) => v?.trim().toLowerCase() ?? ''
@@ -178,7 +182,11 @@ class MockTraceService implements TraceService {
       })
   }
 
-  async getTraceDetail(id: string): Promise<PluginTraceDetail> {
+  async getTraceDetail(
+    id: string,
+    _envKey: string,
+  ): Promise<PluginTraceDetail> {
+    void _envKey
     await delay(150)
     const trace = MOCK_TRACES.find((t) => t.id === id)
     if (!trace) throw new Error('Trace not found.')
@@ -189,7 +197,11 @@ class MockTraceService implements TraceService {
     }
   }
 
-  async listCorrelation(correlationId: string): Promise<PluginTraceSummary[]> {
+  async listCorrelation(
+    correlationId: string,
+    _envKey: string,
+  ): Promise<PluginTraceSummary[]> {
+    void _envKey
     await delay(200)
     return MOCK_TRACES.filter((t) => t.correlationId === correlationId)
       .sort((a, b) => a.startTime.localeCompare(b.startTime))
@@ -200,7 +212,11 @@ class MockTraceService implements TraceService {
       })
   }
 
-  async getPerfBuckets(hours: number): Promise<TracePerfBucket[]> {
+  async getPerfBuckets(
+    hours: number,
+    _envKey: string,
+  ): Promise<TracePerfBucket[]> {
+    void _envKey
     await delay(300)
     const since = Date.now() - hours * 3600_000
     const buckets = new Map<string, { count: number; total: number; max: number }>()
@@ -229,12 +245,19 @@ class MockTraceService implements TraceService {
       .sort((a, b) => b.count * b.avgMs - a.count * a.avgMs)
   }
 
-  async getTraceLevel(): Promise<TraceLevelInfo> {
+  async getTraceLevel(_envKey: string): Promise<TraceLevelInfo> {
+    void _envKey
     await delay(100)
     return { organizationId: 'org-mock', level: mockLevel }
   }
 
-  async setTraceLevel(_organizationId: string, level: TraceLevel): Promise<void> {
+  async setTraceLevel(
+    _organizationId: string,
+    level: TraceLevel,
+    _envKey: string,
+  ): Promise<void> {
+    void _organizationId
+    void _envKey
     await delay(150)
     mockLevel = level
   }

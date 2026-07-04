@@ -13,7 +13,7 @@ import { ASYNC_STATUS, ASYNC_STATUS_LABELS } from '../types/jobs'
 import type { JobMonitorService } from './jobMonitorService'
 import { JOB_BULK_LIMIT } from './jobMonitorService'
 import { evaluateHeartbeat } from '../utils/heartbeat'
-import { flowRunUrl } from '../config'
+import { environmentIdForEnvKey, flowRunUrl } from '../config'
 
 /**
  * Mock implementation of {@link JobMonitorService} — a seeded operational
@@ -175,7 +175,8 @@ const MOCK_WATCHDOG_DEFS = [
 ] as const
 
 class MockJobMonitorService implements JobMonitorService {
-  async getHealthSummary(): Promise<JobHealthSummary> {
+  async getHealthSummary(_envKey: string): Promise<JobHealthSummary> {
+    void _envKey
     await delay(250)
     const failed24h = MOCK_JOBS.filter(
       (j) => j.statusCode === ASYNC_STATUS.failed && j.age <= 24,
@@ -189,7 +190,7 @@ class MockJobMonitorService implements JobMonitorService {
       (acc, j) => (acc && acc < j.createdOn ? acc : j.createdOn),
       '',
     )
-    const watchdog = await this.listWatchdog()
+    const watchdog = await this.listWatchdog('')
     const wd = { ok: 0, overdue: 0, never: 0, inactive: 0 }
     for (const entry of watchdog.entries) wd[entry.state]++
     return {
@@ -203,7 +204,8 @@ class MockJobMonitorService implements JobMonitorService {
     }
   }
 
-  async listJobs(filter: JobFilter): Promise<AsyncJobInfo[]> {
+  async listJobs(filter: JobFilter, _envKey: string): Promise<AsyncJobInfo[]> {
+    void _envKey
     await delay(250)
     const needle = filter.nameSearch?.trim().toLowerCase() ?? ''
     return MOCK_JOBS.filter((j) => {
@@ -260,8 +262,10 @@ class MockJobMonitorService implements JobMonitorService {
 
   async cancelJobs(
     jobs: { id: string; name: string }[],
+    _envKey: string,
     onProgress?: (done: number, total: number) => void,
   ): Promise<JobActionResult[]> {
+    void _envKey
     return this.bulk(
       jobs,
       (j) => {
@@ -275,8 +279,10 @@ class MockJobMonitorService implements JobMonitorService {
 
   async retryJobs(
     jobs: { id: string; name: string }[],
+    _envKey: string,
     onProgress?: (done: number, total: number) => void,
   ): Promise<JobActionResult[]> {
+    void _envKey
     return this.bulk(
       jobs,
       (j) => {
@@ -288,15 +294,18 @@ class MockJobMonitorService implements JobMonitorService {
     )
   }
 
-  async listFlows(): Promise<FlowInfo[]> {
+  async listFlows(_envKey: string): Promise<FlowInfo[]> {
+    void _envKey
     await delay(200)
     return MOCK_FLOWS.map((f) => ({ ...f }))
   }
 
   async sampleFlowStats(
     flows: FlowInfo[],
+    _envKey: string,
     onProgress?: (done: number, total: number) => void,
   ): Promise<Map<string, FlowRunStats | undefined>> {
+    void _envKey
     const map = new Map<string, FlowRunStats | undefined>()
     let done = 0
     for (const flow of flows) {
@@ -314,18 +323,16 @@ class MockJobMonitorService implements JobMonitorService {
     return map
   }
 
-  async listFlowRuns(
-    flow: FlowInfo,
-    environmentId: string | null,
-  ): Promise<FlowRunInfo[]> {
+  async listFlowRuns(flow: FlowInfo, envKey: string): Promise<FlowRunInfo[]> {
     await delay(200)
-    return runsForFlow(flow, environmentId)
+    return runsForFlow(flow, envKey ? environmentIdForEnvKey(envKey) : null)
   }
 
-  async listWatchdog(): Promise<{
+  async listWatchdog(_envKey: string): Promise<{
     available: boolean
     entries: WatchdogEntry[]
   }> {
+    void _envKey
     await delay(150)
     const now = new Date()
     const entries: WatchdogEntry[] = MOCK_WATCHDOG_DEFS.map((def) => {
@@ -358,7 +365,8 @@ class MockJobMonitorService implements JobMonitorService {
     return { available: true, entries }
   }
 
-  async getTrends(days: number): Promise<JobTrendPoint[]> {
+  async getTrends(days: number, _envKey: string): Promise<JobTrendPoint[]> {
+    void _envKey
     await delay(250)
     const points: JobTrendPoint[] = []
     for (let i = days - 1; i >= 0; i--) {

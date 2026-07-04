@@ -67,6 +67,48 @@ export let ENVIRONMENTS: EnvironmentDef[] = parseEnvironments()
 const DEFAULT_ADO_ORG_URL = 'https://dev.azure.com/SchulzD365'
 const DEFAULT_ADO_PROJECT = 'D365UO'
 
+/**
+ * Environment helpers for the Operate features (Trace Explorer / Job Monitor
+ * / Role Analyzer), which can target ANY configured environment — not just
+ * the uat/prod deploy targets. All read via the Dataverse connector's
+ * per-organization ops, so a chosen env's org URL is all they need. Native
+ * WRITES (trace-level switch, job cancel/retry) always hit the host env, so
+ * the UI gates them with {@link isCurrentEnvKey}.
+ *
+ * Everything resolves ENVIRONMENTS at call time (it is a live binding
+ * hydrated from `pro_environmentconfig` at startup).
+ */
+
+/** The env flagged `isCurrent` (host), falling back to the first entry. */
+export function currentEnv(): EnvironmentDef | undefined {
+  return ENVIRONMENTS.find((e) => e.isCurrent) ?? ENVIRONMENTS[0]
+}
+
+/** Key of the host environment — the Operate default selection. */
+export function currentEnvKey(): string {
+  return currentEnv()?.key ?? 'dev'
+}
+
+/** Resolve an env def by key, falling back to the host env. */
+export function envByKey(envKey: string): EnvironmentDef | undefined {
+  return ENVIRONMENTS.find((e) => e.key === envKey) ?? currentEnv()
+}
+
+/** Org URL (no trailing slash) for a configured env key. */
+export function orgUrlForEnvKey(envKey: string): string {
+  return (envByKey(envKey)?.url ?? '').replace(/\/+$/, '')
+}
+
+/** Dataverse environment id for a configured env key (maker/portal links). */
+export function environmentIdForEnvKey(envKey: string): string {
+  return envByKey(envKey)?.environmentId ?? FALLBACK_ENVIRONMENT_ID
+}
+
+/** Whether the given key is the host environment (where native writes land). */
+export function isCurrentEnvKey(envKey: string): boolean {
+  return envByKey(envKey)?.isCurrent === true
+}
+
 export const FALLBACK_ENVIRONMENT_ID: string =
   import.meta.env.VITE_ENVIRONMENT_ID ?? DEFAULT_ENVIRONMENT_ID
 

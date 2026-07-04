@@ -30,32 +30,41 @@ import { dataverseJobMonitorService } from './dataverseJobMonitorService'
  * The exported singleton is the Dataverse-backed implementation, which falls
  * back to mock data automatically outside a Power Platform host.
  */
+/**
+ * Every method takes the target-environment key (from the app's configured
+ * ENVIRONMENTS). Reads go cross-env through the connector; the writes
+ * (`cancelJobs` / `retryJobs`) go through the native `asyncoperation`
+ * source and therefore only ever target the host environment — the UI gates
+ * them accordingly.
+ */
 export interface JobMonitorService {
-  getHealthSummary(): Promise<JobHealthSummary>
-  listJobs(filter: JobFilter): Promise<AsyncJobInfo[]>
+  getHealthSummary(envKey: string): Promise<JobHealthSummary>
+  listJobs(filter: JobFilter, envKey: string): Promise<AsyncJobInfo[]>
   cancelJobs(
     jobs: { id: string; name: string }[],
+    envKey: string,
     onProgress?: (done: number, total: number) => void,
   ): Promise<JobActionResult[]>
   retryJobs(
     jobs: { id: string; name: string }[],
+    envKey: string,
     onProgress?: (done: number, total: number) => void,
   ): Promise<JobActionResult[]>
-  listFlows(): Promise<FlowInfo[]>
+  listFlows(envKey: string): Promise<FlowInfo[]>
   /**
    * Failure rate over the last runs of the given flows (bounded sample —
    * marked as such in the UI). Mutates nothing; returns stats per flow id.
    */
   sampleFlowStats(
     flows: FlowInfo[],
+    envKey: string,
     onProgress?: (done: number, total: number) => void,
   ): Promise<Map<string, FlowInfo['runStats']>>
-  listFlowRuns(
-    flow: FlowInfo,
-    environmentId: string | null,
-  ): Promise<FlowRunInfo[]>
-  listWatchdog(): Promise<{ available: boolean; entries: WatchdogEntry[] }>
-  getTrends(days: number): Promise<JobTrendPoint[]>
+  listFlowRuns(flow: FlowInfo, envKey: string): Promise<FlowRunInfo[]>
+  listWatchdog(
+    envKey: string,
+  ): Promise<{ available: boolean; entries: WatchdogEntry[] }>
+  getTrends(days: number, envKey: string): Promise<JobTrendPoint[]>
 }
 
 /** Bulk actions are capped per call — keep batches reviewable. */

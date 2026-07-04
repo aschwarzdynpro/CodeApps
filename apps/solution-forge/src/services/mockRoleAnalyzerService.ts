@@ -227,9 +227,11 @@ function rolePathsForUser(userId: string): RoleAssignmentPath[] {
 
 class MockRoleAnalyzerService implements RoleAnalyzerService {
   async loadModel(
+    envKey: string,
     onProgress?: (message: string) => void,
     force?: boolean,
   ): Promise<SecurityModel> {
+    void envKey
     void force
     onProgress?.('Loading roles…')
     await delay(250)
@@ -240,16 +242,21 @@ class MockRoleAnalyzerService implements RoleAnalyzerService {
     return MODEL
   }
 
-  async searchUsers(query: string): Promise<PrincipalRef[]> {
+  async searchUsers(query: string, _envKey: string): Promise<PrincipalRef[]> {
+    void _envKey
     await delay(120)
     const q = query.trim().toLowerCase()
     return USERS.filter((u) => !q || u.name.toLowerCase().includes(q))
   }
 
-  async getEffectiveRights(userId: string): Promise<{
+  async getEffectiveRights(
+    userId: string,
+    _envKey: string,
+  ): Promise<{
     entries: EffectiveEntry[]
     roles: RoleAssignmentPath[]
   }> {
+    void _envKey
     await delay(200)
     const paths = rolePathsForUser(userId)
     const byKey = new Map<string, EffectiveEntry>()
@@ -280,7 +287,9 @@ class MockRoleAnalyzerService implements RoleAnalyzerService {
   async reverseLookup(
     entity: string,
     action: PrivilegeAction,
+    _envKey: string,
   ): Promise<ReverseLookupHit[]> {
+    void _envKey
     await delay(200)
     const granting = new Map<string, PrivilegeDepthMask>()
     for (const [rootId, m] of MODEL.matrices) {
@@ -341,7 +350,11 @@ class MockRoleAnalyzerService implements RoleAnalyzerService {
     )
   }
 
-  async getHygieneReport(threshold: number): Promise<RoleHygieneReport> {
+  async getHygieneReport(
+    threshold: number,
+    _envKey: string,
+  ): Promise<RoleHygieneReport> {
+    void _envKey
     await delay(200)
     const assigned = new Set<string>()
     for (const set of USER_ROLES.values()) for (const id of set) assigned.add(id)

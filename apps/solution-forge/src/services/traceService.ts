@@ -24,23 +24,37 @@ import { dataverseTraceService } from './dataverseTraceService'
  * The exported singleton is the Dataverse-backed implementation, which falls
  * back to mock data automatically outside a Power Platform host.
  */
+/**
+ * Every method takes the target-environment key (from the app's configured
+ * ENVIRONMENTS). Reads go cross-env through the connector; `setTraceLevel`
+ * writes through the native `organization` source and therefore only ever
+ * targets the host environment (the UI gates it accordingly).
+ */
 export interface TraceService {
   /** Newest traces matching the filter, newest first, capped server-side. */
-  listTraces(filter: TraceFilter): Promise<PluginTraceSummary[]>
+  listTraces(filter: TraceFilter, envKey: string): Promise<PluginTraceSummary[]>
   /** The heavy payload of one trace row. */
-  getTraceDetail(id: string): Promise<PluginTraceDetail>
+  getTraceDetail(id: string, envKey: string): Promise<PluginTraceDetail>
   /** All traces of one correlation id, oldest first (execution order). */
-  listCorrelation(correlationId: string): Promise<PluginTraceSummary[]>
+  listCorrelation(
+    correlationId: string,
+    envKey: string,
+  ): Promise<PluginTraceSummary[]>
   /** Duration aggregates per type × message over the look-back window. */
-  getPerfBuckets(hours: number): Promise<TracePerfBucket[]>
-  /** Current org-wide trace-level setting. */
-  getTraceLevel(): Promise<TraceLevelInfo>
+  getPerfBuckets(hours: number, envKey: string): Promise<TracePerfBucket[]>
+  /** Current org-wide trace-level setting of the target environment. */
+  getTraceLevel(envKey: string): Promise<TraceLevelInfo>
   /**
    * Switch the org-wide trace level. Runs as the signed-in user via the
    * native `organization` data source, so Dataverse enforces the update
-   * privilege server-side.
+   * privilege server-side — and it only affects the HOST environment
+   * (`envKey` must be the current env; the UI disables it otherwise).
    */
-  setTraceLevel(organizationId: string, level: TraceLevel): Promise<void>
+  setTraceLevel(
+    organizationId: string,
+    level: TraceLevel,
+    envKey: string,
+  ): Promise<void>
 }
 
 export const traceService: TraceService = dataverseTraceService

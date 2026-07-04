@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
-import { usePower } from '../PowerProvider'
+import { isCurrentEnvKey } from '../config'
+import { OperateEnvPicker } from './OperateEnvPicker'
 import type {
   AsyncJobInfo,
   FlowInfo,
@@ -30,6 +31,9 @@ import { jobMonitorService, JOB_BULK_LIMIT } from '../services/jobMonitorService
 interface Props {
   /** Deployment managers may bulk-cancel / retry jobs. */
   canManageJobs: boolean
+  /** Selected target environment (shared across the Operate features). */
+  envKey: string
+  onEnvChange: (envKey: string) => void
 }
 
 type SubTab = 'health' | 'jobs' | 'flows' | 'watchdog' | 'trends'
@@ -78,9 +82,10 @@ const WATCHDOG_LIGHT: Record<WatchdogEntry['state'], { icon: string; label: stri
   inactive: { icon: '⚪', label: 'Inactive' },
 }
 
-export function JobMonitor({ canManageJobs }: Props) {
-  const { environmentId } = usePower()
+export function JobMonitor({ canManageJobs, envKey, onEnvChange }: Props) {
   const [subTab, setSubTab] = useState<SubTab>('health')
+  // Native asyncoperation writes only reach the host environment.
+  const canWrite = canManageJobs && isCurrentEnvKey(envKey)
 
   // --- health ------------------------------------------------------------
   const [health, setHealth] = useState<JobHealthSummary | null>(null)
@@ -91,13 +96,13 @@ export function JobMonitor({ canManageJobs }: Props) {
     setHealthLoading(true)
     setHealthError(null)
     try {
-      setHealth(await jobMonitorService.getHealthSummary())
+      setHealth(await jobMonitorService.getHealthSummary(envKey))
     } catch (err) {
       setHealthError(err instanceof Error ? err.message : String(err))
     } finally {
       setHealthLoading(false)
     }
-  }, [])
+  }, [envKey])
 
   useEffect(() => {
     if (subTab !== 'health' || health || healthLoading || healthError) return
@@ -122,11 +127,14 @@ export function JobMonitor({ canManageJobs }: Props) {
       setJobsLoading(true)
       setJobsError(null)
       try {
-        const rows = await jobMonitorService.listJobs({
-          hours: f.hours,
-          statusCodes: f.statusCodes.length ? f.statusCodes : undefined,
-          nameSearch: f.search || undefined,
-        })
+        const rows = await jobMonitorService.listJobs(
+          {
+            hours: f.hours,
+            statusCodes: f.statusCodes.length ? f.statusCodes : undefined,
+            nameSearch: f.search || undefined,
+          },
+          envKey,
+        )
         setJobs(rows)
         setSelected(new Set())
       } catch (err) {
@@ -135,7 +143,7 @@ export function JobMonitor({ canManageJobs }: Props) {
         setJobsLoading(false)
       }
     },
-    [],
+    [envKey],
   )
   const jobFilter = {
     hours: jobHours,
@@ -191,10 +199,10 @@ export function JobMonitor({ canManageJobs }: Props) {
     try {
       const results =
         action === 'cancel'
-          ? await jobMonitorService.cancelJobs(targets, (done, total) =>
+          ? await jobMonitorService.cancelJobs(targets, envKey, (done, total) =>
               setBulkProgress([done, total]),
             )
-          : await jobMonitorService.retryJobs(targets, (done, total) =>
+          : await jobMonitorService.retryJobs(targets, envKey, (done, total) =>
               setBulkProgress([done, total]),
             )
       setBulkResults(results)
@@ -217,7 +225,7 @@ export function JobMonitor({ canManageJobs }: Props) {
     if (subTab !== 'flows' || flows) return
     let cancelled = false
     jobMonitorService
-      .listFlows()
+      .listFlows(envKey)
       .then((f) => {
         if (!cancelled) setFlows(f)
       })
@@ -228,14 +236,16 @@ export function JobMonitor({ canManageJobs }: Props) {
     return () => {
       cancelled = true
     }
-  }, [subTab, flows])
+  }, [subTab, flows, envKey])
 
   const loadFlowStats = async () => {
     if (!flows) return
     setStatsProgress([0, Math.min(flows.length, 20)])
     try {
-      const stats = await jobMonitorService.sampleFlowStats(flows, (done, total) =>
-        setStatsProgress([done, total]),
+      const stats = await jobMonitorService.sampleFlowStats(
+        flows,
+        envKey,
+        (done, total) => setStatsProgress([done, total]),
       )
       setFlowStats(stats)
     } catch (err) {
@@ -250,7 +260,7 @@ export function JobMonitor({ canManageJobs }: Props) {
     setFlowRuns(null)
     setFlowRunsError(null)
     jobMonitorService
-      .listFlowRuns(flow, environmentId)
+      .listFlowRuns(flow, envKey)
       .then(setFlowRuns)
       .catch((err) =>
         setFlowRunsError(err instanceof Error ? err.message : String(err)),
@@ -276,7 +286,7 @@ export function JobMonitor({ canManageJobs }: Props) {
     if (subTab !== 'watchdog' || watchdog) return
     let cancelled = false
     jobMonitorService
-      .listWatchdog()
+      .listWatchdog(envKey)
       .then((w) => {
         if (!cancelled) setWatchdog(w)
       })
@@ -287,7 +297,7 @@ export function JobMonitor({ canManageJobs }: Props) {
     return () => {
       cancelled = true
     }
-  }, [subTab, watchdog])
+  }, [subTab, watchdog, envKey])
 
   // --- trends ----------------------------------------------------------------
   const [trendDays, setTrendDays] = useState(7)
@@ -302,7 +312,7 @@ export function JobMonitor({ canManageJobs }: Props) {
       setTrendLoading(true)
       setTrendError(null)
       jobMonitorService
-        .getTrends(trendDays)
+        .getTrends(trendDays, envKey)
         .then((points) => {
           if (!cancelled) setTrend(points)
         })
@@ -318,7 +328,7 @@ export function JobMonitor({ canManageJobs }: Props) {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [subTab, trendDays])
+  }, [subTab, trendDays, envKey])
 
   const maxFailed = Math.max(1, ...(trend ?? []).map((p) => p.failed))
 
@@ -336,6 +346,7 @@ export function JobMonitor({ canManageJobs }: Props) {
 
   return (
     <div>
+      <OperateEnvPicker envKey={envKey} onChange={onEnvChange} writeHint />
       <nav className="subtabs">
         {(
           [
@@ -481,16 +492,24 @@ export function JobMonitor({ canManageJobs }: Props) {
                 <>
                   <button
                     className="btn btn--small"
-                    disabled={selected.size === 0 || !!bulkProgress}
-                    title={`Cancel the selected jobs (max ${JOB_BULK_LIMIT} per batch, sequential).`}
+                    disabled={selected.size === 0 || !!bulkProgress || !canWrite}
+                    title={
+                      canWrite
+                        ? `Cancel the selected jobs (max ${JOB_BULK_LIMIT} per batch, sequential).`
+                        : 'Cancelling jobs only works against the host environment — native writes cannot target another environment.'
+                    }
                     onClick={() => void runBulk('cancel')}
                   >
                     ✕ Cancel selected ({selected.size})
                   </button>
                   <button
                     className="btn btn--small"
-                    disabled={selected.size === 0 || !!bulkProgress}
-                    title="Put the selected failed/canceled jobs back to Waiting."
+                    disabled={selected.size === 0 || !!bulkProgress || !canWrite}
+                    title={
+                      canWrite
+                        ? 'Put the selected failed/canceled jobs back to Waiting.'
+                        : 'Retrying jobs only works against the host environment.'
+                    }
                     onClick={() => void runBulk('retry')}
                   >
                     ↻ Retry selected

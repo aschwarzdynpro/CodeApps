@@ -593,6 +593,20 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🌐 Operate — target environment</h3>
+            <p>
+              Each Operate feature (Plugin Traces, Job Monitor, Role Analyzer)
+              starts with a <strong>Target environment</strong> picker that
+              chooses from the configured environments (host / UAT / PROD …).
+              All <strong>reads</strong> work against any of them (via the
+              connector). <strong>Writes</strong> — the trace-level switch and
+              job cancel/retry — only apply to the <strong>host</strong>
+              environment, so they turn read-only when another environment is
+              selected. The selection is shared across the three features.
+            </p>
+          </section>
+
+          <section className="help-section">
             <h3>🧵 Plugin Traces (Operate)</h3>
             <ul>
               <li>

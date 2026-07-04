@@ -68,6 +68,37 @@ roleAnalyzerService.ts → dataverseRoleAnalyzerService.ts / mockRoleAnalyzerSer
   (`utils/heartbeat.ts → evaluateHeartbeat`) sind **pure functions mit
   Vitest-Tests** (`npm test`, 13 Tests).
 
+### Zielumgebung wählbar (Nachtrag)
+
+Jedes der drei Features hat oben einen **Target-Environment-Picker**
+(`OperateEnvPicker`), der aus dem konfigurierten `ENVIRONMENTS`-Set wählt
+(Host/UAT/PROD bzw. was der Installer nach `pro_environmentconfig` schreibt).
+Die Auswahl ist über die drei Tabs geteilt (`operateEnvKey` in `App.tsx`,
+Default = Host).
+
+- **Reads laufen cross-env**: Der Konnektor (`ListRecordsWithOrganization`)
+  adressiert per Org-URL jede Umgebung; `orgUrlForEnvKey(envKey)` liefert sie,
+  `fetchXmlQuery`/`fetchXmlAllPages` reichen sie durch. Für den Trace/Job/Role-
+  Explorer ist damit UAT/PROD read-only einsehbar, ohne dort etwas zu
+  installieren.
+- **Native Writes nur Host-Env**: Trace-Level-Switch (`organization`) und
+  Job-Cancel/Retry (`asyncoperation`) laufen über native Data Sources, die
+  immer die Host-Umgebung treffen und als angemeldeter User laufen
+  (Per-User-Rechte). Bei ausgewählter Fremdumgebung sind diese Aktionen in
+  der UI **deaktiviert** (Hinweis „read-only here — changes apply to the host
+  environment only") und der Service wirft zusätzlich defensiv
+  (`isCurrentEnvKey`-Guard). Cross-env-Writes wären nur über den Konnektor als
+  SP möglich (verliert die Per-User-Durchsetzung) — bewusst nicht umgesetzt,
+  konsistent mit der bestehenden App-Linie (vgl. `BulkRemoveActiveCustomiza-
+  tions`, das ebenfalls nicht in-app cross-env schreibt, sondern deep-linkt).
+- **Role-Analyzer-Cache** ist pro Org-URL gekeyt, damit der Snapshot einer
+  Umgebung nie für eine andere ausgeliefert wird.
+
+Wer Cancel/Retry oder den Trace-Level auch in UAT/PROD steuern will, wechselt
+den Picker auf die jeweilige Umgebung, sobald die App dort selbst deployed ist
+(dann ist jene Umgebung die Host-Umgebung ihrer Instanz) — oder es wird als
+v2 der konnektor-basierte Cross-env-Write (SP) ergänzt.
+
 ### Setup auf einem Environment
 
 1. Zwei neue native Data Sources (nur für die Schreibpfade):

@@ -20,6 +20,7 @@ import {
   rowStr,
   type Row,
 } from './currentEnvQuery'
+import { orgUrlForEnvKey } from '../config'
 import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
 import {
   actionFromAccessRight,
@@ -62,8 +63,10 @@ interface CachedModel {
   at: number
 }
 
-let cache: CachedModel | null = null
-let loadInFlight: Promise<CachedModel> | null = null
+// Cached per environment (keyed by org URL) — the snapshot of one env must
+// never be served for another.
+const cache = new Map<string, CachedModel>()
+const loadInFlight = new Map<string, Promise<CachedModel>>()
 
 /** role copy id → root role id, filled while loading roles. */
 function rootOf(row: Row): string {
@@ -74,7 +77,7 @@ function rootOf(row: Row): string {
   )
 }
 
-async function loadRoles(): Promise<{
+async function loadRoles(orgUrl: string): Promise<{
   roles: RoleSummary[]
   rootByCopy: Map<string, string>
 }> {
@@ -86,7 +89,7 @@ async function loadRoles(): Promise<{
     `<attribute name="ismanaged" />` +
     `<attribute name="parentrootroleid" />` +
     `</entity></fetch>`
-  const rows = await fetchXmlAllPages('roles', fetchXml)
+  const rows = await fetchXmlAllPages('roles', fetchXml, orgUrl)
   const byRoot = new Map<string, RoleSummary>()
   const rootByCopy = new Map<string, string>()
   for (const row of rows) {
@@ -123,7 +126,9 @@ interface PrivilegeMeta {
 }
 
 /** privilegeid → meta (action + entities), from privilege ⋈ objecttypecodes. */
-async function loadPrivilegeMeta(): Promise<Map<string, PrivilegeMeta>> {
+async function loadPrivilegeMeta(
+  orgUrl: string,
+): Promise<Map<string, PrivilegeMeta>> {
   const fetchXml =
     `<fetch>` +
     `<entity name="privilege">` +
@@ -134,7 +139,7 @@ async function loadPrivilegeMeta(): Promise<Map<string, PrivilegeMeta>> {
     `<attribute name="objecttypecode" />` +
     `</link-entity>` +
     `</entity></fetch>`
-  const rows = await fetchXmlAllPages('privileges', fetchXml)
+  const rows = await fetchXmlAllPages('privileges', fetchXml, orgUrl)
   const map = new Map<string, PrivilegeMeta>()
   const numericOtcs = new Set<number>()
   for (const row of rows) {
@@ -165,7 +170,7 @@ async function loadPrivilegeMeta(): Promise<Map<string, PrivilegeMeta>> {
   // name — resolve those through EntityDefinitions once.
   if (numericOtcs.size > 0) {
     try {
-      const nameByOtc = await loadEntityNamesByOtc()
+      const nameByOtc = await loadEntityNamesByOtc(orgUrl)
       for (const meta of map.values())
         meta.entities = meta.entities.map((e) =>
           /^\d+$/.test(e) ? (nameByOtc.get(Number(e)) ?? e) : e,
@@ -178,9 +183,11 @@ async function loadPrivilegeMeta(): Promise<Map<string, PrivilegeMeta>> {
 }
 
 /** ObjectTypeCode → logical name via EntityDefinitions (metadata). */
-async function loadEntityNamesByOtc(): Promise<Map<number, string>> {
+async function loadEntityNamesByOtc(
+  orgUrl: string,
+): Promise<Map<number, string>> {
   const result = await MicrosoftDataverseService.ListRecordsWithOrganization(
-    currentOrgUrl(),
+    orgUrl || currentOrgUrl(),
     'EntityDefinitions',
     undefined,
     undefined,
@@ -203,6 +210,7 @@ async function loadEntityNamesByOtc(): Promise<Map<number, string>> {
 async function loadRolePrivileges(
   rootRoleIds: string[],
   privilegeMeta: Map<string, PrivilegeMeta>,
+  orgUrl: string,
   onProgress?: (message: string) => void,
 ): Promise<{
   matrices: Map<string, RoleEntityMatrix>
@@ -230,7 +238,7 @@ async function loadRolePrivileges(
         .join('')}</condition></filter>` +
       `</link-entity>` +
       `</entity></fetch>`
-    const rows = await fetchXmlAllPages('privileges', fetchXml)
+    const rows = await fetchXmlAllPages('privileges', fetchXml, orgUrl)
     for (const row of rows) {
       const privilegeId = rowStr(row.privilegeid)
       const roleId = rowStr(row['rp.roleid'])
@@ -270,6 +278,7 @@ async function loadRolePrivileges(
 /** Users + direct roles (one pass over systemuser ⋈ systemuserroles). */
 async function loadUserAssignments(
   rootByCopy: Map<string, string>,
+  orgUrl: string,
 ): Promise<{ users: Map<string, PrincipalRef>; userRoles: Map<string, Set<string>> }> {
   const fetchXml =
     `<fetch>` +
@@ -281,7 +290,7 @@ async function loadUserAssignments(
     `</link-entity>` +
     `<filter><condition attribute="isdisabled" operator="eq" value="false" /></filter>` +
     `</entity></fetch>`
-  const rows = await fetchXmlAllPages('systemusers', fetchXml)
+  const rows = await fetchXmlAllPages('systemusers', fetchXml, orgUrl)
   const users = new Map<string, PrincipalRef>()
   const userRoles = new Map<string, Set<string>>()
   for (const row of rows) {
@@ -303,6 +312,7 @@ async function loadUserAssignments(
 /** Teams + team roles + membership (two passes over team). */
 async function loadTeamAssignments(
   rootByCopy: Map<string, string>,
+  orgUrl: string,
 ): Promise<{
   teams: Map<string, PrincipalRef>
   teamRoles: Map<string, Set<string>>
@@ -317,7 +327,7 @@ async function loadTeamAssignments(
     `<attribute name="roleid" />` +
     `</link-entity>` +
     `</entity></fetch>`
-  const roleRows = await fetchXmlAllPages('teams', rolesFetch)
+  const roleRows = await fetchXmlAllPages('teams', rolesFetch, orgUrl)
   const teams = new Map<string, PrincipalRef>()
   const teamRoles = new Map<string, Set<string>>()
   for (const row of roleRows) {
@@ -350,7 +360,7 @@ async function loadTeamAssignments(
         .map((id) => `<value>${id}</value>`)
         .join('')}</condition></filter>` +
       `</entity></fetch>`
-    const rows = await fetchXmlAllPages('teams', memberFetch)
+    const rows = await fetchXmlAllPages('teams', memberFetch, orgUrl)
     for (const row of rows) {
       const teamId = rowStr(row.teamid)
       const userId = rowStr(row['tm.systemuserid'])
@@ -364,21 +374,26 @@ async function loadTeamAssignments(
 }
 
 async function buildSnapshot(
+  orgUrl: string,
   onProgress?: (message: string) => void,
 ): Promise<CachedModel> {
   onProgress?.('Loading roles…')
-  const { roles, rootByCopy } = await loadRoles()
+  const { roles, rootByCopy } = await loadRoles(orgUrl)
   onProgress?.('Loading privilege metadata…')
-  const privilegeMeta = await loadPrivilegeMeta()
+  const privilegeMeta = await loadPrivilegeMeta(orgUrl)
   const { matrices, miscPrivileges, entities } = await loadRolePrivileges(
     roles.map((r) => r.rootRoleId),
     privilegeMeta,
+    orgUrl,
     onProgress,
   )
   onProgress?.('Loading user assignments…')
-  const { users, userRoles } = await loadUserAssignments(rootByCopy)
+  const { users, userRoles } = await loadUserAssignments(rootByCopy, orgUrl)
   onProgress?.('Loading team assignments…')
-  const { teams, teamRoles, teamMembers } = await loadTeamAssignments(rootByCopy)
+  const { teams, teamRoles, teamMembers } = await loadTeamAssignments(
+    rootByCopy,
+    orgUrl,
+  )
   return {
     model: {
       roles,
@@ -418,38 +433,45 @@ function rolePathsForUser(
 
 class DataverseRoleAnalyzerService implements RoleAnalyzerService {
   private async snapshot(
+    envKey: string,
     onProgress?: (message: string) => void,
     force = false,
   ): Promise<CachedModel> {
-    if (!force && cache && Date.now() - cache.at < MODEL_STALE_MS) return cache
-    if (!loadInFlight) {
-      loadInFlight = buildSnapshot(onProgress)
+    const orgUrl = orgUrlForEnvKey(envKey)
+    const cached = cache.get(orgUrl)
+    if (!force && cached && Date.now() - cached.at < MODEL_STALE_MS)
+      return cached
+    let inFlight = force ? undefined : loadInFlight.get(orgUrl)
+    if (!inFlight) {
+      inFlight = buildSnapshot(orgUrl, onProgress)
         .then((result) => {
-          cache = result
+          cache.set(orgUrl, result)
           return result
         })
         .finally(() => {
-          loadInFlight = null
+          loadInFlight.delete(orgUrl)
         })
+      loadInFlight.set(orgUrl, inFlight)
     }
-    return loadInFlight
+    return inFlight
   }
 
   async loadModel(
+    envKey: string,
     onProgress?: (message: string) => void,
     force = false,
   ): Promise<SecurityModel> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockRoleAnalyzerService.loadModel(onProgress, force)
-    return (await this.snapshot(onProgress, force)).model
+      return mockRoleAnalyzerService.loadModel(envKey, onProgress, force)
+    return (await this.snapshot(envKey, onProgress, force)).model
   }
 
-  async searchUsers(query: string): Promise<PrincipalRef[]> {
+  async searchUsers(query: string, envKey: string): Promise<PrincipalRef[]> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockRoleAnalyzerService.searchUsers(query)
-    const snap = await this.snapshot()
+      return mockRoleAnalyzerService.searchUsers(query, envKey)
+    const snap = await this.snapshot(envKey)
     const q = query.trim().toLowerCase()
     return [...snap.assignments.users.values()]
       .filter((u) => !q || u.name.toLowerCase().includes(q))
@@ -457,14 +479,17 @@ class DataverseRoleAnalyzerService implements RoleAnalyzerService {
       .slice(0, 25)
   }
 
-  async getEffectiveRights(userId: string): Promise<{
+  async getEffectiveRights(
+    userId: string,
+    envKey: string,
+  ): Promise<{
     entries: EffectiveEntry[]
     roles: RoleAssignmentPath[]
   }> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockRoleAnalyzerService.getEffectiveRights(userId)
-    const snap = await this.snapshot()
+      return mockRoleAnalyzerService.getEffectiveRights(userId, envKey)
+    const snap = await this.snapshot(envKey)
     const paths = rolePathsForUser(userId, snap)
     const byKey = new Map<string, EffectiveEntry>()
     for (const path of paths) {
@@ -497,11 +522,12 @@ class DataverseRoleAnalyzerService implements RoleAnalyzerService {
   async reverseLookup(
     entity: string,
     action: PrivilegeAction,
+    envKey: string,
   ): Promise<ReverseLookupHit[]> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockRoleAnalyzerService.reverseLookup(entity, action)
-    const snap = await this.snapshot()
+      return mockRoleAnalyzerService.reverseLookup(entity, action, envKey)
+    const snap = await this.snapshot(envKey)
     const { model, assignments } = snap
     // Roles granting the privilege at any depth.
     const granting = new Map<string, PrivilegeDepthMask>()
@@ -569,11 +595,14 @@ class DataverseRoleAnalyzerService implements RoleAnalyzerService {
     )
   }
 
-  async getHygieneReport(threshold: number): Promise<RoleHygieneReport> {
+  async getHygieneReport(
+    threshold: number,
+    envKey: string,
+  ): Promise<RoleHygieneReport> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockRoleAnalyzerService.getHygieneReport(threshold)
-    const snap = await this.snapshot()
+      return mockRoleAnalyzerService.getHygieneReport(threshold, envKey)
+    const snap = await this.snapshot(envKey)
     const { model, assignments } = snap
     const assignedRoots = new Set<string>()
     for (const set of assignments.userRoles.values())

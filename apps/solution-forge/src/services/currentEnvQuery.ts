@@ -46,16 +46,19 @@ export function fetchXmlEscape(value: string): string {
 }
 
 /**
- * Run one FetchXML query against the current environment and return the raw
- * rows. `entitySet` is the OData entity-set name the connector addresses
- * (e.g. `plugintracelogs`), the fetch entity name lives inside the XML.
+ * Run one FetchXML query against an environment and return the raw rows.
+ * `entitySet` is the OData entity-set name the connector addresses (e.g.
+ * `plugintracelogs`), the fetch entity name lives inside the XML. `orgUrl`
+ * selects the target environment (defaults to the host env) — the Operate
+ * features pass the chosen environment's org URL here to read cross-env.
  */
 export async function fetchXmlQuery(
   entitySet: string,
   fetchXml: string,
+  orgUrl: string = currentOrgUrl(),
 ): Promise<Row[]> {
   const result = await MicrosoftDataverseService.ListRecordsWithOrganization(
-    currentOrgUrl(),
+    orgUrl || currentOrgUrl(),
     entitySet,
     undefined,
     undefined,
@@ -86,6 +89,7 @@ export async function fetchXmlQuery(
 export async function fetchXmlAllPages(
   entitySet: string,
   fetchXmlWithoutPaging: string,
+  orgUrl: string = currentOrgUrl(),
   pageSize = 5000,
   maxPages = 20,
 ): Promise<Row[]> {
@@ -95,7 +99,7 @@ export async function fetchXmlAllPages(
       /<fetch(\s|>)/,
       `<fetch count="${pageSize}" page="${page}"$1`,
     )
-    const rows = await fetchXmlQuery(entitySet, paged)
+    const rows = await fetchXmlQuery(entitySet, paged, orgUrl)
     all.push(...rows)
     if (rows.length < pageSize) break
   }
