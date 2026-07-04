@@ -1,4 +1,6 @@
 import type {
+  CoreRoleApplyInput,
+  CoreRoleApplyResult,
   EffectiveEntry,
   PrincipalRef,
   PrivilegeAction,
@@ -68,6 +70,19 @@ export interface RoleAnalyzerService {
     threshold: number,
     envKey: string,
   ): Promise<RoleHygieneReport>
+  /**
+   * Core Role Extractor automatism: create a new consolidated role, capture
+   * it in the chosen working solution (AddSolutionComponent, role component
+   * type 20), grant it the shared privileges, and — when `removeDuplicates`
+   * is set — strip those privileges from the source roles (which then also
+   * go into the solution). Writes target the HOST environment only (working
+   * solutions live there); the impl guards on the env key. Returns a
+   * per-step result so partial failures are visible.
+   */
+  applyCoreRole(
+    input: CoreRoleApplyInput,
+    envKey: string,
+  ): Promise<CoreRoleApplyResult>
 }
 
 export const roleAnalyzerService: RoleAnalyzerService =

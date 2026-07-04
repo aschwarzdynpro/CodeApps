@@ -134,6 +134,39 @@ v2 der konnektor-basierte Cross-env-Write (SP) ergänzt.
   Verhalten des klassischen UI); nicht jeder Job-Typ ist retry-fähig — das
   Einzel-Ergebnis-Reporting zeigt Ablehnungen sauber an.
 
+## Nachtrag: Core Role Extractor (Role Analyzer)
+
+Neuer Sub-Tab **„Core roles"** im Role Analyzer — konsolidiert überlappende
+Privilegien custom Rollen in eine Core-Rolle.
+
+- **Analyse** (`utils/coreRoles.ts → analyzeCoreRoles`, pure + Vitest):
+  scannt die **custom (unmanaged)** Rollen; jede Privileg-Kombination
+  (Tabelle × Aktion), die in ≥ 2 Rollen vorkommt, ist ein Konsolidierungs-
+  Kandidat. Geteilte Privilegien werden nach dem **exakten Rollen-Set**
+  geclustert → je Set ein Core-Rollen-Vorschlag („ggf. pro Bereich"). Die
+  konsolidierte Tiefe je Privileg = die **tiefste** Zuweisung über die
+  beteiligten Rollen (die Core-Rolle reduziert also niemandes Zugriff).
+- **Automatismus** (`roleAnalyzerService.applyCoreRole`): Rollenname +
+  Working Solution angeben → das System legt die Rolle an der Root-BU an,
+  nimmt sie in die Solution auf (`AddSolutionComponent`, Rollen-Typ 20),
+  gewährt die Privilegien (`AddPrivilegesRole`) und — optional (Opt-in) —
+  entfernt die Duplikate aus den Quell-Rollen (`RemovePrivilegeRole`), die
+  dann ebenfalls in die Solution kommen. Transparenter per-Step-Report.
+- **Guards**: nur **Host-Env** (Working Solutions liegen dort; `applyCoreRole`
+  wirft bei Fremdumgebung) + **Deployment Manager**; Confirm-Dialog mit dem
+  Hinweis, dass Mitglieder einer Quell-Rolle ohne die neue Core-Rolle Zugriff
+  verlieren.
+- **Datenpfad**: Writes über den Konnektor gegen die Host-Org
+  (`CreateRecordWithOrganization` + `PerformUnboundActionWithOrganization`;
+  Standard-SDK-Actions sind konnektor-fähig, vgl. Gotcha #8). Läuft als SP —
+  in-app auf Deployment Manager gated. **Live-Verifikation ausstehend**: die
+  exakten Action-Bodies/Signaturen sind aus der Doku abgeleitet; der Mock
+  macht den ganzen Flow offline demobar.
+
+Der **Role DeDuplicator** (Entflechten von Rollenzuordnungen, die Rechte
+doppelt vergeben) steht auf der Roadmap — er baut auf dem Core Role Extractor
++ der Effektiv-Rechte-Analyse auf.
+
 ## Vorschläge zur weiteren Einbindung (v2-Backlog)
 
 **Querverbindungen zwischen den Features (größter Hebel, wenig Aufwand):**

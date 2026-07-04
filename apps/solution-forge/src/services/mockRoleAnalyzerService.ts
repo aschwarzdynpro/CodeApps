@@ -1,4 +1,7 @@
 import type {
+  CoreRoleApplyInput,
+  CoreRoleApplyResult,
+  CoreRoleApplyStep,
   EffectiveEntry,
   PrincipalRef,
   PrivilegeAction,
@@ -377,6 +380,57 @@ class MockRoleAnalyzerService implements RoleAnalyzerService {
       threshold,
     }
   }
+
+  async applyCoreRole(
+    input: CoreRoleApplyInput,
+    _envKey: string,
+  ): Promise<CoreRoleApplyResult> {
+    void _envKey
+    const steps: CoreRoleApplyStep[] = []
+    await delay(300)
+    steps.push({ label: `Create role “${input.roleName}”`, ok: true })
+    await delay(200)
+    steps.push({
+      label: `Add role to solution ${input.workingSolutionUniqueName}`,
+      ok: true,
+    })
+    await delay(200)
+    steps.push({
+      label: `Grant ${input.privileges.length} privilege${input.privileges.length === 1 ? '' : 's'}`,
+      ok: true,
+    })
+    let removed = 0
+    if (input.removeDuplicates) {
+      for (const sourceId of input.sourceRoleIds) {
+        await delay(150)
+        const name = nameOf(sourceId)
+        removed += input.privileges.length
+        steps.push({
+          label: `Add source role “${name}” to solution`,
+          ok: true,
+        })
+        steps.push({
+          label: `Remove ${input.privileges.length} privilege${input.privileges.length === 1 ? '' : 's'} from “${name}”`,
+          ok: true,
+        })
+      }
+    }
+    return {
+      ok: true,
+      roleId: `mock-core-${Math.abs(hashName(input.roleName))}`,
+      roleName: input.roleName,
+      privilegesAdded: input.privileges.length,
+      privilegesRemoved: removed,
+      steps,
+    }
+  }
+}
+
+/** Stable pseudo-id for the mock created role (no Math.random in this env). */
+function hashName(name: string): number {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0
+  return h
 }
 
 export const mockRoleAnalyzerService: RoleAnalyzerService =

@@ -82,6 +82,31 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 - [ ] **Rollen-Check um Team-Vererbung erweitern** (aktuell nur direkte
       Zuweisung von „INT | Deployment Manager").
 
+## Security / Role Analyzer
+
+- [x] **Core Role Extractor**: custom (unmanaged) Rollen auf Privilegien-
+      Überschneidungen analysieren; Privilegien, die in ≥ 2 Rollen vorkommen,
+      als **Core-Rolle** (ggf. pro Bereich = pro geteiltem Rollen-Set)
+      vorschlagen; Automatismus: Rollenname + Working Solution angeben →
+      System legt die Rolle in der Solution an, fügt die konsolidierten
+      Privilegien hinzu und entfernt optional die Duplikate aus den
+      Quell-Rollen (die dann ebenfalls in die Solution kommen). *(Role
+      Analyzer → Sub-Tab „Core roles"; nur Host-Env + Deployment Manager)*
+- [ ] **Role DeDuplicator**: Prozess zum **Entflechten von
+      Rollenzuordnungen, die Rechte doppelt vergeben** — pro User/Team
+      aufdecken, welche Privilegien über mehrere zugewiesene Rollen mehrfach
+      (ggf. in unterschiedlicher Tiefe) hereinkommen, und einen geführten
+      Bereinigungs-Vorschlag machen (redundante Rollenzuweisung entfernen,
+      sobald eine Core-Rolle dieselben Rechte trägt; Effektiv-Rechte bleiben
+      unverändert). Baut auf dem Core Role Extractor + der Effektiv-Rechte-
+      Analyse auf.
+- [ ] **Cross-env-Write der Operate-Features (v2)**: Trace-Level-Switch und
+      Job-Cancel/Retry auch gegen Nicht-Host-Umgebungen ermöglichen — via
+      Konnektor (`PerformUnboundActionWithOrganization` / Update) statt der
+      nativen Data Sources. Läuft dann als SP (verliert die Per-User-
+      Durchsetzung) ⇒ eigene Gate-Rolle erwägen. Aktuell sind diese Writes
+      bewusst Host-Env-only (native, als angemeldeter User).
+
 ## Umgesetzt
 
 - [x] ⭐ **Operate-Gruppe** (Ideen aus `docs/Ideas_v2.md`, je eigener

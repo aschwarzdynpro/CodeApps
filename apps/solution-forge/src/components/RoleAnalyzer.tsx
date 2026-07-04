@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type {
+  CoreRoleApplyResult,
+  CoreRoleCluster,
   EffectiveEntry,
   PrincipalRef,
   PrivilegeAction,
@@ -11,9 +13,13 @@ import type {
   SecurityModel,
 } from '../types/roles'
 import { PRIVILEGE_ACTIONS } from '../types/roles'
+import type { WorkingSolution } from '../types/solution'
 import { depthLabel, depthShort } from '../utils/privileges'
+import { analyzeCoreRoles } from '../utils/coreRoles'
 import { roleAnalyzerService } from '../services/roleAnalyzerService'
+import { isCurrentEnvKey } from '../config'
 import { OperateEnvPicker } from './OperateEnvPicker'
+import { SolutionSelect } from './SolutionSelect'
 
 /**
  * Security Role Analyzer — the views the maker portal doesn't offer:
@@ -34,9 +40,13 @@ interface Props {
   /** Selected target environment (shared across the Operate features). */
   envKey: string
   onEnvChange: (envKey: string) => void
+  /** Working solutions (host env) offered as the target for a new core role. */
+  solutions: WorkingSolution[]
+  /** Deployment managers may run the Core Role consolidation automatism. */
+  canManage: boolean
 }
 
-type SubTab = 'matrix' | 'diff' | 'user' | 'reverse' | 'hygiene'
+type SubTab = 'matrix' | 'diff' | 'user' | 'reverse' | 'hygiene' | 'core'
 
 function depthClass(depth: PrivilegeDepthMask): string {
   switch (depth) {
@@ -77,7 +87,12 @@ function download(filename: string, content: string, mime: string) {
   URL.revokeObjectURL(url)
 }
 
-export function RoleAnalyzer({ envKey, onEnvChange }: Props) {
+export function RoleAnalyzer({
+  envKey,
+  onEnvChange,
+  solutions,
+  canManage,
+}: Props) {
   const [subTab, setSubTab] = useState<SubTab>('matrix')
   const [model, setModel] = useState<SecurityModel | null>(null)
   // Starts in the loading state — the mount effect kicks off the first load.
@@ -257,6 +272,71 @@ export function RoleAnalyzer({ envKey, onEnvChange }: Props) {
       .finally(() => setHygieneLoading(false))
   }
 
+  // --- core roles --------------------------------------------------------------
+  const isHost = isCurrentEnvKey(envKey)
+  const clusters = useMemo<CoreRoleCluster[]>(
+    () => (model ? analyzeCoreRoles(model) : []),
+    [model],
+  )
+  // Per-cluster editable name / remove-flag / result, keyed by cluster id.
+  const [coreNames, setCoreNames] = useState<Record<string, string>>({})
+  const [coreRemove, setCoreRemove] = useState<Record<string, boolean>>({})
+  const [coreResults, setCoreResults] = useState<
+    Record<string, CoreRoleApplyResult>
+  >({})
+  const [coreApplying, setCoreApplying] = useState<string | null>(null)
+  const [coreSolutionId, setCoreSolutionId] = useState('')
+
+  // Working solutions that can receive the consolidated roles (host env).
+  const coreSolutions = useMemo(
+    () =>
+      solutions.filter(
+        (s, index) =>
+          s.recordId &&
+          !s.solutionMissing &&
+          solutions.findIndex((o) => o.id === s.id) === index,
+      ),
+    [solutions],
+  )
+  const coreSolution = coreSolutions.find((s) => s.id === coreSolutionId) ?? null
+
+  const applyCoreRole = async (cluster: CoreRoleCluster) => {
+    if (!coreSolution) return
+    const roleName = (coreNames[cluster.id] ?? cluster.suggestedName).trim()
+    if (!roleName) return
+    const removeDuplicates = !!coreRemove[cluster.id]
+    if (
+      !window.confirm(
+        `Create the role “${roleName}” in solution “${coreSolution.title}” with ` +
+          `${cluster.privileges.length} privilege(s)` +
+          (removeDuplicates
+            ? `, and REMOVE those privileges from ${cluster.sources.length} source role(s) ` +
+              `(${cluster.sources.map((s) => s.name).join(', ')})?\n\n` +
+              `Members holding only a source role will lose that access unless they are also given the new core role.`
+            : '?'),
+      )
+    )
+      return
+    setCoreApplying(cluster.id)
+    try {
+      const result = await roleAnalyzerService.applyCoreRole(
+        {
+          workingSolutionUniqueName: coreSolution.uniqueName,
+          roleName,
+          privileges: cluster.privileges,
+          sourceRoleIds: cluster.sources.map((s) => s.rootRoleId),
+          removeDuplicates,
+        },
+        envKey,
+      )
+      setCoreResults((prev) => ({ ...prev, [cluster.id]: result }))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setCoreApplying(null)
+    }
+  }
+
   return (
     <div>
       <OperateEnvPicker envKey={envKey} onChange={onEnvChange} />
@@ -268,6 +348,7 @@ export function RoleAnalyzer({ envKey, onEnvChange }: Props) {
             ['user', 'User rights'],
             ['reverse', 'Reverse lookup'],
             ['hygiene', 'Hygiene'],
+            ['core', 'Core roles'],
           ] as [SubTab, string][]
         ).map(([key, label]) => (
           <button
@@ -715,6 +796,182 @@ export function RoleAnalyzer({ envKey, onEnvChange }: Props) {
                     )}
                   </div>
                 </div>
+              )}
+            </>
+          )}
+
+          {subTab === 'core' && (
+            <>
+              {!isHost ? (
+                <div className="state">
+                  Core Role consolidation works on the <strong>host</strong>{' '}
+                  environment — that's where working solutions live and where
+                  the new role is captured. Switch the target environment above
+                  to the host to use it.
+                </div>
+              ) : (
+                <>
+                  <div className="card trace-toolbar">
+                    <span className="muted">Target working solution</span>
+                    <div style={{ minWidth: 260 }}>
+                      <SolutionSelect
+                        options={coreSolutions}
+                        value={coreSolutionId}
+                        onChange={setCoreSolutionId}
+                        placeholder="Select a working solution…"
+                      />
+                    </div>
+                    {!canManage && (
+                      <span className="operate-env-note">
+                        ⚠ consolidation requires the deployment-manager role
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="state trace-hint">
+                    ℹ Analyzes <strong>custom (unmanaged)</strong> roles for
+                    privileges shared by ≥ 2 of them and proposes one core role
+                    per shared role-set. Consolidating removes the duplicates
+                    from the source roles only when you opt in — those members
+                    then need the new core role to keep their access.
+                  </div>
+
+                  {clusters.length === 0 ? (
+                    <div className="state state--success">
+                      ✓ No privileges are shared across the custom (unmanaged)
+                      roles — nothing to consolidate.
+                    </div>
+                  ) : (
+                    <div className="core-clusters">
+                      {clusters.map((cluster) => {
+                        const name =
+                          coreNames[cluster.id] ?? cluster.suggestedName
+                        const result = coreResults[cluster.id]
+                        const busy = coreApplying === cluster.id
+                        return (
+                          <div key={cluster.id} className="card core-cluster">
+                            <div className="core-cluster-head">
+                              <div className="core-cluster-sources">
+                                <span className="muted">Shared by:</span>{' '}
+                                {cluster.sources.map((s) => (
+                                  <span key={s.rootRoleId} className="chip chip--static">
+                                    {s.name}
+                                  </span>
+                                ))}
+                              </div>
+                              <span className="muted">
+                                {cluster.privileges.length} shared privilege
+                                {cluster.privileges.length === 1 ? '' : 's'}
+                              </span>
+                            </div>
+
+                            <div className="core-cluster-grid">
+                              <table className="ops-table">
+                                <thead>
+                                  <tr>
+                                    <th>Table</th>
+                                    <th>Privilege</th>
+                                    <th>Depth (consolidated)</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {cluster.privileges.map((p) => (
+                                    <tr key={`${p.entity}|${p.action}`}>
+                                      <td className="trace-type">{p.entity}</td>
+                                      <td>{p.action}</td>
+                                      <td>
+                                        <DepthBadge depth={p.depth} />{' '}
+                                        <span className="muted">
+                                          {depthLabel(p.depth)}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            <div className="core-cluster-form">
+                              <label className="core-name">
+                                New core role name
+                                <input
+                                  className="search"
+                                  type="text"
+                                  value={name}
+                                  onChange={(e) =>
+                                    setCoreNames((prev) => ({
+                                      ...prev,
+                                      [cluster.id]: e.target.value,
+                                    }))
+                                  }
+                                />
+                              </label>
+                              <label
+                                className="roles-remove-check"
+                                title="Also strip these privileges from the source roles (they are added to the solution too)."
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={!!coreRemove[cluster.id]}
+                                  onChange={(e) =>
+                                    setCoreRemove((prev) => ({
+                                      ...prev,
+                                      [cluster.id]: e.target.checked,
+                                    }))
+                                  }
+                                />
+                                remove duplicates from source roles
+                              </label>
+                              <button
+                                className="btn btn--small btn--primary"
+                                disabled={
+                                  busy ||
+                                  !canManage ||
+                                  !coreSolution ||
+                                  !name.trim()
+                                }
+                                title={
+                                  !canManage
+                                    ? 'Requires the deployment-manager role.'
+                                    : !coreSolution
+                                      ? 'Select a target working solution first.'
+                                      : 'Create the core role in the selected working solution.'
+                                }
+                                onClick={() => void applyCoreRole(cluster)}
+                              >
+                                {busy ? 'Creating…' : 'Create core role'}
+                              </button>
+                            </div>
+
+                            {result && (
+                              <div
+                                className={`state ${result.ok ? 'state--success' : 'state--error'}`}
+                              >
+                                <span>
+                                  {result.ok ? '✓ ' : ''}
+                                  Role <strong>{result.roleName}</strong> —{' '}
+                                  {result.privilegesAdded} added
+                                  {result.privilegesRemoved > 0
+                                    ? `, ${result.privilegesRemoved} removed from source roles`
+                                    : ''}
+                                  .
+                                </span>
+                                <ul className="merge-errors">
+                                  {result.steps.map((step, i) => (
+                                    <li key={i}>
+                                      {step.ok ? '✓' : '✗'} {step.label}
+                                      {step.error ? ` — ${step.error}` : ''}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}

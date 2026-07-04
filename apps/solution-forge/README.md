@@ -253,14 +253,27 @@ nach Typ.
     (Heartbeat-Soll/Ist je Definition, pure function `evaluateHeartbeat`,
     Tabellen konfigurierbar via `config.ts → WATCHDOG_TABLES`) und
     **Trends** (Failed-Jobs/Tag 7/30 d, serverseitige Aggregate).
-  - **🛡 Role Analyzer** (gated, strikt read-only) — arbeitet auf einem
-    ~15 min gecachten Snapshot des Security-Modells, Rollen aggregiert auf
-    `parentrootroleid` (BU-Kopien kollabieren): **Matrix** (Rolle × Tabelle ×
-    Privileg mit Depth-Badges U/BU/P/O), **Diff** (zwei Rollen, nur Deltas,
-    Export Markdown/CSV), **User rights** (effektive Rechte aus direkten +
+  - **🛡 Role Analyzer** (gated) — arbeitet auf einem ~15 min gecachten
+    Snapshot des Security-Modells, Rollen aggregiert auf `parentrootroleid`
+    (BU-Kopien kollabieren): **Matrix** (Rolle × Tabelle × Privileg mit
+    Depth-Badges U/BU/P/O), **Diff** (zwei Rollen, nur Deltas, Export
+    Markdown/CSV), **User rights** (effektive Rechte aus direkten +
     Team-Rollen, tiefste Depth gewinnt, mit Herkunftspfad), **Reverse
-    lookup** („Wer kann Delete auf account?" → User/Teams mit Pfad) und
-    **Hygiene** (Rollen ohne Zuweisung, User mit > N Rollen).
+    lookup** („Wer kann Delete auf account?" → User/Teams mit Pfad),
+    **Hygiene** (Rollen ohne Zuweisung, User mit > N Rollen) und
+    **Core roles** (schreibend, nur Host-Env): analysiert die
+    **custom (unmanaged)** Rollen auf Privilegien, die in ≥ 2 Rollen
+    vorkommen, und schlägt je geteiltem Rollen-Set eine konsolidierte
+    **Core-Rolle** vor (tiefste Depth gewinnt). **Automatismus:** Rollenname
+    + Working Solution wählen → das System legt die Rolle in der Solution an
+    (`AddSolutionComponent`, Rollen-Komponententyp 20), gewährt die
+    Privilegien (`AddPrivilegesRole`) und entfernt optional die Duplikate aus
+    den Quell-Rollen (`RemovePrivilegeRole`; die betroffenen Rollen kommen
+    dann ebenfalls in die Solution). Transparenter per-Step-Report; Mitglieder
+    einer Quell-Rolle brauchen danach die Core-Rolle, um ihren Zugriff zu
+    behalten. (Matrix/Diff/User rights/Reverse/Hygiene bleiben read-only; nur
+    Core roles schreibt.) Der **Role DeDuplicator** (Entflechten doppelter
+    Rechtezuordnungen) steht auf der Roadmap.
 
 ## Architektur
 

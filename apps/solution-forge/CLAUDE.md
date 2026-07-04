@@ -132,6 +132,30 @@ App.tsx) → sauberer State-Reset; Trace Explorer lädt in-place (behält
 Filter). Flow-Run-Portal-Link nutzt die Ziel-`environmentId`
 (`environmentIdForEnvKey`).
 
+**Core Role Extractor** (Role Analyzer → Sub-Tab „Core roles", schreibend):
+Analyse ist die **pure function** `utils/coreRoles.ts → analyzeCoreRoles(model)`
+(Vitest) — clustert Privilegien, die ≥ 2 custom (`!isManaged`) Rollen teilen,
+nach dem exakten Rollen-Set (= „pro Bereich"), konsolidierte Depth = tiefste.
+UI rechnet das clientseitig aus dem geladenen `SecurityModel` (kein
+Service-Call). **Apply** dagegen über `roleAnalyzerService.applyCoreRole`
+(Dataverse + Mock): (1) Rolle an Root-BU anlegen, (2) in die Working Solution
+aufnehmen (`AddSolutionComponent`, **Rollen-Komponententyp = 20**), (3)
+`AddPrivilegesRole` mit Depth-Enum (1 Basic/2 Local/4 Deep/8 Global), (4)
+optional `RemovePrivilegeRole` je Quell-Rolle + diese ebenfalls in die
+Solution. **Writes laufen über den Konnektor** (`MicrosoftDataverseService.
+CreateRecordWithOrganization` + `PerformUnboundActionWithOrganization` für die
+Actions — Standard-SDK-Actions, per gotcha #8 konnektor-fähig) gegen die
+**Host-Org** (SP-Identität; `applyCoreRole` wirft bei `!isCurrentEnvKey`).
+privilegeId-Auflösung (`entity|action → privilegeId`) liegt im Snapshot-Cache
+(`privilegeIdByKey`, in `buildSnapshot` gefüllt). UI: eigener Sub-Tab, nur
+Host-Env + Deployment Manager, Working-Solution-Pflichtauswahl
+(`SolutionSelect`), Remove-Duplicates als **Opt-in** (Default aus), Confirm
+mit Warnung „Mitglieder verlieren Zugriff ohne die Core-Rolle", per-Step-
+Result. **Achtung (noch nicht live verifiziert):** die exakten Action-Bodies
+(`AddPrivilegesRole` Privileges-Collection mit `Depth`/`PrivilegeId`,
+`RemovePrivilegeRole`, `AddSolutionComponent` Typ 20) sowie die Konnektor-
+Op-Signaturen sind aus der Doku abgeleitet — beim ersten echten Lauf prüfen.
+
 **Datenmodell:** `pro_workingsolution` = Darstellungs-Schicht, verlinkt
 über `pro_uniquesolutionname` zur echten Solution. Typ-Kaskade:
 `pro_type_opt` (867520000 F / …001 B / …002 R) → `pro_devopsworkitemtype`

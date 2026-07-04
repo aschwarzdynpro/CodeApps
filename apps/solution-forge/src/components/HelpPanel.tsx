@@ -706,6 +706,19 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 <strong>Hygiene</strong>: roles without any assignment and
                 users above a role-count threshold.
               </li>
+              <li>
+                <strong>Core roles</strong> (write, host env only): analyzes
+                the <strong>custom (unmanaged)</strong> roles for privileges
+                shared by ≥ 2 of them and proposes a consolidated{' '}
+                <strong>core role</strong> per shared role-set. Give it a name,
+                pick a <strong>working solution</strong> and click{' '}
+                <em>Create core role</em> — it creates the role in that
+                solution, grants the consolidated privileges (deepest depth
+                wins) and, if you opt in, removes the duplicates from the
+                source roles (which then also go into the solution). Members
+                holding only a source role need the new core role to keep
+                their access.
+              </li>
             </ul>
           </section>
 

@@ -106,6 +106,67 @@ export interface ReverseLookupHit {
   paths: RoleAssignmentPath[]
 }
 
+/**
+ * Core Role Extractor — one consolidated privilege (entity × action at the
+ * deepest depth needed across the roles that share it).
+ */
+export interface CoreRolePrivilege {
+  entity: string
+  action: PrivilegeAction
+  /** Consolidated depth = the deepest grant across the sharing roles. */
+  depth: PrivilegeDepthMask
+}
+
+/** A custom role that a proposed core role would be extracted from. */
+export interface CoreRoleSource {
+  rootRoleId: string
+  name: string
+}
+
+/**
+ * One consolidation candidate: a set of custom roles that all share the same
+ * privileges, proposed as a single core role. Clustering is by the exact set
+ * of roles that share the privileges ("per area").
+ */
+export interface CoreRoleCluster {
+  /** Stable id (sorted source role ids joined) — also the cluster key. */
+  id: string
+  sources: CoreRoleSource[]
+  privileges: CoreRolePrivilege[]
+  /** Editable default name for the new core role. */
+  suggestedName: string
+}
+
+/** Input to the consolidation automatism. */
+export interface CoreRoleApplyInput {
+  /** Unique name of the working solution the roles are captured in. */
+  workingSolutionUniqueName: string
+  /** Name of the new core role. */
+  roleName: string
+  /** Privileges to grant the new core role. */
+  privileges: CoreRolePrivilege[]
+  /** Root role ids the privileges come from (added to the solution when stripped). */
+  sourceRoleIds: string[]
+  /** When true, remove the duplicated privileges from the source roles. */
+  removeDuplicates: boolean
+}
+
+/** One step of the apply automatism, for a transparent result report. */
+export interface CoreRoleApplyStep {
+  label: string
+  ok: boolean
+  error?: string
+}
+
+export interface CoreRoleApplyResult {
+  ok: boolean
+  roleId: string | null
+  roleName: string
+  privilegesAdded: number
+  privilegesRemoved: number
+  steps: CoreRoleApplyStep[]
+}
+
 /** Hygiene report findings. */
 export interface RoleHygieneReport {
   /** Roles assigned to no user and no team. */

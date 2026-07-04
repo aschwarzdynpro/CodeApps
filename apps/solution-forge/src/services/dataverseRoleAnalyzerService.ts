@@ -1,4 +1,7 @@
 import type {
+  CoreRoleApplyInput,
+  CoreRoleApplyResult,
+  CoreRoleApplyStep,
   EffectiveEntry,
   PrincipalRef,
   PrivilegeAction,
@@ -16,11 +19,12 @@ import { powerModeReady } from '../PowerProvider'
 import {
   currentOrgUrl,
   fetchXmlAllPages,
+  fetchXmlQuery,
   rowNum,
   rowStr,
   type Row,
 } from './currentEnvQuery'
-import { orgUrlForEnvKey } from '../config'
+import { isCurrentEnvKey, orgUrlForEnvKey } from '../config'
 import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
 import {
   actionFromAccessRight,
@@ -45,6 +49,14 @@ import {
 
 const MODEL_STALE_MS = 15 * 60_000
 
+/** privilegedepthmask → Web API PrivilegeDepth enum member (AddPrivilegesRole). */
+const PRIVILEGE_DEPTH_ENUM: Record<number, string> = {
+  1: 'Basic', // User
+  2: 'Local', // Business Unit
+  4: 'Deep', // Parent: Child BUs
+  8: 'Global', // Organization
+}
+
 interface AssignmentSnapshot {
   /** Enabled users. */
   users: Map<string, PrincipalRef>
@@ -60,6 +72,8 @@ interface AssignmentSnapshot {
 interface CachedModel {
   model: SecurityModel
   assignments: AssignmentSnapshot
+  /** "entity|action" → privilegeId, for the Core Role apply automatism. */
+  privilegeIdByKey: Map<string, string>
   at: number
 }
 
@@ -381,6 +395,13 @@ async function buildSnapshot(
   const { roles, rootByCopy } = await loadRoles(orgUrl)
   onProgress?.('Loading privilege metadata…')
   const privilegeMeta = await loadPrivilegeMeta(orgUrl)
+  // Reverse lookup ("entity|action" → privilegeId) for the Core Role apply.
+  const privilegeIdByKey = new Map<string, string>()
+  for (const [privilegeId, meta] of privilegeMeta) {
+    if (!meta.action) continue
+    for (const entity of meta.entities)
+      privilegeIdByKey.set(`${entity}|${meta.action}`, privilegeId)
+  }
   const { matrices, miscPrivileges, entities } = await loadRolePrivileges(
     roles.map((r) => r.rootRoleId),
     privilegeMeta,
@@ -403,6 +424,7 @@ async function buildSnapshot(
       loadedAt: new Date(),
     },
     assignments: { users, teams, userRoles, teamRoles, teamMembers },
+    privilegeIdByKey,
     at: Date.now(),
   }
 }
@@ -625,6 +647,235 @@ class DataverseRoleAnalyzerService implements RoleAnalyzerService {
     }
     usersWithManyRoles.sort((a, b) => b.roleCount - a.roleCount)
     return { unassignedRoles, usersWithManyRoles, threshold }
+  }
+
+  /**
+   * Core Role Extractor automatism. All writes go through the Dataverse
+   * connector against the host org (the same connection the reads use — it
+   * can call standard SDK actions per the documented action passthrough):
+   *
+   *   1. create the new role at the root business unit,
+   *   2. add it to the working solution (AddSolutionComponent, type 20),
+   *   3. AddPrivilegesRole with the consolidated depths,
+   *   4. optionally RemovePrivilegeRole from each source role (which is then
+   *      also added to the solution so its change is captured).
+   *
+   * Each step is reported independently; a failed create aborts the rest.
+   * Host-env only — working solutions live in the host environment and the
+   * write must be captured there.
+   */
+  async applyCoreRole(
+    input: CoreRoleApplyInput,
+    envKey: string,
+  ): Promise<CoreRoleApplyResult> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockRoleAnalyzerService.applyCoreRole(input, envKey)
+    if (!isCurrentEnvKey(envKey))
+      throw new Error(
+        'Core Role consolidation writes to the host environment only — switch the target environment to the host.',
+      )
+    const orgUrl = orgUrlForEnvKey(envKey)
+    const snap = await this.snapshot(envKey)
+    const steps: CoreRoleApplyStep[] = []
+    const result: CoreRoleApplyResult = {
+      ok: false,
+      roleId: null,
+      roleName: input.roleName,
+      privilegesAdded: 0,
+      privilegesRemoved: 0,
+      steps,
+    }
+
+    // Resolve the privilege ids for the requested (entity, action) pairs.
+    const resolved = input.privileges
+      .map((p) => ({
+        privilege: p,
+        id: snap.privilegeIdByKey.get(`${p.entity}|${p.action}`),
+      }))
+      .filter((r): r is { privilege: (typeof input.privileges)[number]; id: string } => !!r.id)
+    if (resolved.length === 0) {
+      steps.push({
+        label: 'Resolve privileges',
+        ok: false,
+        error: 'None of the selected privileges could be resolved to a privilege id.',
+      })
+      return result
+    }
+
+    // 1. Root business unit for the new role.
+    let rootBuId = ''
+    try {
+      const buRows = await fetchXmlQuery(
+        'businessunits',
+        `<fetch count="1"><entity name="businessunit">` +
+          `<attribute name="businessunitid" />` +
+          `<filter><condition attribute="parentbusinessunitid" operator="null" /></filter>` +
+          `</entity></fetch>`,
+        orgUrl,
+      )
+      rootBuId = rowStr(buRows[0]?.businessunitid)
+      if (!rootBuId) throw new Error('root business unit not found')
+    } catch (err) {
+      steps.push({
+        label: 'Resolve root business unit',
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      })
+      return result
+    }
+
+    // 2. Create the role.
+    try {
+      const created = await MicrosoftDataverseService.CreateRecordWithOrganization(
+        orgUrl,
+        'roles',
+        {
+          name: input.roleName,
+          'businessunitid@odata.bind': `/businessunits(${rootBuId})`,
+        },
+      )
+      if (created && created.success === false)
+        throw new Error(
+          (created as { error?: { message?: string } }).error?.message ||
+            'create rejected',
+        )
+      const data = created.data as Record<string, unknown> | undefined
+      result.roleId =
+        (typeof data?.roleid === 'string' && data.roleid) ||
+        (typeof data?.id === 'string' && data.id) ||
+        null
+      if (!result.roleId) throw new Error('the created role returned no id')
+      steps.push({ label: `Create role “${input.roleName}”`, ok: true })
+    } catch (err) {
+      steps.push({
+        label: `Create role “${input.roleName}”`,
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      })
+      return result
+    }
+
+    // 3. Add the new role to the working solution (component type 20 = role).
+    steps.push(
+      await this.addRoleToSolution(
+        orgUrl,
+        result.roleId,
+        input.workingSolutionUniqueName,
+        `Add role to solution ${input.workingSolutionUniqueName}`,
+      ),
+    )
+
+    // 4. Grant the consolidated privileges.
+    try {
+      const res = await MicrosoftDataverseService.PerformUnboundActionWithOrganization(
+        orgUrl,
+        'AddPrivilegesRole',
+        {
+          RoleId: result.roleId,
+          Privileges: resolved.map((r) => ({
+            Depth: PRIVILEGE_DEPTH_ENUM[r.privilege.depth] ?? 'Basic',
+            PrivilegeId: r.id,
+          })),
+        },
+      )
+      if (res && res.success === false)
+        throw new Error(
+          (res as { error?: { message?: string } }).error?.message ||
+            'AddPrivilegesRole rejected',
+        )
+      result.privilegesAdded = resolved.length
+      steps.push({
+        label: `Grant ${resolved.length} privilege${resolved.length === 1 ? '' : 's'}`,
+        ok: true,
+      })
+    } catch (err) {
+      steps.push({
+        label: 'Grant privileges',
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+
+    // 5. Optionally strip the duplicates from the source roles.
+    if (input.removeDuplicates) {
+      for (const sourceId of input.sourceRoleIds) {
+        const sourceName =
+          snap.model.roles.find((r) => r.rootRoleId === sourceId)?.name ??
+          sourceId
+        // The modified source role must be captured in the solution too.
+        steps.push(
+          await this.addRoleToSolution(
+            orgUrl,
+            sourceId,
+            input.workingSolutionUniqueName,
+            `Add source role “${sourceName}” to solution`,
+          ),
+        )
+        let removed = 0
+        const errors: string[] = []
+        for (const r of resolved) {
+          try {
+            const res =
+              await MicrosoftDataverseService.PerformUnboundActionWithOrganization(
+                orgUrl,
+                'RemovePrivilegeRole',
+                { RoleId: sourceId, PrivilegeId: r.id },
+              )
+            if (res && res.success === false)
+              throw new Error(
+                (res as { error?: { message?: string } }).error?.message ||
+                  'rejected',
+              )
+            removed++
+          } catch (err) {
+            errors.push(err instanceof Error ? err.message : String(err))
+          }
+        }
+        result.privilegesRemoved += removed
+        steps.push({
+          label: `Remove ${removed}/${resolved.length} privilege${resolved.length === 1 ? '' : 's'} from “${sourceName}”`,
+          ok: errors.length === 0,
+          error: errors[0],
+        })
+      }
+    }
+
+    result.ok = steps.every((s) => s.ok)
+    return result
+  }
+
+  /** AddSolutionComponent for a role (component type 20) via the connector. */
+  private async addRoleToSolution(
+    orgUrl: string,
+    roleId: string,
+    solutionUniqueName: string,
+    label: string,
+  ): Promise<CoreRoleApplyStep> {
+    try {
+      const res = await MicrosoftDataverseService.PerformUnboundActionWithOrganization(
+        orgUrl,
+        'AddSolutionComponent',
+        {
+          ComponentType: 20,
+          ComponentId: roleId,
+          SolutionUniqueName: solutionUniqueName,
+          AddRequiredComponents: false,
+        },
+      )
+      if (res && res.success === false)
+        throw new Error(
+          (res as { error?: { message?: string } }).error?.message ||
+            'AddSolutionComponent rejected',
+        )
+      return { label, ok: true }
+    } catch (err) {
+      return {
+        label,
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      }
+    }
   }
 }
 

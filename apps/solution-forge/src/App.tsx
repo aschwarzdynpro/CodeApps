@@ -1304,6 +1304,8 @@ function App() {
           key={operateEnvKey}
           envKey={operateEnvKey}
           onEnvChange={setOperateEnvKey}
+          solutions={allSolutions}
+          canManage={isDeploymentManager}
         />
       )}
         </main>
