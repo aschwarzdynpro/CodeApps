@@ -259,6 +259,23 @@ Modus**: User wählen → seine BU + Member-Teams werden hervorgehoben, Rest
 gedimmt; Panel listet die per Team gewonnenen Rollen. Membership wird im
 Snapshot nur für Rollen-Teams geladen (Non-Role-Teams zeigen keine Member).
 
+**Field-Level Security Analyzer** (Role Analyzer → Sub-Tab „Field security",
+read-only): `FieldSecurityWorkspace` + `fieldSecurityService`
+(`dataverse…`/`mock…`). Liest über den Konnektor: `fieldsecurityprofiles`
+(odataQuery), `fieldpermissions` (fetchXml — je gesicherte Spalte
+Read/Create/Update/ReadUnmasked; **Optionswerte 0 = Not allowed, 4 =
+Allowed**, `=== 4` decodiert), und die Zuweisungs-Intersects
+`systemuserprofiles`/`teamprofiles` (fetchXml link-entity `intersect="true"`,
+alias `sup`/`tp` → `<alias>.fieldsecurityprofileid`). Zwei Sichten:
+profilzentriert und **spaltenzentriert** (Pivot = pure function
+`utils/fieldSecurity.ts → pivotSecuredColumns`, Vitest). Anzeige mit logischen
+Namen (entity/attribute; Display-Namen bräuchten Metadaten je Attribut).
+Flags: Profil ohne User+Team („assigned to nobody"), Spalte ohne Read-Grant
+(nur Admins — die Field Security generell umgehen). Lookup auf fieldpermission
+defensiv über `_fieldsecurityprofileid_value` **oder** `fieldsecurityprofileid`
+gelesen. Keine neuen Data Sources. **Live-Verify-Punkt:** die
+FieldPermissionType-Werte (0/4) beim ersten echten Lauf bestätigen.
+
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT

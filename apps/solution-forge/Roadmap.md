@@ -121,10 +121,13 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       nativen Data Sources. Läuft dann als SP (verliert die Per-User-
       Durchsetzung) ⇒ eigene Gate-Rolle erwägen. Aktuell sind diese Writes
       bewusst Host-Env-only (native, als angemeldeter User).
-- [ ] **Field-Level Security Analyzer**: `fieldsecurityprofile` auswerten —
-      welche Spalten sind gesichert und wer (User/Team) darf sie
-      Read/Update/Create (`fieldpermission`). Ergänzt die Rollen-Matrix um die
-      Spaltenebene, die sie heute nicht zeigt.
+- [x] **Field-Level Security Analyzer**: `fieldsecurityprofile` +
+      `fieldpermission` auswerten — welche Spalten sind gesichert und wer
+      (User/Team über `systemuserprofiles`/`teamprofiles`) darf sie
+      Read/Create/Update/Unmasked. Profil- und spaltenzentrierte Sicht,
+      Gap-Flags (Profil ohne Prinzipale, Spalte ohne Read-Grant). Ergänzt die
+      Rollen-Matrix um die Spaltenebene. *(Role Analyzer → Sub-Tab „Field
+      security")*
 - [x] **Team- & BU-Map**: interaktives Org-Chart (Inline-SVG, Pan/Zoom,
       aufklappbar) der Business-Unit-Hierarchie (`businessunit.parentbusiness
       unitid`) mit den Rollen-vergebenden Teams (`teamroles`) je BU; Detail-

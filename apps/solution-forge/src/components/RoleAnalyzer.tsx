@@ -21,6 +21,7 @@ import { isCurrentEnvKey } from '../config'
 import { OperateEnvPicker } from './OperateEnvPicker'
 import { SolutionSelect } from './SolutionSelect'
 import { TeamBuMap } from './TeamBuMap'
+import { FieldSecurityWorkspace } from './FieldSecurityWorkspace'
 
 /**
  * Security Role Analyzer — the views the maker portal doesn't offer:
@@ -55,6 +56,7 @@ type SubTab =
   | 'hygiene'
   | 'core'
   | 'map'
+  | 'fls'
 
 function depthClass(depth: PrivilegeDepthMask): string {
   switch (depth) {
@@ -358,6 +360,7 @@ export function RoleAnalyzer({
             ['hygiene', 'Hygiene'],
             ['core', 'Core roles'],
             ['map', 'Team & BU map'],
+            ['fls', 'Field security'],
           ] as [SubTab, string][]
         ).map(([key, label]) => (
           <button
@@ -395,7 +398,7 @@ export function RoleAnalyzer({
         </div>
       )}
 
-      {model && subTab !== 'map' && (
+      {model && subTab !== 'map' && subTab !== 'fls' && (
         <>
           <div className="roles-legend muted">
             Depth: <DepthBadge depth={1} /> User · <DepthBadge depth={2} />{' '}
@@ -987,9 +990,10 @@ export function RoleAnalyzer({
         </>
       )}
 
-      {/* The map loads its own org structure (BU hierarchy + teams) and does
-          not depend on the privilege model, so it renders outside that gate. */}
+      {/* The map and field-security views load their own data and do not
+          depend on the privilege model, so they render outside that gate. */}
       {subTab === 'map' && <TeamBuMap envKey={envKey} />}
+      {subTab === 'fls' && <FieldSecurityWorkspace envKey={envKey} />}
     </div>
   )
 }

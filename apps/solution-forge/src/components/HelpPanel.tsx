@@ -735,6 +735,15 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 users above a role-count threshold.
               </li>
               <li>
+                <strong>Field security</strong>: the column-level analog of
+                the matrix — Field Security Profiles with their secured columns
+                (Read / Create / Update / read-unmasked) and who they are
+                assigned to, plus a column-centric view (“who can read/update
+                secured column X?”). Flags profiles assigned to nobody and
+                columns no profile grants read on (admins only — System
+                Administrators bypass field security).
+              </li>
+              <li>
                 <strong>Team &amp; BU map</strong>: an interactive org-chart
                 of the business-unit hierarchy with the role-granting teams on
                 each BU. Drag to pan, wheel to zoom, collapse a subtree. Click

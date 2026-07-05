@@ -297,7 +297,13 @@ nach Typ.
     Pills; Klick auf BU/Team öffnet ein Detail-Panel (Rollen, Mitglieder), ein
     **Trace-Modus** hebt für einen gewählten User seine BU + Teams hervor und
     listet die **per Team vererbten Rollen** (Toggle blendet Default-/Access-
-    Teams ein).
+    Teams ein). **Field security** (read-only): das Spalten-Level-Pendant zur
+    Matrix — **Field Security Profiles** (`fieldsecurityprofile` +
+    `fieldpermission`) mit gesicherten Spalten (Read/Create/Update/Unmasked)
+    und Zuweisungen (User/Teams über `systemuserprofiles`/`teamprofiles`);
+    umschaltbar auf eine **spaltenzentrierte** Sicht („wer darf Spalte X
+    lesen/ändern?"). Flags: Profil ohne Prinzipale, Spalte ohne Read-Grant
+    (nur Admins). *(System-Administratoren umgehen Field Security.)*
 
 ## Architektur
 
