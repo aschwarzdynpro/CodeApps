@@ -417,14 +417,7 @@ export class MockSolutionService {
     if (!solution) throw new Error('Unknown working-solution record.')
     solution.deploymentStatusCode = statusCode
     solution.deploymentStatus =
-      {
-        500870000: 'None',
-        500870001: 'To be deployed',
-        500870002: 'Deployment in progress',
-        500870003: 'Deployment completed',
-        867520001: 'Merged into Deployment Solution',
-        867520002: 'Merged into Core Solution',
-      }[statusCode] ?? 'None'
+      statusCode === 500870003 ? 'Deployment completed' : 'None'
   }
 
   async setMergeTypeRules(

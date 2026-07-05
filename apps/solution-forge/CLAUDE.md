@@ -306,19 +306,6 @@ Per-Env-Import-Fehler landen in einem Hinweis-Banner statt zu werfen. Der
 Import-History-Mock hat env-spezifische `deploy_sprint_12`-Jobs (UAT ok,
 PROD failed), damit die Timeline offline demobar ist.
 
-**Deployment-Kanban** (Workbench, **List | Board**-Umschalter im Header,
-Wahl in `localStorage` unter `sac.workbenchView`): `DeploymentBoard` —
-alternative Darstellung derselben `filtered`-Liste, KEIN eigener Datenpfad.
-Eine Spalte je `pro_deploymentstatus`-Stage (Codes in der Komponente
-gepflegt, müssen mit Dataverse synchron bleiben: 500870000 None …
-500870003 Completed; 867520001/867520002 = Merge-Log, read-only, nur bei
-Belegung sichtbar). HTML5-Drag & Drop; Drop ⇒
-`solutionService.setDeploymentStatus` + `reload()`. Die Karte wird
-**optimistisch** über eine lokale Override-Map in der Zielspalte gehalten
-(Fehler ⇒ Override weg, Karte springt zurück, Banner); Karten ohne
-`recordId` (untracked) sind nicht draggable. Der Mock mappt alle sechs
-Status-Codes auf ihre Labels.
-
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT

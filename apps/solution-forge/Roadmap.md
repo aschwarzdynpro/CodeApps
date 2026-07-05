@@ -24,16 +24,6 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       Counter), Umschalter Markdown | Raw + Copy. **Publish** speichert
       versionierte Snapshots (`pro_releasenote`, nur Deployment Manager),
       **History**-Tab zum Wiederabruf.
-- [x] **Deployment-Kanban**: `pro_deploymentstatus` als Board mit
-      Drag & Drop (None → To be deployed → In progress → Completed).
-      Alternative Workbench-Ansicht (List | Board-Umschalter im Header, in
-      `localStorage` gemerkt): eine Spalte je Status; die Merge-Log-Status
-      (Merged into Deployment/Core) erscheinen nur bei Belegung und sind
-      read-only. Karten mit Kind-Icon, Unique Name, Version, ADO-`#` und
-      Owner; Drop schreibt `setDeploymentStatus` optimistisch (Fehler ⇒
-      Karte springt zurück + Banner); untracked Solutions ohne
-      Working-Solution-Record sind nicht verschiebbar. *(Workbench →
-      „Board", `DeploymentBoard`)*
 - [ ] **Power-Platform-Pipelines-Integration**: Pipeline-Run aus der App
       starten, Run-Status nach `pro_deploymentstatus` zurückspiegeln.
 - [x] **Solution Import History Viewer**: `importjob`-Historie je wählbarer
@@ -163,7 +153,7 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       Re-Link, Typ-Pflege, Löschen mit Undo)
 - [x] „Mark completed": offene Working Solution auf „Deployment completed"
       setzen, optional die unterliegende Solution löschen — mit 3s-Undo
-      (Restore + Wieder-Öffnen); erster Baustein Richtung Deployment-Kanban
+      (Restore + Wieder-Öffnen)
 - [x] Kollisions-Radar, Komponenten-Suche, Work-Item-Gruppierung
 - [x] Merge mit Plan, Konflikt-Markierung und Status-Logging
 - [x] Merge-Historie: jeder Merge schreibt eine `pro_mergerun`-Zeile (Counts +
