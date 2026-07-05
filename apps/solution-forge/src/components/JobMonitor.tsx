@@ -365,11 +365,8 @@ export function JobMonitor({ canManageJobs, envKey, onEnvChange }: Props) {
             {label}
           </button>
         ))}
-      </nav>
-
-      {subTab === 'health' && (
-        <>
-          <div className="jobs-health-bar">
+        {subTab === 'health' && (
+          <span className="trace-level-control">
             <button
               className="btn btn--small"
               onClick={() => void loadHealth()}
@@ -377,7 +374,12 @@ export function JobMonitor({ canManageJobs, envKey, onEnvChange }: Props) {
             >
               {healthLoading ? 'Refreshing…' : '⟳ Refresh'}
             </button>
-          </div>
+          </span>
+        )}
+      </nav>
+
+      {subTab === 'health' && (
+        <>
           {healthError && <div className="state state--error">{healthError}</div>}
           {!health && !healthError && <div className="state">Checking async health…</div>}
           {health && (
@@ -437,9 +439,15 @@ export function JobMonitor({ canManageJobs, envKey, onEnvChange }: Props) {
                 onClick={() => setSubTab('watchdog')}
               >
                 <span className="jobs-tile-value">
-                  {health.watchdogAvailable
-                    ? `${health.watchdog.ok} 🟢 / ${health.watchdog.overdue + health.watchdog.never} 🔴`
-                    : 'n/a'}
+                  {health.watchdogAvailable ? (
+                    <>
+                      {health.watchdog.ok} <span className="wd-dot wd-dot--ok" />{' '}
+                      / {health.watchdog.overdue + health.watchdog.never}{' '}
+                      <span className="wd-dot wd-dot--bad" />
+                    </>
+                  ) : (
+                    'n/a'
+                  )}
                 </span>
                 <span className="jobs-tile-label">Watchdog heartbeats</span>
                 <span className="jobs-tile-hint">

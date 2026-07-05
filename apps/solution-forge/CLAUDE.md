@@ -438,6 +438,15 @@ PROD failed), damit die Timeline offline demobar ist.
     mit Mode-Badge + How-To/Help-Icons) über `.app-body` (sticky `.sidebar`
     full-height + `.content`). Höhen/Breiten als CSS-Vars in `index.css`
     (`--topbar-h`, `--sidebar-w`, `--topbar-bg`).
+    **UI-Konsistenz (Refurbish-Pass in App.css):** native `<select>`s in
+    Toolbars/Pickern werden ZENTRAL gestylt (`.trace-toolbar/.subtabs/
+    .compare-controls/.operate-env/.validate-toolbar select` — Radius,
+    Border, Chevron-Data-URI, Fokus) ⇒ neue Workspaces brauchen kein eigenes
+    Select-Styling, einfach eine dieser Container-Klassen nutzen. `.subtab`
+    ist nowrap (die Leiste wrappt als Ganzes); rechte Zusatz-Controls einer
+    Sub-Tab-Leiste gehören in `<span className="trace-level-control">`
+    (nowrap, shrink-0 — Muster: Trace-Level, Role-Snapshot/Reload,
+    Health-Refresh).
 11. Debugging: kein Zugriff auf die laufende App — Diagnostik via
     `console.warn('[solutions]/[compare]/[deps]'…)` + `pac env fetch
     --xmlFile <fetchxml>` (Read-only-Reproduktion als User). Lookup-Fehler
