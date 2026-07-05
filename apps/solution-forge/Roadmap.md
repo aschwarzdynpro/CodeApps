@@ -1,14 +1,12 @@
 # Roadmap — Solution Administration Console
 
-Ideen-Katalog für den weiteren Ausbau (Stand 2026-06-12). Erledigtes wandert
-nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
-[`TODO.md`](TODO.md).
+Ideen-Katalog für den weiteren Ausbau (Stand 2026-07-06, mit dem Product
+Owner durchgesehen — verworfene Ideen wurden gestrichen, die Historie steht
+im Git-Log). Erledigtes wandert nach unten in „Umgesetzt". Die SP-Migration
+hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
 
 ## Qualität & Pre-Flight (vor Merge/Deployment)
 
-- [ ] ⭐ **Kollisions-Auflösung**: Aus dem Kollisions-Radar heraus Komponenten
-      per Klick aus einer Working Solution entfernen
-      (`RemoveSolutionComponent`) oder in die andere verschieben.
 - [x] ⭐ **Dependency-Check** (`RetrieveMissingDependencies`): Release-Solution
       gegen Ziel-Umgebung prüfen — Missing/Required Dependencies, optional
       „Add to Solution" je fehlender Komponente. *(Tab „Dependency Check")*
@@ -17,10 +15,6 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       Tabelle, Komponenten-Übersicht, abgeleitete Recommendations und
       Environment-Readiness-Matrix; ein Durchlauf über alle vier Checks.
       *(Tab „Analyze", `AnalyzeDashboard` + `analysisModel.ts`)*
-- [ ] **Solution-Checker-Anbindung**: Critical/High-Findings des Microsoft
-      Solution Checkers als Badge pro Working Solution.
-- [ ] **Pre-Merge-Diff**: Zwei Solutions gegenüberstellen — „was würde der
-      Merge dem Release hinzufügen?"
 
 ## Release-Zug & Deployment
 
@@ -47,13 +41,9 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       Release — „was ging wann wohin" als reine Visualisierung vorhandener
       Daten, mit Event-Art-Filtern und Status-Badges. *(Menüpunkt „Timeline",
       Manage-Gruppe)*
-- [ ] **Version-Bump & Export**: Versionsnummer der Release-Solution
-      hochzählen und Export anstoßen.
 
 ## Drift & Governance
 
-- [ ] ⭐ **Drift-Report über alles**: Compare über alle getrackten Solutions
-      aggregiert (X missing in PROD, Y Status-Drift) mit CSV-Export.
 - [x] **Layer-Inspektor** (`msdyn_componentlayer`): Aktive unmanaged Layer
       über managed Komponenten in UAT/PROD aufdecken. *(Tab „Layer
       Inspector")*
@@ -61,8 +51,6 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       daraufhin prüfen, mit welchen Usern/Teams sie in UAT/PROD geteilt sind
       (`RetrieveSharedPrincipalsAndAccess`) — deployt-aber-nicht-geteilt
       aufdecken. *(Tab „App Sharing")*
-- [ ] **Präfix-Wächter**: Komponenten mit fremdem Publisher-Präfix in einer
-      Working Solution flaggen.
 - [ ] **Housekeeping-Cockpit**: Duplikate, Orphans, leere Solutions,
       „Work Item zu / Solution offen" als Aufräum-Seite mit Direkt-Aktionen.
 - [x] **Compare: Inhalts-Drift** via Hash (`clientdata` / `xaml` / `content`)
@@ -102,9 +90,6 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 - [x] **Merge-Historie als Tabelle** (statt nur „letzter Merge") — Grundlage
       für die Release Notes. *(Tabelle `pro_mergerun`, Detail-Panel der
       Release-Solution)*
-- [ ] **Teams-Benachrichtigungen**: neuer Konflikt im Radar / Merge fertig →
-      Post in den Dev-Channel.
-- [ ] **Notizen am Eintrag** (Annotations im Detail-Panel).
 - [ ] **Steuertabelle ausbauen** (`pro_workbenchsetting`): Umgebungs-URLs,
       Rollen-Name, Feature-Flags konfigurierbar statt hart in `config.ts`.
 - [x] **Rollen-Check um Team-Vererbung erweitern**: `hasRole` erkennt jetzt
