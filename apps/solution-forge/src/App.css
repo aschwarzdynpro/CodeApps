@@ -4599,3 +4599,62 @@
   border-radius: 4px;
   padding: 0 4px;
 }
+
+/* ---- Audit Configuration Analyzer ---- */
+.audit-org {
+  padding: 14px;
+  margin-bottom: 12px;
+  border-left: 4px solid #16a34a;
+}
+.audit-org--off {
+  border-left-color: #dc2626;
+}
+.audit-org-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.audit-org-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.audit-org-warn {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: #b91c1c;
+}
+.audit-badge {
+  display: inline-block;
+  padding: 1px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+.audit-badge--on {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+.audit-badge--off {
+  background: var(--bg);
+  color: var(--muted);
+}
+.audit-eff {
+  font-size: 12px;
+  font-weight: 600;
+}
+.audit-eff--on {
+  color: #166534;
+}
+.audit-eff--warn {
+  color: #92400e;
+}
+.audit-columns {
+  margin-top: 4px;
+}
+.audit-note {
+  margin-top: 8px;
+  font-size: 12px;
+}

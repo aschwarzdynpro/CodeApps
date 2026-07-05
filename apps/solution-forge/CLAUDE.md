@@ -228,6 +228,23 @@ einem Env, absent im anderen" (Transport-Lücke). Secrets (`type` 100000005)
 werden maskiert; Default-Fallback markiert. Read-only, keine neuen Data
 Sources. Per-Env-Query-Fehler landen in `result.errors` (nicht geworfen).
 
+**Audit Config Analyzer** (Validate-Gruppe, Menüpunkt „Audit Config", gated):
+`AuditConfigWorkspace` + `auditConfigService` (`dataverse…`/`mock…`).
+Zielumgebung per `OperateEnvPicker` (eigener Lift `auditEnvKey` in App.tsx,
+Remount per `key`). Liest über den Konnektor (`odataQuery` in
+`currentEnvQuery.ts` — `$select`/`$filter`/`$expand`): `organizations`
+(`isauditenabled`, `auditretentionperiodv2`) und `EntityDefinitions`
+(`LogicalName`, `DisplayName`, `IsAuditEnabled`). **`IsAuditEnabled` ist eine
+BooleanManagedProperty** → `.Value` lesen (`managedBool`); `DisplayName` ist
+ein Label → `.UserLocalizedLabel.Label` (`label()`). Spalten lazy je Tabelle:
+`EntityDefinitions` gefiltert `LogicalName eq '…'` mit
+`$expand=Attributes($select=LogicalName,DisplayName,IsAuditEnabled)` (Muster
+aus `dataverseSolutionService.resolveAttributeNames`). **Effektiv-Regel** als
+pure function `utils/auditConfig.ts → describeTableAudit(org, table)` (org an
++ Tabelle an = `effective`; Tabelle an, org aus = `configured-but-off`) +
+`formatRetention` (−1 = Forever), beide Vitest-getestet. Read-only, keine
+neuen Data Sources.
+
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT

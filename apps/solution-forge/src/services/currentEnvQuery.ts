@@ -80,6 +80,36 @@ export async function fetchXmlQuery(
 }
 
 /**
+ * Simple OData `$select` (+ optional `$filter` / `$expand`) query against an
+ * environment via the connector — for entity sets and metadata sets
+ * (`EntityDefinitions`) that don't need FetchXML. `orgUrl` selects the target
+ * environment (defaults to the host env).
+ */
+export async function odataQuery(
+  entitySet: string,
+  select: string,
+  opts: { orgUrl?: string; filter?: string; expand?: string } = {},
+): Promise<Row[]> {
+  const result = await MicrosoftDataverseService.ListRecordsWithOrganization(
+    opts.orgUrl || currentOrgUrl(),
+    entitySet,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    select,
+    opts.filter,
+    undefined,
+    opts.expand,
+  )
+  if (!result.success) {
+    const detail = (result as { error?: { message?: string } }).error?.message
+    throw new Error(`${entitySet} query failed${detail ? ` — ${detail}` : ''}`)
+  }
+  return (result.data as { value?: Row[] } | undefined)?.value ?? []
+}
+
+/**
  * Paged FetchXML: re-runs the query with an increasing `page` attribute until
  * a page comes back short. Use for intersect-table sweeps (roleprivileges,
  * systemuserroles) that can exceed the 5000-row page. `pageSize` must match

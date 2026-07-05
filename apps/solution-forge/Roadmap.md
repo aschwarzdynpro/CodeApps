@@ -62,11 +62,13 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       anderen nicht) flaggen. Häufigster Import-Schmerz. Read-only über den
       Konnektor, Match über Schema-/Logical-Name. *(Menüpunkt „Env Config",
       Validate-Gruppe, gated)*
-- [ ] **Audit-Konfig-Analyzer**: welche Tabellen/Spalten Auditing aktiviert
+- [x] **Audit-Konfig-Analyzer**: welche Tabellen/Spalten Auditing aktiviert
       haben (`IsAuditEnabled` je Entity/Attribut) und die Org-Audit-/
       Retention-Einstellungen (`organization.isauditenabled`,
-      `auditretentionperiodv2`) — Governance-Überblick, Synergie mit der
-      Audit-Explorer-App im Monorepo.
+      `auditretentionperiodv2`) — Governance-Überblick mit Effektiv-Regel
+      (org an + Tabelle an), Spalten-Drilldown. Synergie mit der
+      Audit-Explorer-App im Monorepo. *(Menüpunkt „Audit Config",
+      Validate-Gruppe, gated, wählbare Zielumgebung)*
 
 ## DevOps-Synergien (sobald der Service Principal steht, siehe TODO.md)
 

@@ -607,6 +607,20 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🔍 Audit Config (Validate)</h3>
+            <p>
+              The <strong>Audit Configuration Analyzer</strong> shows a chosen
+              environment's auditing setup: the organization master switch and
+              retention period, and per-table / per-column{' '}
+              <code>IsAuditEnabled</code>. A table only records history when
+              org auditing <em>and</em> the table are both on — the{' '}
+              <strong>Effective</strong> column flags a table that is
+              configured for audit while the org switch is off. Expand a table
+              to see which columns are audited. Read-only.
+            </p>
+          </section>
+
+          <section className="help-section">
             <h3>🌐 Operate — target environment</h3>
             <p>
               Each Operate feature (Plugin Traces, Job Monitor, Role Analyzer)

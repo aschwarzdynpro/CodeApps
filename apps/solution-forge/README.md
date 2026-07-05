@@ -67,6 +67,15 @@ nach Typ.
   **Transport-Lücken** (Setting in einem Env vorhanden, im anderen nicht).
   Secrets werden maskiert, Default-Fallback markiert. Read-only über den
   Konnektor je Umgebung; Mock-Fallback mit eingebauten Beispiel-Lücken.
+- **Audit Config** (Validate, gated) — **Audit-Konfiguration** einer
+  wählbaren Umgebung: der Org-Master-Schalter (`organization.isauditenabled`)
+  + Retention (`auditretentionperiodv2`) und je **Tabelle/Spalte**
+  `IsAuditEnabled` aus den `EntityDefinitions`-Metadaten. Eine Tabelle
+  auditiert nur **effektiv**, wenn Org-Auditing UND die Tabelle an sind — der
+  Analyzer flaggt „configured but off" und weist darauf hin, wenn eine
+  auditierte Tabelle keine markierte Spalte hat (nur Record-Shell). Spalten
+  werden beim Aufklappen lazy geladen. Read-only über den Konnektor
+  (Metadaten); Mock-Fallback. Synergie mit der Audit-Explorer-App im Monorepo.
 - **App-Shell** (Dynamics-365-Stil): durchgehende **dunkle Topbar** mit
   Brand-Lockup links und Utility-Cluster rechts (Lauf-Modus-Badge —
   „Connected" / „Demo data" aus `usePower().mode` —, How-To & Help als Icons),

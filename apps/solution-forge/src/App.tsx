@@ -17,6 +17,7 @@ import { AnalyzeWorkspace } from './components/AnalyzeWorkspace'
 import { ReleaseNotesWorkspace } from './components/ReleaseNotesWorkspace'
 import { ActivityBar } from './components/ActivityBar'
 import { EnvConfigWorkspace } from './components/EnvConfigWorkspace'
+import { AuditConfigWorkspace } from './components/AuditConfigWorkspace'
 import { TraceExplorer } from './components/TraceExplorer'
 import { JobMonitor } from './components/JobMonitor'
 import { RoleAnalyzer } from './components/RoleAnalyzer'
@@ -54,6 +55,7 @@ type Tab =
   | 'readiness'
   | 'analyze'
   | 'envConfig'
+  | 'auditConfig'
   | 'traces'
   | 'jobs'
   | 'roles'
@@ -88,6 +90,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       },
       { key: 'analyze', label: 'Analyze', icon: '📊', gated: true },
       { key: 'envConfig', label: 'Env Config', icon: '🔧', gated: true },
+      { key: 'auditConfig', label: 'Audit Config', icon: '🔍', gated: true },
     ],
   },
   {
@@ -114,6 +117,7 @@ const TAB_TITLES: Record<Tab, string> = {
   readiness: 'Deployment Readiness',
   analyze: 'Analyze',
   envConfig: 'Environment Config',
+  auditConfig: 'Audit Configuration',
   traces: 'Plugin Trace Explorer',
   jobs: 'Async Job / Flow Monitor',
   roles: 'Security Role Analyzer',
@@ -173,6 +177,8 @@ function App() {
   const [operateEnvKey, setOperateEnvKey] = useState<string>(() =>
     currentEnvKey(),
   )
+  // Audit Config has its own target-environment selection (Validate group).
+  const [auditEnvKey, setAuditEnvKey] = useState<string>(() => currentEnvKey())
   // Sidebar collapse (icon-only) — remembered across sessions.
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
@@ -1282,6 +1288,14 @@ function App() {
 
       {!error && tab === 'envConfig' && isDeploymentManager && (
         <EnvConfigWorkspace />
+      )}
+
+      {!error && tab === 'auditConfig' && isDeploymentManager && (
+        <AuditConfigWorkspace
+          key={auditEnvKey}
+          envKey={auditEnvKey}
+          onEnvChange={setAuditEnvKey}
+        />
       )}
 
       {/* Operate views are independent of the solutions list — they render
