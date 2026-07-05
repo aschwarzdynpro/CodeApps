@@ -149,6 +149,16 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 name, DevOps id).
               </li>
               <li>
+                <strong>List | Board</strong> (header, remembered across
+                sessions) — Board shows the same filtered entries as a{' '}
+                <strong>deployment Kanban</strong>: one column per deployment
+                status (None → To be deployed → In progress → Completed);
+                drag a card into another column to update its status. The
+                merged-log statuses appear as read-only columns only when
+                populated, and untracked solutions can't be moved — track
+                them first.
+              </li>
+              <li>
                 <strong>Open</strong> and <strong>Tracked</strong> are on by
                 default — they narrow the list to working solutions whose
                 record is still <strong>active</strong> (statecode 0) and that

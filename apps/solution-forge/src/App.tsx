@@ -8,6 +8,7 @@ import { PHASE_LABELS, type DetectivePhaseKey } from './types/detective'
 import { solutionService } from './services/solutionService'
 import { SolutionFilterBar, type KindFilter } from './components/SolutionFilterBar'
 import { SolutionList } from './components/SolutionList'
+import { DeploymentBoard } from './components/DeploymentBoard'
 import { SolutionDetail } from './components/SolutionDetail'
 import { CreateSolutionDialog } from './components/CreateSolutionDialog'
 import { MergeWorkbench } from './components/MergeWorkbench'
@@ -196,6 +197,25 @@ function App() {
   const [importEnvKey, setImportEnvKey] = useState<string>(() =>
     currentEnvKey(),
   )
+  // Workbench presentation: classic list or the deployment Kanban board —
+  // remembered across sessions like the sidebar state.
+  const [workbenchView, setWorkbenchView] = useState<'list' | 'board'>(() => {
+    try {
+      return localStorage.getItem('sac.workbenchView') === 'board'
+        ? 'board'
+        : 'list'
+    } catch {
+      return 'list'
+    }
+  })
+  const switchWorkbenchView = (view: 'list' | 'board') => {
+    setWorkbenchView(view)
+    try {
+      localStorage.setItem('sac.workbenchView', view)
+    } catch {
+      /* storage unavailable — keep the in-memory state only */
+    }
+  }
   // Sidebar collapse (icon-only) — remembered across sessions.
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
@@ -764,6 +784,19 @@ function App() {
     reload()
   }
 
+  /**
+   * Kanban drop — persist the card's new pro_deploymentstatus, then refresh
+   * the list. Errors bubble up to the board's own banner.
+   */
+  const handleBoardMove = async (
+    solution: WorkingSolution,
+    statusCode: number,
+  ) => {
+    if (!solution.recordId) return
+    await solutionService.setDeploymentStatus(solution.recordId, statusCode)
+    reload()
+  }
+
   const undoDelete = (key: string) => {
     const timeout = deleteTimers.current.get(key)
     if (timeout) window.clearTimeout(timeout)
@@ -988,6 +1021,30 @@ function App() {
             <h1>{TAB_TITLES[tab]}</h1>
             {tab === 'workbench' && !error && (
               <div className="header-actions">
+                <div
+                  className="view-toggle"
+                  role="group"
+                  aria-label="Workbench view"
+                >
+                  <button
+                    className={`view-toggle-btn ${
+                      workbenchView === 'list' ? 'view-toggle-btn--active' : ''
+                    }`}
+                    title="Classic list with detail panel"
+                    onClick={() => switchWorkbenchView('list')}
+                  >
+                    ☰ List
+                  </button>
+                  <button
+                    className={`view-toggle-btn ${
+                      workbenchView === 'board' ? 'view-toggle-btn--active' : ''
+                    }`}
+                    title="Deployment Kanban — drag cards between status columns"
+                    onClick={() => switchWorkbenchView('board')}
+                  >
+                    ⫴ Board
+                  </button>
+                </div>
                 {loadedAt && (
                   <span
                     className="list-updated muted"
@@ -1196,6 +1253,11 @@ function App() {
             </div>
           )}
 
+          {workbenchView === 'board' && (
+            <DeploymentBoard solutions={filtered} onMove={handleBoardMove} />
+          )}
+
+          {workbenchView === 'list' && (
           <div className="layout">
             <SolutionList
               solutions={filtered}
@@ -1250,6 +1312,7 @@ function App() {
               }
             />
           </div>
+          )}
         </>
       )}
 

@@ -118,6 +118,17 @@ nach Typ.
   Komponenten-Index über die offenen Working Solutions aufgebaut; Treffer
   werden als Chips an der Solution angezeigt. Beide Funktionen sind damit auf
   den aktiven Satz beschränkt (nicht alle Solutions der Umgebung).
+- **Deployment-Kanban** (Workbench → **List | Board**-Umschalter im Header,
+  Wahl wird in `localStorage` gemerkt): dieselben gefilterten Working
+  Solutions als Board mit einer Spalte je `pro_deploymentstatus`
+  (None → To be deployed → Deployment in progress → Deployment completed);
+  die Merge-Log-Status („Merged into Deployment/Core Solution") erscheinen
+  nur bei Belegung und sind read-only. Karten (Kind-Icon, Titel, Unique
+  Name, Version, ADO-`#`, Owner) werden per **Drag & Drop** verschoben —
+  der Drop schreibt den Status via `setDeploymentStatus` optimistisch
+  (bei Fehler springt die Karte zurück und ein Banner erklärt warum);
+  untracked Solutions ohne Working-Solution-Record sind nicht verschiebbar
+  (`DeploymentBoard`).
 - **Anlegen**: Dialog mit Typ, ADO-ID, Titel, Beschreibung, Publisher und
   Live-Preview des Unique Name inkl. Duplikat-Prüfung. Die Solution wird
   real in Dataverse erzeugt und ist sofort im Maker-Portal sichtbar.

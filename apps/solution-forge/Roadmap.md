@@ -24,8 +24,16 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       Counter), Umschalter Markdown | Raw + Copy. **Publish** speichert
       versionierte Snapshots (`pro_releasenote`, nur Deployment Manager),
       **History**-Tab zum Wiederabruf.
-- [ ] **Deployment-Kanban**: `pro_deploymentstatus` als Board mit
+- [x] **Deployment-Kanban**: `pro_deploymentstatus` als Board mit
       Drag & Drop (None → To be deployed → In progress → Completed).
+      Alternative Workbench-Ansicht (List | Board-Umschalter im Header, in
+      `localStorage` gemerkt): eine Spalte je Status; die Merge-Log-Status
+      (Merged into Deployment/Core) erscheinen nur bei Belegung und sind
+      read-only. Karten mit Kind-Icon, Unique Name, Version, ADO-`#` und
+      Owner; Drop schreibt `setDeploymentStatus` optimistisch (Fehler ⇒
+      Karte springt zurück + Banner); untracked Solutions ohne
+      Working-Solution-Record sind nicht verschiebbar. *(Workbench →
+      „Board", `DeploymentBoard`)*
 - [ ] **Power-Platform-Pipelines-Integration**: Pipeline-Run aus der App
       starten, Run-Status nach `pro_deploymentstatus` zurückspiegeln.
 - [x] **Solution Import History Viewer**: `importjob`-Historie je wählbarer
