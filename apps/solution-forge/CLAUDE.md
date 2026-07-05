@@ -323,9 +323,15 @@ FieldPermissionType-Werte (0/4) beim ersten echten Lauf bestätigen.
    Konnektor-Sources als Connection (`pro_CRDataverse` → SP „App-Reg
    D365-CE nonProd"). Current User ⇒ native `SystemusersService` mit
    Filter `Microsoft.Dynamics.CRM.EqualUserId(PropertyName='systemuserid')`.
-   Rolle ⇒ native `RolesService` mit
-   `systemuserroles_association/any(u:u/systemuserid eq <id>)` (nur
-   direkte Zuweisung, keine Team-Vererbung).
+   Rolle ⇒ native `RolesService`, **zwei getrennte Queries** (`resolveHasRole`
+   → `roleFilterMatches`, OR): direkt
+   `systemuserroles_association/any(u:u/systemuserid eq <id>)` **und**
+   team-vererbt (nested Lambda)
+   `teamroles_association/any(t:t/teammembership_association/any(m:m/systemuserid eq <id>))`.
+   Getrennt, damit die (nested-Lambda-)Team-Query die direkte Prüfung nie
+   regressiert — schlägt die Team-Query fehl, greift nur direkt. Filter über
+   Rollen-**Name** deckt die BU-Kopien ab. (AAD-Group-Teams mit noch nicht
+   materialisierter Membership sind eine bekannte Lücke.)
 6. **Komponenten-Namen** aus `msdyn_solutioncomponentsummary` (Quelle des
    Maker-Portals); `rootcomponentbehavior` nur aus `solutioncomponent`;
    rohe Typ-Schlüssel via `prettifyTypeName()` („Customization.Type_X").

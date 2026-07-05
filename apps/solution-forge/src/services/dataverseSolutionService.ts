@@ -1798,10 +1798,13 @@ export class DataverseSolutionService implements SolutionService {
   private rolePromises = new Map<string, Promise<boolean>>()
 
   /**
-   * Direct role membership of the signed-in user, resolved natively (runs
-   * as the user) via a lambda filter on the role↔user association. Roles
-   * inherited through teams are not detected — assign the role directly
-   * for the deployment managers.
+   * Whether the signed-in user holds the named security role, resolved
+   * natively (runs as the user). Detects BOTH a direct assignment and a role
+   * inherited through team membership (member of a team that carries the
+   * role). Filtering by role NAME covers the per-BU role copies (all copies
+   * share the name). The two checks run as independent queries — the direct
+   * check never depends on the (nested-lambda) team query, so team detection
+   * can never regress the existing gating.
    */
   async hasRole(roleName: string): Promise<boolean> {
     const mode = await powerModeReady
@@ -1815,24 +1818,51 @@ export class DataverseSolutionService implements SolutionService {
   }
 
   private async resolveHasRole(roleName: string): Promise<boolean> {
+    const user = await this.getCurrentUser()
+    if (!user.id) return false
+    const escaped = roleName.replace(/'/g, "''")
+    // 1. Direct assignment (role ↔ user association).
+    if (
+      await this.roleFilterMatches(
+        `name eq '${escaped}' and ` +
+          `systemuserroles_association/any(u:u/systemuserid eq ${user.id})`,
+        'direct',
+      )
+    )
+      return true
+    // 2. Team-inherited: a team that carries the role has the user as member
+    //    (nested lambda role→teams→members).
+    if (
+      await this.roleFilterMatches(
+        `name eq '${escaped}' and ` +
+          `teamroles_association/any(t:t/teammembership_association/any(m:m/systemuserid eq ${user.id}))`,
+        'team',
+      )
+    )
+      return true
+    return false
+  }
+
+  /** Run one `role` filter and report whether it matched any row. */
+  private async roleFilterMatches(
+    filter: string,
+    kind: 'direct' | 'team',
+  ): Promise<boolean> {
     try {
-      const user = await this.getCurrentUser()
-      if (!user.id) return false
-      const escaped = roleName.replace(/'/g, "''")
       const result = await RolesService.getAll({
         select: ['roleid'],
-        filter:
-          `name eq '${escaped}' and ` +
-          `systemuserroles_association/any(u:u/systemuserid eq ${user.id})`,
+        filter,
         top: 1,
       })
       if (!result.success) {
-        console.warn('[solutions] role check failed — result:', result)
+        console.warn(`[solutions] ${kind} role check failed — result:`, result)
         return false
       }
       return (result.data?.length ?? 0) > 0
     } catch (err) {
-      console.warn('[solutions] role check threw:', err)
+      // A rejected filter (e.g. the nested team lambda) must not break the
+      // other check — treat as "not matched" and keep going.
+      console.warn(`[solutions] ${kind} role check threw:`, err)
       return false
     }
   }

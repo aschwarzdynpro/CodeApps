@@ -94,8 +94,11 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
 - [ ] **Notizen am Eintrag** (Annotations im Detail-Panel).
 - [ ] **Steuertabelle ausbauen** (`pro_workbenchsetting`): Umgebungs-URLs,
       Rollen-Name, Feature-Flags konfigurierbar statt hart in `config.ts`.
-- [ ] **Rollen-Check um Team-Vererbung erweitern** (aktuell nur direkte
-      Zuweisung von „INT | Deployment Manager").
+- [x] **Rollen-Check um Team-Vererbung erweitern**: `hasRole` erkennt jetzt
+      neben der direkten Zuweisung auch **team-vererbte** Rollen (Mitglied
+      eines Teams, das die Rolle trägt) — zwei getrennte native `role`-Queries
+      (direkt + nested Lambda `teamroles → teammembership`), damit die
+      Team-Prüfung die direkte nie regressiert.
 
 ## Security / Role Analyzer
 
