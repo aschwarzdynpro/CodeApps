@@ -125,9 +125,11 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       welche Spalten sind gesichert und wer (User/Team) darf sie
       Read/Update/Create (`fieldpermission`). Ergänzt die Rollen-Matrix um die
       Spaltenebene, die sie heute nicht zeigt.
-- [ ] **Team- & BU-Map**: Business-Unit-Hierarchie (`businessunit.parent
-      businessunitid`) + Team-Rollen (`teamroles`) visualisiert — erklärt,
-      woher team-vererbte Rechte kommen (Ergänzung zum Team-Vererbungs-Check).
+- [x] **Team- & BU-Map**: interaktives Org-Chart (Inline-SVG, Pan/Zoom,
+      aufklappbar) der Business-Unit-Hierarchie (`businessunit.parentbusiness
+      unitid`) mit den Rollen-vergebenden Teams (`teamroles`) je BU; Detail-
+      Panel (Rollen/Mitglieder) und Trace-Modus (User → team-vererbte Rechte-
+      Pfad). *(Role Analyzer → Sub-Tab „Team & BU map")*
 
 ## Umgesetzt
 

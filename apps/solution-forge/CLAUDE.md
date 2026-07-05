@@ -245,6 +245,20 @@ pure function `utils/auditConfig.ts → describeTableAudit(org, table)` (org an
 `formatRetention` (−1 = Forever), beide Vitest-getestet. Read-only, keine
 neuen Data Sources.
 
+**Team & BU Map** (Role Analyzer → Sub-Tab „Team & BU map", read-only):
+`TeamBuMap.tsx` — interaktives **Org-Chart als Inline-SVG** (kein Chart-Dep),
+Pan (Pointer-Drag) / Zoom (Buttons + Wheel), aufklappbare Teilbäume. Daten aus
+`roleAnalyzerService.getOrgStructure(envKey)` (`OrgStructure`): baut auf dem
+vorhandenen Security-Snapshot auf, der dafür um `businessunit`-Hierarchie,
+`team.businessunitid/teamtype/isdefault` und `systemuser.businessunitid`
+erweitert wurde (`assembleOrgStructure`). **Layout = pure function**
+`utils/orgTree.ts` (`buildForest` + `layoutTree`, Leaf-Slot-Zentrierung,
+variable Level-Höhen, Vitest). Default nur **Rollen-vergebende Teams**
+(`roleNames.length>0`), Toggle für alle (Default-/Access-Teams). **Trace-
+Modus**: User wählen → seine BU + Member-Teams werden hervorgehoben, Rest
+gedimmt; Panel listet die per Team gewonnenen Rollen. Membership wird im
+Snapshot nur für Rollen-Teams geladen (Non-Role-Teams zeigen keine Member).
+
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT

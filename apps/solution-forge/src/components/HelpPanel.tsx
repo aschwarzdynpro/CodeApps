@@ -735,6 +735,15 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 users above a role-count threshold.
               </li>
               <li>
+                <strong>Team &amp; BU map</strong>: an interactive org-chart
+                of the business-unit hierarchy with the role-granting teams on
+                each BU. Drag to pan, wheel to zoom, collapse a subtree. Click
+                a BU or team for its roles and members; pick a user in{' '}
+                <em>Trace user</em> to highlight their BU and teams and see the
+                roles they inherit through team membership. A toggle adds the
+                default / access teams.
+              </li>
+              <li>
                 <strong>Core roles</strong> (write, host env only): analyzes
                 the <strong>custom (unmanaged)</strong> roles for privileges
                 shared by ≥ 2 of them and proposes a consolidated{' '}

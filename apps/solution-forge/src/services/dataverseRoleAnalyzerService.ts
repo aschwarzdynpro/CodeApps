@@ -13,6 +13,11 @@ import type {
   RoleSummary,
   SecurityModel,
 } from '../types/roles'
+import type {
+  OrgBusinessUnit,
+  OrgStructure,
+  OrgTeam,
+} from '../types/orgStructure'
 import type { RoleAnalyzerService } from './roleAnalyzerService'
 import { mockRoleAnalyzerService } from './mockRoleAnalyzerService'
 import { powerModeReady } from '../PowerProvider'
@@ -57,6 +62,18 @@ const PRIVILEGE_DEPTH_ENUM: Record<number, string> = {
   8: 'Global', // Organization
 }
 
+interface TeamMeta {
+  buId: string
+  teamType: number
+  isDefault: boolean
+}
+
+interface OrgBuRow {
+  id: string
+  name: string
+  parentId: string | null
+}
+
 interface AssignmentSnapshot {
   /** Enabled users. */
   users: Map<string, PrincipalRef>
@@ -67,6 +84,12 @@ interface AssignmentSnapshot {
   teamRoles: Map<string, Set<string>>
   /** teamId → member user ids. */
   teamMembers: Map<string, Set<string>>
+  /** teamId → owning BU / type / default flag (Team & BU map). */
+  teamMeta: Map<string, TeamMeta>
+  /** userId → owning BU id (Team & BU map user counts + trace). */
+  userBu: Map<string, string>
+  /** Business-unit hierarchy rows. */
+  businessUnits: OrgBuRow[]
 }
 
 interface CachedModel {
@@ -289,16 +312,21 @@ async function loadRolePrivileges(
   }
 }
 
-/** Users + direct roles (one pass over systemuser ⋈ systemuserroles). */
+/** Users + direct roles + owning BU (systemuser ⋈ systemuserroles). */
 async function loadUserAssignments(
   rootByCopy: Map<string, string>,
   orgUrl: string,
-): Promise<{ users: Map<string, PrincipalRef>; userRoles: Map<string, Set<string>> }> {
+): Promise<{
+  users: Map<string, PrincipalRef>
+  userRoles: Map<string, Set<string>>
+  userBu: Map<string, string>
+}> {
   const fetchXml =
     `<fetch>` +
     `<entity name="systemuser">` +
     `<attribute name="systemuserid" />` +
     `<attribute name="fullname" />` +
+    `<attribute name="businessunitid" />` +
     `<link-entity name="systemuserroles" from="systemuserid" to="systemuserid" link-type="outer" alias="ur">` +
     `<attribute name="roleid" />` +
     `</link-entity>` +
@@ -307,11 +335,15 @@ async function loadUserAssignments(
   const rows = await fetchXmlAllPages('systemusers', fetchXml, orgUrl)
   const users = new Map<string, PrincipalRef>()
   const userRoles = new Map<string, Set<string>>()
+  const userBu = new Map<string, string>()
   for (const row of rows) {
     const id = rowStr(row.systemuserid)
     if (!id) continue
-    if (!users.has(id))
+    if (!users.has(id)) {
       users.set(id, { id, name: rowStr(row.fullname) || '(no name)', type: 'user' })
+      const bu = rowStr(row._businessunitid_value)
+      if (bu) userBu.set(id, bu)
+    }
     const roleCopy = rowStr(row['ur.roleid'])
     if (roleCopy) {
       const root = rootByCopy.get(roleCopy) ?? roleCopy
@@ -320,10 +352,29 @@ async function loadUserAssignments(
       userRoles.set(id, set)
     }
   }
-  return { users, userRoles }
+  return { users, userRoles, userBu }
 }
 
-/** Teams + team roles + membership (two passes over team). */
+/** Business-unit hierarchy rows. */
+async function loadBusinessUnits(orgUrl: string): Promise<OrgBuRow[]> {
+  const fetchXml =
+    `<fetch>` +
+    `<entity name="businessunit">` +
+    `<attribute name="businessunitid" />` +
+    `<attribute name="name" />` +
+    `<attribute name="parentbusinessunitid" />` +
+    `</entity></fetch>`
+  const rows = await fetchXmlAllPages('businessunits', fetchXml, orgUrl)
+  return rows
+    .map((row) => ({
+      id: rowStr(row.businessunitid),
+      name: rowStr(row.name) || '(business unit)',
+      parentId: rowStr(row._parentbusinessunitid_value) || null,
+    }))
+    .filter((b) => b.id)
+}
+
+/** Teams + team roles + membership + BU/type meta (two passes over team). */
 async function loadTeamAssignments(
   rootByCopy: Map<string, string>,
   orgUrl: string,
@@ -331,12 +382,16 @@ async function loadTeamAssignments(
   teams: Map<string, PrincipalRef>
   teamRoles: Map<string, Set<string>>
   teamMembers: Map<string, Set<string>>
+  teamMeta: Map<string, TeamMeta>
 }> {
   const rolesFetch =
     `<fetch>` +
     `<entity name="team">` +
     `<attribute name="teamid" />` +
     `<attribute name="name" />` +
+    `<attribute name="businessunitid" />` +
+    `<attribute name="teamtype" />` +
+    `<attribute name="isdefault" />` +
     `<link-entity name="teamroles" from="teamid" to="teamid" link-type="outer" alias="tr">` +
     `<attribute name="roleid" />` +
     `</link-entity>` +
@@ -344,11 +399,18 @@ async function loadTeamAssignments(
   const roleRows = await fetchXmlAllPages('teams', rolesFetch, orgUrl)
   const teams = new Map<string, PrincipalRef>()
   const teamRoles = new Map<string, Set<string>>()
+  const teamMeta = new Map<string, TeamMeta>()
   for (const row of roleRows) {
     const id = rowStr(row.teamid)
     if (!id) continue
-    if (!teams.has(id))
+    if (!teams.has(id)) {
       teams.set(id, { id, name: rowStr(row.name) || '(team)', type: 'team' })
+      teamMeta.set(id, {
+        buId: rowStr(row._businessunitid_value),
+        teamType: rowNum(row.teamtype),
+        isDefault: row.isdefault === true,
+      })
+    }
     const roleCopy = rowStr(row['tr.roleid'])
     if (roleCopy) {
       const root = rootByCopy.get(roleCopy) ?? roleCopy
@@ -384,7 +446,7 @@ async function loadTeamAssignments(
       teamMembers.set(teamId, set)
     }
   }
-  return { teams, teamRoles, teamMembers }
+  return { teams, teamRoles, teamMembers, teamMeta }
 }
 
 async function buildSnapshot(
@@ -409,12 +471,17 @@ async function buildSnapshot(
     onProgress,
   )
   onProgress?.('Loading user assignments…')
-  const { users, userRoles } = await loadUserAssignments(rootByCopy, orgUrl)
-  onProgress?.('Loading team assignments…')
-  const { teams, teamRoles, teamMembers } = await loadTeamAssignments(
+  const { users, userRoles, userBu } = await loadUserAssignments(
     rootByCopy,
     orgUrl,
   )
+  onProgress?.('Loading team assignments…')
+  const { teams, teamRoles, teamMembers, teamMeta } = await loadTeamAssignments(
+    rootByCopy,
+    orgUrl,
+  )
+  onProgress?.('Loading business units…')
+  const businessUnits = await loadBusinessUnits(orgUrl)
   return {
     model: {
       roles,
@@ -423,7 +490,16 @@ async function buildSnapshot(
       miscPrivileges,
       loadedAt: new Date(),
     },
-    assignments: { users, teams, userRoles, teamRoles, teamMembers },
+    assignments: {
+      users,
+      teams,
+      userRoles,
+      teamRoles,
+      teamMembers,
+      teamMeta,
+      userBu,
+      businessUnits,
+    },
     privilegeIdByKey,
     at: Date.now(),
   }
@@ -877,6 +953,71 @@ class DataverseRoleAnalyzerService implements RoleAnalyzerService {
       }
     }
   }
+
+  async getOrgStructure(envKey: string): Promise<OrgStructure> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockRoleAnalyzerService.getOrgStructure(envKey)
+    const snap = await this.snapshot(envKey)
+    return assembleOrgStructure(snap)
+  }
+}
+
+/**
+ * Build the Team & BU map structure from a cached security snapshot: BUs with
+ * their user counts, teams grouped by owning BU (role names + members), and
+ * the user list for the trace picker. Pure over the snapshot.
+ */
+function assembleOrgStructure(snap: CachedModel): OrgStructure {
+  const { assignments, model } = snap
+  const roleName = (rootId: string) =>
+    model.roles.find((r) => r.rootRoleId === rootId)?.name ?? rootId
+  const userName = (id: string) => assignments.users.get(id)?.name ?? id
+
+  // BU user counts.
+  const userCount = new Map<string, number>()
+  for (const buId of assignments.userBu.values())
+    userCount.set(buId, (userCount.get(buId) ?? 0) + 1)
+
+  const businessUnits: OrgBusinessUnit[] = assignments.businessUnits.map(
+    (b) => ({
+      id: b.id,
+      name: b.name,
+      parentId: b.parentId,
+      userCount: userCount.get(b.id) ?? 0,
+    }),
+  )
+
+  const teamsByBu: Record<string, OrgTeam[]> = {}
+  for (const [teamId, ref] of assignments.teams) {
+    const meta = assignments.teamMeta.get(teamId)
+    const buId = meta?.buId ?? ''
+    const memberIds = [...(assignments.teamMembers.get(teamId) ?? [])]
+    const team: OrgTeam = {
+      id: teamId,
+      name: ref.name,
+      buId,
+      teamType: meta?.teamType ?? 0,
+      isDefault: meta?.isDefault ?? false,
+      roleNames: [...(assignments.teamRoles.get(teamId) ?? [])]
+        .map(roleName)
+        .sort((a, b) => a.localeCompare(b)),
+      memberIds,
+      memberNames: memberIds.map(userName).sort((a, b) => a.localeCompare(b)),
+    }
+    ;(teamsByBu[buId] ??= []).push(team)
+  }
+  for (const list of Object.values(teamsByBu))
+    list.sort(
+      (a, b) =>
+        b.roleNames.length - a.roleNames.length || a.name.localeCompare(b.name),
+    )
+
+  const users = [...assignments.users.values()]
+    .map((u) => ({ id: u.id, name: u.name, buId: assignments.userBu.get(u.id) ?? '' }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  return { businessUnits, teamsByBu, users, loadedAt: model.loadedAt }
 }
 
 export const dataverseRoleAnalyzerService: RoleAnalyzerService =

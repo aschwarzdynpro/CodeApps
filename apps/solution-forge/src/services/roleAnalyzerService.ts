@@ -9,6 +9,7 @@ import type {
   RoleHygieneReport,
   SecurityModel,
 } from '../types/roles'
+import type { OrgStructure } from '../types/orgStructure'
 import { dataverseRoleAnalyzerService } from './dataverseRoleAnalyzerService'
 
 /**
@@ -83,6 +84,13 @@ export interface RoleAnalyzerService {
     input: CoreRoleApplyInput,
     envKey: string,
   ): Promise<CoreRoleApplyResult>
+  /**
+   * Org security structure for the Team & BU map: the business-unit
+   * hierarchy, the teams per BU (with the roles they grant and their
+   * members) and the users, for one environment. Built on the same cached
+   * snapshot as the rest of the analyzer.
+   */
+  getOrgStructure(envKey: string): Promise<OrgStructure>
 }
 
 export const roleAnalyzerService: RoleAnalyzerService =

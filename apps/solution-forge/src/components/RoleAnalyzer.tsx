@@ -20,6 +20,7 @@ import { roleAnalyzerService } from '../services/roleAnalyzerService'
 import { isCurrentEnvKey } from '../config'
 import { OperateEnvPicker } from './OperateEnvPicker'
 import { SolutionSelect } from './SolutionSelect'
+import { TeamBuMap } from './TeamBuMap'
 
 /**
  * Security Role Analyzer — the views the maker portal doesn't offer:
@@ -46,7 +47,14 @@ interface Props {
   canManage: boolean
 }
 
-type SubTab = 'matrix' | 'diff' | 'user' | 'reverse' | 'hygiene' | 'core'
+type SubTab =
+  | 'matrix'
+  | 'diff'
+  | 'user'
+  | 'reverse'
+  | 'hygiene'
+  | 'core'
+  | 'map'
 
 function depthClass(depth: PrivilegeDepthMask): string {
   switch (depth) {
@@ -349,6 +357,7 @@ export function RoleAnalyzer({
             ['reverse', 'Reverse lookup'],
             ['hygiene', 'Hygiene'],
             ['core', 'Core roles'],
+            ['map', 'Team & BU map'],
           ] as [SubTab, string][]
         ).map(([key, label]) => (
           <button
@@ -386,7 +395,7 @@ export function RoleAnalyzer({
         </div>
       )}
 
-      {model && (
+      {model && subTab !== 'map' && (
         <>
           <div className="roles-legend muted">
             Depth: <DepthBadge depth={1} /> User · <DepthBadge depth={2} />{' '}
@@ -977,6 +986,10 @@ export function RoleAnalyzer({
           )}
         </>
       )}
+
+      {/* The map loads its own org structure (BU hierarchy + teams) and does
+          not depend on the privilege model, so it renders outside that gate. */}
+      {subTab === 'map' && <TeamBuMap envKey={envKey} />}
     </div>
   )
 }

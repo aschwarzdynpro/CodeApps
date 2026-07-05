@@ -291,7 +291,13 @@ nach Typ.
     einer Quell-Rolle brauchen danach die Core-Rolle, um ihren Zugriff zu
     behalten. (Matrix/Diff/User rights/Reverse/Hygiene bleiben read-only; nur
     Core roles schreibt.) Der **Role DeDuplicator** (Entflechten doppelter
-    Rechtezuordnungen) steht auf der Roadmap.
+    Rechtezuordnungen) steht auf der Roadmap. **Team & BU map** (read-only):
+    interaktives **Org-Chart** (Inline-SVG, Pan/Zoom, aufklappbar) der
+    Business-Unit-Hierarchie mit den **Rollen-vergebenden Teams** je BU als
+    Pills; Klick auf BU/Team öffnet ein Detail-Panel (Rollen, Mitglieder), ein
+    **Trace-Modus** hebt für einen gewählten User seine BU + Teams hervor und
+    listet die **per Team vererbten Rollen** (Toggle blendet Default-/Access-
+    Teams ein).
 
 ## Architektur
 

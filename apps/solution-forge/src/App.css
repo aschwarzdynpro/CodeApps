@@ -4658,3 +4658,216 @@
   margin-top: 8px;
   font-size: 12px;
 }
+
+/* ---- Team & BU Map (Role Analyzer → Team & BU map) ---- */
+.tbmap-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 12px;
+}
+.tbmap-viewport {
+  position: relative;
+  height: 620px;
+  padding: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle, rgba(91, 91, 214, 0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.tbmap-svg {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+  display: block;
+}
+.tbmap-svg:active {
+  cursor: grabbing;
+}
+.tbmap-edge {
+  fill: none;
+  stroke: #c3c7d6;
+  stroke-width: 1.5;
+}
+.tbmap-node--dim {
+  opacity: 0.35;
+}
+.tbmap-bu {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1.5;
+  cursor: pointer;
+}
+.tbmap-bu:hover {
+  stroke: var(--brand);
+}
+.tbmap-bu--sel {
+  stroke: var(--brand);
+  stroke-width: 2.5;
+}
+.tbmap-bu--trace {
+  stroke: #d97706;
+  stroke-width: 2.5;
+  fill: #fffbeb;
+}
+.tbmap-bu-title {
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--text);
+  pointer-events: none;
+}
+.tbmap-bu-meta {
+  font-size: 11px;
+  fill: var(--muted);
+  pointer-events: none;
+}
+.tbmap-pill {
+  cursor: pointer;
+}
+.tbmap-pill--role {
+  fill: #eef2ff;
+  stroke: #c7d2fe;
+}
+.tbmap-pill--access {
+  fill: #ecfeff;
+  stroke: #a5f3fc;
+}
+.tbmap-pill--norole {
+  fill: var(--bg);
+  stroke: var(--border);
+}
+.tbmap-pill--sel {
+  stroke: var(--brand);
+  stroke-width: 2;
+}
+.tbmap-pill--trace {
+  fill: #fef3c7;
+  stroke: #f59e0b;
+  stroke-width: 2;
+}
+.tbmap-pill--dim {
+  opacity: 0.4;
+}
+.tbmap-pill-text {
+  font-size: 11px;
+  fill: var(--text);
+  pointer-events: none;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+.tbmap-more {
+  font-size: 11px;
+  fill: var(--muted);
+  pointer-events: none;
+}
+.tbmap-toggle {
+  cursor: pointer;
+}
+.tbmap-toggle circle {
+  fill: var(--surface);
+  stroke: var(--border);
+}
+.tbmap-toggle-text {
+  font-size: 14px;
+  font-weight: 700;
+  fill: var(--muted);
+  text-anchor: middle;
+  pointer-events: none;
+}
+.tbmap-legend {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+}
+.tbmap-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.tbmap-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+.tbmap-swatch--role {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+.tbmap-swatch--access {
+  background: #ecfeff;
+  border-color: #a5f3fc;
+}
+.tbmap-swatch--norole {
+  background: var(--bg);
+}
+.tbmap-panel {
+  padding: 14px;
+  height: 620px;
+  overflow: auto;
+}
+.tbmap-panel h3 {
+  margin: 0 0 2px;
+  font-size: 15px;
+}
+.tbmap-panel h4 {
+  margin: 14px 0 6px;
+  font-size: 12.5px;
+}
+.tbmap-panel-sub {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.tbmap-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  margin: 0;
+  font-size: 12.5px;
+}
+.tbmap-dl dt {
+  color: var(--muted);
+}
+.tbmap-dl dd {
+  margin: 0;
+}
+.tbmap-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+}
+.tbmap-list li {
+  margin-bottom: 2px;
+}
+.tbmap-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--brand);
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.tbmap-note {
+  margin-top: 10px;
+  font-size: 11.5px;
+}
+.tbmap-empty {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+@media (max-width: 900px) {
+  .tbmap-layout {
+    grid-template-columns: 1fr;
+  }
+  .tbmap-panel {
+    height: auto;
+  }
+}

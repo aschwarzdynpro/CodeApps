@@ -13,6 +13,10 @@ import type {
   RoleSummary,
   SecurityModel,
 } from '../types/roles'
+import type {
+  OrgStructure,
+  OrgTeam,
+} from '../types/orgStructure'
 import type { RoleAnalyzerService } from './roleAnalyzerService'
 import { maxDepth } from '../utils/privileges'
 
@@ -163,7 +167,39 @@ const USERS: PrincipalRef[] = [
 const TEAMS: PrincipalRef[] = [
   { id: 't-0001', name: 'Sales DE', type: 'team' },
   { id: 't-0002', name: 'Support 1st Level', type: 'team' },
+  // Non-role teams — only shown when the map's "all teams" toggle is on.
+  { id: 't-0003', name: 'Contoso (root)', type: 'team' },
+  { id: 't-0004', name: 'Field Sales (access)', type: 'team' },
 ]
+
+/** Business-unit hierarchy for the Team & BU map. */
+const BUSINESS_UNITS: { id: string; name: string; parentId: string | null }[] = [
+  { id: 'bu-root', name: 'Contoso (root)', parentId: null },
+  { id: 'bu-de', name: 'Contoso Germany', parentId: 'bu-root' },
+  { id: 'bu-sales', name: 'Sales', parentId: 'bu-de' },
+  { id: 'bu-service', name: 'Service', parentId: 'bu-de' },
+]
+
+/** teamId → owning BU / type (0 owner, 1 access) / default flag. */
+const TEAM_META = new Map<
+  string,
+  { buId: string; teamType: number; isDefault: boolean }
+>([
+  ['t-0001', { buId: 'bu-sales', teamType: 0, isDefault: false }],
+  ['t-0002', { buId: 'bu-service', teamType: 0, isDefault: false }],
+  ['t-0003', { buId: 'bu-root', teamType: 0, isDefault: true }],
+  ['t-0004', { buId: 'bu-sales', teamType: 1, isDefault: false }],
+])
+
+/** userId → owning BU. */
+const USER_BU = new Map<string, string>([
+  ['u-0001', 'bu-sales'],
+  ['u-0002', 'bu-service'],
+  ['u-0003', 'bu-sales'],
+  ['u-0004', 'bu-de'],
+  ['u-0005', 'bu-de'],
+  ['u-0006', 'bu-root'],
+])
 
 const USER_ROLES = new Map<string, Set<string>>([
   ['u-0001', new Set(['role-sales-sued'])],
@@ -423,6 +459,51 @@ class MockRoleAnalyzerService implements RoleAnalyzerService {
       privilegesRemoved: removed,
       steps,
     }
+  }
+
+  async getOrgStructure(_envKey: string): Promise<OrgStructure> {
+    void _envKey
+    await delay(250)
+    const userCount = new Map<string, number>()
+    for (const buId of USER_BU.values())
+      userCount.set(buId, (userCount.get(buId) ?? 0) + 1)
+    const businessUnits = BUSINESS_UNITS.map((b) => ({
+      ...b,
+      userCount: userCount.get(b.id) ?? 0,
+    }))
+    const teamsByBu: Record<string, OrgTeam[]> = {}
+    for (const team of TEAMS) {
+      const meta = TEAM_META.get(team.id)
+      const buId = meta?.buId ?? ''
+      const memberIds = [...(TEAM_MEMBERS.get(team.id) ?? [])]
+      const orgTeam: OrgTeam = {
+        id: team.id,
+        name: team.name,
+        buId,
+        teamType: meta?.teamType ?? 0,
+        isDefault: meta?.isDefault ?? false,
+        roleNames: [...(TEAM_ROLES.get(team.id) ?? [])]
+          .map(nameOf)
+          .sort((a, b) => a.localeCompare(b)),
+        memberIds,
+        memberNames: memberIds
+          .map((id) => USERS.find((u) => u.id === id)?.name ?? id)
+          .sort((a, b) => a.localeCompare(b)),
+      }
+      ;(teamsByBu[buId] ??= []).push(orgTeam)
+    }
+    for (const list of Object.values(teamsByBu))
+      list.sort(
+        (a, b) =>
+          b.roleNames.length - a.roleNames.length ||
+          a.name.localeCompare(b.name),
+      )
+    const users = USERS.map((u) => ({
+      id: u.id,
+      name: u.name,
+      buId: USER_BU.get(u.id) ?? '',
+    })).sort((a, b) => a.name.localeCompare(b.name))
+    return { businessUnits, teamsByBu, users, loadedAt: MODEL.loadedAt }
   }
 }
 
