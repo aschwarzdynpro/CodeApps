@@ -20,10 +20,56 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory)][ValidateSet('playground','schulz','waldmann')][string]$Env,
-  [switch]$SkipBuild
+  [switch]$SkipBuild,
+  # Set up the environment (config + data sources + build) but do NOT push. Used
+  # when a follow-up step must own the push — e.g. the Schulz DevOps-Sync-Flow,
+  # which needs 'power-apps add-flow' + 'power-apps push' instead of 'pac code push'.
+  [switch]$NoPush
 )
 $ErrorActionPreference = 'Stop'
 $appDir = Split-Path $PSScriptRoot -Parent
+$dsInfoPath = Join-Path $appDir '.power\schemas\appschemas\dataSourcesInfo.ts'
+
+# 'power-apps add-flow' regeneriert dataSourcesInfo.ts und droppt dabei den
+# handgepflegten retrievemissingdependencies-Block (gotcha #1/#12; addsolution-
+# component bleibt, daher greift das Re-Insert in add-data-source.ps1 hier NICHT).
+# Template gespiegelt aus scripts/add-data-source.ps1 (dort die Quelle der Wahrheit).
+function Restore-RetrieveMissingDependencies($dsInfo) {
+  if (-not (Test-Path $dsInfo)) { return }
+  if (Select-String -Path $dsInfo -Pattern '"retrievemissingdependencies"' -Quiet) { return }
+  $block = @'
+  "retrievemissingdependencies": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "",
+    "dataSourceType": "Dataverse",
+    "apis": {
+      "RetrieveMissingDependencies": {
+        "path": "/api/data/v9.2/RetrieveMissingDependencies(SolutionUniqueName='{solutionUniqueName}')",
+        "method": "GET",
+        "parameters": [
+          {
+            "name": "solutionUniqueName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responseInfo": {
+          "200": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+'@
+  $content = Get-Content $dsInfo -Raw
+  $anchor = "export const dataSourcesInfo = {"
+  $content = $content.Replace($anchor, "$anchor`n$block")
+  Set-Content -Path $dsInfo -Value $content -NoNewline
+  Write-Host "Re-inserted retrievemissingdependencies block into dataSourcesInfo.ts (post add-flow)."
+}
 
 # --- Registry: pro Umgebung App-/Env-IDs, pac-Profil, Connector, Compare-Ziele ---
 $Registry = @{
@@ -48,6 +94,11 @@ $Registry = @{
     AppId       = 'cade30e1-dd5c-4532-82eb-fd8520ba7b29'
     Solution    = 'DynamicsProSolutionAdminConsole'
     Connector   = @{ Mode = 'c'; ConnectionId = '73569138b7c4466d9ee6933ad6e66a3c' }
+    # Schulz nutzt den DevOps-Sync-Cloud-Flow. Wenn gesetzt, deployt das Skript
+    # ueber die npm-CLI (power-apps add-flow + power-apps push) statt 'pac code
+    # push' — sonst fehlt die Flow-Registrierung und der "Sync with DevOps"-Button
+    # wirft zur Laufzeit "Connection reference not found" (gotcha #12).
+    Flow        = @{ Id = '6253ef0c-c0ef-2377-6ff4-24ebc724b680'; Name = 'PA | MANUAL | Working Solution | Sync DevOps Work Item Status' }
     Envs        = @(
       [ordered]@{ key = 'dev';  label = 'INT-11 - current'; url = 'https://operations-d365-schulz-int-11.crm4.dynamics.com'; environmentId = '431783f6-367c-eb49-984b-4e70e4c0424d'; isCurrent = $true }
       [ordered]@{ key = 'uat';  label = 'UAT';  url = 'https://operations-d365-schulz-uat-1-1.crm4.dynamics.com'; environmentId = '2eaa34de-dcf1-e949-86d9-82d9fd748045' }
@@ -106,7 +157,7 @@ $envJson = $cfg.Envs | ForEach-Object { [pscustomobject]$_ } | ConvertTo-Json -C
 @("VITE_ENVIRONMENT_ID=$($cfg.EnvId)", "VITE_ENVIRONMENTS=$envJson") -join "`n" | Set-Content .env.local -NoNewline
 
 # 5) Data Sources (immer gleiches pro_-Schema) + Connector (cr ODER c)
-foreach ($t in 'solution', 'publisher', 'solutioncomponent', 'msdyn_solutioncomponentsummary', 'systemuser', 'role', 'pro_workingsolution', 'pro_workbenchsettings', 'pro_mergerun', 'pro_releasenote', 'pro_environmentconfig') {
+foreach ($t in 'solution', 'publisher', 'solutioncomponent', 'msdyn_solutioncomponentsummary', 'systemuser', 'role', 'pro_workingsolution', 'pro_workbenchsettings', 'pro_mergerun', 'pro_releasenote', 'pro_environmentconfig', 'asyncoperation', 'organization') {
   & .\scripts\add-data-source.ps1 -a dataverse -t $t 2>&1 | Select-Object -Last 1 | Out-Null
 }
 if ($cfg.Connector.Mode -eq 'cr') {
@@ -120,17 +171,46 @@ else {
 New-Item -ItemType Directory -Force (Join-Path $appDir 'deploy') | Out-Null
 Copy-Item power.config.json (Join-Path $appDir "deploy\$Env.power.config.json") -Force
 
-# 6) Build
-if (-not $SkipBuild) {
-  Write-Host "==== build ($Env) ====" -ForegroundColor Cyan
-  npm run build 2>&1 | Select-Object -Last 1
+# 6) Flow-Registrierung (nur Umgebungen mit Cloud-Flow, z. B. Schulz DevOps-Sync).
+#    MUSS vor dem Build laufen (add-flow regeneriert Flow-Service + dataSourcesInfo)
+#    und wird bei -NoPush uebersprungen (dann uebernimmt ein separater Schritt).
+if ($cfg.Flow -and -not $NoPush) {
+  Write-Host "==== register flow '$($cfg.Flow.Name)' ($Env) ====" -ForegroundColor Cyan
+  npx --no-install power-apps add-flow --flow-id $cfg.Flow.Id
+  if ($LASTEXITCODE -ne 0) {
+    throw "power-apps add-flow FAILED (flow $($cfg.Flow.Id)). Ist die npm-CLI im Ziel-Tenant angemeldet? (gotcha #12)"
+  }
+  Restore-RetrieveMissingDependencies $dsInfoPath
 }
 
-# 7) GUARD re-check + Push
+# 7) Build
+if (-not $SkipBuild) {
+  Write-Host "==== build ($Env) ====" -ForegroundColor Cyan
+  npm run build
+  if ($LASTEXITCODE -ne 0) {
+    throw "BUILD FAILED (exit $LASTEXITCODE) — Push abgebrochen (sonst wuerde eine veraltete dist/ deployt). Fix: 'npm install' + 'npm run build' bis gruen, dann erneut."
+  }
+}
+
+# 8) GUARD re-check + Push
 $who2 = pac org who 2>&1 | Out-String
 if ($who2 -notmatch [regex]::Escape($cfg.OrgUrl.TrimEnd('/'))) { throw "GUARD (pre-push): aktives Org ist NICHT $($cfg.OrgUrl)." }
-Write-Host "==== push -> $Env  app=$($cfg.AppId) ====" -ForegroundColor Cyan
-pac code push --solutionName $cfg.Solution
+if ($NoPush) {
+  Write-Host "==== -NoPush: Setup fertig, KEIN Push ($Env) ====" -ForegroundColor Yellow
+  Write-Host "power.config.json + Data Sources + Build stehen. Push separat ausfuehren." -ForegroundColor Yellow
+  exit 0
+}
+if ($cfg.Flow) {
+  # Mit registriertem Flow MUSS ueber die npm-CLI gepusht werden — 'pac code push'
+  # bricht am von add-flow geschriebenen workflowDetails-Block ab (gotcha #12).
+  Write-Host "==== power-apps push -> $Env  app=$($cfg.AppId) ====" -ForegroundColor Cyan
+  npx --no-install power-apps push
+  if ($LASTEXITCODE -ne 0) { throw "power-apps push FAILED (exit $LASTEXITCODE)." }
+}
+else {
+  Write-Host "==== pac code push -> $Env  app=$($cfg.AppId) ====" -ForegroundColor Cyan
+  pac code push --solutionName $cfg.Solution
+}
 
 Write-Host ""
 Write-Host "Fertig ($Env). Play: https://apps.powerapps.com/play/e/$($cfg.EnvId)/app/$($cfg.AppId)" -ForegroundColor Green

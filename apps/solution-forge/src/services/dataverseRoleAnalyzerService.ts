@@ -804,6 +804,8 @@ class DataverseRoleAnalyzerService implements RoleAnalyzerService {
     // 2. Create the role.
     try {
       const created = await MicrosoftDataverseService.CreateRecordWithOrganization(
+        'return=representation',
+        'application/json',
         orgUrl,
         'roles',
         {

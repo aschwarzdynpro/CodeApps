@@ -77,10 +77,16 @@ direkt (unmanaged) in die jeweilige Umgebung. EINE Registry im Skript ist die
 Quelle der Wahrheit (App-/Env-IDs, pac-Profil, Connector); pro Lauf: pac-Profil
 per Name wählen → **Guard** (`pac org who` muss die Ziel-URL sein, sonst Abbruch)
 → `power.config.json` + `.env.local` schreiben → Data Sources + Connector (`-cr`
-Playground / `-c` Schulz) → build → `pac code push`. `waldmann` ist bewusst
+Playground / `-c` Schulz) → [Flow] → build → Push. `waldmann` ist bewusst
 **deaktiviert** (managed Import statt Direct-Push). Details: `deploy/README.md`.
-Aktuell **ohne** DevOps-Sync-Flow (DevOps `false`) → `pac code push`; bei
-reaktiviertem DevOps stattdessen `power-apps push` (Gotcha #12).
+**Push-Weg je Umgebung:** `playground` → `pac code push`. `schulz` trägt ein
+`Flow`-Feld (DevOps-Sync-Cloud-Flow `6253ef0c-…`) ⇒ das Skript registriert den
+Flow automatisch (`power-apps add-flow`), setzt den gedroppten
+`retrievemissingdependencies`-Block wieder ein (`Restore-RetrieveMissingDependencies`,
+gotcha #1) und pusht über `power-apps push` (npm-CLI, Schulz-Tenant angemeldet;
+`pac code push` bricht am `workflowDetails`-Block ab — Gotcha #12). `-NoPush`
+richtet nur ein (Config + Data Sources + Build), ohne Flow/Push. **`pac code push`
+für Schulz strippt die Flow-Registrierung → „Connection reference not found".**
 
 ## Architektur
 

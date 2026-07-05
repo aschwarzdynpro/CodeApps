@@ -25,8 +25,8 @@ Das Skript pro Lauf:
 
 | `-Env` | Org | App-ID | Connector | Push |
 | --- | --- | --- | --- | --- |
-| `playground` | `ascsfacs` | `0f71f8ea…` | `-cr pro_CR_SAC_Dataverse` | ✅ direct |
-| `schulz` | `…schulz-int-11` | `cade30e1…` | `-c 73569138…` (SP) | ✅ direct |
+| `playground` | `ascsfacs` | `0f71f8ea…` | `-cr pro_CR_SAC_Dataverse` | ✅ `pac code push` |
+| `schulz` | `…schulz-int-11` | `cade30e1…` | `-c 73569138…` (SP) | ✅ `power-apps push` (+ Flow) |
 | `waldmann` | `waldmann-dev` | `901f3e7f…` | — | ❌ **deaktiviert** |
 
 **Waldmann ist bewusst deaktiviert** (`Enabled=$false`): die Umgebung bekommt die
@@ -37,9 +37,14 @@ einem Hinweis ab — das ist das „ungültig stellen wenn nicht gebraucht".
 
 - Die generierten `*.power.config.json` hier sind **Snapshots zur Referenz**
   (gitignored); maßgeblich ist die `$Registry` im Skript.
-- INT-11 (`schulz`) wird **ohne** DevOps-Sync-Flow gepusht (DevOps deaktiviert,
-  `DEVOPS_PANEL_ENABLED=false`). Wird DevOps reaktiviert, muss der Flow per
-  `power-apps add-flow` registriert und mit `power-apps push` (statt `pac code
-  push`) deployt werden — siehe Gotcha #12 in `../CLAUDE.md`.
+- INT-11 (`schulz`) trägt den **DevOps-Sync-Cloud-Flow** (`Flow`-Feld in der
+  Registry). Das Skript registriert ihn automatisch (`power-apps add-flow`),
+  setzt danach den von add-flow gedroppten `retrievemissingdependencies`-Block
+  wieder ein (gotcha #1) und pusht über die **npm-CLI** (`power-apps push`) —
+  `pac code push` bricht am `workflowDetails`-Block ab (gotcha #12). Voraussetzung:
+  npm-CLI im Schulz-Tenant angemeldet. Fehlt die Registrierung, wirft der
+  „Sync with DevOps"-Button zur Laufzeit *„Connection reference not found:
+  pa_manual_workingsolution_syncdevopsworkitemstatus"*. (Der Work-Item-**Panel**
+  bleibt davon unberührt separat via `DEVOPS_PANEL_ENABLED=false` deaktiviert.)
 - Neues `pac`-Profil nötig?
   `pac auth create --deviceCode --environment <org-url>` (Device-Code).
