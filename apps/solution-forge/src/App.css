@@ -4972,3 +4972,119 @@
 .imp-message {
   max-width: 480px;
 }
+
+/* ---- Release Timeline ---- */
+.rtl {
+  padding: 16px 18px;
+  position: relative;
+}
+.rtl-filter {
+  margin-left: auto;
+}
+.rtl-row {
+  display: grid;
+  grid-template-columns: 128px 34px minmax(0, 1fr);
+  gap: 12px;
+  position: relative;
+}
+.rtl-row + .rtl-row {
+  margin-top: 4px;
+}
+.rtl-when {
+  text-align: right;
+  padding-top: 10px;
+}
+.rtl-time {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rtl-axis {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+/* The vertical line runs behind the dots, joining consecutive rows. */
+.rtl-axis::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+.rtl-row:first-child .rtl-axis::before {
+  top: 10px;
+}
+.rtl-row:last-child .rtl-axis::before {
+  bottom: auto;
+  height: 10px;
+}
+.rtl-dot {
+  position: relative;
+  z-index: 1;
+  margin-top: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+}
+.rtl-dot--merge {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+}
+.rtl-dot--note {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+.rtl-dot--import {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+.rtl-dot--failed {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+.rtl-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  background: var(--surface);
+}
+.rtl-card--failed {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+.rtl-title {
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rtl-counts {
+  font-weight: 400;
+  font-size: 12px;
+}
+.rtl-sub {
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+.rtl-by {
+  font-size: 11.5px;
+  margin-top: 2px;
+}
+@media (max-width: 720px) {
+  .rtl-row {
+    grid-template-columns: 92px 30px minmax(0, 1fr);
+  }
+}

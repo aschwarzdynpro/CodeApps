@@ -101,11 +101,45 @@ const LOGS: Record<string, string> = {
   'job-0001': SUCCESS_LOG('CoreScripts', '1.0.0.3'),
 }
 
+/**
+ * Per-environment extras so the Release Timeline is demoable offline: the
+ * mock release `deploy_sprint_12` was imported into UAT (ok) and failed in
+ * PROD.
+ */
+const ENV_JOBS: Record<string, ImportJobSummary[]> = {
+  uat: [
+    {
+      id: 'job-uat-01',
+      solutionName: 'deploy_sprint_12',
+      startedOn: hoursAgo(45),
+      completedOn: hoursAgo(44.8),
+      progress: 100,
+      status: 'succeeded',
+      createdBy: 'Andy Schwarz',
+      context: 'Update',
+    },
+  ],
+  prod: [
+    {
+      id: 'job-prod-01',
+      solutionName: 'deploy_sprint_12',
+      startedOn: hoursAgo(20),
+      completedOn: hoursAgo(19.9),
+      progress: 41,
+      status: 'failed',
+      createdBy: 'Andy Schwarz',
+      context: 'Update',
+    },
+  ],
+}
+
 class MockImportHistoryService implements ImportHistoryService {
-  async listImportJobs(_envKey: string): Promise<ImportJobSummary[]> {
-    void _envKey
+  async listImportJobs(envKey: string): Promise<ImportJobSummary[]> {
     await delay(250)
-    return JOBS.map((j) => ({ ...j }))
+    const extra = ENV_JOBS[envKey] ?? []
+    // The host env carries the rich base list; others just their extras.
+    const base = extra.length > 0 ? extra : JOBS
+    return base.map((j) => ({ ...j }))
   }
 
   async getImportLog(jobId: string, _envKey: string): Promise<ImportLogDetail> {

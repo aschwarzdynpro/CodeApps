@@ -621,6 +621,19 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🕘 Timeline (Manage)</h3>
+            <p>
+              The <strong>Release Timeline</strong> shows "what went where,
+              when" for one release on a single time axis: its merge runs
+              (with counts and source solutions), its published release notes
+              (with version) and its imports into every configured environment
+              (matched by unique name, badge colored by outcome). Toggle event
+              kinds with the chips; environments that cannot be read degrade
+              to a notice. Pure visualization of existing data.
+            </p>
+          </section>
+
+          <section className="help-section">
             <h3>📦 Import History (Validate)</h3>
             <p>
               The <strong>Solution Import History</strong> lists a chosen

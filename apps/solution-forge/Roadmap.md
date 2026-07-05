@@ -41,10 +41,12 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       Name/Herkunfts-Solution vs. abhängige Komponente mit Typ/Name/Parent),
       sonstige Failures/Warnings dedupliziert darunter. *(Menüpunkt „Import
       History", Validate-Gruppe, gated)*
-- [ ] **Release-Timeline**: Merge-Runs (`pro_mergerun`), veröffentlichte
-      Release Notes (`pro_releasenote`) und Importe (`importjob`) als
-      Zeitstrahl je Release — „was ging wann wohin" als reine Visualisierung
-      vorhandener Daten.
+- [x] **Release-Timeline**: Merge-Runs (`pro_mergerun`), veröffentlichte
+      Release Notes (`pro_releasenote`) und Importe (`importjob`, je
+      konfigurierter Umgebung, Match über Unique Name) als Zeitstrahl je
+      Release — „was ging wann wohin" als reine Visualisierung vorhandener
+      Daten, mit Event-Art-Filtern und Status-Badges. *(Menüpunkt „Timeline",
+      Manage-Gruppe)*
 - [ ] **Version-Bump & Export**: Versionsnummer der Release-Solution
       hochzählen und Export anstoßen.
 

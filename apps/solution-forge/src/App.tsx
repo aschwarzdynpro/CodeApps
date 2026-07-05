@@ -15,6 +15,7 @@ import { MergeRules } from './components/MergeRules'
 import { ReadinessWorkspace } from './components/ReadinessWorkspace'
 import { AnalyzeWorkspace } from './components/AnalyzeWorkspace'
 import { ReleaseNotesWorkspace } from './components/ReleaseNotesWorkspace'
+import { ReleaseTimelineWorkspace } from './components/ReleaseTimelineWorkspace'
 import { ActivityBar } from './components/ActivityBar'
 import { EnvConfigWorkspace } from './components/EnvConfigWorkspace'
 import { AuditConfigWorkspace } from './components/AuditConfigWorkspace'
@@ -53,6 +54,7 @@ type Tab =
   | 'merge'
   | 'mergeRules'
   | 'releaseNotes'
+  | 'timeline'
   | 'readiness'
   | 'analyze'
   | 'envConfig'
@@ -79,6 +81,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { key: 'merge', label: 'Merge', icon: '⇉', gated: false },
       { key: 'mergeRules', label: 'Merge Rules', icon: '⚙', gated: true },
       { key: 'releaseNotes', label: 'Release Notes', icon: '📝', gated: false },
+      { key: 'timeline', label: 'Timeline', icon: '🕘', gated: false },
     ],
   },
   {
@@ -122,6 +125,7 @@ const TAB_TITLES: Record<Tab, string> = {
   merge: 'Merge',
   mergeRules: 'Merge Rules',
   releaseNotes: 'Release Notes',
+  timeline: 'Release Timeline',
   readiness: 'Deployment Readiness',
   analyze: 'Analyze',
   envConfig: 'Environment Config',
@@ -1273,6 +1277,10 @@ function App() {
           solutions={allSolutions}
           canPublish={isDeploymentManager}
         />
+      )}
+
+      {!loading && !error && tab === 'timeline' && (
+        <ReleaseTimelineWorkspace solutions={allSolutions} />
       )}
 
       {!loading && !error && tab === 'readiness' && isDeploymentManager && (

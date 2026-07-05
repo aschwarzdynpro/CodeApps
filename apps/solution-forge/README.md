@@ -87,6 +87,16 @@ nach Typ.
   Komponente, die sie **braucht** (Typ, Name, Parent). Sonstige
   Failure/Warning-Results dedupliziert darunter. Das schwere XML wird nie in
   der Liste geladen; Parser ist eine pure function mit Tests.
+- **Timeline** (Manage) — **Release-Timeline**: „was ging wann wohin" für
+  eine gewählte Release-Solution als vertikaler Zeitstrahl (neueste zuerst):
+  **Merge-Runs** (`pro_mergerun`, mit Counts + Quell-Solutions),
+  **veröffentlichte Release Notes** (`pro_releasenote`, mit Version) und
+  **Importe** (`importjob` je konfigurierter Umgebung, Match über den
+  Unique Name; Env-Badge grün/blau/rot nach Succeeded/Running/Failed).
+  Filter-Chips je Event-Art mit Counts; Umgebungen, die nicht lesbar sind,
+  degradieren zu einem Hinweis statt die Timeline zu blocken. Reine
+  Visualisierung vorhandener Daten (Builder `buildReleaseTimeline` als pure
+  function mit Tests) — kein neuer Datenpfad.
 - **App-Shell** (Dynamics-365-Stil): durchgehende **dunkle Topbar** mit
   Brand-Lockup links und Utility-Cluster rechts (Lauf-Modus-Badge —
   „Connected" / „Demo data" aus `usePower().mode` —, How-To & Help als Icons),

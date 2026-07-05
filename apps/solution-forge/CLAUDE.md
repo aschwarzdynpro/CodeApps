@@ -294,6 +294,18 @@ parentSchemaName/parentDisplayName), generische
 `result[result="failure|warning"]`-Knoten dedupliziert. Parser wirft nie
 (Garbage ⇒ status 'unknown').
 
+**Release Timeline** (Manage-Gruppe, Menüpunkt „Timeline", ungated):
+`ReleaseTimelineWorkspace` — reine Visualisierung vorhandener Daten, KEIN
+eigener Datenpfad/Mock: aggregiert `solutionService.listMergeRuns` +
+`listReleaseNotes` (je Release-recordId) und `importHistoryService.
+listImportJobs` je `ENVIRONMENTS`-Eintrag (Match: `importjob.solutionname`
+=== Release-`uniqueName`, case-insensitive). Builder = pure function
+`utils/releaseTimeline.ts → buildReleaseTimeline(merges, notes, imports)`
+(Vitest; Events ohne Timestamp werden gedroppt, Sortierung neueste zuerst).
+Per-Env-Import-Fehler landen in einem Hinweis-Banner statt zu werfen. Der
+Import-History-Mock hat env-spezifische `deploy_sprint_12`-Jobs (UAT ok,
+PROD failed), damit die Timeline offline demobar ist.
+
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT
