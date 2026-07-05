@@ -593,6 +593,210 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🔧 Env Config (Validate)</h3>
+            <p>
+              The <strong>Environment Variable &amp; Connection Reference
+              cockpit</strong> shows every configured environment's config side
+              by side, matched by name. It flags the classic deployment gaps:
+              an env var <strong>with no value</strong> (and no default) in an
+              environment, a connection reference that is{' '}
+              <strong>unbound</strong>, and a setting present in one
+              environment but <strong>absent</strong> in another (a transport
+              gap). Secrets are masked; a default fallback is tagged. Read-only.
+            </p>
+          </section>
+
+          <section className="help-section">
+            <h3>🔍 Audit Config (Validate)</h3>
+            <p>
+              The <strong>Audit Configuration Analyzer</strong> shows a chosen
+              environment's auditing setup: the organization master switch and
+              retention period, and per-table / per-column{' '}
+              <code>IsAuditEnabled</code>. A table only records history when
+              org auditing <em>and</em> the table are both on — the{' '}
+              <strong>Effective</strong> column flags a table that is
+              configured for audit while the org switch is off. Expand a table
+              to see which columns are audited. Read-only.
+            </p>
+          </section>
+
+          <section className="help-section">
+            <h3>🕘 Timeline (Manage)</h3>
+            <p>
+              The <strong>Release Timeline</strong> shows "what went where,
+              when" for one release on a single time axis: its merge runs
+              (with counts and source solutions), its published release notes
+              (with version) and its imports into every configured environment
+              (matched by unique name, badge colored by outcome). Toggle event
+              kinds with the chips; environments that cannot be read degrade
+              to a notice. Pure visualization of existing data.
+            </p>
+          </section>
+
+          <section className="help-section">
+            <h3>📦 Import History (Validate)</h3>
+            <p>
+              The <strong>Solution Import History</strong> lists a chosen
+              environment's <code>importjob</code> rows — started, solution,
+              status, progress, duration, user. Expanding a row lazily loads
+              and parses the import log:{' '}
+              <strong>missing-dependency failures become a precise table</strong>{' '}
+              — on the left the component that is missing in the target (type,
+              name, source solution → install first), on the right the
+              imported component that needs it (type, name, parent). Other
+              failures and warnings are listed below, deduplicated. Read-only.
+            </p>
+          </section>
+
+          <section className="help-section">
+            <h3>🌐 Operate — target environment</h3>
+            <p>
+              Each Operate feature (Plugin Traces, Job Monitor, Role Analyzer)
+              starts with a <strong>Target environment</strong> picker that
+              chooses from the configured environments (host / UAT / PROD …).
+              All <strong>reads</strong> work against any of them (via the
+              connector). <strong>Writes</strong> — the trace-level switch and
+              job cancel/retry — only apply to the <strong>host</strong>
+              environment, so they turn read-only when another environment is
+              selected. The selection is shared across the three features.
+            </p>
+          </section>
+
+          <section className="help-section">
+            <h3>🧵 Plugin Traces (Operate)</h3>
+            <ul>
+              <li>
+                A usable frontend over <code>plugintracelog</code>: the{' '}
+                <strong>Trace stream</strong> polls every 15 s (paused while
+                the browser tab is hidden) with server-side filters — time
+                window, plugin type, message, entity, sync/async,
+                exceptions-only, opt-in message-text search (≤ 24 h).
+              </li>
+              <li>
+                A row expands into the lazily-loaded{' '}
+                <strong>message block</strong> (find-in-text, copy); the heavy
+                payload is never loaded in the stream.
+              </li>
+              <li>
+                <strong>⛓ Chain</strong> opens the correlation timeline: every
+                trace of the request chain, indented by depth, bar length ∝
+                duration — one request cascade at a glance.
+              </li>
+              <li>
+                <strong>Performance</strong> aggregates duration per plugin ×
+                message server-side (count / avg / p95≈ / max); a click jumps
+                back into the pre-filtered stream.
+              </li>
+              <li>
+                The <strong>trace level</strong> control (top right) shows{' '}
+                <code>organization.plugintracelogsetting</code>; switching it
+                requires the deployment-manager role and runs as you — “All”
+                warns before enabling (log growth). The platform prunes
+                traces: this is an explorer, not an archive.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
+            <h3>📡 Job Monitor (Operate)</h3>
+            <ul>
+              <li>
+                <strong>Health</strong> answers “is async processing healthy?”
+                in one look: failed jobs (24 h), waiting backlog with the
+                oldest waiting operation, a sampled flow failure rate and the
+                watchdog lights. Every tile drills into its detail tab.
+              </li>
+              <li>
+                <strong>System jobs</strong> explores{' '}
+                <code>asyncoperation</code> with an enforced look-back window
+                and status/type/name filters. Deployment managers can{' '}
+                <strong>bulk-cancel / retry</strong> (max 50 per batch,
+                sequential, per-job outcome) — writes run as you.
+              </li>
+              <li>
+                <strong>Flows</strong> lists the cloud flows; “Load failure
+                rates” samples each flow's recent runs (marked as a sample —
+                connector-friendly). Selecting a flow shows its runs with a
+                deep link into the Power Automate portal run page.
+              </li>
+              <li>
+                <strong>Watchdog</strong> compares each heartbeat definition
+                (expected interval + grace) against the latest beat —
+                🔴 overdue / never beaten, ⚪ inactive. Table names are
+                configurable (<code>config.ts → WATCHDOG_TABLES</code>).
+              </li>
+              <li>
+                <strong>Trends</strong> charts failed jobs per day over 7/30
+                days (server-side aggregates).
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
+            <h3>🛡 Role Analyzer (Operate, read-only)</h3>
+            <ul>
+              <li>
+                Works on a snapshot of the security model, cached ~15 min;
+                roles are aggregated on their <strong>root copy</strong>{' '}
+                (<code>parentrootroleid</code> — BU copies collapse).
+              </li>
+              <li>
+                <strong>Matrix</strong>: role × table × privilege with the
+                classic depths (User / BU / Parent:Child / Organization).
+              </li>
+              <li>
+                <strong>Diff</strong>: two roles side-by-side, deltas only,
+                exportable as Markdown or CSV.
+              </li>
+              <li>
+                <strong>User rights</strong>: effective table privileges of
+                one user aggregated from direct + team roles — deepest depth
+                wins — with the provenance path per grant (“role ‘Vertrieb
+                Süd’ ← team ‘Sales DE’”).
+              </li>
+              <li>
+                <strong>Reverse lookup</strong>: “who can Delete on account?”
+                → all users/teams with their path.
+              </li>
+              <li>
+                <strong>Hygiene</strong>: roles without any assignment and
+                users above a role-count threshold.
+              </li>
+              <li>
+                <strong>Field security</strong>: the column-level analog of
+                the matrix — Field Security Profiles with their secured columns
+                (Read / Create / Update / read-unmasked) and who they are
+                assigned to, plus a column-centric view (“who can read/update
+                secured column X?”). Flags profiles assigned to nobody and
+                columns no profile grants read on (admins only — System
+                Administrators bypass field security).
+              </li>
+              <li>
+                <strong>Team &amp; BU map</strong>: an interactive org-chart
+                of the business-unit hierarchy with the role-granting teams on
+                each BU. Drag to pan, wheel to zoom, collapse a subtree. Click
+                a BU or team for its roles and members; pick a user in{' '}
+                <em>Trace user</em> to highlight their BU and teams and see the
+                roles they inherit through team membership. A toggle adds the
+                default / access teams.
+              </li>
+              <li>
+                <strong>Core roles</strong> (write, host env only): analyzes
+                the <strong>custom (unmanaged)</strong> roles for privileges
+                shared by ≥ 2 of them and proposes a consolidated{' '}
+                <strong>core role</strong> per shared role-set. Give it a name,
+                pick a <strong>working solution</strong> and click{' '}
+                <em>Create core role</em> — it creates the role in that
+                solution, grants the consolidated privileges (deepest depth
+                wins) and, if you opt in, removes the duplicates from the
+                source roles (which then also go into the solution). Members
+                holding only a source role need the new core role to keep
+                their access.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
             <h3>Chips at a glance</h3>
             <ul className="help-legend">
               <li>

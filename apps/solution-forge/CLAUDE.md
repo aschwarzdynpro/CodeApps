@@ -40,6 +40,9 @@ power-apps init --non-interactive -n "Solution Administration Console (Pro)" --c
 ./scripts/add-data-source.ps1 -a dataverse -t pro_mergerun
 ./scripts/add-data-source.ps1 -a dataverse -t pro_releasenote
 ./scripts/add-data-source.ps1 -a dataverse -t pro_environmentconfig
+# Operate-Gruppe (nur Schreibpfade; alle Reads laufen über den Konnektor):
+./scripts/add-data-source.ps1 -a dataverse -t asyncoperation
+./scripts/add-data-source.ps1 -a dataverse -t organization
 # Konnektor (Dataverse) — direkte Connection-Bindung per -c (Connection „App-Reg
 # D365-CE nonProd", SP). Für den Installer/ALM stattdessen Connection-Reference
 # `pro_CRDataverse` (muss vorab existieren, sonst „Failed to resolve connection ID"):
@@ -91,6 +94,67 @@ bei neuen Methoden IMMER Mock mitziehen). Compare separat:
 phasenweise zu einem Severity-Report — kein eigener Datenpfad, daher auch
 ohne eigenen Mock (erbt die Mock-Fallbacks der genutzten Services). Caches
 (Komponenten, Suche-Index, Kollisionsradar, WorkItems) leben in `App.tsx`.
+
+**Operate-Gruppe** (Menü „Operate": Plugin Traces / Job Monitor / Role
+Analyzer): je Feature ein eigenes Service-Paar nach demselben Muster —
+`traceService`/`jobMonitorService`/`roleAnalyzerService` (+ `dataverse…`/
+`mock…`). **Reads ausschließlich über den Konnektor** als FetchXML-
+Passthrough gegen die aktuelle Umgebung (`currentEnvQuery.ts`: `fetchXmlQuery`,
+`fetchXmlAllPages` mit page/count-Injection, Aggregate) ⇒ keine neuen nativen
+Data Sources fürs Lesen; Intersects (`roleprivileges`, `systemuserroles`,
+`teamroles`, `teammembership`) werden über **link-entity vom Parent aus**
+traversiert (Entity-Set-Namen der Intersects werden so nie gebraucht).
+Identität der Reads = Konnektor-SP (braucht Leserechte auf plugintracelog,
+asyncoperation, role/privilege usw.). **Writes nativ als User**: Trace-Level
+via `OrganizationsService.update` (organization), Bulk-Cancel/Retry via
+`AsyncoperationsService.update` (asyncoperation) — bewusst getrennt, damit
+Dataverse die Rechte pro Person erzwingt. UI-Gating: Role Analyzer als Tab
+gated; Trace-Level-Switch + Bulk-Aktionen zusätzlich Deployment-Manager-
+gated. Rollen IMMER auf `parentrootroleid` aggregieren (Modell-Snapshot
+~15 min gecacht, modulweiter Cache im Service). Watchdog-Tabellennamen in
+`config.ts → WATCHDOG_TABLES` (Default `cust_*`; Query-Fehler ⇒ „not
+installed"-Hinweis statt Crash). Pure functions mit Vitest (`npm test`):
+`utils/heartbeat.ts`, `utils/privileges.ts`.
+
+**Zielumgebung wählbar (Operate):** Jedes der drei Features hat oben einen
+`OperateEnvPicker`, der aus `ENVIRONMENTS` wählt (geteilter State
+`operateEnvKey` in `App.tsx`, Default = Host via `currentEnvKey()`). Alle
+Service-Methoden nehmen `envKey`; die Query-Helfer (`fetchXmlQuery`/
+`fetchXmlAllPages`) bekommen die Ziel-`orgUrl` durchgereicht
+(`config.ts → orgUrlForEnvKey`). **Reads cross-env** über den Konnektor;
+**native Writes nur Host-Env** — `dataverseTraceService.setTraceLevel` und
+`dataverseJobMonitorService.cancel/retryJobs` werfen bei
+`!isCurrentEnvKey(envKey)` (UI deaktiviert zusätzlich, `canWrite =
+canManage… && isCurrentEnvKey`). Role-Analyzer-Snapshot-Cache ist **pro
+orgUrl** (`Map`), sonst würde eine Env die andere überschreiben. Job Monitor
++ Role Analyzer **remounten** bei Env-Wechsel (`key={operateEnvKey}` in
+App.tsx) → sauberer State-Reset; Trace Explorer lädt in-place (behält
+Filter). Flow-Run-Portal-Link nutzt die Ziel-`environmentId`
+(`environmentIdForEnvKey`).
+
+**Core Role Extractor** (Role Analyzer → Sub-Tab „Core roles", schreibend):
+Analyse ist die **pure function** `utils/coreRoles.ts → analyzeCoreRoles(model)`
+(Vitest) — clustert Privilegien, die ≥ 2 custom (`!isManaged`) Rollen teilen,
+nach dem exakten Rollen-Set (= „pro Bereich"), konsolidierte Depth = tiefste.
+UI rechnet das clientseitig aus dem geladenen `SecurityModel` (kein
+Service-Call). **Apply** dagegen über `roleAnalyzerService.applyCoreRole`
+(Dataverse + Mock): (1) Rolle an Root-BU anlegen, (2) in die Working Solution
+aufnehmen (`AddSolutionComponent`, **Rollen-Komponententyp = 20**), (3)
+`AddPrivilegesRole` mit Depth-Enum (1 Basic/2 Local/4 Deep/8 Global), (4)
+optional `RemovePrivilegeRole` je Quell-Rolle + diese ebenfalls in die
+Solution. **Writes laufen über den Konnektor** (`MicrosoftDataverseService.
+CreateRecordWithOrganization` + `PerformUnboundActionWithOrganization` für die
+Actions — Standard-SDK-Actions, per gotcha #8 konnektor-fähig) gegen die
+**Host-Org** (SP-Identität; `applyCoreRole` wirft bei `!isCurrentEnvKey`).
+privilegeId-Auflösung (`entity|action → privilegeId`) liegt im Snapshot-Cache
+(`privilegeIdByKey`, in `buildSnapshot` gefüllt). UI: eigener Sub-Tab, nur
+Host-Env + Deployment Manager, Working-Solution-Pflichtauswahl
+(`SolutionSelect`), Remove-Duplicates als **Opt-in** (Default aus), Confirm
+mit Warnung „Mitglieder verlieren Zugriff ohne die Core-Rolle", per-Step-
+Result. **Achtung (noch nicht live verifiziert):** die exakten Action-Bodies
+(`AddPrivilegesRole` Privileges-Collection mit `Depth`/`PrivilegeId`,
+`RemovePrivilegeRole`, `AddSolutionComponent` Typ 20) sowie die Konnektor-
+Op-Signaturen sind aus der Doku abgeleitet — beim ersten echten Lauf prüfen.
 
 **Datenmodell:** `pro_workingsolution` = Darstellungs-Schicht, verlinkt
 über `pro_uniquesolutionname` zur echten Solution. Typ-Kaskade:
@@ -151,6 +215,97 @@ Subtitle; kein Delta ⇒ Publish deaktiviert. Notes sind historisch (was gemergt
 wurde), nicht der Live-Stand; Komponente↔Quelle ist nicht zuordenbar (Merge-Log
 speichert kombinierte Liste).
 
+**Env Config Cockpit** (Validate-Gruppe, Menüpunkt „Env Config", gated):
+`EnvConfigWorkspace` + `envConfigService` (`dataverse…`/`mock…`). Liest je
+konfigurierter Umgebung (`ENVIRONMENTS`) über den Konnektor
+(`ListRecordsWithOrganization` + `$select`, SP-Identität) drei Tabellen:
+`environmentvariabledefinitions` (+ `environmentvariablevalues`, gejoint über
+`_environmentvariabledefinitionid_value`) und `connectionreferences`. Match
+über den import-stabilen **Schema-** (EnvVar) bzw. **Logical-Name**
+(ConnRef). Flags: EnvVar präsent aber ohne Wert **und** ohne Default
+(`hasValue=false`), ConnRef ohne `connectionid` (unbound), und „present in
+einem Env, absent im anderen" (Transport-Lücke). Secrets (`type` 100000005)
+werden maskiert; Default-Fallback markiert. Read-only, keine neuen Data
+Sources. Per-Env-Query-Fehler landen in `result.errors` (nicht geworfen).
+
+**Audit Config Analyzer** (Validate-Gruppe, Menüpunkt „Audit Config", gated):
+`AuditConfigWorkspace` + `auditConfigService` (`dataverse…`/`mock…`).
+Zielumgebung per `OperateEnvPicker` (eigener Lift `auditEnvKey` in App.tsx,
+Remount per `key`). Liest über den Konnektor (`odataQuery` in
+`currentEnvQuery.ts` — `$select`/`$filter`/`$expand`): `organizations`
+(`isauditenabled`, `auditretentionperiodv2`) und `EntityDefinitions`
+(`LogicalName`, `DisplayName`, `IsAuditEnabled`). **`IsAuditEnabled` ist eine
+BooleanManagedProperty** → `.Value` lesen (`managedBool`); `DisplayName` ist
+ein Label → `.UserLocalizedLabel.Label` (`label()`). Spalten lazy je Tabelle:
+`EntityDefinitions` gefiltert `LogicalName eq '…'` mit
+`$expand=Attributes($select=LogicalName,DisplayName,IsAuditEnabled)` (Muster
+aus `dataverseSolutionService.resolveAttributeNames`). **Effektiv-Regel** als
+pure function `utils/auditConfig.ts → describeTableAudit(org, table)` (org an
++ Tabelle an = `effective`; Tabelle an, org aus = `configured-but-off`) +
+`formatRetention` (−1 = Forever), beide Vitest-getestet. Read-only, keine
+neuen Data Sources.
+
+**Team & BU Map** (Role Analyzer → Sub-Tab „Team & BU map", read-only):
+`TeamBuMap.tsx` — interaktives **Org-Chart als Inline-SVG** (kein Chart-Dep),
+Pan (Pointer-Drag) / Zoom (Buttons + Wheel), aufklappbare Teilbäume. Daten aus
+`roleAnalyzerService.getOrgStructure(envKey)` (`OrgStructure`): baut auf dem
+vorhandenen Security-Snapshot auf, der dafür um `businessunit`-Hierarchie,
+`team.businessunitid/teamtype/isdefault` und `systemuser.businessunitid`
+erweitert wurde (`assembleOrgStructure`). **Layout = pure function**
+`utils/orgTree.ts` (`buildForest` + `layoutTree`, Leaf-Slot-Zentrierung,
+variable Level-Höhen, Vitest). Default nur **Rollen-vergebende Teams**
+(`roleNames.length>0`), Toggle für alle (Default-/Access-Teams). **Trace-
+Modus**: User wählen → seine BU + Member-Teams werden hervorgehoben, Rest
+gedimmt; Panel listet die per Team gewonnenen Rollen. Membership wird im
+Snapshot nur für Rollen-Teams geladen (Non-Role-Teams zeigen keine Member).
+
+**Field-Level Security Analyzer** (Role Analyzer → Sub-Tab „Field security",
+read-only): `FieldSecurityWorkspace` + `fieldSecurityService`
+(`dataverse…`/`mock…`). Liest über den Konnektor: `fieldsecurityprofiles`
+(odataQuery), `fieldpermissions` (fetchXml — je gesicherte Spalte
+Read/Create/Update/ReadUnmasked; **Optionswerte 0 = Not allowed, 4 =
+Allowed**, `=== 4` decodiert), und die Zuweisungs-Intersects
+`systemuserprofiles`/`teamprofiles` (fetchXml link-entity `intersect="true"`,
+alias `sup`/`tp` → `<alias>.fieldsecurityprofileid`). Zwei Sichten:
+profilzentriert und **spaltenzentriert** (Pivot = pure function
+`utils/fieldSecurity.ts → pivotSecuredColumns`, Vitest). Anzeige mit logischen
+Namen (entity/attribute; Display-Namen bräuchten Metadaten je Attribut).
+Flags: Profil ohne User+Team („assigned to nobody"), Spalte ohne Read-Grant
+(nur Admins — die Field Security generell umgehen). Lookup auf fieldpermission
+defensiv über `_fieldsecurityprofileid_value` **oder** `fieldsecurityprofileid`
+gelesen. Keine neuen Data Sources. **Live-Verify-Punkt:** die
+FieldPermissionType-Werte (0/4) beim ersten echten Lauf bestätigen.
+
+**Solution Import History** (Validate-Gruppe, Menüpunkt „Import History",
+gated): `ImportHistoryWorkspace` + `importHistoryService`
+(`dataverse…`/`mock…`), Zielumgebung per `OperateEnvPicker` (eigener Lift
+`importEnvKey`, Remount per `key`). Liste aus `importjob` via Konnektor-
+FetchXML — **NIE die `data`-Spalte selektieren** (annotiertes Manifest-XML,
+kann MB groß sein); Status-Heuristik `importJobStatusHeuristic` (progress ≥
+100 → succeeded; completedon + progress < 100 → failed; sonst running).
+Detail lazy je Zeile: `data` einzeln laden und mit
+`utils/importLog.ts → parseImportLog` (pure, Vitest **mit
+`@vitest-environment jsdom`** — DOMParser; jsdom ist devDependency) parsen:
+Manifest-Verdict (direktes `<result>`-Kind des `<solutionManifest>`),
+`<MissingDependencies><MissingDependency>` → Tabelle aus den
+`<Required>`/`<Dependent>`-**Attributen** (type = componenttype-Code →
+`componentTypeLabel`, schemaName, displayName, solution,
+parentSchemaName/parentDisplayName), generische
+`result[result="failure|warning"]`-Knoten dedupliziert. Parser wirft nie
+(Garbage ⇒ status 'unknown').
+
+**Release Timeline** (Manage-Gruppe, Menüpunkt „Timeline", ungated):
+`ReleaseTimelineWorkspace` — reine Visualisierung vorhandener Daten, KEIN
+eigener Datenpfad/Mock: aggregiert `solutionService.listMergeRuns` +
+`listReleaseNotes` (je Release-recordId) und `importHistoryService.
+listImportJobs` je `ENVIRONMENTS`-Eintrag (Match: `importjob.solutionname`
+=== Release-`uniqueName`, case-insensitive). Builder = pure function
+`utils/releaseTimeline.ts → buildReleaseTimeline(merges, notes, imports)`
+(Vitest; Events ohne Timestamp werden gedroppt, Sortierung neueste zuerst).
+Per-Env-Import-Fehler landen in einem Hinweis-Banner statt zu werfen. Der
+Import-History-Mock hat env-spezifische `deploy_sprint_12`-Jobs (UAT ok,
+PROD failed), damit die Timeline offline demobar ist.
+
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT
@@ -198,9 +353,15 @@ speichert kombinierte Liste).
    Konnektor-Sources als Connection (`pro_CRDataverse` → SP „App-Reg
    D365-CE nonProd"). Current User ⇒ native `SystemusersService` mit
    Filter `Microsoft.Dynamics.CRM.EqualUserId(PropertyName='systemuserid')`.
-   Rolle ⇒ native `RolesService` mit
-   `systemuserroles_association/any(u:u/systemuserid eq <id>)` (nur
-   direkte Zuweisung, keine Team-Vererbung).
+   Rolle ⇒ native `RolesService`, **zwei getrennte Queries** (`resolveHasRole`
+   → `roleFilterMatches`, OR): direkt
+   `systemuserroles_association/any(u:u/systemuserid eq <id>)` **und**
+   team-vererbt (nested Lambda)
+   `teamroles_association/any(t:t/teammembership_association/any(m:m/systemuserid eq <id>))`.
+   Getrennt, damit die (nested-Lambda-)Team-Query die direkte Prüfung nie
+   regressiert — schlägt die Team-Query fehl, greift nur direkt. Filter über
+   Rollen-**Name** deckt die BU-Kopien ab. (AAD-Group-Teams mit noch nicht
+   materialisierter Membership sind eine bekannte Lücke.)
 6. **Komponenten-Namen** aus `msdyn_solutioncomponentsummary` (Quelle des
    Maker-Portals); `rootcomponentbehavior` nur aus `solutioncomponent`;
    rohe Typ-Schlüssel via `prettifyTypeName()` („Customization.Type_X").
@@ -277,6 +438,15 @@ speichert kombinierte Liste).
     mit Mode-Badge + How-To/Help-Icons) über `.app-body` (sticky `.sidebar`
     full-height + `.content`). Höhen/Breiten als CSS-Vars in `index.css`
     (`--topbar-h`, `--sidebar-w`, `--topbar-bg`).
+    **UI-Konsistenz (Refurbish-Pass in App.css):** native `<select>`s in
+    Toolbars/Pickern werden ZENTRAL gestylt (`.trace-toolbar/.subtabs/
+    .compare-controls/.operate-env/.validate-toolbar select` — Radius,
+    Border, Chevron-Data-URI, Fokus) ⇒ neue Workspaces brauchen kein eigenes
+    Select-Styling, einfach eine dieser Container-Klassen nutzen. `.subtab`
+    ist nowrap (die Leiste wrappt als Ganzes); rechte Zusatz-Controls einer
+    Sub-Tab-Leiste gehören in `<span className="trace-level-control">`
+    (nowrap, shrink-0 — Muster: Trace-Level, Role-Snapshot/Reload,
+    Health-Refresh).
 11. Debugging: kein Zugriff auf die laufende App — Diagnostik via
     `console.warn('[solutions]/[compare]/[deps]'…)` + `pac env fetch
     --xmlFile <fetchxml>` (Read-only-Reproduktion als User). Lookup-Fehler

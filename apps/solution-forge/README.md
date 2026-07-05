@@ -58,6 +58,45 @@ nach Typ.
   den fokussierten Einzel-Tabs; nutzt denselben Orchestrator wie der ALM
   Detective (`runInvestigation`) plus eine reine Ableitungs-Schicht
   (`analysisModel.ts`) — kein eigener Datenpfad, Mock-Fallback inklusive.
+- **Env Config** (Validate, gated) — **Environment Variable & Connection
+  Reference Cockpit**: `environmentvariabledefinition` + `environment
+  variablevalue` und `connectionreference` über **alle konfigurierten
+  Umgebungen** (DEV/UAT/PROD) side-by-side, gematcht über den import-stabilen
+  Schema-/Logical-Name. Flaggt die typischen Deploy-Lücken: **kein Wert** (und
+  kein Default) in einer Umgebung, **ungebundene** Connection Reference und
+  **Transport-Lücken** (Setting in einem Env vorhanden, im anderen nicht).
+  Secrets werden maskiert, Default-Fallback markiert. Read-only über den
+  Konnektor je Umgebung; Mock-Fallback mit eingebauten Beispiel-Lücken.
+- **Audit Config** (Validate, gated) — **Audit-Konfiguration** einer
+  wählbaren Umgebung: der Org-Master-Schalter (`organization.isauditenabled`)
+  + Retention (`auditretentionperiodv2`) und je **Tabelle/Spalte**
+  `IsAuditEnabled` aus den `EntityDefinitions`-Metadaten. Eine Tabelle
+  auditiert nur **effektiv**, wenn Org-Auditing UND die Tabelle an sind — der
+  Analyzer flaggt „configured but off" und weist darauf hin, wenn eine
+  auditierte Tabelle keine markierte Spalte hat (nur Record-Shell). Spalten
+  werden beim Aufklappen lazy geladen. Read-only über den Konnektor
+  (Metadaten); Mock-Fallback. Synergie mit der Audit-Explorer-App im Monorepo.
+- **Import History** (Validate, gated) — **Solution-Import-Historie** einer
+  wählbaren Umgebung aus der `importjob`-Tabelle: Start, Solution, Status
+  (Succeeded/Failed/Running), Fortschritts-Balken, Dauer, ausführender User,
+  Kontext. Zeile aufklappen lädt das Import-Log-XML (`importjob.data`) lazy
+  und parst es strukturiert: Manifest-Verdict (UniqueName/Version/Fehlertext)
+  und — der Kern — **Missing-Dependency-Fehler als präzise Tabelle**
+  (`<MissingDependencies>`-Knoten): links die im Ziel **fehlende** Komponente
+  (Typ, Name, Herkunfts-Solution = „install first"), rechts die importierte
+  Komponente, die sie **braucht** (Typ, Name, Parent). Sonstige
+  Failure/Warning-Results dedupliziert darunter. Das schwere XML wird nie in
+  der Liste geladen; Parser ist eine pure function mit Tests.
+- **Timeline** (Manage) — **Release-Timeline**: „was ging wann wohin" für
+  eine gewählte Release-Solution als vertikaler Zeitstrahl (neueste zuerst):
+  **Merge-Runs** (`pro_mergerun`, mit Counts + Quell-Solutions),
+  **veröffentlichte Release Notes** (`pro_releasenote`, mit Version) und
+  **Importe** (`importjob` je konfigurierter Umgebung, Match über den
+  Unique Name; Env-Badge grün/blau/rot nach Succeeded/Running/Failed).
+  Filter-Chips je Event-Art mit Counts; Umgebungen, die nicht lesbar sind,
+  degradieren zu einem Hinweis statt die Timeline zu blocken. Reine
+  Visualisierung vorhandener Daten (Builder `buildReleaseTimeline` als pure
+  function mit Tests) — kein neuer Datenpfad.
 - **App-Shell** (Dynamics-365-Stil): durchgehende **dunkle Topbar** mit
   Brand-Lockup links und Utility-Cluster rechts (Lauf-Modus-Badge —
   „Connected" / „Demo data" aus `usePower().mode` —, How-To & Help als Icons),
@@ -221,6 +260,71 @@ nach Typ.
   Lookup-Fehler). Kompakter als die Einzelseiten — für die volle Tiefe den
   jeweiligen Feature-Tab öffnen. Der Detective orchestriert nur die
   vorhandenen Services (kein eigener Datenpfad).
+- **Operate-Gruppe** (Betriebssicht, eigene Menüpunkte). **Zielumgebung
+  wählbar:** oben in jedem der drei Features sitzt ein **Target-Environment-
+  Picker**, der aus dem konfigurierten `ENVIRONMENTS`-Set wählt (dev/uat/prod
+  bzw. was der Installer nach `pro_environmentconfig` schreibt) — Default ist
+  die Host-Umgebung. **Reads laufen cross-env** über den Konnektor; **native
+  Writes** (Trace-Level-Switch, Job-Cancel/Retry) treffen technisch nur die
+  Host-Umgebung, daher sind sie bei ausgewählter Fremdumgebung deaktiviert
+  (mit „read-only here"-Hinweis). Die Auswahl ist über die drei Tabs geteilt.
+  - **🧵 Plugin Traces** — Explorer über `plugintracelog`: Polling-**Stream**
+    (15 s, pausiert bei verstecktem Browser-Tab) mit Server-Filtern
+    (Zeitfenster, TypeName, Message, Entity, sync/async, nur Exceptions,
+    Opt-in-Volltext ≤ 24 h); Zeile aufklappen lädt den **MessageBlock** lazy
+    (Suche-im-Text, Copy) — im Stream wird das schwere Payload nie geladen.
+    **⛓ Chain** öffnet die **Correlation-Timeline** (Einrückung nach `depth`,
+    Balken ∝ Duration). **Performance**-Sub-Tab: serverseitige
+    Duration-Aggregate je Plugin × Message (count/avg/p95≈/max), Klick →
+    vorgefilterter Stream. **Trace-Level**-Steuerung
+    (`organization.plugintracelogsetting`, 0/1/2) mit Confirm-Warnung bei
+    „All" — Umschalten nur für Deployment Manager, läuft als angemeldeter
+    User (natives `organization`-Update).
+  - **📡 Job Monitor** — „Ist die Async-Verarbeitung gesund?" in < 10 s:
+    **Health**-Kacheln (Failed 24 h, Waiting-Backlog + älteste wartende Op,
+    Flow-Fehlerquote als gekennzeichnetes Sample, Watchdog-Ampeln; jede
+    Kachel klickt in ihren Detail-Tab), **System jobs**
+    (`asyncoperation`-Explorer mit erzwungenem Zeitfenster, Status-Chips,
+    Bulk-**Cancel/Retry** ≤ 50/Batch sequentiell mit Einzel-Ergebnis — nur
+    Deployment Manager, schreibt als User), **Flows** (Cloud Flows mit
+    gesampelter Fehlerquote; Runs je Flow aus der `flowrun`-Tabelle mit
+    Deep-Link in den Power-Automate-Portal-Run), **Watchdog**
+    (Heartbeat-Soll/Ist je Definition, pure function `evaluateHeartbeat`,
+    Tabellen konfigurierbar via `config.ts → WATCHDOG_TABLES`) und
+    **Trends** (Failed-Jobs/Tag 7/30 d, serverseitige Aggregate).
+  - **🛡 Role Analyzer** (gated) — arbeitet auf einem ~15 min gecachten
+    Snapshot des Security-Modells, Rollen aggregiert auf `parentrootroleid`
+    (BU-Kopien kollabieren): **Matrix** (Rolle × Tabelle × Privileg mit
+    Depth-Badges U/BU/P/O), **Diff** (zwei Rollen, nur Deltas, Export
+    Markdown/CSV), **User rights** (effektive Rechte aus direkten +
+    Team-Rollen, tiefste Depth gewinnt, mit Herkunftspfad), **Reverse
+    lookup** („Wer kann Delete auf account?" → User/Teams mit Pfad),
+    **Hygiene** (Rollen ohne Zuweisung, User mit > N Rollen) und
+    **Core roles** (schreibend, nur Host-Env): analysiert die
+    **custom (unmanaged)** Rollen auf Privilegien, die in ≥ 2 Rollen
+    vorkommen, und schlägt je geteiltem Rollen-Set eine konsolidierte
+    **Core-Rolle** vor (tiefste Depth gewinnt). **Automatismus:** Rollenname
+    + Working Solution wählen → das System legt die Rolle in der Solution an
+    (`AddSolutionComponent`, Rollen-Komponententyp 20), gewährt die
+    Privilegien (`AddPrivilegesRole`) und entfernt optional die Duplikate aus
+    den Quell-Rollen (`RemovePrivilegeRole`; die betroffenen Rollen kommen
+    dann ebenfalls in die Solution). Transparenter per-Step-Report; Mitglieder
+    einer Quell-Rolle brauchen danach die Core-Rolle, um ihren Zugriff zu
+    behalten. (Matrix/Diff/User rights/Reverse/Hygiene bleiben read-only; nur
+    Core roles schreibt.) Der **Role DeDuplicator** (Entflechten doppelter
+    Rechtezuordnungen) steht auf der Roadmap. **Team & BU map** (read-only):
+    interaktives **Org-Chart** (Inline-SVG, Pan/Zoom, aufklappbar) der
+    Business-Unit-Hierarchie mit den **Rollen-vergebenden Teams** je BU als
+    Pills; Klick auf BU/Team öffnet ein Detail-Panel (Rollen, Mitglieder), ein
+    **Trace-Modus** hebt für einen gewählten User seine BU + Teams hervor und
+    listet die **per Team vererbten Rollen** (Toggle blendet Default-/Access-
+    Teams ein). **Field security** (read-only): das Spalten-Level-Pendant zur
+    Matrix — **Field Security Profiles** (`fieldsecurityprofile` +
+    `fieldpermission`) mit gesicherten Spalten (Read/Create/Update/Unmasked)
+    und Zuweisungen (User/Teams über `systemuserprofiles`/`teamprofiles`);
+    umschaltbar auf eine **spaltenzentrierte** Sicht („wer darf Spalte X
+    lesen/ändern?"). Flags: Profil ohne Prinzipale, Spalte ohne Read-Grant
+    (nur Admins). *(System-Administratoren umgehen Field Security.)*
 
 ## Architektur
 
@@ -250,6 +354,26 @@ Implementierungen:
 - `mockSolutionService.ts` + `mockData.ts` – In-Memory-Beispieldaten; auch
   Anlage und Merge funktionieren offline.
 
+Das **Env-Config-Cockpit** folgt demselben Interface+Impl-Muster
+(`envConfigService` / `dataverse…` + `mock…`) und liest **jede konfigurierte
+Umgebung** über den Konnektor (`ListRecordsWithOrganization` mit `$select`,
+wie Compare/Sharing) — kein solution- oder host-gebundener Datenpfad, keine
+neuen Data Sources nötig. Die **Operate-Features** haben jeweils ihr eigenes
+Interface + Impl-Paar nach demselben Muster (Dataverse-Impl fällt auf Mock zurück, offline voll
+demobar): `traceService` / `jobMonitorService` / `roleAnalyzerService` mit
+`dataverse…`- und `mock…`-Implementierungen. Ihre **Reads laufen komplett
+über den vorhandenen Dataverse-Konnektor** als FetchXML-Passthrough gegen die
+aktuelle Umgebung (`src/services/currentEnvQuery.ts`, inkl. Paging und
+Aggregaten) — dadurch brauchen sie **keine neuen nativen Data Sources zum
+Lesen** (wichtig: Intersects wie `roleprivileges` sind ohnehin nur per
+FetchXML erreichbar; Identität ist die Konnektor-Connection/SP).
+**Schreibpfade** (Trace-Level umschalten, Job-Cancel/Retry) gehen dagegen
+über die nativen Data Sources `organization` und `asyncoperation` und laufen
+als angemeldeter User — Dataverse erzwingt die Privilegien pro Person und der
+Audit zeigt, wer gehandelt hat. Pure functions mit Vitest-Tests:
+`utils/heartbeat.ts` (`evaluateHeartbeat`) und `utils/privileges.ts`
+(Bitmasken-/Depth-Decoder) — `npm test`.
+
 ## Lokal starten
 
 ```bash
@@ -267,6 +391,9 @@ pac code add-data-source -a dataverse -t solution
 pac code add-data-source -a dataverse -t publisher
 pac code add-data-source -a dataverse -t solutioncomponent
 pac code add-data-source -a dataverse -t msdyn_solutioncomponentsummary
+# Operate-Gruppe (nur Schreibpfade — Reads laufen über den Konnektor):
+pac code add-data-source -a dataverse -t asyncoperation   # Job-Cancel/Retry
+pac code add-data-source -a dataverse -t organization     # Trace-Level-Switch
 ```
 
 > **Achtung beim Nachgenerieren:** Sobald die Action

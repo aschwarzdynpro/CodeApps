@@ -15,7 +15,14 @@ import { MergeRules } from './components/MergeRules'
 import { ReadinessWorkspace } from './components/ReadinessWorkspace'
 import { AnalyzeWorkspace } from './components/AnalyzeWorkspace'
 import { ReleaseNotesWorkspace } from './components/ReleaseNotesWorkspace'
+import { ReleaseTimelineWorkspace } from './components/ReleaseTimelineWorkspace'
 import { ActivityBar } from './components/ActivityBar'
+import { EnvConfigWorkspace } from './components/EnvConfigWorkspace'
+import { AuditConfigWorkspace } from './components/AuditConfigWorkspace'
+import { ImportHistoryWorkspace } from './components/ImportHistoryWorkspace'
+import { TraceExplorer } from './components/TraceExplorer'
+import { JobMonitor } from './components/JobMonitor'
+import { RoleAnalyzer } from './components/RoleAnalyzer'
 // ALM Detective is temporarily hidden from the UI — component + service
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
 import { HelpPanel } from './components/HelpPanel'
@@ -26,6 +33,7 @@ import { AssignDialog } from './components/AssignDialog'
 import { EditSolutionDialog } from './components/EditSolutionDialog'
 import {
   applyRuntimeConfig,
+  currentEnvKey,
   DEPLOYMENT_MANAGER_ROLE,
   DEVOPS_PANEL_ENABLED,
   makerSolutionUrl,
@@ -46,8 +54,15 @@ type Tab =
   | 'merge'
   | 'mergeRules'
   | 'releaseNotes'
+  | 'timeline'
   | 'readiness'
   | 'analyze'
+  | 'envConfig'
+  | 'auditConfig'
+  | 'importHistory'
+  | 'traces'
+  | 'jobs'
+  | 'roles'
 
 interface NavItem {
   key: Tab
@@ -66,6 +81,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { key: 'merge', label: 'Merge', icon: '⇉', gated: false },
       { key: 'mergeRules', label: 'Merge Rules', icon: '⚙', gated: true },
       { key: 'releaseNotes', label: 'Release Notes', icon: '📝', gated: false },
+      { key: 'timeline', label: 'Timeline', icon: '🕘', gated: false },
     ],
   },
   {
@@ -78,6 +94,27 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         gated: true,
       },
       { key: 'analyze', label: 'Analyze', icon: '📊', gated: true },
+      { key: 'envConfig', label: 'Env Config', icon: '🔧', gated: true },
+      { key: 'auditConfig', label: 'Audit Config', icon: '🔍', gated: true },
+      {
+        key: 'importHistory',
+        label: 'Import History',
+        icon: '📦',
+        gated: true,
+      },
+    ],
+  },
+  {
+    // Operations views over the current environment (traces, async jobs,
+    // security roles). Trace Explorer and Job Monitor are open to everyone
+    // (their destructive actions are additionally deployment-manager-gated
+    // inside the workspace); the Role Analyzer exposes the whole security
+    // model and is gated as a whole.
+    label: 'Operate',
+    items: [
+      { key: 'traces', label: 'Plugin Traces', icon: '🧵', gated: false },
+      { key: 'jobs', label: 'Job Monitor', icon: '📡', gated: false },
+      { key: 'roles', label: 'Role Analyzer', icon: '🛡', gated: true },
     ],
   },
 ]
@@ -88,8 +125,15 @@ const TAB_TITLES: Record<Tab, string> = {
   merge: 'Merge',
   mergeRules: 'Merge Rules',
   releaseNotes: 'Release Notes',
+  timeline: 'Release Timeline',
   readiness: 'Deployment Readiness',
   analyze: 'Analyze',
+  envConfig: 'Environment Config',
+  auditConfig: 'Audit Configuration',
+  importHistory: 'Solution Import History',
+  traces: 'Plugin Trace Explorer',
+  jobs: 'Async Job / Flow Monitor',
+  roles: 'Security Role Analyzer',
 }
 
 /**
@@ -140,6 +184,18 @@ function App() {
   }, [defaultPublisher, publishers])
 
   const [tab, setTab] = useState<Tab>('workbench')
+  // Shared target environment for the Operate features (Traces / Jobs /
+  // Roles) — lifted here so switching tabs keeps the selection. Defaults to
+  // the host env; resolved once startup config has hydrated ENVIRONMENTS.
+  const [operateEnvKey, setOperateEnvKey] = useState<string>(() =>
+    currentEnvKey(),
+  )
+  // Audit Config has its own target-environment selection (Validate group).
+  const [auditEnvKey, setAuditEnvKey] = useState<string>(() => currentEnvKey())
+  // Import History too — deployments usually get checked in UAT/PROD.
+  const [importEnvKey, setImportEnvKey] = useState<string>(() =>
+    currentEnvKey(),
+  )
   // Sidebar collapse (icon-only) — remembered across sessions.
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
@@ -1223,6 +1279,10 @@ function App() {
         />
       )}
 
+      {!loading && !error && tab === 'timeline' && (
+        <ReleaseTimelineWorkspace solutions={allSolutions} />
+      )}
+
       {!loading && !error && tab === 'readiness' && isDeploymentManager && (
         <ReadinessWorkspace
           solutions={allSolutions}
@@ -1244,6 +1304,59 @@ function App() {
           onEnvChange={setValidateEnvKey}
           run={analysisRun}
           onAnalyze={handleAnalyze}
+        />
+      )}
+
+      {!error && tab === 'envConfig' && isDeploymentManager && (
+        <EnvConfigWorkspace />
+      )}
+
+      {!error && tab === 'auditConfig' && isDeploymentManager && (
+        <AuditConfigWorkspace
+          key={auditEnvKey}
+          envKey={auditEnvKey}
+          onEnvChange={setAuditEnvKey}
+        />
+      )}
+
+      {!error && tab === 'importHistory' && isDeploymentManager && (
+        <ImportHistoryWorkspace
+          key={importEnvKey}
+          envKey={importEnvKey}
+          onEnvChange={setImportEnvKey}
+        />
+      )}
+
+      {/* Operate views are independent of the solutions list — they render
+          even while it is still loading (only a load error blocks). Each
+          takes the shared target-environment selection. */}
+      {!error && tab === 'traces' && (
+        <TraceExplorer
+          canManageTraceLevel={isDeploymentManager}
+          envKey={operateEnvKey}
+          onEnvChange={setOperateEnvKey}
+        />
+      )}
+
+      {/* Job Monitor and Role Analyzer remount on env change (key) so their
+          internal state resets and refetches cleanly against the new target;
+          the Trace Explorer reloads in place to keep its filters. */}
+      {!error && tab === 'jobs' && (
+        <JobMonitor
+          key={operateEnvKey}
+          canManageJobs={isDeploymentManager}
+          envKey={operateEnvKey}
+          onEnvChange={setOperateEnvKey}
+        />
+      )}
+
+      {!error && tab === 'roles' && isDeploymentManager && (
+        <RoleAnalyzer
+          key={operateEnvKey}
+          envKey={operateEnvKey}
+          onEnvChange={setOperateEnvKey}
+          solutions={allSolutions}
+          canManage={isDeploymentManager}
         />
       )}
         </main>

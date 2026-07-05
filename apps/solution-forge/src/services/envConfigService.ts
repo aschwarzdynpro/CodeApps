@@ -1,0 +1,21 @@
+import type { EnvConfigResult } from '../types/envConfig'
+import { dataverseEnvConfigService } from './dataverseEnvConfigService'
+
+/**
+ * Service contract for the Environment Variable & Connection Reference
+ * cockpit. Reads the configured environments (ENVIRONMENTS) through the
+ * Dataverse connector and lines up each setting by its import-stable name.
+ * Read-only.
+ */
+export interface EnvConfigService {
+  /**
+   * Load environment variables and connection references across every
+   * configured environment. Per-environment failures are collected in
+   * `errors` rather than failing the whole load.
+   */
+  loadEnvConfig(
+    onProgress?: (done: number, total: number, label: string) => void,
+  ): Promise<EnvConfigResult>
+}
+
+export const envConfigService: EnvConfigService = dataverseEnvConfigService

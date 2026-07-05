@@ -67,6 +67,48 @@ export let ENVIRONMENTS: EnvironmentDef[] = parseEnvironments()
 const DEFAULT_ADO_ORG_URL = 'https://dev.azure.com/SchulzD365'
 const DEFAULT_ADO_PROJECT = 'D365UO'
 
+/**
+ * Environment helpers for the Operate features (Trace Explorer / Job Monitor
+ * / Role Analyzer), which can target ANY configured environment — not just
+ * the uat/prod deploy targets. All read via the Dataverse connector's
+ * per-organization ops, so a chosen env's org URL is all they need. Native
+ * WRITES (trace-level switch, job cancel/retry) always hit the host env, so
+ * the UI gates them with {@link isCurrentEnvKey}.
+ *
+ * Everything resolves ENVIRONMENTS at call time (it is a live binding
+ * hydrated from `pro_environmentconfig` at startup).
+ */
+
+/** The env flagged `isCurrent` (host), falling back to the first entry. */
+export function currentEnv(): EnvironmentDef | undefined {
+  return ENVIRONMENTS.find((e) => e.isCurrent) ?? ENVIRONMENTS[0]
+}
+
+/** Key of the host environment — the Operate default selection. */
+export function currentEnvKey(): string {
+  return currentEnv()?.key ?? 'dev'
+}
+
+/** Resolve an env def by key, falling back to the host env. */
+export function envByKey(envKey: string): EnvironmentDef | undefined {
+  return ENVIRONMENTS.find((e) => e.key === envKey) ?? currentEnv()
+}
+
+/** Org URL (no trailing slash) for a configured env key. */
+export function orgUrlForEnvKey(envKey: string): string {
+  return (envByKey(envKey)?.url ?? '').replace(/\/+$/, '')
+}
+
+/** Dataverse environment id for a configured env key (maker/portal links). */
+export function environmentIdForEnvKey(envKey: string): string {
+  return envByKey(envKey)?.environmentId ?? FALLBACK_ENVIRONMENT_ID
+}
+
+/** Whether the given key is the host environment (where native writes land). */
+export function isCurrentEnvKey(envKey: string): boolean {
+  return envByKey(envKey)?.isCurrent === true
+}
+
 export const FALLBACK_ENVIRONMENT_ID: string =
   import.meta.env.VITE_ENVIRONMENT_ID ?? DEFAULT_ENVIRONMENT_ID
 
@@ -227,6 +269,48 @@ export function makerCanvasAppUrl(
   if (!environmentId || !appName) return 'https://make.powerapps.com'
   return `https://make.powerapps.com/environments/${environmentId}/apps/${appName}/details`
 }
+
+/**
+ * Power Automate portal deep link to one flow run. `flowIdUnique` is the
+ * import-stable `workflow.workflowidunique`; `runName` is the flow-run id
+ * (`flowrun.name`, e.g. "08584690…").
+ */
+export function flowRunUrl(
+  environmentId: string | null,
+  flowIdUnique: string,
+  runName: string,
+): string {
+  const envId = environmentId || FALLBACK_ENVIRONMENT_ID
+  return `https://make.powerautomate.com/environments/${envId}/flows/${flowIdUnique}/runs/${runName}`
+}
+
+/**
+ * Watchdog (heartbeat) tables used by the Async Job / Flow Monitor. The
+ * pattern: integration flows write one heartbeat row per run; a definition
+ * row states how often a beat is expected (+ grace). The tables are
+ * customer-specific — adjust the logical names here (or leave them and the
+ * Watchdog board shows its "not installed" hint when the query fails).
+ */
+export const WATCHDOG_TABLES = {
+  /** FetchXML entity name of the definition table. */
+  definitionEntity: 'cust_heartbeatdefinition',
+  /** OData entity-set name of the definition table. */
+  definitionEntitySet: 'cust_heartbeatdefinitions',
+  definitionIdAttr: 'cust_heartbeatdefinitionid',
+  definitionNameAttr: 'cust_name',
+  intervalAttr: 'cust_expectedintervalminutes',
+  graceAttr: 'cust_graceminutes',
+  activeAttr: 'cust_isactive',
+  /** FetchXML entity name of the heartbeat table. */
+  beatEntity: 'cust_heartbeat',
+  /** OData entity-set name of the heartbeat table. */
+  beatEntitySet: 'cust_heartbeats',
+  /** Lookup attribute on the beat table pointing at its definition. */
+  beatDefinitionAttr: 'cust_heartbeatdefinition',
+  beatTimestampAttr: 'cust_timestamp',
+  beatStatusAttr: 'cust_status',
+  beatMessageAttr: 'cust_message',
+} as const
 
 /** Azure DevOps work item link, or null when the org isn't configured yet. */
 export function devOpsWorkItemUrl(devOpsId: string | null): string | null {
