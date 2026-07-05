@@ -34,6 +34,17 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       Drag & Drop (None → To be deployed → In progress → Completed).
 - [ ] **Power-Platform-Pipelines-Integration**: Pipeline-Run aus der App
       starten, Run-Status nach `pro_deploymentstatus` zurückspiegeln.
+- [x] **Solution Import History Viewer**: `importjob`-Historie je wählbarer
+      Umgebung (Start, Status, Progress, Dauer, User, Kontext); Zeile
+      aufklappen parst das Import-Log-XML lazy — **Missing-Dependency-Fehler
+      werden präzise als Tabelle extrahiert** (fehlende Komponente mit Typ/
+      Name/Herkunfts-Solution vs. abhängige Komponente mit Typ/Name/Parent),
+      sonstige Failures/Warnings dedupliziert darunter. *(Menüpunkt „Import
+      History", Validate-Gruppe, gated)*
+- [ ] **Release-Timeline**: Merge-Runs (`pro_mergerun`), veröffentlichte
+      Release Notes (`pro_releasenote`) und Importe (`importjob`) als
+      Zeitstrahl je Release — „was ging wann wohin" als reine Visualisierung
+      vorhandener Daten.
 - [ ] **Version-Bump & Export**: Versionsnummer der Release-Solution
       hochzählen und Export anstoßen.
 
@@ -110,6 +121,11 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       Privilegien hinzu und entfernt optional die Duplikate aus den
       Quell-Rollen (die dann ebenfalls in die Solution kommen). *(Role
       Analyzer → Sub-Tab „Core roles"; nur Host-Env + Deployment Manager)*
+- [ ] **Onboarding-Assistent („berechtigen wie …")**: neuen User wie einen
+      Referenz-User ausstatten — Rollen, Team-Mitgliedschaften und
+      FLS-Profile des Vorbilds anzeigen und per Klick übertragen (mit
+      Diff-Preview und per-Step-Report). Nutzt den Security-Snapshot + die
+      Schreib-Mechanik des Core Role Extractors.
 - [ ] **Role DeDuplicator**: Prozess zum **Entflechten von
       Rollenzuordnungen, die Rechte doppelt vergeben** — pro User/Team
       aufdecken, welche Privilegien über mehrere zugewiesene Rollen mehrfach

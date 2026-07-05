@@ -4916,3 +4916,59 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Solution Import History ---- */
+.imp-progress {
+  display: inline-block;
+  width: 64px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  margin-right: 8px;
+  vertical-align: middle;
+  overflow: hidden;
+}
+.imp-progress-bar {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #7c3aed);
+}
+.imp-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.imp-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.imp-toperror {
+  font-size: 12.5px;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.imp-h4 {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+}
+.imp-deps-group {
+  border-bottom: none !important;
+  color: var(--text) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 12px !important;
+}
+.imp-deps-group + .imp-deps-group,
+.imp-deps th:nth-child(4),
+.imp-deps td:nth-child(4) {
+  border-left: 2px solid var(--border);
+}
+.imp-message {
+  max-width: 480px;
+}

@@ -18,6 +18,7 @@ import { ReleaseNotesWorkspace } from './components/ReleaseNotesWorkspace'
 import { ActivityBar } from './components/ActivityBar'
 import { EnvConfigWorkspace } from './components/EnvConfigWorkspace'
 import { AuditConfigWorkspace } from './components/AuditConfigWorkspace'
+import { ImportHistoryWorkspace } from './components/ImportHistoryWorkspace'
 import { TraceExplorer } from './components/TraceExplorer'
 import { JobMonitor } from './components/JobMonitor'
 import { RoleAnalyzer } from './components/RoleAnalyzer'
@@ -56,6 +57,7 @@ type Tab =
   | 'analyze'
   | 'envConfig'
   | 'auditConfig'
+  | 'importHistory'
   | 'traces'
   | 'jobs'
   | 'roles'
@@ -91,6 +93,12 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { key: 'analyze', label: 'Analyze', icon: '📊', gated: true },
       { key: 'envConfig', label: 'Env Config', icon: '🔧', gated: true },
       { key: 'auditConfig', label: 'Audit Config', icon: '🔍', gated: true },
+      {
+        key: 'importHistory',
+        label: 'Import History',
+        icon: '📦',
+        gated: true,
+      },
     ],
   },
   {
@@ -118,6 +126,7 @@ const TAB_TITLES: Record<Tab, string> = {
   analyze: 'Analyze',
   envConfig: 'Environment Config',
   auditConfig: 'Audit Configuration',
+  importHistory: 'Solution Import History',
   traces: 'Plugin Trace Explorer',
   jobs: 'Async Job / Flow Monitor',
   roles: 'Security Role Analyzer',
@@ -179,6 +188,10 @@ function App() {
   )
   // Audit Config has its own target-environment selection (Validate group).
   const [auditEnvKey, setAuditEnvKey] = useState<string>(() => currentEnvKey())
+  // Import History too — deployments usually get checked in UAT/PROD.
+  const [importEnvKey, setImportEnvKey] = useState<string>(() =>
+    currentEnvKey(),
+  )
   // Sidebar collapse (icon-only) — remembered across sessions.
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
@@ -1295,6 +1308,14 @@ function App() {
           key={auditEnvKey}
           envKey={auditEnvKey}
           onEnvChange={setAuditEnvKey}
+        />
+      )}
+
+      {!error && tab === 'importHistory' && isDeploymentManager && (
+        <ImportHistoryWorkspace
+          key={importEnvKey}
+          envKey={importEnvKey}
+          onEnvChange={setImportEnvKey}
         />
       )}
 

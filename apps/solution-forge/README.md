@@ -76,6 +76,17 @@ nach Typ.
   auditierte Tabelle keine markierte Spalte hat (nur Record-Shell). Spalten
   werden beim Aufklappen lazy geladen. Read-only über den Konnektor
   (Metadaten); Mock-Fallback. Synergie mit der Audit-Explorer-App im Monorepo.
+- **Import History** (Validate, gated) — **Solution-Import-Historie** einer
+  wählbaren Umgebung aus der `importjob`-Tabelle: Start, Solution, Status
+  (Succeeded/Failed/Running), Fortschritts-Balken, Dauer, ausführender User,
+  Kontext. Zeile aufklappen lädt das Import-Log-XML (`importjob.data`) lazy
+  und parst es strukturiert: Manifest-Verdict (UniqueName/Version/Fehlertext)
+  und — der Kern — **Missing-Dependency-Fehler als präzise Tabelle**
+  (`<MissingDependencies>`-Knoten): links die im Ziel **fehlende** Komponente
+  (Typ, Name, Herkunfts-Solution = „install first"), rechts die importierte
+  Komponente, die sie **braucht** (Typ, Name, Parent). Sonstige
+  Failure/Warning-Results dedupliziert darunter. Das schwere XML wird nie in
+  der Liste geladen; Parser ist eine pure function mit Tests.
 - **App-Shell** (Dynamics-365-Stil): durchgehende **dunkle Topbar** mit
   Brand-Lockup links und Utility-Cluster rechts (Lauf-Modus-Badge —
   „Connected" / „Demo data" aus `usePower().mode` —, How-To & Help als Icons),

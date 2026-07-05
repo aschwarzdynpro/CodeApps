@@ -276,6 +276,24 @@ defensiv über `_fieldsecurityprofileid_value` **oder** `fieldsecurityprofileid`
 gelesen. Keine neuen Data Sources. **Live-Verify-Punkt:** die
 FieldPermissionType-Werte (0/4) beim ersten echten Lauf bestätigen.
 
+**Solution Import History** (Validate-Gruppe, Menüpunkt „Import History",
+gated): `ImportHistoryWorkspace` + `importHistoryService`
+(`dataverse…`/`mock…`), Zielumgebung per `OperateEnvPicker` (eigener Lift
+`importEnvKey`, Remount per `key`). Liste aus `importjob` via Konnektor-
+FetchXML — **NIE die `data`-Spalte selektieren** (annotiertes Manifest-XML,
+kann MB groß sein); Status-Heuristik `importJobStatusHeuristic` (progress ≥
+100 → succeeded; completedon + progress < 100 → failed; sonst running).
+Detail lazy je Zeile: `data` einzeln laden und mit
+`utils/importLog.ts → parseImportLog` (pure, Vitest **mit
+`@vitest-environment jsdom`** — DOMParser; jsdom ist devDependency) parsen:
+Manifest-Verdict (direktes `<result>`-Kind des `<solutionManifest>`),
+`<MissingDependencies><MissingDependency>` → Tabelle aus den
+`<Required>`/`<Dependent>`-**Attributen** (type = componenttype-Code →
+`componentTypeLabel`, schemaName, displayName, solution,
+parentSchemaName/parentDisplayName), generische
+`result[result="failure|warning"]`-Knoten dedupliziert. Parser wirft nie
+(Garbage ⇒ status 'unknown').
+
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT

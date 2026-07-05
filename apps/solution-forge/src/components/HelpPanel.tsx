@@ -621,6 +621,21 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>📦 Import History (Validate)</h3>
+            <p>
+              The <strong>Solution Import History</strong> lists a chosen
+              environment's <code>importjob</code> rows — started, solution,
+              status, progress, duration, user. Expanding a row lazily loads
+              and parses the import log:{' '}
+              <strong>missing-dependency failures become a precise table</strong>{' '}
+              — on the left the component that is missing in the target (type,
+              name, source solution → install first), on the right the
+              imported component that needs it (type, name, parent). Other
+              failures and warnings are listed below, deduplicated. Read-only.
+            </p>
+          </section>
+
+          <section className="help-section">
             <h3>🌐 Operate — target environment</h3>
             <p>
               Each Operate feature (Plugin Traces, Job Monitor, Role Analyzer)
