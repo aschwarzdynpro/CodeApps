@@ -54,6 +54,19 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       „Work Item zu / Solution offen" als Aufräum-Seite mit Direkt-Aktionen.
 - [x] **Compare: Inhalts-Drift** via Hash (`clientdata` / `xaml` / `content`)
       + Side-by-side-Diff. *(Compare → „Check content drift" + ⇄ diff)*
+- [x] **EnvVar & Connection-Reference-Cockpit**: Environment Variables
+      (`environmentvariabledefinition` + `environmentvariablevalue`) und
+      Connection References (`connectionreference`) über alle konfigurierten
+      Umgebungen (DEV/UAT/PROD) side-by-side; fehlende Werte / ungebundene
+      Connection References / Transport-Lücken (in einem Env vorhanden, im
+      anderen nicht) flaggen. Häufigster Import-Schmerz. Read-only über den
+      Konnektor, Match über Schema-/Logical-Name. *(Menüpunkt „Env Config",
+      Validate-Gruppe, gated)*
+- [ ] **Audit-Konfig-Analyzer**: welche Tabellen/Spalten Auditing aktiviert
+      haben (`IsAuditEnabled` je Entity/Attribut) und die Org-Audit-/
+      Retention-Einstellungen (`organization.isauditenabled`,
+      `auditretentionperiodv2`) — Governance-Überblick, Synergie mit der
+      Audit-Explorer-App im Monorepo.
 
 ## DevOps-Synergien (sobald der Service Principal steht, siehe TODO.md)
 
@@ -106,6 +119,13 @@ nach unten in „Umgesetzt". Die SP-Migration hat ihre eigene Checkliste in
       nativen Data Sources. Läuft dann als SP (verliert die Per-User-
       Durchsetzung) ⇒ eigene Gate-Rolle erwägen. Aktuell sind diese Writes
       bewusst Host-Env-only (native, als angemeldeter User).
+- [ ] **Field-Level Security Analyzer**: `fieldsecurityprofile` auswerten —
+      welche Spalten sind gesichert und wer (User/Team) darf sie
+      Read/Update/Create (`fieldpermission`). Ergänzt die Rollen-Matrix um die
+      Spaltenebene, die sie heute nicht zeigt.
+- [ ] **Team- & BU-Map**: Business-Unit-Hierarchie (`businessunit.parent
+      businessunitid`) + Team-Rollen (`teamroles`) visualisiert — erklärt,
+      woher team-vererbte Rechte kommen (Ergänzung zum Team-Vererbungs-Check).
 
 ## Umgesetzt
 

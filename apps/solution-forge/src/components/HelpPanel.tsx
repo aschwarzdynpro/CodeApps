@@ -593,6 +593,20 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🔧 Env Config (Validate)</h3>
+            <p>
+              The <strong>Environment Variable &amp; Connection Reference
+              cockpit</strong> shows every configured environment's config side
+              by side, matched by name. It flags the classic deployment gaps:
+              an env var <strong>with no value</strong> (and no default) in an
+              environment, a connection reference that is{' '}
+              <strong>unbound</strong>, and a setting present in one
+              environment but <strong>absent</strong> in another (a transport
+              gap). Secrets are masked; a default fallback is tagged. Read-only.
+            </p>
+          </section>
+
+          <section className="help-section">
             <h3>🌐 Operate — target environment</h3>
             <p>
               Each Operate feature (Plugin Traces, Job Monitor, Role Analyzer)

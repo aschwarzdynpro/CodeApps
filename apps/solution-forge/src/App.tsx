@@ -16,6 +16,7 @@ import { ReadinessWorkspace } from './components/ReadinessWorkspace'
 import { AnalyzeWorkspace } from './components/AnalyzeWorkspace'
 import { ReleaseNotesWorkspace } from './components/ReleaseNotesWorkspace'
 import { ActivityBar } from './components/ActivityBar'
+import { EnvConfigWorkspace } from './components/EnvConfigWorkspace'
 import { TraceExplorer } from './components/TraceExplorer'
 import { JobMonitor } from './components/JobMonitor'
 import { RoleAnalyzer } from './components/RoleAnalyzer'
@@ -52,6 +53,7 @@ type Tab =
   | 'releaseNotes'
   | 'readiness'
   | 'analyze'
+  | 'envConfig'
   | 'traces'
   | 'jobs'
   | 'roles'
@@ -85,6 +87,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         gated: true,
       },
       { key: 'analyze', label: 'Analyze', icon: '📊', gated: true },
+      { key: 'envConfig', label: 'Env Config', icon: '🔧', gated: true },
     ],
   },
   {
@@ -110,6 +113,7 @@ const TAB_TITLES: Record<Tab, string> = {
   releaseNotes: 'Release Notes',
   readiness: 'Deployment Readiness',
   analyze: 'Analyze',
+  envConfig: 'Environment Config',
   traces: 'Plugin Trace Explorer',
   jobs: 'Async Job / Flow Monitor',
   roles: 'Security Role Analyzer',
@@ -1274,6 +1278,10 @@ function App() {
           run={analysisRun}
           onAnalyze={handleAnalyze}
         />
+      )}
+
+      {!error && tab === 'envConfig' && isDeploymentManager && (
+        <EnvConfigWorkspace />
       )}
 
       {/* Operate views are independent of the solutions list — they render

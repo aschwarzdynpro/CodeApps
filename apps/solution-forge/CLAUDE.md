@@ -215,6 +215,19 @@ Subtitle; kein Delta ⇒ Publish deaktiviert. Notes sind historisch (was gemergt
 wurde), nicht der Live-Stand; Komponente↔Quelle ist nicht zuordenbar (Merge-Log
 speichert kombinierte Liste).
 
+**Env Config Cockpit** (Validate-Gruppe, Menüpunkt „Env Config", gated):
+`EnvConfigWorkspace` + `envConfigService` (`dataverse…`/`mock…`). Liest je
+konfigurierter Umgebung (`ENVIRONMENTS`) über den Konnektor
+(`ListRecordsWithOrganization` + `$select`, SP-Identität) drei Tabellen:
+`environmentvariabledefinitions` (+ `environmentvariablevalues`, gejoint über
+`_environmentvariabledefinitionid_value`) und `connectionreferences`. Match
+über den import-stabilen **Schema-** (EnvVar) bzw. **Logical-Name**
+(ConnRef). Flags: EnvVar präsent aber ohne Wert **und** ohne Default
+(`hasValue=false`), ConnRef ohne `connectionid` (unbound), und „present in
+einem Env, absent im anderen" (Transport-Lücke). Secrets (`type` 100000005)
+werden maskiert; Default-Fallback markiert. Read-only, keine neuen Data
+Sources. Per-Env-Query-Fehler landen in `result.errors` (nicht geworfen).
+
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT

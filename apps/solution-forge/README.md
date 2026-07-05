@@ -58,6 +58,15 @@ nach Typ.
   den fokussierten Einzel-Tabs; nutzt denselben Orchestrator wie der ALM
   Detective (`runInvestigation`) plus eine reine Ableitungs-Schicht
   (`analysisModel.ts`) — kein eigener Datenpfad, Mock-Fallback inklusive.
+- **Env Config** (Validate, gated) — **Environment Variable & Connection
+  Reference Cockpit**: `environmentvariabledefinition` + `environment
+  variablevalue` und `connectionreference` über **alle konfigurierten
+  Umgebungen** (DEV/UAT/PROD) side-by-side, gematcht über den import-stabilen
+  Schema-/Logical-Name. Flaggt die typischen Deploy-Lücken: **kein Wert** (und
+  kein Default) in einer Umgebung, **ungebundene** Connection Reference und
+  **Transport-Lücken** (Setting in einem Env vorhanden, im anderen nicht).
+  Secrets werden maskiert, Default-Fallback markiert. Read-only über den
+  Konnektor je Umgebung; Mock-Fallback mit eingebauten Beispiel-Lücken.
 - **App-Shell** (Dynamics-365-Stil): durchgehende **dunkle Topbar** mit
   Brand-Lockup links und Utility-Cluster rechts (Lauf-Modus-Badge —
   „Connected" / „Demo data" aus `usePower().mode` —, How-To & Help als Icons),
@@ -303,8 +312,12 @@ Implementierungen:
 - `mockSolutionService.ts` + `mockData.ts` – In-Memory-Beispieldaten; auch
   Anlage und Merge funktionieren offline.
 
-Die **Operate-Features** haben jeweils ihr eigenes Interface + Impl-Paar nach
-demselben Muster (Dataverse-Impl fällt auf Mock zurück, offline voll
+Das **Env-Config-Cockpit** folgt demselben Interface+Impl-Muster
+(`envConfigService` / `dataverse…` + `mock…`) und liest **jede konfigurierte
+Umgebung** über den Konnektor (`ListRecordsWithOrganization` mit `$select`,
+wie Compare/Sharing) — kein solution- oder host-gebundener Datenpfad, keine
+neuen Data Sources nötig. Die **Operate-Features** haben jeweils ihr eigenes
+Interface + Impl-Paar nach demselben Muster (Dataverse-Impl fällt auf Mock zurück, offline voll
 demobar): `traceService` / `jobMonitorService` / `roleAnalyzerService` mit
 `dataverse…`- und `mock…`-Implementierungen. Ihre **Reads laufen komplett
 über den vorhandenen Dataverse-Konnektor** als FetchXML-Passthrough gegen die

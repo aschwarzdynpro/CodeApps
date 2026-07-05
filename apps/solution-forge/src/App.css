@@ -4521,3 +4521,81 @@
   user-select: none;
   white-space: nowrap;
 }
+
+/* ---- Environment Variable & Connection Reference cockpit ---- */
+.envcfg-summary {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.envcfg-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+.envcfg-pill--bad {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+.envcfg-pill--warn {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+.envcfg-pill--ok {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+.envcfg-table {
+  min-width: 640px;
+}
+.envcfg-name {
+  font-weight: 600;
+  font-size: 12.5px;
+}
+.envcfg-schema {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+.envcfg-cell {
+  font-size: 12.5px;
+  vertical-align: top;
+}
+.envcfg-value {
+  display: inline-block;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 12px;
+}
+.envcfg-cell--bad {
+  background: #fef2f2;
+  color: #b91c1c;
+  font-weight: 600;
+}
+.envcfg-cell--gap {
+  color: var(--muted);
+  font-style: italic;
+}
+.envcfg-tag {
+  margin-left: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 4px;
+  padding: 0 4px;
+}
