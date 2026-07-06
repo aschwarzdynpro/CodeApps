@@ -18,6 +18,7 @@ import { ReleaseNotesWorkspace } from './components/ReleaseNotesWorkspace'
 import { ReleaseTimelineWorkspace } from './components/ReleaseTimelineWorkspace'
 import { ActivityBar } from './components/ActivityBar'
 import { EnvConfigWorkspace } from './components/EnvConfigWorkspace'
+import { DualWriteWorkspace } from './components/DualWriteWorkspace'
 import { AuditConfigWorkspace } from './components/AuditConfigWorkspace'
 import { ImportHistoryWorkspace } from './components/ImportHistoryWorkspace'
 import { TraceExplorer } from './components/TraceExplorer'
@@ -59,6 +60,7 @@ type Tab =
   | 'analyze'
   | 'envConfig'
   | 'auditConfig'
+  | 'dualWrite'
   | 'importHistory'
   | 'traces'
   | 'jobs'
@@ -96,6 +98,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { key: 'analyze', label: 'Analyze', icon: '📊', gated: true },
       { key: 'envConfig', label: 'Env Config', icon: '🔧', gated: true },
       { key: 'auditConfig', label: 'Audit Config', icon: '🔍', gated: true },
+      { key: 'dualWrite', label: 'Dual-Write Maps', icon: '🔀', gated: true },
       {
         key: 'importHistory',
         label: 'Import History',
@@ -130,6 +133,7 @@ const TAB_TITLES: Record<Tab, string> = {
   analyze: 'Analyze',
   envConfig: 'Environment Config',
   auditConfig: 'Audit Configuration',
+  dualWrite: 'Dual-Write Table Maps',
   importHistory: 'Solution Import History',
   traces: 'Plugin Trace Explorer',
   jobs: '[PREVIEW] Async Job / Flow Monitor',
@@ -1317,6 +1321,10 @@ function App() {
           envKey={auditEnvKey}
           onEnvChange={setAuditEnvKey}
         />
+      )}
+
+      {!error && tab === 'dualWrite' && isDeploymentManager && (
+        <DualWriteWorkspace />
       )}
 
       {!error && tab === 'importHistory' && isDeploymentManager && (

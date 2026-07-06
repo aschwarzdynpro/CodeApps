@@ -4801,6 +4801,179 @@
   text-decoration: underline;
 }
 
+/* ---- Dual-Write Table Maps ---- */
+.dw-list-row {
+  cursor: pointer;
+}
+.dw-list-row:hover td {
+  background: #f8fafc;
+}
+.dw-map-name {
+  font-weight: 600;
+}
+.dw-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #eef2ff;
+  color: #3730a3;
+  border: 1px solid #e0e7ff;
+}
+.dw-badge--env {
+  background: #ecfeff;
+  color: #155e75;
+  border-color: #cffafe;
+}
+.dw-versions {
+  margin-left: 8px;
+  font-size: 11px;
+}
+
+/* Mapping overlay */
+.dw-modal-title {
+  font-size: 16px;
+  word-break: break-word;
+  margin: 0;
+}
+.dw-modal-body {
+  padding: 4px 2px 2px;
+}
+.dw-modal-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.dw-modal-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+.dw-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.dw-legs {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.dw-leg-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.dw-schema {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 13px;
+}
+.dw-env {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.dw-leg-arrow {
+  color: var(--muted);
+  font-size: 16px;
+}
+.dw-filter {
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+.dw-fields {
+  width: 100%;
+}
+.dw-fields code {
+  font-size: 12px;
+  word-break: break-all;
+}
+.dw-dir-col {
+  width: 44px;
+}
+.dw-dir {
+  font-weight: 700;
+  text-align: center;
+  font-size: 15px;
+}
+.dw-dir--both {
+  color: #4f46e5;
+}
+.dw-dir--to-dest {
+  color: #16a34a;
+}
+.dw-dir--to-source {
+  color: #d97706;
+}
+.dw-dir--unknown {
+  color: var(--muted);
+}
+.dw-lookup {
+  display: block;
+  font-size: 11px;
+  color: #155e75;
+  margin-top: 2px;
+}
+.dw-valuemap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dw-vm {
+  font-size: 11px;
+}
+.dw-systag {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.dw-field--system code {
+  color: var(--muted);
+}
+.dw-raw {
+  max-height: 60vh;
+  overflow: auto;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.dw-legend {
+  margin-top: 14px;
+}
+.dw-legend .dw-dir {
+  font-size: 13px;
+}
+
 /* ---- Audit Configuration Analyzer ---- */
 .audit-org {
   padding: 14px;

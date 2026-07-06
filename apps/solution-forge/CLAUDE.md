@@ -251,6 +251,30 @@ pure function `utils/auditConfig.ts → describeTableAudit(org, table)` (org an
 `formatRetention` (−1 = Forever), beide Vitest-getestet. Read-only, keine
 neuen Data Sources.
 
+**Dual-Write Table Maps** (Validate-Gruppe, Menüpunkt „Dual-Write Maps",
+gated): `DualWriteWorkspace` + `dualWriteService` (`dataverse…`/`mock…`).
+Liest über den Konnektor (FetchXML, SP-Identität) die **Custom (unmanaged)**
+Dual-Write-Table-Maps der Host-Env. **Entity `msdyn_dualwriteentitymap`**
+(Entity-Set `msdyn_dualwriteentitymaps`) — empirisch am INT-11 verifiziert
+(nicht `msdyn_dualwritetablemap`!). Felder: `msdyn_name` (z. B.
+`sst_[uoms - Units]`), `msdyn_displayname`, `msdyn_version` (dotted, z. B.
+`2.0.1.5`), `ownerid` (Name via `formattedValue`), `ismanaged`
+(Filter `eq 0` = custom), `msdyn_mapping` (**die Mapping-JSON**, groß ⇒ NICHT
+in der Liste selektieren, lazy je Record), `msdyn_properties`, `modifiedon`.
+**Jede gespeicherte Version ist ein eigener Record** ⇒ `listTableMaps` gruppiert
+nach `msdyn_name` und behält die höchste Version (`compareMapVersions`, semver-
+numerisch), plus Zähler älterer. Detail: `getMapping(id)` holt nur
+`msdyn_mapping`; Parser = pure function `utils/dualWriteMapping.ts →
+parseDualWriteMapping` (Vitest, wirft nie): `legs[]` mit
+`sourceSchema`/`destinationSchema` (+ `sourceEnvironmentType`/`…Type` = AX/CRM)
+und `fieldMappings[]` (`syncDirection` **kommt als Zahl ODER String** ⇒
+coercen: 1 = source→dest, 2 = dest→source, 3 = bidirektional;
+`destinationLookupFieldRelatedEntity`; `valueTransforms[].transformType ==
+'ValueMap'` → `valueMap`-Paare; `isSystemGenerated`). UI: Overlay
+(`DualWriteMappingModal`, `.modal-backdrop`-Muster) mit Leg-Tabellen,
+Toggles „Hide system-generated"/„Show raw JSON". Session-Cache im Component.
+Read-only, keine neuen Data Sources.
+
 **Team & BU Map** (Role Analyzer → Sub-Tab „Team & BU map", read-only):
 `TeamBuMap.tsx` — interaktives **Org-Chart als Inline-SVG** (kein Chart-Dep),
 Pan (Pointer-Drag) / Zoom (Buttons + Wheel), aufklappbare Teilbäume. Daten aus

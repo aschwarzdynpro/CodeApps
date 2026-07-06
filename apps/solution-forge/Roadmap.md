@@ -68,6 +68,13 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       (org an + Tabelle an), Spalten-Drilldown. Synergie mit der
       Audit-Explorer-App im Monorepo. *(Menüpunkt „Audit Config",
       Validate-Gruppe, gated, wählbare Zielumgebung)*
+- [x] **Dual-Write-Table-Map-Viewer**: die Custom (unmanaged) Dual-Write
+      Table Maps der Current Environment (`msdyn_dualwriteentitymap`, gruppiert
+      nach Name auf die aktuelle Version) mit Name/Version/Besitzer; Klick auf
+      ein Mapping öffnet ein Overlay, das die `msdyn_mapping`-Definition
+      aufbereitet (Legs Source ↔ Destination, Field-Mappings mit Sync-Richtung,
+      Value-Maps, Lookups, System-Felder). Read-only, Parser Vitest-getestet.
+      *(Menüpunkt „Dual-Write Maps", Validate-Gruppe, gated)*
 
 ## DevOps-Synergien (sobald der Service Principal steht, siehe TODO.md)
 

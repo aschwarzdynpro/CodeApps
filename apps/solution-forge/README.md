@@ -90,6 +90,18 @@ nach Typ.
   auditierte Tabelle keine markierte Spalte hat (nur Record-Shell). Spalten
   werden beim Aufklappen lazy geladen. Read-only über den Konnektor
   (Metadaten); Mock-Fallback. Synergie mit der Audit-Explorer-App im Monorepo.
+- **Dual-Write Maps** (Validate, gated) — die **Custom (unmanaged) Dual-Write
+  Table Maps** der Current Environment aus `msdyn_dualwriteentitymap` (jede
+  gespeicherte Version = eigener Record ⇒ **Gruppierung nach Name, aktuelle =
+  höchste Version**, plus Zähler älterer Versionen). Liste: Name, aktuelle
+  Version, Besitzer (`ownerid`), geändert am. **Klick auf ein Mapping** öffnet
+  ein Overlay, das die `msdyn_mapping`-Definition aufbereitet: je Leg
+  Source ↔ Destination-Schema und eine **Field-Mapping-Tabelle** mit
+  Sync-Richtung (↔ bidirektional / → to destination / ← to source),
+  Value-Map-Transforms, Lookup-aufgelösten Zielen und einem Tag auf
+  system-generierten (Integration-Key-)Feldern; Toggles „Hide system-generated"
+  und „Show raw JSON". Parser = pure function mit Vitest. Read-only über den
+  Konnektor (FetchXML, SP); Session-Cache; Mock-Fallback.
 - **Import History** (Validate, gated) — **Solution-Import-Historie** einer
   wählbaren Umgebung aus der `importjob`-Tabelle: Start, Solution, Status
   (Succeeded/Failed/Running), Fortschritts-Balken, Dauer, ausführender User,

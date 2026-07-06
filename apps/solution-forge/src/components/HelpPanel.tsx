@@ -647,6 +647,25 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🔀 Dual-Write Maps (Validate)</h3>
+            <p>
+              The <strong>Dual-Write Table Maps</strong> cockpit lists the{' '}
+              <strong>custom (unmanaged)</strong> dual-write table maps in the
+              current environment (<code>msdyn_dualwriteentitymap</code>) — one
+              row per map at its <strong>current (highest) version</strong>,
+              with its owner and how many older version records exist. Click a
+              map to open an overlay that renders the mapping from its{' '}
+              <code>msdyn_mapping</code> definition: each leg's source ↔
+              destination schema and a <strong>field-mapping table</strong> with
+              the sync direction (↔ bidirectional, → to destination, ← to
+              source), value-map transforms, lookup-resolved destinations and a
+              tag on system-generated (integration key) fields. Toggle{' '}
+              <em>Hide system-generated</em> or <em>Show raw JSON</em>.
+              Read-only.
+            </p>
+          </section>
+
+          <section className="help-section">
             <h3>🕘 Timeline (Manage)</h3>
             <p>
               The <strong>Release Timeline</strong> shows "what went where,
