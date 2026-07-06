@@ -104,8 +104,11 @@ nach Typ.
   Konnektor (FetchXML, SP); Session-Cache; Mock-Fallback.
 - **Import History** (Validate, gated) — **Solution-Import-Historie** einer
   wählbaren Umgebung aus der `importjob`-Tabelle: Start, Solution, Status
-  (Succeeded/Failed/Running), Fortschritts-Balken, Dauer, ausführender User,
-  Kontext. Zeile aufklappen lädt das Import-Log-XML (`importjob.data`) lazy
+  (Succeeded/Failed/Running), Fortschritts-Balken, Dauer, **Publisher** (aus
+  der importierten Solution aufgelöst — der Import-User ist meist der System-
+  Account und nicht aussagekräftig), Kontext. Toolbar (Suche, Release-Picker,
+  Status-Chips, Counter, Refresh) in einer Zeile. Zeile aufklappen lädt das
+  Import-Log-XML (`importjob.data`) lazy
   und parst es strukturiert: Manifest-Verdict (UniqueName/Version/Fehlertext)
   und — der Kern — **Missing-Dependency-Fehler als präzise Tabelle**
   (`<MissingDependencies>`-Knoten): links die im Ziel **fehlende** Komponente

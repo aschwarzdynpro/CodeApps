@@ -183,6 +183,17 @@ export function ImportHistoryWorkspace({
           onChange={pickRelease}
           placeholder="Release solution…"
         />
+        <div className="chips">
+          {STATUS_CHIPS.map((s) => (
+            <button
+              key={s.key}
+              className={`chip ${status === s.key ? 'chip--active' : ''}`}
+              onClick={() => setStatus(s.key)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
         <span className="trace-toolbar-right">
           {jobs && (
             <span className="muted">
@@ -198,18 +209,6 @@ export function ImportHistoryWorkspace({
             {loading ? 'Reading…' : '⟳ Refresh'}
           </button>
         </span>
-      </div>
-
-      <div className="chips import-status-chips">
-        {STATUS_CHIPS.map((s) => (
-          <button
-            key={s.key}
-            className={`chip ${status === s.key ? 'chip--active' : ''}`}
-            onClick={() => setStatus(s.key)}
-          >
-            {s.label}
-          </button>
-        ))}
       </div>
 
       {error && <div className="state state--error">{error}</div>}
@@ -238,7 +237,7 @@ export function ImportHistoryWorkspace({
                 <th>Status</th>
                 <th className="num">Progress</th>
                 <th className="num">Duration</th>
-                <th>By</th>
+                <th>Publisher</th>
                 <th>Context</th>
               </tr>
             </thead>
@@ -269,7 +268,7 @@ export function ImportHistoryWorkspace({
                       <td className="num nowrap">
                         {fmtDuration(job.startedOn, job.completedOn)}
                       </td>
-                      <td>{job.createdBy || <span className="muted">—</span>}</td>
+                      <td>{job.publisher || <span className="muted">—</span>}</td>
                       <td>{job.context || <span className="muted">—</span>}</td>
                     </tr>
                     {isOpen && (

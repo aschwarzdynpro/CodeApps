@@ -26,6 +26,7 @@ const JOBS: ImportJobSummary[] = [
     progress: 37,
     status: 'failed',
     createdBy: 'Andy Schwarz',
+    publisher: 'Schulz Systemtechnik GmbH',
     context: 'Upgrade · ImportUpgrade',
   },
   {
@@ -36,6 +37,7 @@ const JOBS: ImportJobSummary[] = [
     progress: 46,
     status: 'running',
     createdBy: 'Andy Schwarz',
+    publisher: 'Schulz Systemtechnik GmbH',
     context: 'Upgrade',
   },
   {
@@ -46,6 +48,7 @@ const JOBS: ImportJobSummary[] = [
     progress: 35,
     status: 'failed',
     createdBy: 'Andy Schwarz',
+    publisher: 'Schulz Systemtechnik GmbH',
     context: 'New',
   },
   {
@@ -56,6 +59,7 @@ const JOBS: ImportJobSummary[] = [
     progress: 100,
     status: 'succeeded',
     createdBy: 'Marie Curie',
+    publisher: 'Schulz Systemtechnik GmbH',
     context: 'Update',
   },
   {
@@ -66,6 +70,7 @@ const JOBS: ImportJobSummary[] = [
     progress: 100,
     status: 'succeeded',
     createdBy: 'Niels Bohr',
+    publisher: 'Default Publisher',
     context: 'New',
   },
 ]
@@ -159,6 +164,7 @@ const ENV_JOBS: Record<string, ImportJobSummary[]> = {
       progress: 100,
       status: 'succeeded',
       createdBy: 'Andy Schwarz',
+      publisher: 'Schulz Systemtechnik GmbH',
       context: 'Update',
     },
   ],
@@ -171,6 +177,7 @@ const ENV_JOBS: Record<string, ImportJobSummary[]> = {
       progress: 41,
       status: 'failed',
       createdBy: 'Andy Schwarz',
+      publisher: 'Schulz Systemtechnik GmbH',
       context: 'Update',
     },
   ],

@@ -683,7 +683,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <p>
               The <strong>Solution Import History</strong> lists a chosen
               environment's <code>importjob</code> rows — started, solution,
-              status, progress, duration, user. The list is capped at the
+              status, progress, duration, publisher (resolved from the
+              imported solution, since the import user is usually the system).
+              The list is capped at the
               latest 100, so all narrowing is <strong>server-side</strong>:{' '}
               a <strong>status chip</strong> (e.g. <em>Failed</em> → the latest
               100 failed imports), a <strong>solution-name search</strong>, and

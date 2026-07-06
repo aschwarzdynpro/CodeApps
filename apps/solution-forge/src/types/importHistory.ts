@@ -32,7 +32,13 @@ export interface ImportJobSummary {
   /** 0–100 (importjob.progress). */
   progress: number
   status: ImportJobStatus
+  /** Import initiator — kept for the release timeline; often not a real user
+   *  (system imports), so the Import History table shows the publisher instead. */
   createdBy: string
+  /** Publisher of the imported solution, resolved via the target env's
+   *  `solution` → `publisher` (matched by unique name). '' when the solution is
+   *  not (or no longer) present in the environment. */
+  publisher: string
   /** Formatted operation/import context when present. */
   context: string
 }

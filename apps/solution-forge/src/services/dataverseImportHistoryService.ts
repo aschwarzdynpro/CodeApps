@@ -86,28 +86,61 @@ class DataverseImportHistoryService implements ImportHistoryService {
       buildFilter(query) +
       `<order attribute="startedon" descending="true" />` +
       `</entity></fetch>`
-    const rows = await fetchXmlQuery(
-      'importjobs',
-      fetchXml,
-      orgUrlForEnvKey(envKey),
-    )
+    const orgUrl = orgUrlForEnvKey(envKey)
+    // Resolve the publisher per solution in the target env (one lightweight
+    // query, run in parallel) — the importjob row has no publisher, and the
+    // manifest that does is too heavy to load for the list.
+    const [rows, publishers] = await Promise.all([
+      fetchXmlQuery('importjobs', fetchXml, orgUrl),
+      this.publisherBySolution(orgUrl),
+    ])
     return rows.map((row) => {
       const startedOn = rowStr(row.startedon) || rowStr(row.createdon)
       const completedOn = rowStr(row.completedon)
       const progress = rowNum(row.progress)
       const importContext = rowStr(row.importcontext)
       const operationContext = rowStr(row.operationcontext)
+      const solutionName = rowStr(row.solutionname)
       return {
         id: rowStr(row.importjobid),
-        solutionName: rowStr(row.solutionname) || '(unknown solution)',
+        solutionName: solutionName || '(unknown solution)',
         startedOn,
         completedOn,
         progress,
         status: importJobStatusHeuristic(progress, completedOn, startedOn),
         createdBy: formattedValue(row, 'createdby') ?? '',
+        publisher: publishers.get(solutionName.toLowerCase()) ?? '',
         context: [operationContext, importContext].filter(Boolean).join(' · '),
       }
     })
+  }
+
+  /**
+   * Map of solution unique name (lower-case) → publisher friendly name in the
+   * target env. Lightweight (unique name + publisher name only). Best-effort:
+   * a failure (or a solution no longer installed) just leaves the publisher
+   * blank rather than failing the list.
+   */
+  private async publisherBySolution(orgUrl: string): Promise<Map<string, string>> {
+    const map = new Map<string, string>()
+    try {
+      const fetchXml =
+        `<fetch>` +
+        `<entity name="solution">` +
+        `<attribute name="uniquename" />` +
+        `<link-entity name="publisher" from="publisherid" to="publisherid" link-type="inner">` +
+        `<attribute name="friendlyname" alias="pubname" />` +
+        `<attribute name="uniquename" alias="pubunique" />` +
+        `</link-entity>` +
+        `</entity></fetch>`
+      for (const row of await fetchXmlQuery('solutions', fetchXml, orgUrl)) {
+        const uname = rowStr(row.uniquename).toLowerCase()
+        if (uname) map.set(uname, rowStr(row.pubname) || rowStr(row.pubunique))
+      }
+    } catch (err) {
+      console.warn('[import] publisher map query failed:', err)
+    }
+    return map
   }
 
   async getImportLog(jobId: string, envKey: string): Promise<ImportLogDetail> {

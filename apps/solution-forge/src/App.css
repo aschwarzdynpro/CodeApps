@@ -4691,9 +4691,6 @@
   margin-left: auto;
   font-size: 12px;
 }
-.import-status-chips {
-  margin: 0 0 12px;
-}
 /* Per-connection-reference "N flows" usage counter. */
 .envcfg-usage-chip {
   display: inline-block;

@@ -35,6 +35,7 @@ const job = (id: string, startedOn: string, status: ImportJobSummary['status']):
   progress: status === 'succeeded' ? 100 : 35,
   status,
   createdBy: 'Niels',
+  publisher: 'Schulz Systemtechnik GmbH',
   context: 'Update',
 })
 
