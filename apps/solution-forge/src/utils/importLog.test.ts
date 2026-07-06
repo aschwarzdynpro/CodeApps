@@ -51,6 +51,36 @@ const SUCCEEDED = `<?xml version="1.0"?>
   </solutionManifests>
 </importexportxml>`
 
+/**
+ * Real-world shape: the platform embeds the whole `<MissingDependencies>` block
+ * — as escaped XML — inside the manifest's `errortext`, uses a string `type`
+ * ("connectionreference") and an `id.<…>name` attribute instead of `schemaName`.
+ */
+const EMBEDDED_MISSING_DEPS = (() => {
+  const msg =
+    'Solution manifest import: FAILURE: The following solution cannot be ' +
+    'imported: SSTCoreV2. Some dependencies are missing. The missing ' +
+    'dependencies are : <MissingDependencies canResolveAllMissingDependencies="False">' +
+    '<MissingDependency canResolveMissingDependency="False">' +
+    '<Required type="connectionreference" displayName="ssid_CRDataverseInternal" ' +
+    'solution="Workbench (1.0.0.2)" id.connectionreferencelogicalname="ssid_CRDataverseInternal" />' +
+    '<Dependent type="29" displayName="PA | Quote | Print Quote" ' +
+    'id="{2438389e-78d7-ef11-a72f-000d3adbc595}" /></MissingDependency>' +
+    '</MissingDependencies> , ProductUpdatesOnly : False'
+  const esc = (s: string) =>
+    s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+  return (
+    `<importexportxml><solutionManifests><solutionManifest>` +
+    `<UniqueName>SSTCoreV2</UniqueName><Version>2026.0623.4</Version>` +
+    `<result result="failure" errorcode="0x80048033" errortext="${esc(msg)}" />` +
+    `</solutionManifest></solutionManifests></importexportxml>`
+  )
+})()
+
 describe('parseImportLog', () => {
   it('extracts manifest info and the failure verdict', () => {
     const d = parseImportLog(FAILED_WITH_DEPENDENCIES)
@@ -87,6 +117,28 @@ describe('parseImportLog', () => {
     expect(d.failures[0].severity).toBe('failure')
     expect(d.failures[0].errorText).toContain('does not exist')
     expect(d.failures[1].severity).toBe('warning')
+  })
+
+  it('parses missing dependencies embedded (escaped) in the manifest error', () => {
+    const d = parseImportLog(EMBEDDED_MISSING_DEPS)
+    expect(d.status).toBe('failed')
+    expect(d.solutionUniqueName).toBe('SSTCoreV2')
+    expect(d.missingDependencies).toHaveLength(1)
+    expect(d.missingDependencies[0]).toMatchObject({
+      requiredTypeCode: 10064,
+      requiredTypeLabel: 'Connection Reference',
+      requiredSchemaName: 'ssid_CRDataverseInternal',
+      requiredDisplayName: 'ssid_CRDataverseInternal',
+      requiredSolution: 'Workbench (1.0.0.2)',
+      dependentTypeCode: 29,
+      dependentTypeLabel: 'Process',
+      dependentDisplayName: 'PA | Quote | Print Quote',
+    })
+    // The raw XML is lifted out of the headline; a readable lead-in remains,
+    // and nothing leaks into the generic-failures table.
+    expect(d.topErrorText).not.toContain('<MissingDependencies')
+    expect(d.topErrorText).toContain('SSTCoreV2')
+    expect(d.failures).toHaveLength(0)
   })
 
   it('reports success from the manifest verdict', () => {

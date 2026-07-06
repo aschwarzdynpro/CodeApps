@@ -60,11 +60,58 @@ function attr(el: Element | null, name: string): string {
   return el?.getAttribute(name) ?? ''
 }
 
-function typeCode(el: Element | null): number | null {
-  const raw = attr(el, 'type')
-  if (!raw) return null
+/**
+ * The `type` on a Required/Dependent node is usually a numeric componenttype,
+ * but real logs also use the logical-name string (e.g. "connectionreference").
+ * Resolve either to a code (when known) and a readable label.
+ */
+const TYPE_NAME_LABELS: Record<string, { code: number | null; label: string }> =
+  {
+    entity: { code: 1, label: 'Table' },
+    attribute: { code: 2, label: 'Column' },
+    optionset: { code: 9, label: 'Choice' },
+    role: { code: 20, label: 'Security Role' },
+    savedquery: { code: 26, label: 'View' },
+    workflow: { code: 29, label: 'Process' },
+    systemform: { code: 60, label: 'Form' },
+    webresource: { code: 61, label: 'Web Resource' },
+    pluginassembly: { code: 91, label: 'Plugin Assembly' },
+    sdkmessageprocessingstep: { code: 92, label: 'Plugin Step' },
+    canvasapp: { code: 300, label: 'Canvas App' },
+    environmentvariabledefinition: {
+      code: 380,
+      label: 'Environment Variable Definition',
+    },
+    environmentvariablevalue: {
+      code: 381,
+      label: 'Environment Variable Value',
+    },
+    connectionreference: { code: 10064, label: 'Connection Reference' },
+  }
+
+function resolveType(el: Element | null): { code: number | null; label: string } {
+  const raw = attr(el, 'type').trim()
+  if (!raw) return { code: null, label: '' }
   const n = Number(raw)
-  return Number.isFinite(n) ? n : null
+  if (Number.isFinite(n)) return { code: n, label: componentTypeLabel(n) }
+  const known = TYPE_NAME_LABELS[raw.toLowerCase()]
+  if (known) return known
+  return { code: null, label: raw.charAt(0).toUpperCase() + raw.slice(1) }
+}
+
+/**
+ * Schema/logical name of a Required/Dependent node. Logs vary: some carry
+ * `schemaName`, others an `id.<something>name` attribute (e.g.
+ * `id.connectionreferencelogicalname`). The bare `id` is a GUID, not a name.
+ */
+function idQualifiedName(el: Element | null): string {
+  if (!el) return ''
+  for (const a of [...el.attributes])
+    if (a.name.length > 3 && a.name.toLowerCase().startsWith('id.')) return a.value
+  return ''
+}
+function schemaName(el: Element | null): string {
+  return attr(el, 'schemaName') || idQualifiedName(el)
 }
 
 /** Best-effort context for a generic result node: walk up to a named parent. */
@@ -87,23 +134,65 @@ function resultContext(result: Element): string {
 function parseMissingDependency(el: Element): MissingDependencyRow {
   const required = el.querySelector('Required')
   const dependent = el.querySelector('Dependent')
-  const requiredType = typeCode(required)
-  const dependentType = typeCode(dependent)
+  const rt = resolveType(required)
+  const dt = resolveType(dependent)
   const parentSchema = attr(dependent, 'parentSchemaName')
   const parentDisplay = attr(dependent, 'parentDisplayName')
   return {
-    requiredTypeCode: requiredType,
-    requiredTypeLabel: componentTypeLabel(requiredType),
-    requiredSchemaName: attr(required, 'schemaName'),
+    requiredTypeCode: rt.code,
+    requiredTypeLabel: rt.label,
+    requiredSchemaName: schemaName(required),
     requiredDisplayName: attr(required, 'displayName'),
     requiredSolution: attr(required, 'solution'),
-    dependentTypeCode: dependentType,
-    dependentTypeLabel: componentTypeLabel(dependentType),
-    dependentSchemaName: attr(dependent, 'schemaName'),
+    dependentTypeCode: dt.code,
+    dependentTypeLabel: dt.label,
+    dependentSchemaName: schemaName(dependent),
     dependentDisplayName: attr(dependent, 'displayName'),
     dependentParent: parentDisplay || parentSchema,
   }
 }
+
+/**
+ * The platform frequently reports missing dependencies NOT as their own
+ * `<MissingDependency>` elements but embedded — as escaped XML — inside the
+ * manifest's `errortext` (e.g. "…missing dependencies are : &lt;Missing
+ * Dependencies&gt;…"). Pull that block out of a message and parse the rows.
+ * Returns [] when there is no block or it will not re-parse (the caller then
+ * keeps the raw message so nothing is lost).
+ */
+function extractEmbeddedMissingDeps(text: string): MissingDependencyRow[] {
+  if (!text || !/<MissingDependency\b/i.test(text)) return []
+  const block = text.match(/<MissingDependencies[\s\S]*<\/MissingDependencies>/i)
+  if (!block) return []
+  try {
+    const frag = new DOMParser().parseFromString(block[0], 'text/xml')
+    if (frag.querySelector('parsererror')) return []
+    return [...frag.querySelectorAll('MissingDependency')].map(
+      parseMissingDependency,
+    )
+  } catch {
+    return []
+  }
+}
+
+/** Cut an embedded MissingDependencies block off a message, leaving a readable
+ *  lead-in (the parsed rows render as a table). */
+function stripEmbeddedXml(text: string): string {
+  const cut = text.search(/<MissingDependencies/i)
+  return (cut < 0 ? text : text.slice(0, cut)).replace(/\s+$/, '').trim()
+}
+
+const depKey = (d: MissingDependencyRow): string =>
+  [
+    d.requiredTypeLabel,
+    d.requiredSchemaName,
+    d.requiredDisplayName,
+    d.requiredSolution,
+    d.dependentTypeLabel,
+    d.dependentSchemaName,
+    d.dependentDisplayName,
+    d.dependentParent,
+  ].join('|')
 
 /**
  * Parse one import-log XML. Never throws on malformed input — a parse error
@@ -142,10 +231,22 @@ export function parseImportLog(xml: string): ImportLogDetail {
   for (const child of manifest ? [...manifest.children] : [])
     if (child.tagName === 'result') manifestResult = child
 
-  // Missing dependencies.
-  const missingDependencies = [
-    ...doc.querySelectorAll('MissingDependency'),
-  ].map(parseMissingDependency)
+  // Missing dependencies — real `<MissingDependency>` elements PLUS any block
+  // embedded (escaped) inside a result's errortext / text content.
+  const missingRaw = [...doc.querySelectorAll('MissingDependency')].map(
+    parseMissingDependency,
+  )
+  for (const result of doc.querySelectorAll('result')) {
+    missingRaw.push(...extractEmbeddedMissingDeps(attr(result, 'errortext')))
+    missingRaw.push(...extractEmbeddedMissingDeps(result.textContent ?? ''))
+  }
+  const seenDep = new Set<string>()
+  const missingDependencies = missingRaw.filter((d) => {
+    const key = depKey(d)
+    if (seenDep.has(key)) return false
+    seenDep.add(key)
+    return true
+  })
 
   // Generic failures/warnings (excluding the manifest verdict itself).
   const failures: ImportFailureItem[] = []
@@ -153,7 +254,7 @@ export function parseImportLog(xml: string): ImportLogDetail {
     'result[result="failure"], result[result="warning"]',
   )) {
     if (result === manifestResult) continue
-    const errorText = attr(result, 'errortext').trim()
+    const errorText = stripEmbeddedXml(attr(result, 'errortext').trim())
     const errorCode = attr(result, 'errorcode').trim()
     if (!errorText && !errorCode) continue
     failures.push({
@@ -186,11 +287,19 @@ export function parseImportLog(xml: string): ImportLogDetail {
         ? 'succeeded'
         : 'unknown'
 
+  // Strip the embedded dependency block from the headline — but only when we
+  // actually parsed rows out of it, so a fragment we couldn't read stays visible.
+  const manifestErrorText = attr(manifestResult, 'errortext').trim()
+  const topErrorText =
+    extractEmbeddedMissingDeps(manifestErrorText).length > 0
+      ? stripEmbeddedXml(manifestErrorText)
+      : manifestErrorText
+
   return {
     solutionUniqueName: uniqueName,
     solutionVersion: version,
     status,
-    topErrorText: attr(manifestResult, 'errortext').trim(),
+    topErrorText,
     missingDependencies,
     failures: deduped,
   }

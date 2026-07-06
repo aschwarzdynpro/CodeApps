@@ -19,6 +19,16 @@ const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000).toISOString(
 
 const JOBS: ImportJobSummary[] = [
   {
+    id: 'job-0005',
+    solutionName: 'SSTCoreV2',
+    startedOn: hoursAgo(1),
+    completedOn: hoursAgo(0.98),
+    progress: 37,
+    status: 'failed',
+    createdBy: 'Andy Schwarz',
+    context: 'Upgrade · ImportUpgrade',
+  },
+  {
     id: 'job-0004',
     solutionName: 'deploy_q3',
     startedOn: hoursAgo(2),
@@ -96,7 +106,39 @@ const SUCCESS_LOG = (name: string, version: string) =>
   `<result result="success" errorcode="0" errortext="" />` +
   `</solutionManifest></solutionManifests></importexportxml>`
 
+/**
+ * Real-world variant: the platform embeds the `<MissingDependencies>` block —
+ * as escaped XML — inside the manifest's `errortext`, with a string `type`
+ * ("connectionreference") and an `id.<…>name` attribute instead of `schemaName`.
+ * Kept faithful so the parser fix is demoable offline.
+ */
+const EMBEDDED_DEP_LOG = (() => {
+  const msg =
+    'Solution manifest import: FAILURE: The following solution cannot be ' +
+    'imported: SSTCoreV2. Some dependencies are missing. The missing ' +
+    'dependencies are : <MissingDependencies canResolveAllMissingDependencies="False">' +
+    '<MissingDependency canResolveMissingDependency="False">' +
+    '<Required type="connectionreference" displayName="ssid_CRDataverseInternal" ' +
+    'solution="Workbench (1.0.0.2)" id.connectionreferencelogicalname="ssid_CRDataverseInternal" />' +
+    '<Dependent type="29" displayName="PA | Quote | Print Quote" ' +
+    'id="{2438389e-78d7-ef11-a72f-000d3adbc595}" /></MissingDependency>' +
+    '</MissingDependencies> , ProductUpdatesOnly : False'
+  const esc = (s: string) =>
+    s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+  return (
+    `<importexportxml><solutionManifests><solutionManifest>` +
+    `<UniqueName>SSTCoreV2</UniqueName><Version>2026.0623.4</Version>` +
+    `<result result="failure" errorcode="0x80048033" errortext="${esc(msg)}" />` +
+    `</solutionManifest></solutionManifests></importexportxml>`
+  )
+})()
+
 const LOGS: Record<string, string> = {
+  'job-0005': EMBEDDED_DEP_LOG,
   'job-0003': FAILED_LOG,
   'job-0002': SUCCESS_LOG('feature_4711', '1.0.0.2'),
   'job-0001': SUCCESS_LOG('CoreScripts', '1.0.0.3'),
