@@ -12,9 +12,36 @@ import { mockEnvConfigService } from './mockEnvConfigService'
 import { powerModeReady } from '../PowerProvider'
 import { ENVIRONMENTS } from '../config'
 import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
+import { currentOrgUrl, fetchXmlAllPages } from './currentEnvQuery'
 
 type Row = Record<string, unknown>
 const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+
+/**
+ * Distinct `connectionReferenceLogicalName` values referenced by one flow's
+ * `clientdata`. Robust to single- vs double-encoding — a plain string scan
+ * (logical names never contain quotes), retried against the JSON-unescaped
+ * payload if the raw scan finds nothing.
+ */
+function extractConnRefLogicalNames(clientdata: string): string[] {
+  if (!clientdata) return []
+  const found = new Set<string>()
+  const scan = (s: string) => {
+    const re = /"connectionReferenceLogicalName"\s*:\s*"([^"]+)"/g
+    let m: RegExpExecArray | null
+    while ((m = re.exec(s)) !== null) found.add(m[1])
+  }
+  scan(clientdata)
+  if (found.size === 0) {
+    try {
+      const inner = JSON.parse(clientdata)
+      if (typeof inner === 'string') scan(inner)
+    } catch {
+      /* not double-encoded — ignore */
+    }
+  }
+  return [...found]
+}
 const num = (v: unknown): number =>
   typeof v === 'number' ? v : typeof v === 'string' && v !== '' ? Number(v) : 0
 
@@ -309,6 +336,29 @@ class DataverseEnvConfigService implements EnvConfigService {
     }
 
     return { columns, envVars, connRefs, errors }
+  }
+
+  async countConnectionReferenceUsage(): Promise<Record<string, number>> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockEnvConfigService.countConnectionReferenceUsage()
+    // Every cloud flow (workflow category 5, type 1 = definition) in the host
+    // env; its `clientdata` lists the connection references it binds to.
+    const fetchXml =
+      `<fetch>` +
+      `<entity name="workflow">` +
+      `<attribute name="workflowid" />` +
+      `<attribute name="clientdata" />` +
+      `<filter type="and">` +
+      `<condition attribute="category" operator="eq" value="5" />` +
+      `<condition attribute="type" operator="eq" value="1" />` +
+      `</filter></entity></fetch>`
+    const rows = await fetchXmlAllPages('workflows', fetchXml, currentOrgUrl())
+    const counts: Record<string, number> = {}
+    for (const row of rows)
+      for (const logical of extractConnRefLogicalNames(str(row.clientdata)))
+        counts[logical] = (counts[logical] ?? 0) + 1
+    return counts
   }
 }
 

@@ -621,6 +621,12 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               the host environment); changing or clearing the selection
               re-reads.
             </p>
+            <p>
+              Expanding <strong>Connection References</strong> also counts how
+              many <strong>cloud flows use each one</strong> in the host
+              environment (a “N flows” chip — 0 flags an orphaned reference),
+              read from each flow's definition and loaded once per session.
+            </p>
           </section>
 
           <section className="help-section">

@@ -21,6 +21,12 @@ export interface EnvConfigService {
     onProgress?: (done: number, total: number, label: string) => void,
     options?: EnvConfigLoadOptions,
   ): Promise<EnvConfigResult>
+  /**
+   * How many DISTINCT cloud flows reference each connection reference in the
+   * HOST environment, keyed by connection-reference logical name. Read from
+   * each flow's `clientdata`. Loaded on demand (it scans every flow).
+   */
+  countConnectionReferenceUsage(): Promise<Record<string, number>>
 }
 
 export const envConfigService: EnvConfigService = dataverseEnvConfigService

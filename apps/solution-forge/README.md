@@ -75,6 +75,9 @@ nach Typ.
   Ein **Release-Solution-Filter** beschränkt das Cockpit auf die Env Vars &
   Connection References, die Komponenten dieser Solution im Host-Env sind
   (`solutioncomponent`, Typen 380/381/10064); Wechsel/Reset löst Re-Fetch aus.
+  Je Connection Reference zeigt ein **„N flows"-Counter-Chip**, wie viele Cloud
+  Flows sie im Host-Env nutzen (aus `workflow.clientdata` geparst, lazy beim
+  Aufklappen; 0 = verwaiste Referenz).
 - **Audit Config** (Validate, gated) — **Audit-Konfiguration** einer
   wählbaren Umgebung: der Org-Master-Schalter (`organization.isauditenabled`)
   + Retention (`auditretentionperiodv2`) und je **Tabelle/Spalte**

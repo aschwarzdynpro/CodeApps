@@ -4694,6 +4694,23 @@
 .import-status-chips {
   margin: 0 0 12px;
 }
+/* Per-connection-reference "N flows" usage counter. */
+.envcfg-usage-chip {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #eef2ff;
+  color: #3730a3;
+  border: 1px solid #e0e7ff;
+}
+.envcfg-usage-chip--zero {
+  background: #f1f5f9;
+  color: var(--muted);
+  border-color: var(--border);
+}
 
 /* ---- Audit Configuration Analyzer ---- */
 .audit-org {

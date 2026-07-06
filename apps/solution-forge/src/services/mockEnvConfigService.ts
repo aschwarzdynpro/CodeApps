@@ -186,6 +186,17 @@ class MockEnvConfigService implements EnvConfigService {
 
     return { columns, envVars, connRefs, errors: [] }
   }
+
+  async countConnectionReferenceUsage(): Promise<Record<string, number>> {
+    await delay(200)
+    // Seeded so the counter chips are demoable: the Dataverse ref is used a
+    // lot, Office 365 by a couple of flows, the SFTP one by none (orphan).
+    return {
+      hso_sharedcommondataservice: 7,
+      hso_sharedoffice365: 2,
+      hso_sharedsftp: 0,
+    }
+  }
 }
 
 export const mockEnvConfigService: EnvConfigService = new MockEnvConfigService()

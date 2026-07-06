@@ -42,6 +42,14 @@ let sessionCache: {
   loadedAt: Date
 } | null = null
 
+/**
+ * Host-env connection-reference → cloud-flow-usage count, cached for the
+ * session (independent of the release filter and the compared environments).
+ * `inflight` dedupes concurrent loads.
+ */
+let flowUsageCache: Record<string, number> | null = null
+let flowUsageInflight: Promise<Record<string, number>> | null = null
+
 /** Which counter chip is currently narrowing the tables. */
 type Filter = 'missing' | 'unbound' | 'gaps' | null
 
@@ -92,6 +100,42 @@ export function EnvConfigWorkspace({ solutions }: Props) {
   const [filter, setFilter] = useState<Filter>(null)
   const [openEnv, setOpenEnv] = useState(false)
   const [openConn, setOpenConn] = useState(false)
+
+  // Connection-reference → host-env cloud-flow-usage count (lazy, cached).
+  const [flowUsage, setFlowUsage] = useState<Record<string, number> | null>(
+    flowUsageCache,
+  )
+  const [flowUsageLoading, setFlowUsageLoading] = useState(false)
+  const [flowUsageError, setFlowUsageError] = useState<string | null>(null)
+
+  const loadFlowUsage = useCallback(async () => {
+    if (flowUsageCache) {
+      setFlowUsage(flowUsageCache)
+      return
+    }
+    setFlowUsageLoading(true)
+    setFlowUsageError(null)
+    try {
+      flowUsageInflight ??= envConfigService.countConnectionReferenceUsage()
+      const usage = await flowUsageInflight
+      flowUsageCache = usage
+      setFlowUsage(usage)
+    } catch (err) {
+      flowUsageInflight = null
+      setFlowUsageError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setFlowUsageLoading(false)
+    }
+  }, [])
+
+  // Count flow usage the first time the Connection References section is shown
+  // (the scan reads every flow's clientdata — not worth it until it's looked
+  // at). Deferred via a timeout so it isn't a synchronous setState in the effect.
+  useEffect(() => {
+    if (!openConn || flowUsage) return
+    const t = window.setTimeout(() => void loadFlowUsage(), 0)
+    return () => window.clearTimeout(t)
+  }, [openConn, flowUsage, loadFlowUsage])
 
   // Release solutions (deployment kind, real record) drive the solution filter.
   const releases = solutions.filter(
@@ -447,8 +491,19 @@ export function EnvConfigWorkspace({ solutions }: Props) {
                   : result.connRefs.length}
               </span>
             </button>
-            {openConn &&
-              (result.connRefs.length === 0 ? (
+            {openConn && (
+              <>
+                {flowUsageLoading && !flowUsage && (
+                  <div className="muted jobs-sample-note">
+                    Counting cloud-flow usage in the host environment…
+                  </div>
+                )}
+                {flowUsageError && !flowUsage && (
+                  <div className="muted jobs-sample-note">
+                    Flow usage unavailable: {flowUsageError}
+                  </div>
+                )}
+                {result.connRefs.length === 0 ? (
                 <div className="state">No connection references found.</div>
               ) : connRows.length === 0 ? (
                 <div className="state">No references match the filter.</div>
@@ -472,6 +527,15 @@ export function EnvConfigWorkspace({ solutions }: Props) {
                         <td>
                           <div className="envcfg-name">{row.displayName}</div>
                           <div className="envcfg-schema">{row.logicalName}</div>
+                          {flowUsage && (
+                            <span
+                              className={`envcfg-usage-chip ${(flowUsage[row.logicalName] ?? 0) === 0 ? 'envcfg-usage-chip--zero' : ''}`}
+                              title="Cloud flows in the host environment that use this connection reference"
+                            >
+                              {flowUsage[row.logicalName] ?? 0} flow
+                              {(flowUsage[row.logicalName] ?? 0) === 1 ? '' : 's'}
+                            </span>
+                          )}
                         </td>
                         <td className="trace-type">{row.connectorName}</td>
                         {result.columns.map((c) => {
@@ -498,7 +562,9 @@ export function EnvConfigWorkspace({ solutions }: Props) {
                     ))}
                   </tbody>
                 </table>
-              ))}
+                )}
+              </>
+            )}
           </div>
         </>
       )}
