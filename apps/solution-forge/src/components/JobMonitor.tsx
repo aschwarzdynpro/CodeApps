@@ -371,7 +371,7 @@ export function JobMonitor({
 
   const loadFlowStats = async () => {
     if (!flows) return
-    setStatsProgress([0, Math.min(flows.length, 20)])
+    setStatsProgress([0, flows.length])
     try {
       const stats = await jobMonitorService.sampleFlowStats(
         flows,
@@ -801,14 +801,14 @@ export function JobMonitor({
               <button
                 className="btn btn--small"
                 disabled={!flows || !flows.length || !!statsProgress}
-                title="Load the last runs of up to 20 flows to compute failure rates (marked sample — connector-friendly)."
+                title="Load each displayed flow's most recent runs to compute its failure rate. Covers all shown flows; runs bounded in parallel."
                 onClick={() => void loadFlowStats()}
               >
                 {statsProgress
                   ? `Sampling ${statsProgress[0]}/${statsProgress[1]}…`
                   : flowStats
                     ? '⟳ Re-sample failure rates'
-                    : 'Load failure rates (sample)'}
+                    : 'Load failure rates (all flows)'}
               </button>
               <button
                 className="btn btn--small"

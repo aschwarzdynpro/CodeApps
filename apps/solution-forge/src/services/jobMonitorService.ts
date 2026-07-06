@@ -59,8 +59,9 @@ export interface JobMonitorService {
    */
   listFlows(envKey: string, filter?: FlowFilter): Promise<FlowInfo[]>
   /**
-   * Failure rate over the last runs of the given flows (bounded sample —
-   * marked as such in the UI). Mutates nothing; returns stats per flow id.
+   * Failure rate for EVERY given flow, over each flow's most recent runs
+   * (a bounded per-flow run sample — no flow is skipped). Per-flow queries run
+   * with bounded concurrency. Mutates nothing; returns stats per flow id.
    */
   sampleFlowStats(
     flows: FlowInfo[],

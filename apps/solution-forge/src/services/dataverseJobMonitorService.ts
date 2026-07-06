@@ -48,7 +48,9 @@ import { AsyncoperationsService } from '../generated/services/AsyncoperationsSer
 
 const JOB_LIST_LIMIT = 200
 const FLOW_RUN_SAMPLE = 20
-const FLOW_STATS_MAX_FLOWS = 20
+/** Per-flow run-sample queries run in parallel, bounded to stay within the
+ *  connector's throttling limits (the failure rate covers ALL shown flows). */
+const FLOW_STATS_CONCURRENCY = 6
 
 function sinceIso(hours: number): string {
   return new Date(Date.now() - hours * 3600_000)
@@ -416,11 +418,15 @@ class DataverseJobMonitorService implements JobMonitorService {
     if (mode !== 'power-platform')
       return mockJobMonitorService.sampleFlowStats(flows, envKey, onProgress)
     const orgUrl = orgUrlForEnvKey(envKey)
-    // Connector rate limits: sample only the given flows, hard-capped.
-    const targets = flows.slice(0, FLOW_STATS_MAX_FLOWS)
+    // Failure rate for EVERY displayed flow — a rate over an arbitrary 20-flow
+    // slice is useless. Each flow still samples only its last runs; the
+    // per-flow queries run with bounded concurrency to respect connector limits.
     const map = new Map<string, FlowRunStats | undefined>()
+    const total = flows.length
     let done = 0
-    for (const flow of targets) {
+    let next = 0
+
+    const sampleOne = async (flow: FlowInfo) => {
       try {
         const fetchXml =
           `<fetch count="${FLOW_RUN_SAMPLE}">` +
@@ -445,8 +451,19 @@ class DataverseJobMonitorService implements JobMonitorService {
         console.warn(`[jobs] run sample for flow ${flow.name} failed:`, err)
         map.set(flow.workflowId, undefined)
       }
-      onProgress?.(++done, targets.length)
+      onProgress?.(++done, total)
     }
+
+    // Simple worker pool: each worker pulls the next flow until the list is
+    // exhausted (`next++` is atomic — no await between read and increment).
+    const worker = async () => {
+      while (next < flows.length) await sampleOne(flows[next++])
+    }
+    await Promise.all(
+      Array.from({ length: Math.min(FLOW_STATS_CONCURRENCY, flows.length) }, () =>
+        worker(),
+      ),
+    )
     return map
   }
 
