@@ -1,5 +1,6 @@
 import type {
   ConnRefRow,
+  ConnRefUsage,
   EnvConfigColumn,
   EnvConfigLoadOptions,
   EnvConfigResult,
@@ -187,14 +188,34 @@ class MockEnvConfigService implements EnvConfigService {
     return { columns, envVars, connRefs, errors: [] }
   }
 
-  async countConnectionReferenceUsage(): Promise<Record<string, number>> {
+  async countConnectionReferenceUsage(): Promise<Record<string, ConnRefUsage>> {
     await delay(200)
-    // Seeded so the counter chips are demoable: the Dataverse ref is used a
-    // lot, Office 365 by a couple of flows, the SFTP one by none (orphan).
+    // Seeded so the counter chips are demoable: the Dataverse ref is used by a
+    // mix of active and draft flows, Office 365 by two active flows, the SFTP
+    // one by none (orphan).
     return {
-      hso_sharedcommondataservice: 7,
-      hso_sharedoffice365: 2,
-      hso_sharedsftp: 0,
+      hso_sharedcommondataservice: {
+        active: 5,
+        inactive: 2,
+        flows: [
+          { id: 'u-flow-cds-01', name: 'PA | Account | Sync to ERP', active: true },
+          { id: 'u-flow-cds-02', name: 'PA | Case | Auto-assign owner', active: true },
+          { id: 'u-flow-cds-03', name: 'PA | Contact | Dedupe on create', active: true },
+          { id: 'u-flow-cds-04', name: 'PA | Order | Post to finance', active: true },
+          { id: 'u-flow-cds-05', name: 'PA | Quote | Notify sales', active: true },
+          { id: 'u-flow-cds-06', name: 'PA | Lead | Nightly scoring (draft)', active: false },
+          { id: 'u-flow-cds-07', name: 'PA | Project | Retired rollup', active: false },
+        ],
+      },
+      hso_sharedoffice365: {
+        active: 2,
+        inactive: 0,
+        flows: [
+          { id: 'u-flow-o365-01', name: 'PA | Approval | Email decision', active: true },
+          { id: 'u-flow-o365-02', name: 'PA | Digest | Daily summary mail', active: true },
+        ],
+      },
+      hso_sharedsftp: { active: 0, inactive: 0, flows: [] },
     }
   }
 }

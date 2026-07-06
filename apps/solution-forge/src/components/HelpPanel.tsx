@@ -625,7 +625,10 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               Expanding <strong>Connection References</strong> also counts how
               many <strong>cloud flows use each one</strong> in the host
               environment (a “N flows” chip — 0 flags an orphaned reference),
-              read from each flow's definition and loaded once per session.
+              split into <strong>active</strong> vs <strong>inactive</strong>{' '}
+              flows and read from each flow's definition, loaded once per
+              session. <strong>Click a reference row</strong> to list the flows
+              underneath, each with a deep link to open it in Power Automate.
             </p>
           </section>
 

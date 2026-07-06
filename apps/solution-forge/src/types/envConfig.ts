@@ -53,6 +53,29 @@ export interface ConnRefRow {
   cells: Record<string, ConnRefCell>
 }
 
+/** One cloud flow (host environment) that binds a connection reference. */
+export interface ConnRefFlow {
+  /** `workflow.workflowidunique` — the import-stable id for the portal link. */
+  id: string
+  name: string
+  /** `statecode` 1 = Activated; false = Draft/off. */
+  active: boolean
+}
+
+/**
+ * Cloud-flow usage of one connection reference in the HOST environment, split
+ * by activation state so the cockpit can tell "referenced by 3 running flows"
+ * from "only referenced by drafts".
+ */
+export interface ConnRefUsage {
+  /** Number of activated flows binding this reference. */
+  active: number
+  /** Number of draft/deactivated flows binding this reference. */
+  inactive: number
+  /** The flows themselves — active first, then by name. */
+  flows: ConnRefFlow[]
+}
+
 export interface EnvConfigResult {
   columns: EnvConfigColumn[]
   envVars: EnvVarRow[]

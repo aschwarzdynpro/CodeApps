@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import type {
   ConnRefRow,
+  ConnRefUsage,
   EnvConfigColumn,
   EnvConfigResult,
   EnvVarRow,
 } from '../types/envConfig'
 import type { WorkingSolution } from '../types/solution'
 import { envConfigService } from '../services/envConfigService'
+import { currentEnv, flowDetailsUrl } from '../config'
 import { SolutionSelect } from './SolutionSelect'
 
 /**
@@ -43,12 +45,12 @@ let sessionCache: {
 } | null = null
 
 /**
- * Host-env connection-reference → cloud-flow-usage count, cached for the
- * session (independent of the release filter and the compared environments).
- * `inflight` dedupes concurrent loads.
+ * Host-env connection-reference → cloud-flow usage (active/inactive split +
+ * flow list), cached for the session (independent of the release filter and
+ * the compared environments). `inflight` dedupes concurrent loads.
  */
-let flowUsageCache: Record<string, number> | null = null
-let flowUsageInflight: Promise<Record<string, number>> | null = null
+let flowUsageCache: Record<string, ConnRefUsage> | null = null
+let flowUsageInflight: Promise<Record<string, ConnRefUsage>> | null = null
 
 /** Which counter chip is currently narrowing the tables. */
 type Filter = 'missing' | 'unbound' | 'gaps' | null
@@ -101,12 +103,14 @@ export function EnvConfigWorkspace({ solutions }: Props) {
   const [openEnv, setOpenEnv] = useState(false)
   const [openConn, setOpenConn] = useState(false)
 
-  // Connection-reference → host-env cloud-flow-usage count (lazy, cached).
-  const [flowUsage, setFlowUsage] = useState<Record<string, number> | null>(
+  // Connection-reference → host-env cloud-flow usage (lazy, cached).
+  const [flowUsage, setFlowUsage] = useState<Record<string, ConnRefUsage> | null>(
     flowUsageCache,
   )
   const [flowUsageLoading, setFlowUsageLoading] = useState(false)
   const [flowUsageError, setFlowUsageError] = useState<string | null>(null)
+  // Which connection reference's flow list is expanded (logical name).
+  const [expandedConn, setExpandedConn] = useState<string | null>(null)
 
   const loadFlowUsage = useCallback(async () => {
     if (flowUsageCache) {
@@ -245,6 +249,12 @@ export function EnvConfigWorkspace({ solutions }: Props) {
   }, [result, q, filter])
 
   const narrowing = q !== '' || filter !== null
+
+  // Deep links target the host environment (that's where usage is scanned).
+  const hostEnvId = currentEnv()?.environmentId ?? null
+
+  const toggleConn = (logical: string) =>
+    setExpandedConn((cur) => (cur === logical ? null : logical))
 
   const onSearch = (v: string) => {
     setSearch(v)
@@ -522,44 +532,112 @@ export function EnvConfigWorkspace({ solutions }: Props) {
                     </tr>
                   </thead>
                   <tbody>
-                    {connRows.map((row) => (
-                      <tr key={row.logicalName}>
-                        <td>
-                          <div className="envcfg-name">{row.displayName}</div>
-                          <div className="envcfg-schema">{row.logicalName}</div>
-                          {flowUsage && (
-                            <span
-                              className={`envcfg-usage-chip ${(flowUsage[row.logicalName] ?? 0) === 0 ? 'envcfg-usage-chip--zero' : ''}`}
-                              title="Cloud flows in the host environment that use this connection reference"
-                            >
-                              {flowUsage[row.logicalName] ?? 0} flow
-                              {(flowUsage[row.logicalName] ?? 0) === 1 ? '' : 's'}
-                            </span>
-                          )}
-                        </td>
-                        <td className="trace-type">{row.connectorName}</td>
-                        {result.columns.map((c) => {
-                          const cell = row.cells[c.key]
-                          if (!cell.present)
-                            return (
-                              <td
-                                key={c.key}
-                                className="envcfg-cell envcfg-cell--gap"
-                              >
-                                — absent
-                              </td>
-                            )
-                          return (
-                            <td
-                              key={c.key}
-                              className={`envcfg-cell ${cell.bound ? '' : 'envcfg-cell--bad'}`}
-                            >
-                              {cell.bound ? '✓ bound' : '✗ unbound'}
+                    {connRows.map((row) => {
+                      const usage = flowUsage?.[row.logicalName]
+                      const total = usage ? usage.active + usage.inactive : 0
+                      const expandable = total > 0
+                      const expanded = expandedConn === row.logicalName
+                      return (
+                        <Fragment key={row.logicalName}>
+                          <tr
+                            className={`envcfg-conn-row ${expandable ? 'envcfg-conn-row--expandable' : ''} ${expanded ? 'is-open' : ''}`}
+                            onClick={
+                              expandable ? () => toggleConn(row.logicalName) : undefined
+                            }
+                          >
+                            <td>
+                              <div className="envcfg-name">
+                                {expandable && (
+                                  <span className="envcfg-caret">
+                                    {expanded ? '▾' : '▸'}
+                                  </span>
+                                )}
+                                {row.displayName}
+                              </div>
+                              <div className="envcfg-schema">{row.logicalName}</div>
+                              {flowUsage && (
+                                <span className="envcfg-usage">
+                                  <span
+                                    className={`envcfg-usage-chip ${total === 0 ? 'envcfg-usage-chip--zero' : ''}`}
+                                    title="Cloud flows in the host environment that use this connection reference"
+                                  >
+                                    {total} flow{total === 1 ? '' : 's'}
+                                  </span>
+                                  {usage && usage.active > 0 && (
+                                    <span
+                                      className="envcfg-usage-state envcfg-usage-state--active"
+                                      title="Activated flows"
+                                    >
+                                      {usage.active} active
+                                    </span>
+                                  )}
+                                  {usage && usage.inactive > 0 && (
+                                    <span
+                                      className="envcfg-usage-state envcfg-usage-state--inactive"
+                                      title="Draft / deactivated flows"
+                                    >
+                                      {usage.inactive} inactive
+                                    </span>
+                                  )}
+                                </span>
+                              )}
                             </td>
-                          )
-                        })}
-                      </tr>
-                    ))}
+                            <td className="trace-type">{row.connectorName}</td>
+                            {result.columns.map((c) => {
+                              const cell = row.cells[c.key]
+                              if (!cell.present)
+                                return (
+                                  <td
+                                    key={c.key}
+                                    className="envcfg-cell envcfg-cell--gap"
+                                  >
+                                    — absent
+                                  </td>
+                                )
+                              return (
+                                <td
+                                  key={c.key}
+                                  className={`envcfg-cell ${cell.bound ? '' : 'envcfg-cell--bad'}`}
+                                >
+                                  {cell.bound ? '✓ bound' : '✗ unbound'}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                          {expanded && usage && (
+                            <tr className="envcfg-flows-row">
+                              <td colSpan={2 + result.columns.length}>
+                                <ul className="envcfg-flows">
+                                  {usage.flows.map((f) => (
+                                    <li key={f.id} className="envcfg-flow">
+                                      <span
+                                        className={`envcfg-flow-state ${f.active ? 'is-active' : 'is-inactive'}`}
+                                        title={
+                                          f.active
+                                            ? 'Activated flow'
+                                            : 'Draft / deactivated flow'
+                                        }
+                                      >
+                                        {f.active ? 'Active' : 'Inactive'}
+                                      </span>
+                                      <a
+                                        className="envcfg-flow-link"
+                                        href={flowDetailsUrl(hostEnvId, f.id)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {f.name} ↗
+                                      </a>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      )
+                    })}
                   </tbody>
                 </table>
                 )}

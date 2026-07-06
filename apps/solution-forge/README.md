@@ -77,7 +77,10 @@ nach Typ.
   (`solutioncomponent`, Typen 380/381/10064); Wechsel/Reset löst Re-Fetch aus.
   Je Connection Reference zeigt ein **„N flows"-Counter-Chip**, wie viele Cloud
   Flows sie im Host-Env nutzen (aus `workflow.clientdata` geparst, lazy beim
-  Aufklappen; 0 = verwaiste Referenz).
+  Aufklappen; 0 = verwaiste Referenz), **aufgeteilt in aktive/inaktive** Flows
+  (`workflow.statecode`). **Klick auf die Referenz-Zeile** listet die Flows
+  darunter, je mit **Deep-Link** in Power Automate
+  (`flowDetailsUrl`/`workflowidunique`).
 - **Audit Config** (Validate, gated) — **Audit-Konfiguration** einer
   wählbaren Umgebung: der Org-Master-Schalter (`organization.isauditenabled`)
   + Retention (`auditretentionperiodv2`) und je **Tabelle/Spalte**

@@ -271,6 +271,19 @@ export function makerCanvasAppUrl(
 }
 
 /**
+ * Power Automate portal deep link to a flow's details page. `flowIdUnique` is
+ * the import-stable `workflow.workflowidunique` (same id used in {@link
+ * flowRunUrl}).
+ */
+export function flowDetailsUrl(
+  environmentId: string | null,
+  flowIdUnique: string,
+): string {
+  const envId = environmentId || FALLBACK_ENVIRONMENT_ID
+  return `https://make.powerautomate.com/environments/${envId}/flows/${flowIdUnique}/details`
+}
+
+/**
  * Power Automate portal deep link to one flow run. `flowIdUnique` is the
  * import-stable `workflow.workflowidunique`; `runName` is the flow-run id
  * (`flowrun.name`, e.g. "08584690…").

@@ -1,5 +1,6 @@
 import type {
   ConnRefRow,
+  ConnRefUsage,
   EnvConfigColumn,
   EnvConfigLoadOptions,
   EnvConfigResult,
@@ -338,27 +339,44 @@ class DataverseEnvConfigService implements EnvConfigService {
     return { columns, envVars, connRefs, errors }
   }
 
-  async countConnectionReferenceUsage(): Promise<Record<string, number>> {
+  async countConnectionReferenceUsage(): Promise<Record<string, ConnRefUsage>> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
       return mockEnvConfigService.countConnectionReferenceUsage()
     // Every cloud flow (workflow category 5, type 1 = definition) in the host
     // env; its `clientdata` lists the connection references it binds to.
+    // `statecode` 1 = Activated → active flow; `workflowidunique` deep-links to
+    // the flow's portal details page.
     const fetchXml =
       `<fetch>` +
       `<entity name="workflow">` +
-      `<attribute name="workflowid" />` +
+      `<attribute name="workflowidunique" />` +
+      `<attribute name="name" />` +
+      `<attribute name="statecode" />` +
       `<attribute name="clientdata" />` +
       `<filter type="and">` +
       `<condition attribute="category" operator="eq" value="5" />` +
       `<condition attribute="type" operator="eq" value="1" />` +
       `</filter></entity></fetch>`
     const rows = await fetchXmlAllPages('workflows', fetchXml, currentOrgUrl())
-    const counts: Record<string, number> = {}
-    for (const row of rows)
-      for (const logical of extractConnRefLogicalNames(str(row.clientdata)))
-        counts[logical] = (counts[logical] ?? 0) + 1
-    return counts
+    const usage: Record<string, ConnRefUsage> = {}
+    for (const row of rows) {
+      const id = str(row.workflowidunique)
+      const name = str(row.name) || '(unnamed flow)'
+      const active = num(row.statecode) === 1
+      for (const logical of extractConnRefLogicalNames(str(row.clientdata))) {
+        const u = (usage[logical] ??= { active: 0, inactive: 0, flows: [] })
+        u.flows.push({ id, name, active })
+        if (active) u.active++
+        else u.inactive++
+      }
+    }
+    // Active flows first, then alphabetical — matches the cockpit's expanded list.
+    for (const u of Object.values(usage))
+      u.flows.sort((a, b) =>
+        a.active === b.active ? a.name.localeCompare(b.name) : a.active ? -1 : 1,
+      )
+    return usage
   }
 }
 

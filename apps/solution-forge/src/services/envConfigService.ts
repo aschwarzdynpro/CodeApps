@@ -1,4 +1,5 @@
 import type {
+  ConnRefUsage,
   EnvConfigLoadOptions,
   EnvConfigResult,
 } from '../types/envConfig'
@@ -22,11 +23,12 @@ export interface EnvConfigService {
     options?: EnvConfigLoadOptions,
   ): Promise<EnvConfigResult>
   /**
-   * How many DISTINCT cloud flows reference each connection reference in the
-   * HOST environment, keyed by connection-reference logical name. Read from
+   * Which cloud flows reference each connection reference in the HOST
+   * environment, keyed by connection-reference logical name and split into
+   * active/inactive counts plus the flow list (with deep-link ids). Read from
    * each flow's `clientdata`. Loaded on demand (it scans every flow).
    */
-  countConnectionReferenceUsage(): Promise<Record<string, number>>
+  countConnectionReferenceUsage(): Promise<Record<string, ConnRefUsage>>
 }
 
 export const envConfigService: EnvConfigService = dataverseEnvConfigService
