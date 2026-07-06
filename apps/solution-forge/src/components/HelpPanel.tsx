@@ -694,9 +694,17 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 exceptions-only, opt-in message-text search (≤ 24 h).
               </li>
               <li>
+                Rows are colour-coded by outcome: <strong>soft green</strong>{' '}
+                on success, <strong>red with ⚠</strong> when the trace carries{' '}
+                <code>exceptiondetails</code> (a real exception — note the field
+                is a non-empty string, so the flag &amp; the “exceptions only”
+                filter test for content, not merely not-null).
+              </li>
+              <li>
                 A row expands into the lazily-loaded{' '}
-                <strong>message block</strong> (find-in-text, copy); the heavy
-                payload is never loaded in the stream.
+                <strong>message block</strong> (find-in-text, copy); a failed
+                trace also shows its <strong>Exception details</strong> block.
+                The heavy payload is never loaded in the stream.
               </li>
               <li>
                 <strong>⛓ Chain</strong> opens the correlation timeline: every

@@ -50,6 +50,16 @@ const STREAM_ATTRIBUTES =
   '<attribute name="performanceexecutionduration" />' +
   '<attribute name="createdon" />'
 
+/**
+ * "Has a real exception" condition. `exceptiondetails` is often a non-null
+ * EMPTY STRING on a successful trace, so `not-null` matches every row (making
+ * everything look failed and the exceptions-only filter a no-op). `like "%_%"`
+ * needs at least one character, so it excludes both NULL and "" and matches
+ * only rows that actually carry a stack trace.
+ */
+const HAS_EXCEPTION_CONDITION =
+  '<condition attribute="exceptiondetails" operator="like" value="%_%" />'
+
 function toSummary(row: Row, exceptionIds: Set<string> | null): PluginTraceSummary {
   const id = rowStr(row.plugintracelogid)
   return {
@@ -95,8 +105,7 @@ function buildConditions(filter: TraceFilter): string {
     parts.push(
       `<condition attribute="mode" operator="eq" value="${filter.mode === 'sync' ? 0 : 1}" />`,
     )
-  if (filter.exceptionsOnly)
-    parts.push('<condition attribute="exceptiondetails" operator="not-null" />')
+  if (filter.exceptionsOnly) parts.push(HAS_EXCEPTION_CONDITION)
   if (filter.messageText?.trim())
     // Expensive contains — the caller must have clamped hours to ≤ 24.
     parts.push(
@@ -139,8 +148,7 @@ class DataverseTraceService implements TraceService {
         `<fetch count="${TRACE_STREAM_LIMIT}">` +
         `<entity name="plugintracelog">` +
         `<attribute name="plugintracelogid" />` +
-        `<filter type="and">${conditions}` +
-        `<condition attribute="exceptiondetails" operator="not-null" /></filter>` +
+        `<filter type="and">${conditions}${HAS_EXCEPTION_CONDITION}</filter>` +
         `<order attribute="createdon" descending="true" />` +
         `</entity></fetch>`
       try {
@@ -200,7 +208,7 @@ class DataverseTraceService implements TraceService {
       `<attribute name="plugintracelogid" />` +
       `<filter>` +
       `<condition attribute="correlationid" operator="eq" value="${fetchXmlEscape(correlationId)}" />` +
-      `<condition attribute="exceptiondetails" operator="not-null" />` +
+      HAS_EXCEPTION_CONDITION +
       `</filter></entity></fetch>`
     let exceptionIds = new Set<string>()
     try {

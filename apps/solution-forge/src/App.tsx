@@ -112,9 +112,9 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     // model and is gated as a whole.
     label: 'Operate',
     items: [
-      { key: 'traces', label: 'Plugin Traces', icon: '🧵', gated: false },
-      { key: 'jobs', label: 'Job Monitor', icon: '📡', gated: false },
-      { key: 'roles', label: 'Role Analyzer', icon: '🛡', gated: true },
+      { key: 'traces', label: '[PREVIEW] Plugin Traces', icon: '🧵', gated: false },
+      { key: 'jobs', label: '[PREVIEW] Job Monitor', icon: '📡', gated: false },
+      { key: 'roles', label: '[PREVIEW] Role Analyzer', icon: '🛡', gated: true },
     ],
   },
 ]
@@ -131,9 +131,9 @@ const TAB_TITLES: Record<Tab, string> = {
   envConfig: 'Environment Config',
   auditConfig: 'Audit Configuration',
   importHistory: 'Solution Import History',
-  traces: 'Plugin Trace Explorer',
-  jobs: 'Async Job / Flow Monitor',
-  roles: 'Security Role Analyzer',
+  traces: '[PREVIEW] Plugin Trace Explorer',
+  jobs: '[PREVIEW] Async Job / Flow Monitor',
+  roles: '[PREVIEW] Security Role Analyzer',
 }
 
 /**

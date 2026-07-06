@@ -4008,6 +4008,15 @@
 .ops-row--error.ops-row--open td {
   background: #fde8e8;
 }
+/* Successful trace (no exception details) — a soft green so it reads as OK,
+   not as a problem. */
+.ops-row--ok td {
+  background: #f4fdf7;
+}
+.ops-row--ok:hover td,
+.ops-row--ok.ops-row--open td {
+  background: #e9fbf0;
+}
 .ops-detail-row > td {
   background: var(--bg);
   padding: 10px 14px;
@@ -4167,6 +4176,9 @@
 }
 .trace-timeline-row--error {
   background: #fef2f2;
+}
+.trace-timeline-row--ok {
+  background: #f4fdf7;
 }
 .trace-timeline-depth {
   font-size: 11px;

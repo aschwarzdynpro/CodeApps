@@ -213,7 +213,7 @@ function CorrelationOverlay({
             {rows.map((r) => (
               <div key={r.id}>
                 <button
-                  className={`trace-timeline-row ${r.hasException ? 'trace-timeline-row--error' : ''} ${openId === r.id ? 'trace-timeline-row--open' : ''}`}
+                  className={`trace-timeline-row ${r.hasException ? 'trace-timeline-row--error' : 'trace-timeline-row--ok'} ${openId === r.id ? 'trace-timeline-row--open' : ''}`}
                   style={{ paddingLeft: `${(Math.max(1, r.depth) - 1) * 26 + 8}px` }}
                   onClick={() => setOpenId(openId === r.id ? null : r.id)}
                   title="Show message block"
@@ -596,7 +596,7 @@ export function TraceExplorer({
                   {traces.map((t) => (
                     <Fragment key={t.id}>
                       <tr
-                        className={`ops-row ${t.hasException ? 'ops-row--error' : ''} ${expandedId === t.id ? 'ops-row--open' : ''}`}
+                        className={`ops-row ${t.hasException ? 'ops-row--error' : 'ops-row--ok'} ${expandedId === t.id ? 'ops-row--open' : ''}`}
                         onClick={() =>
                           setExpandedId(expandedId === t.id ? null : t.id)
                         }
