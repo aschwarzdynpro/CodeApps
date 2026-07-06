@@ -29,17 +29,28 @@ class DataverseDualWriteService implements DualWriteService {
 
     // Custom (unmanaged) maps only. The `msdyn_mapping` payload is deliberately
     // NOT selected here — it is large and loaded per-row on demand.
+    // Owner NAME is resolved via link-entity, not the owner lookup's
+    // formatted-value annotation: the connector doesn't return that annotation
+    // for `ownerid` here (the column came back blank), but the SP can read
+    // `systemuser`/`team` (same as the Role Analyzer), so an aliased fullname
+    // comes through reliably. Outer joins on owninguser/owningteam — exactly one
+    // is set per record, so no row fan-out.
     const fetchXml =
       `<fetch>` +
       `<entity name="msdyn_dualwriteentitymap">` +
       `<attribute name="msdyn_dualwriteentitymapid" />` +
       `<attribute name="msdyn_name" />` +
       `<attribute name="msdyn_version" />` +
-      `<attribute name="ownerid" />` +
       `<attribute name="modifiedon" />` +
       `<filter type="and">` +
       `<condition attribute="ismanaged" operator="eq" value="0" />` +
       `</filter>` +
+      `<link-entity name="systemuser" from="systemuserid" to="owninguser" link-type="outer" alias="ownuser">` +
+      `<attribute name="fullname" />` +
+      `</link-entity>` +
+      `<link-entity name="team" from="teamid" to="owningteam" link-type="outer" alias="ownteam">` +
+      `<attribute name="name" />` +
+      `</link-entity>` +
       `<order attribute="msdyn_name" />` +
       `</entity></fetch>`
     const rows = await fetchXmlAllPages(ENTITY_SET, fetchXml, currentOrgUrl())
@@ -54,11 +65,10 @@ class DataverseDualWriteService implements DualWriteService {
         name,
         version: rowStr(row.msdyn_version),
         versionCount: 1,
-        // A lookup's display name comes back on `_ownerid_value@…FormattedValue`
-        // (the OData/FetchXML form), not on `ownerid` — read both to be safe.
         owner:
-          formattedValue(row, '_ownerid_value') ??
-          formattedValue(row, 'ownerid') ??
+          rowStr(row['ownuser.fullname']) ||
+          rowStr(row['ownteam.name']) ||
+          formattedValue(row, '_ownerid_value') ||
           '',
         modifiedOn: rowStr(row.modifiedon),
       }

@@ -258,9 +258,11 @@ Dual-Write-Table-Maps der Host-Env. **Entity `msdyn_dualwriteentitymap`**
 (Entity-Set `msdyn_dualwriteentitymaps`) — empirisch am INT-11 verifiziert
 (nicht `msdyn_dualwritetablemap`!). Felder: `msdyn_name` (z. B.
 `sst_[uoms - Units]`), `msdyn_displayname`, `msdyn_version` (dotted, z. B.
-`2.0.1.5`), `ownerid` (Owner-**Name** kommt via FetchXML/OData auf
-`_ownerid_value@…FormattedValue`, NICHT auf `ownerid` — `formattedValue(row,
-'_ownerid_value')` lesen; `formattedValue(row,'ownerid')` liefert leer),
+`2.0.1.5`), **Owner-Name** (der Konnektor liefert für den `ownerid`-Lookup
+KEINE Formatted-Value-Annotation ⇒ `formattedValue` bleibt leer; stattdessen
+den Namen per **link-entity** auflösen: `systemuser` über `owninguser` +
+`team` über `owningteam` als `link-type="outer"`, Aliase `ownuser.fullname`/
+`ownteam.name` lesen — SP darf systemuser/team lesen wie beim Role Analyzer),
 `ismanaged`
 (Filter `eq 0` = custom), `msdyn_mapping` (**die Mapping-JSON**, groß ⇒ NICHT
 in der Liste selektieren, lazy je Record), `msdyn_properties`, `modifiedon`.
