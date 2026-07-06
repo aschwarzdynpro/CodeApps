@@ -48,6 +48,10 @@ import { AsyncoperationsService } from '../generated/services/AsyncoperationsSer
 
 const JOB_LIST_LIMIT = 200
 const FLOW_RUN_SAMPLE = 20
+/** Look-back window for the Health board's backlog tile — matches the tile's
+ *  drill-down into the System Jobs list (7 days), so the count and the list
+ *  agree instead of the badge covering all history. */
+const HEALTH_WINDOW_HOURS = 168
 /** Per-flow run-sample queries run in parallel, bounded to stay within the
  *  connector's throttling limits (the failure rate covers ALL shown flows). */
 const FLOW_STATS_CONCURRENCY = 6
@@ -230,7 +234,8 @@ class DataverseJobMonitorService implements JobMonitorService {
       orgUrl,
     )
     const waitingP = countJobs(
-      `<condition attribute="statuscode" operator="in"><value>${ASYNC_STATUS.waitingForResources}</value><value>${ASYNC_STATUS.waiting}</value></condition>`,
+      `<condition attribute="createdon" operator="ge" value="${sinceIso(HEALTH_WINDOW_HOURS)}" />` +
+        `<condition attribute="statuscode" operator="in"><value>${ASYNC_STATUS.waitingForResources}</value><value>${ASYNC_STATUS.waiting}</value></condition>`,
       orgUrl,
       true,
     )

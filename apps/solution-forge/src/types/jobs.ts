@@ -151,8 +151,10 @@ export interface WatchdogEntry {
 /** Health dashboard tiles. */
 export interface JobHealthSummary {
   failed24h: number
+  /** Operations still waiting that were created in the last 7 days — bounded to
+   *  match the tile's drill-down window (not an all-history backlog). */
   waitingCount: number
-  /** createdon of the oldest waiting operation, '' when none. */
+  /** createdon of the oldest waiting operation in that window, '' when none. */
   oldestWaitingOn: string
   /** Sampled flow failure rate (top active flows) — null when unavailable. */
   flowFailRate24h: number | null

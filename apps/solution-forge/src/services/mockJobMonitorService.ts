@@ -185,8 +185,9 @@ class MockJobMonitorService implements JobMonitorService {
     ).length
     const waiting = MOCK_JOBS.filter(
       (j) =>
-        j.statusCode === ASYNC_STATUS.waiting ||
-        j.statusCode === ASYNC_STATUS.waitingForResources,
+        (j.statusCode === ASYNC_STATUS.waiting ||
+          j.statusCode === ASYNC_STATUS.waitingForResources) &&
+        j.age <= 168, // last 7 days — matches the tile's drill-down window
     )
     const oldest = waiting.reduce<string>(
       (acc, j) => (acc && acc < j.createdOn ? acc : j.createdOn),

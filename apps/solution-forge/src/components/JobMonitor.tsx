@@ -528,7 +528,7 @@ export function JobMonitor({
                 onClick={drillWaiting}
               >
                 <span className="jobs-tile-value">{health.waitingCount}</span>
-                <span className="jobs-tile-label">Waiting backlog</span>
+                <span className="jobs-tile-label">Waiting backlog (7 d)</span>
                 <span className="jobs-tile-hint">
                   {health.oldestWaitingOn
                     ? `oldest ${fmtAgo(health.oldestWaitingOn)}`
