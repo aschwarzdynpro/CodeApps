@@ -743,10 +743,14 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 sequential, per-job outcome) — writes run as you.
               </li>
               <li>
-                <strong>Flows</strong> lists the cloud flows; “Load failure
-                rates” samples each flow's recent runs (marked as a sample —
-                connector-friendly). Selecting a flow shows its runs with a
-                deep link into the Power Automate portal run page.
+                <strong>Flows</strong> lists <em>all</em> cloud flows (no cap),
+                filterable by name and by <strong>release solution</strong> (the
+                flows that are components of it). “Load failure rates” samples
+                each flow's recent runs (marked as a sample — connector-friendly).
+                Selecting a flow opens its runs in a <strong>side pane</strong>;
+                clicking a run shows a <strong>popup with the full run record</strong>
+                (fields incl. trigger info where stored), plus “Open run ↗” into
+                the Power Automate portal.
               </li>
               <li>
                 <strong>Watchdog</strong> compares each heartbeat definition

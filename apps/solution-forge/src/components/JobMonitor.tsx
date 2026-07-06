@@ -1,9 +1,11 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { isCurrentEnvKey } from '../config'
 import { OperateEnvPicker } from './OperateEnvPicker'
+import { SolutionSelect } from './SolutionSelect'
 import type {
   AsyncJobInfo,
   FlowInfo,
+  FlowRunDetailField,
   FlowRunInfo,
   FlowRunStats,
   JobActionResult,
@@ -12,6 +14,7 @@ import type {
   WatchdogEntry,
 } from '../types/jobs'
 import { ASYNC_STATUS } from '../types/jobs'
+import type { WorkingSolution } from '../types/solution'
 import { jobMonitorService, JOB_BULK_LIMIT } from '../services/jobMonitorService'
 
 /**
@@ -34,9 +37,102 @@ interface Props {
   /** Selected target environment (shared across the Operate features). */
   envKey: string
   onEnvChange: (envKey: string) => void
+  /** All working solutions — the release ones drive the flow filter. */
+  solutions: WorkingSolution[]
 }
 
 type SubTab = 'health' | 'jobs' | 'flows' | 'watchdog' | 'trends'
+
+/** Popup with the full record of one flow run (all fields, + Open run). */
+function FlowRunDetailModal({
+  run,
+  envKey,
+  onClose,
+}: {
+  run: FlowRunInfo
+  envKey: string
+  onClose: () => void
+}) {
+  const [fields, setFields] = useState<FlowRunDetailField[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    jobMonitorService
+      .getFlowRunDetail(run, envKey)
+      .then((f) => {
+        if (!cancelled) setFields(f)
+      })
+      .catch((err) => {
+        if (!cancelled)
+          setError(err instanceof Error ? err.message : String(err))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [run, envKey])
+
+  const failed = run.status.toLowerCase().includes('fail')
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal card modal--wide"
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2>
+            Flow run <code className="trace-correlation-id">{run.runName}</code>
+          </h2>
+          <button className="modal-close" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </div>
+        <div className="jobs-run-detail">
+          <div className="jobs-run-detail-head">
+            <span
+              className={`jobs-status ${failed ? 'jobs-status--failed' : 'jobs-status--ok'}`}
+            >
+              {run.status}
+            </span>
+            <a
+              className="btn btn--small"
+              href={run.portalUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open run ↗
+            </a>
+          </div>
+          {error && <div className="state state--error">{error}</div>}
+          {!fields && !error && (
+            <div className="state">Loading run detail…</div>
+          )}
+          {fields && (
+            <table className="ops-table jobs-run-fields">
+              <tbody>
+                {fields.map((f, i) => (
+                  <tr key={i}>
+                    <td className="jobs-run-field-label">{f.label}</td>
+                    <td>
+                      <pre className="jobs-run-field-value">{f.value}</pre>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div className="muted jobs-sample-note">
+            Full trigger inputs/outputs and the action-by-action run history live
+            in the Power Automate portal — use “Open run”.
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const STATUS_CHIPS: { code: number; label: string }[] = [
   { code: ASYNC_STATUS.failed, label: 'Failed' },
@@ -82,7 +178,12 @@ const WATCHDOG_LIGHT: Record<WatchdogEntry['state'], { icon: string; label: stri
   inactive: { icon: '⚪', label: 'Inactive' },
 }
 
-export function JobMonitor({ canManageJobs, envKey, onEnvChange }: Props) {
+export function JobMonitor({
+  canManageJobs,
+  envKey,
+  onEnvChange,
+  solutions,
+}: Props) {
   const [subTab, setSubTab] = useState<SubTab>('health')
   // Native asyncoperation writes only reach the host environment.
   const canWrite = canManageJobs && isCurrentEnvKey(envKey)
@@ -214,29 +315,59 @@ export function JobMonitor({ canManageJobs, envKey, onEnvChange }: Props) {
 
   // --- flows ---------------------------------------------------------------
   const [flows, setFlows] = useState<FlowInfo[] | null>(null)
+  const [flowsLoading, setFlowsLoading] = useState(false)
   const [flowsError, setFlowsError] = useState<string | null>(null)
   const [flowStats, setFlowStats] = useState<Map<string, FlowRunStats | undefined> | null>(null)
   const [statsProgress, setStatsProgress] = useState<[number, number] | null>(null)
+  const [flowSearch, setFlowSearch] = useState('')
+  const [flowSolutionId, setFlowSolutionId] = useState('')
   const [selectedFlow, setSelectedFlow] = useState<FlowInfo | null>(null)
   const [flowRuns, setFlowRuns] = useState<FlowRunInfo[] | null>(null)
   const [flowRunsError, setFlowRunsError] = useState<string | null>(null)
+  const [runDetail, setRunDetail] = useState<FlowRunInfo | null>(null)
+
+  // Release solutions (deployment kind, real record) drive the flow filter.
+  const releases = solutions.filter(
+    (s, index) =>
+      s.kind === 'deployment' &&
+      !s.solutionMissing &&
+      !!s.recordId &&
+      solutions.findIndex((o) => o.id === s.id) === index,
+  )
+  const flowReleaseName =
+    releases.find((r) => r.id === flowSolutionId)?.uniqueName ?? ''
+
+  const loadFlows = useCallback(
+    async (f: { solutionUniqueName?: string; nameSearch?: string }) => {
+      setFlowsLoading(true)
+      setFlowsError(null)
+      try {
+        const rows = await jobMonitorService.listFlows(envKey, f)
+        setFlows(rows)
+        setFlowStats(null)
+        setSelectedFlow(null)
+        setFlowRuns(null)
+      } catch (err) {
+        setFlowsError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setFlowsLoading(false)
+      }
+    },
+    [envKey],
+  )
 
   useEffect(() => {
-    if (subTab !== 'flows' || flows) return
-    let cancelled = false
-    jobMonitorService
-      .listFlows(envKey)
-      .then((f) => {
-        if (!cancelled) setFlows(f)
-      })
-      .catch((err) => {
-        if (!cancelled)
-          setFlowsError(err instanceof Error ? err.message : String(err))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [subTab, flows, envKey])
+    if (subTab !== 'flows') return
+    const t = window.setTimeout(
+      () =>
+        void loadFlows({
+          solutionUniqueName: flowReleaseName || undefined,
+          nameSearch: flowSearch.trim() || undefined,
+        }),
+      300,
+    )
+    return () => window.clearTimeout(t)
+  }, [subTab, flowReleaseName, flowSearch, loadFlows])
 
   const loadFlowStats = async () => {
     if (!flows) return
@@ -647,31 +778,72 @@ export function JobMonitor({ canManageJobs, envKey, onEnvChange }: Props) {
 
       {subTab === 'flows' && (
         <>
+          <div className="card trace-toolbar">
+            <input
+              className="search"
+              type="search"
+              placeholder="Flow name…"
+              value={flowSearch}
+              onChange={(e) => setFlowSearch(e.target.value)}
+            />
+            <SolutionSelect
+              options={releases}
+              value={flowSolutionId}
+              onChange={setFlowSolutionId}
+              placeholder="All solutions"
+            />
+            <span className="trace-toolbar-right">
+              {flows && (
+                <span className="muted">
+                  {flows.length} flow{flows.length === 1 ? '' : 's'}
+                </span>
+              )}
+              <button
+                className="btn btn--small"
+                disabled={!flows || !flows.length || !!statsProgress}
+                title="Load the last runs of up to 20 flows to compute failure rates (marked sample — connector-friendly)."
+                onClick={() => void loadFlowStats()}
+              >
+                {statsProgress
+                  ? `Sampling ${statsProgress[0]}/${statsProgress[1]}…`
+                  : flowStats
+                    ? '⟳ Re-sample failure rates'
+                    : 'Load failure rates (sample)'}
+              </button>
+              <button
+                className="btn btn--small"
+                disabled={flowsLoading}
+                onClick={() =>
+                  void loadFlows({
+                    solutionUniqueName: flowReleaseName || undefined,
+                    nameSearch: flowSearch.trim() || undefined,
+                  })
+                }
+              >
+                {flowsLoading ? 'Refreshing…' : '⟳ Refresh'}
+              </button>
+            </span>
+          </div>
+
+          {flowReleaseName && (
+            <div className="muted jobs-sample-note">
+              Filtered to the cloud flows that are components of the selected
+              release solution (matched in the target environment).
+            </div>
+          )}
+
           {flowsError && <div className="state state--error">{flowsError}</div>}
           {!flows && !flowsError && <div className="state">Loading flows…</div>}
-          {flows && (
+          {flows && flows.length === 0 && (
+            <div className="state">No cloud flows match the filters.</div>
+          )}
+          {flows && flows.length > 0 && (
             <div className="jobs-flows">
-              <div className="card trace-list">
-                <div className="jobs-flows-head">
-                  <strong>Cloud flows ({flows.length})</strong>
-                  <button
-                    className="btn btn--small"
-                    disabled={!!statsProgress}
-                    title="Load the last runs of up to 20 flows to compute failure rates (marked sample — connector-friendly)."
-                    onClick={() => void loadFlowStats()}
-                  >
-                    {statsProgress
-                      ? `Sampling ${statsProgress[0]}/${statsProgress[1]}…`
-                      : flowStats
-                        ? '⟳ Re-sample failure rates'
-                        : 'Load failure rates (sample)'}
-                  </button>
-                </div>
+              <div className="card trace-list jobs-flows-list">
                 <table className="ops-table">
                   <thead>
                     <tr>
                       <th>Flow</th>
-                      <th>Owner</th>
                       <th className="num" title="Failure rate over the sampled last runs.">
                         Fail rate*
                       </th>
@@ -688,7 +860,6 @@ export function JobMonitor({ canManageJobs, envKey, onEnvChange }: Props) {
                           onClick={() => openFlow(f)}
                         >
                           <td className="trace-type">{f.name}</td>
-                          <td>{f.ownerName}</td>
                           <td className="num">
                             {stats
                               ? `${Math.round(stats.failRate * 100)} % (${stats.failed}/${stats.sampleSize})`
@@ -709,9 +880,19 @@ export function JobMonitor({ canManageJobs, envKey, onEnvChange }: Props) {
               </div>
 
               {selectedFlow && (
-                <div className="card trace-list">
+                <div className="card trace-list jobs-flows-runs">
                   <div className="jobs-flows-head">
                     <strong>Runs — {selectedFlow.name}</strong>
+                    <button
+                      className="btn btn--small"
+                      title="Close the runs pane"
+                      onClick={() => {
+                        setSelectedFlow(null)
+                        setFlowRuns(null)
+                      }}
+                    >
+                      ✕
+                    </button>
                   </div>
                   {flowRunsError && (
                     <div className="state state--error">{flowRunsError}</div>
@@ -729,49 +910,62 @@ export function JobMonitor({ canManageJobs, envKey, onEnvChange }: Props) {
                           <th>Start</th>
                           <th>Status</th>
                           <th className="num">Duration</th>
-                          <th>Error</th>
                           <th></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {flowRuns.map((r) => (
-                          <tr
-                            key={r.id}
-                            className={`ops-row ${r.status.toLowerCase().includes('fail') ? 'ops-row--error' : ''}`}
-                          >
-                            <td className="nowrap">{fmtDateTime(r.startTime)}</td>
-                            <td>
-                              <span
-                                className={`jobs-status ${r.status.toLowerCase().includes('fail') ? 'jobs-status--failed' : 'jobs-status--ok'}`}
-                              >
-                                {r.status}
-                              </span>
-                            </td>
-                            <td className="num nowrap">
-                              {r.durationMs ? `${Math.round(r.durationMs / 1000)} s` : '—'}
-                            </td>
-                            <td className="jobs-run-error" title={r.errorMessage}>
-                              {r.errorMessage || <span className="muted">—</span>}
-                            </td>
-                            <td className="nowrap">
-                              <a
-                                className="btn btn--small"
-                                href={r.portalUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                Open run ↗
-                              </a>
-                            </td>
-                          </tr>
-                        ))}
+                        {flowRuns.map((r) => {
+                          const failed = r.status.toLowerCase().includes('fail')
+                          return (
+                            <tr
+                              key={r.id}
+                              className={`ops-row ${failed ? 'ops-row--error' : ''}`}
+                              title="Show run detail"
+                              onClick={() => setRunDetail(r)}
+                            >
+                              <td className="nowrap">
+                                {fmtDateTime(r.startTime)}
+                              </td>
+                              <td>
+                                <span
+                                  className={`jobs-status ${failed ? 'jobs-status--failed' : 'jobs-status--ok'}`}
+                                >
+                                  {r.status}
+                                </span>
+                              </td>
+                              <td className="num nowrap">
+                                {r.durationMs
+                                  ? `${Math.round(r.durationMs / 1000)} s`
+                                  : '—'}
+                              </td>
+                              <td className="nowrap">
+                                <a
+                                  className="btn btn--small"
+                                  href={r.portalUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  Open run ↗
+                                </a>
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   )}
                 </div>
               )}
             </div>
+          )}
+
+          {runDetail && (
+            <FlowRunDetailModal
+              run={runDetail}
+              envKey={envKey}
+              onClose={() => setRunDetail(null)}
+            />
           )}
         </>
       )}

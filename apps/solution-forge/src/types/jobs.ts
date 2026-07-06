@@ -94,6 +94,20 @@ export interface FlowRunStats {
   lastRunOn: string
 }
 
+/** Server-side filters for the cloud-flow list. */
+export interface FlowFilter {
+  /** Only flows that are components of this solution (matched in the target env). */
+  solutionUniqueName?: string
+  /** Substring match on the flow name. */
+  nameSearch?: string
+}
+
+/** One label/value pair of a flow run's full detail (shown in the run popup). */
+export interface FlowRunDetailField {
+  label: string
+  value: string
+}
+
 /** One `flowrun` row. */
 export interface FlowRunInfo {
   id: string

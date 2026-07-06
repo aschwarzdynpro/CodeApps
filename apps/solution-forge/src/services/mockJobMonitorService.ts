@@ -1,6 +1,8 @@
 import type {
   AsyncJobInfo,
+  FlowFilter,
   FlowInfo,
+  FlowRunDetailField,
   FlowRunInfo,
   FlowRunStats,
   JobActionResult,
@@ -294,10 +296,55 @@ class MockJobMonitorService implements JobMonitorService {
     )
   }
 
-  async listFlows(_envKey: string): Promise<FlowInfo[]> {
+  async listFlows(_envKey: string, filter?: FlowFilter): Promise<FlowInfo[]> {
     void _envKey
     await delay(200)
-    return MOCK_FLOWS.map((f) => ({ ...f }))
+    let flows = MOCK_FLOWS.map((f) => ({ ...f }))
+    if (filter?.nameSearch?.trim()) {
+      const q = filter.nameSearch.trim().toLowerCase()
+      flows = flows.filter((f) => f.name.toLowerCase().includes(q))
+    }
+    if (filter?.solutionUniqueName) {
+      // Deterministic pseudo-membership so the solution filter is demoable.
+      const u = filter.solutionUniqueName
+      flows = flows.filter((f) => {
+        const s = `${u}|${f.name}`
+        let h = 0
+        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 997
+        return h % 3 !== 0
+      })
+    }
+    return flows
+  }
+
+  async getFlowRunDetail(
+    run: FlowRunInfo,
+    _envKey: string,
+  ): Promise<FlowRunDetailField[]> {
+    void _envKey
+    await delay(120)
+    const failed = run.status.toLowerCase().includes('fail')
+    const fields: FlowRunDetailField[] = [
+      { label: 'Run id', value: run.runName },
+      { label: 'Status', value: run.status },
+      { label: 'Start time', value: run.startTime },
+      { label: 'End time', value: run.endTime },
+      {
+        label: 'Duration',
+        value: run.durationMs ? `${Math.round(run.durationMs / 1000)} s` : '—',
+      },
+      { label: 'Trigger type', value: 'Automated — When a row is added (Dataverse)' },
+      {
+        label: 'Trigger input',
+        value:
+          '{\n  "entity": "salesorder",\n  "id": "3b2f…-…-a1",\n  "SdkMessage": "Create"\n}',
+      },
+    ]
+    if (failed) {
+      fields.push({ label: 'Error code', value: 'ActionFailed' })
+      fields.push({ label: 'Error message', value: run.errorMessage })
+    }
+    return fields
   }
 
   async sampleFlowStats(

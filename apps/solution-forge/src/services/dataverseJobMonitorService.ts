@@ -1,6 +1,8 @@
 import type {
   AsyncJobInfo,
+  FlowFilter,
   FlowInfo,
+  FlowRunDetailField,
   FlowRunInfo,
   FlowRunStats,
   JobActionResult,
@@ -15,6 +17,7 @@ import { JOB_BULK_LIMIT } from './jobMonitorService'
 import { mockJobMonitorService } from './mockJobMonitorService'
 import { powerModeReady } from '../PowerProvider'
 import {
+  fetchXmlAllPages,
   fetchXmlEscape,
   fetchXmlQuery,
   formattedValue,
@@ -141,6 +144,75 @@ async function bulkSetState(
     onProgress?.(++done, batch.length)
   }
   return results
+}
+
+/** flowrun columns to omit from the run popup (internal / noise). */
+const RUN_FIELD_SKIP = new Set([
+  'flowrunid',
+  'versionnumber',
+  'importsequencenumber',
+  'overriddencreatedon',
+  'timezoneruleversionnumber',
+  'utcconversiontimezonecode',
+  'owningbusinessunit',
+  'owningteam',
+  'owninguser',
+])
+
+/** Friendly labels for the common flowrun columns. */
+const RUN_FIELD_LABELS: Record<string, string> = {
+  name: 'Run id',
+  status: 'Status',
+  starttime: 'Start time',
+  endtime: 'End time',
+  errorcode: 'Error code',
+  errormessage: 'Error message',
+  triggertype: 'Trigger type',
+  workflow: 'Flow',
+  createdon: 'Created on',
+  modifiedon: 'Modified on',
+  ownerid: 'Owner',
+}
+
+function humanizeField(key: string): string {
+  return key
+    .replace(/^_/, '')
+    .replace(/_value$/, '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+/** Turn a raw flowrun row (`<all-attributes/>`) into a label/value list —
+ *  formatted values preferred, empties and annotations dropped. */
+function formatRunFields(row: Row): FlowRunDetailField[] {
+  const fields: FlowRunDetailField[] = []
+  for (const key of Object.keys(row)) {
+    if (key.includes('@')) continue // annotation — surfaced via formattedValue
+    let logical = key
+    let value: string
+    if (key.startsWith('_') && key.endsWith('_value')) {
+      logical = key.slice(1, -'_value'.length)
+      const fv = formattedValue(row, key)
+      if (RUN_FIELD_SKIP.has(logical) || !fv) continue
+      value = fv
+    } else {
+      if (RUN_FIELD_SKIP.has(key)) continue
+      const raw = row[key]
+      if (
+        raw === null ||
+        raw === undefined ||
+        raw === '' ||
+        typeof raw === 'object'
+      )
+        continue
+      value = formattedValue(row, key) ?? String(raw)
+    }
+    fields.push({
+      label: RUN_FIELD_LABELS[logical] ?? humanizeField(logical),
+      value,
+    })
+  }
+  return fields
 }
 
 class DataverseJobMonitorService implements JobMonitorService {
@@ -287,12 +359,32 @@ class DataverseJobMonitorService implements JobMonitorService {
     )
   }
 
-  async listFlows(envKey: string): Promise<FlowInfo[]> {
+  async listFlows(envKey: string, filter?: FlowFilter): Promise<FlowInfo[]> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockJobMonitorService.listFlows(envKey)
+    if (mode !== 'power-platform')
+      return mockJobMonitorService.listFlows(envKey, filter)
     // category 5 = modern (cloud) flow, type 1 = definition.
+    const conditions = [
+      `<condition attribute="category" operator="eq" value="5" />`,
+      `<condition attribute="type" operator="eq" value="1" />`,
+    ]
+    if (filter?.nameSearch?.trim())
+      conditions.push(
+        `<condition attribute="name" operator="like" value="%${fetchXmlEscape(filter.nameSearch.trim())}%" />`,
+      )
+    // Solution membership: link workflow → solutioncomponent (componenttype 29
+    // = Process) → solution, filtered by the import-stable unique name.
+    const solutionLink = filter?.solutionUniqueName
+      ? `<link-entity name="solutioncomponent" from="objectid" to="workflowid" link-type="inner">` +
+        `<filter><condition attribute="componenttype" operator="eq" value="29" /></filter>` +
+        `<link-entity name="solution" from="solutionid" to="solutionid" link-type="inner">` +
+        `<filter><condition attribute="uniquename" operator="eq" value="${fetchXmlEscape(filter.solutionUniqueName)}" /></filter>` +
+        `</link-entity></link-entity>`
+      : ''
+    // No row cap — page through every matching flow (a single 5 000 page in
+    // practice; no environment has that many cloud flows).
     const fetchXml =
-      `<fetch count="100">` +
+      `<fetch>` +
       `<entity name="workflow">` +
       `<attribute name="workflowid" />` +
       `<attribute name="workflowidunique" />` +
@@ -300,13 +392,11 @@ class DataverseJobMonitorService implements JobMonitorService {
       `<attribute name="statecode" />` +
       `<attribute name="modifiedon" />` +
       `<attribute name="ownerid" />` +
-      `<filter type="and">` +
-      `<condition attribute="category" operator="eq" value="5" />` +
-      `<condition attribute="type" operator="eq" value="1" />` +
-      `</filter>` +
+      `<filter type="and">${conditions.join('')}</filter>` +
+      solutionLink +
       `<order attribute="modifiedon" descending="true" />` +
       `</entity></fetch>`
-    const rows = await fetchXmlQuery('workflows', fetchXml, orgUrlForEnvKey(envKey))
+    const rows = await fetchXmlAllPages('workflows', fetchXml, orgUrlForEnvKey(envKey))
     return rows.map((row) => ({
       workflowId: rowStr(row.workflowid),
       workflowIdUnique: rowStr(row.workflowidunique),
@@ -396,6 +486,25 @@ class DataverseJobMonitorService implements JobMonitorService {
         portalUrl: flowRunUrl(environmentId, flow.workflowIdUnique, runName),
       }
     })
+  }
+
+  async getFlowRunDetail(
+    run: FlowRunInfo,
+    envKey: string,
+  ): Promise<FlowRunDetailField[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockJobMonitorService.getFlowRunDetail(run, envKey)
+    const fetchXml =
+      `<fetch count="1"><entity name="flowrun"><all-attributes />` +
+      `<filter><condition attribute="flowrunid" operator="eq" value="${fetchXmlEscape(run.id)}" /></filter>` +
+      `</entity></fetch>`
+    const rows = await fetchXmlQuery(
+      'flowruns',
+      fetchXml,
+      orgUrlForEnvKey(envKey),
+    )
+    return formatRunFields(rows[0] ?? {})
   }
 
   async listWatchdog(envKey: string): Promise<{

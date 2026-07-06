@@ -1,6 +1,8 @@
 import type {
   AsyncJobInfo,
+  FlowFilter,
   FlowInfo,
+  FlowRunDetailField,
   FlowRunInfo,
   JobActionResult,
   JobFilter,
@@ -50,7 +52,12 @@ export interface JobMonitorService {
     envKey: string,
     onProgress?: (done: number, total: number) => void,
   ): Promise<JobActionResult[]>
-  listFlows(envKey: string): Promise<FlowInfo[]>
+  /**
+   * The environment's cloud flows, optionally narrowed by a {@link FlowFilter}
+   * (release-solution membership and/or a name substring). NOT capped — every
+   * matching flow is returned (paged).
+   */
+  listFlows(envKey: string, filter?: FlowFilter): Promise<FlowInfo[]>
   /**
    * Failure rate over the last runs of the given flows (bounded sample —
    * marked as such in the UI). Mutates nothing; returns stats per flow id.
@@ -61,6 +68,14 @@ export interface JobMonitorService {
     onProgress?: (done: number, total: number) => void,
   ): Promise<Map<string, FlowInfo['runStats']>>
   listFlowRuns(flow: FlowInfo, envKey: string): Promise<FlowRunInfo[]>
+  /**
+   * All available fields of one flow run (the whole `flowrun` record), for the
+   * run-detail popup. Trigger inputs/outputs proper live in the portal.
+   */
+  getFlowRunDetail(
+    run: FlowRunInfo,
+    envKey: string,
+  ): Promise<FlowRunDetailField[]>
   listWatchdog(
     envKey: string,
   ): Promise<{ available: boolean; entries: WatchdogEntry[] }>

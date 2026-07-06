@@ -297,9 +297,11 @@ nach Typ.
     Kachel klickt in ihren Detail-Tab), **System jobs**
     (`asyncoperation`-Explorer mit erzwungenem Zeitfenster, Status-Chips,
     Bulk-**Cancel/Retry** ≤ 50/Batch sequentiell mit Einzel-Ergebnis — nur
-    Deployment Manager, schreibt als User), **Flows** (Cloud Flows mit
-    gesampelter Fehlerquote; Runs je Flow aus der `flowrun`-Tabelle mit
-    Deep-Link in den Power-Automate-Portal-Run), **Watchdog**
+    Deployment Manager, schreibt als User), **Flows** (**alle** Cloud Flows
+    ohne Limit, filterbar per Name und **Release-Solution** = deren
+    Komponenten; gesampelte Fehlerquote; Runs je Flow in einem **Side Pane**,
+    Klick auf einen Run öffnet ein **Popup mit dem vollständigen `flowrun`-Record**
+    + Deep-Link „Open run"), **Watchdog**
     (Heartbeat-Soll/Ist je Definition, pure function `evaluateHeartbeat`,
     Tabellen konfigurierbar via `config.ts → WATCHDOG_TABLES`) und
     **Trends** (Failed-Jobs/Tag 7/30 d, serverseitige Aggregate).

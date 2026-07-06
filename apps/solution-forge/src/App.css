@@ -4288,10 +4288,21 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* Flows list + runs side-pane, side by side (wraps on narrow screens). */
 .jobs-flows {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 12px;
+}
+.jobs-flows-list {
+  flex: 2 1 460px;
+  min-width: 0;
+}
+.jobs-flows-runs {
+  flex: 1 1 380px;
+  min-width: 320px;
 }
 .jobs-flows-head {
   display: flex;
@@ -4300,6 +4311,34 @@
   gap: 10px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
+}
+/* Flow-run detail popup. */
+.jobs-run-detail {
+  padding: 2px;
+}
+.jobs-run-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.jobs-run-fields {
+  width: 100%;
+}
+.jobs-run-field-label {
+  width: 160px;
+  padding-right: 12px;
+  vertical-align: top;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--muted);
+}
+.jobs-run-field-value {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 12px;
 }
 .jobs-run-error {
   max-width: 340px;
