@@ -1308,7 +1308,7 @@ function App() {
       )}
 
       {!error && tab === 'envConfig' && isDeploymentManager && (
-        <EnvConfigWorkspace />
+        <EnvConfigWorkspace solutions={allSolutions} />
       )}
 
       {!error && tab === 'auditConfig' && isDeploymentManager && (

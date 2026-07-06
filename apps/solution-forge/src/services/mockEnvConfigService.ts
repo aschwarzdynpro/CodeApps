@@ -1,6 +1,7 @@
 import type {
   ConnRefRow,
   EnvConfigColumn,
+  EnvConfigLoadOptions,
   EnvConfigResult,
   EnvVarCell,
   EnvVarRow,
@@ -103,9 +104,20 @@ const CONN_REF_SEEDS: ConnRefSeed[] = [
   },
 ]
 
+/** Deterministic pseudo-membership so the solution filter varies per release
+ *  offline (real membership comes from `solutioncomponent`). ~2/3 of settings
+ *  are "in" a given solution. */
+function inSolution(uniqueName: string, name: string): boolean {
+  const s = `${uniqueName}|${name}`
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 997
+  return h % 3 !== 0
+}
+
 class MockEnvConfigService implements EnvConfigService {
   async loadEnvConfig(
     onProgress?: (done: number, total: number, label: string) => void,
+    options?: EnvConfigLoadOptions,
   ): Promise<EnvConfigResult> {
     const keys = envKeys()
     for (let i = 0; i < ENVIRONMENTS.length; i++) {
@@ -162,6 +174,15 @@ class MockEnvConfigService implements EnvConfigService {
         cells,
       }
     })
+
+    const sol = options?.solutionUniqueName
+    if (sol)
+      return {
+        columns,
+        envVars: envVars.filter((r) => inSolution(sol, r.schemaName)),
+        connRefs: connRefs.filter((r) => inSolution(sol, r.logicalName)),
+        errors: [],
+      }
 
     return { columns, envVars, connRefs, errors: [] }
   }

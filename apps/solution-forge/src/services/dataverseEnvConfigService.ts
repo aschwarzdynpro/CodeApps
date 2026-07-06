@@ -1,6 +1,7 @@
 import type {
   ConnRefRow,
   EnvConfigColumn,
+  EnvConfigLoadOptions,
   EnvConfigResult,
   EnvVarCell,
   EnvVarRow,
@@ -27,7 +28,16 @@ interface EnvSnapshot {
   defs: Map<string, EnvVarDef> // schemaName → def
   values: Map<string, string> // schemaName → current value
   connRefs: Map<string, { displayName: string; connector: string; bound: boolean }>
+  // component-id (lower-case) → name, to translate solution membership.
+  defIdToSchema: Map<string, string> // environmentvariabledefinitionid → schema
+  valueIdToSchema: Map<string, string> // environmentvariablevalueid → schema
+  connIdToLogical: Map<string, string> // connectionreferenceid → logical
 }
+
+/** Component-type codes as they appear in `solutioncomponent`. */
+const CT_ENV_VAR_DEFINITION = 380
+const CT_ENV_VAR_VALUE = 381
+const CT_CONNECTION_REFERENCE = 10064
 
 /**
  * Real implementation of {@link EnvConfigService}. Queries every configured
@@ -42,6 +52,7 @@ class DataverseEnvConfigService implements EnvConfigService {
     orgUrl: string,
     entitySet: string,
     select: string,
+    filter?: string,
   ): Promise<Row[]> {
     const result = await MicrosoftDataverseService.ListRecordsWithOrganization(
       orgUrl,
@@ -51,6 +62,7 @@ class DataverseEnvConfigService implements EnvConfigService {
       undefined,
       undefined,
       select,
+      filter,
     )
     if (!result.success) {
       const detail = (result as { error?: { message?: string } }).error?.message
@@ -61,7 +73,7 @@ class DataverseEnvConfigService implements EnvConfigService {
 
   private async loadEnv(orgUrl: string): Promise<EnvSnapshot> {
     const defs = new Map<string, EnvVarDef>()
-    const byId = new Map<string, string>() // definitionId → schemaName
+    const defIdToSchema = new Map<string, string>() // definitionId → schemaName
     for (const row of await this.query(
       orgUrl,
       'environmentvariabledefinitions',
@@ -74,27 +86,34 @@ class DataverseEnvConfigService implements EnvConfigService {
         typeCode: num(row.type),
         defaultValue: str(row.defaultvalue),
       })
-      byId.set(str(row.environmentvariabledefinitionid), schema)
+      defIdToSchema.set(str(row.environmentvariabledefinitionid).toLowerCase(), schema)
     }
 
     const values = new Map<string, string>()
+    const valueIdToSchema = new Map<string, string>()
     for (const row of await this.query(
       orgUrl,
       'environmentvariablevalues',
-      'value,_environmentvariabledefinitionid_value',
+      'environmentvariablevalueid,value,_environmentvariabledefinitionid_value',
     )) {
-      const schema = byId.get(str(row._environmentvariabledefinitionid_value))
-      if (schema) values.set(schema, str(row.value))
+      const schema = defIdToSchema.get(
+        str(row._environmentvariabledefinitionid_value).toLowerCase(),
+      )
+      if (!schema) continue
+      values.set(schema, str(row.value))
+      const vid = str(row.environmentvariablevalueid).toLowerCase()
+      if (vid) valueIdToSchema.set(vid, schema)
     }
 
     const connRefs = new Map<
       string,
       { displayName: string; connector: string; bound: boolean }
     >()
+    const connIdToLogical = new Map<string, string>()
     for (const row of await this.query(
       orgUrl,
       'connectionreferences',
-      'connectionreferencelogicalname,connectionreferencedisplayname,connectorid,connectionid',
+      'connectionreferenceid,connectionreferencelogicalname,connectionreferencedisplayname,connectorid,connectionid',
     )) {
       const logical = str(row.connectionreferencelogicalname)
       if (!logical) continue
@@ -104,17 +123,67 @@ class DataverseEnvConfigService implements EnvConfigService {
         connector: connectorId.split('/').pop() ?? connectorId,
         bound: !!str(row.connectionid),
       })
+      const cid = str(row.connectionreferenceid).toLowerCase()
+      if (cid) connIdToLogical.set(cid, logical)
     }
 
-    return { defs, values, connRefs }
+    return { defs, values, connRefs, defIdToSchema, valueIdToSchema, connIdToLogical }
+  }
+
+  /**
+   * The env-var schema names & connection-reference logical names that are
+   * components of `uniqueName` in the host environment. Resolves the solution
+   * id, reads its `solutioncomponent` rows and translates the object ids to
+   * names via the host snapshot. Throws when the solution can't be found.
+   */
+  private async solutionMembership(
+    hostUrl: string,
+    uniqueName: string,
+    host: EnvSnapshot,
+  ): Promise<{ schemas: Set<string>; logicals: Set<string> }> {
+    const sols = await this.query(
+      hostUrl,
+      'solutions',
+      'solutionid',
+      `uniquename eq '${uniqueName.replace(/'/g, "''")}'`,
+    )
+    const solId = str(sols[0]?.solutionid)
+    if (!solId)
+      throw new Error(
+        `solution "${uniqueName}" was not found in the host environment`,
+      )
+    const comps = await this.query(
+      hostUrl,
+      'solutioncomponents',
+      'objectid,componenttype',
+      `_solutionid_value eq ${solId}`,
+    )
+    const schemas = new Set<string>()
+    const logicals = new Set<string>()
+    for (const c of comps) {
+      const type = num(c.componenttype)
+      const oid = str(c.objectid).toLowerCase()
+      if (type === CT_ENV_VAR_DEFINITION) {
+        const s = host.defIdToSchema.get(oid)
+        if (s) schemas.add(s)
+      } else if (type === CT_ENV_VAR_VALUE) {
+        const s = host.valueIdToSchema.get(oid)
+        if (s) schemas.add(s)
+      } else if (type === CT_CONNECTION_REFERENCE) {
+        const l = host.connIdToLogical.get(oid)
+        if (l) logicals.add(l)
+      }
+    }
+    return { schemas, logicals }
   }
 
   async loadEnvConfig(
     onProgress?: (done: number, total: number, label: string) => void,
+    options?: EnvConfigLoadOptions,
   ): Promise<EnvConfigResult> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockEnvConfigService.loadEnvConfig(onProgress)
+      return mockEnvConfigService.loadEnvConfig(onProgress, options)
 
     const envs = ENVIRONMENTS
     const columns: EnvConfigColumn[] = envs.map((e) => ({
@@ -208,6 +277,36 @@ class DataverseEnvConfigService implements EnvConfigService {
         }
         return { logicalName: logical, displayName, connectorName, cells }
       })
+
+    // Optional: restrict to a solution's components (resolved in the host).
+    if (options?.solutionUniqueName) {
+      const host = envs.find((e) => e.isCurrent) ?? envs[0]
+      const hostSnap = host ? snapshots.get(host.key) : undefined
+      if (!host || !hostSnap) {
+        errors.push(
+          'Solution filter: the host environment could not be read, so membership is unknown.',
+        )
+        return { columns, envVars: [], connRefs: [], errors }
+      }
+      try {
+        const { schemas, logicals } = await this.solutionMembership(
+          host.url.replace(/\/+$/, ''),
+          options.solutionUniqueName,
+          hostSnap,
+        )
+        return {
+          columns,
+          envVars: envVars.filter((r) => schemas.has(r.schemaName)),
+          connRefs: connRefs.filter((r) => logicals.has(r.logicalName)),
+          errors,
+        }
+      } catch (err) {
+        errors.push(
+          `Solution filter: ${err instanceof Error ? err.message : String(err)}`,
+        )
+        return { columns, envVars: [], connRefs: [], errors }
+      }
+    }
 
     return { columns, envVars, connRefs, errors }
   }

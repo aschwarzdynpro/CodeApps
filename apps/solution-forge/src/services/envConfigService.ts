@@ -1,4 +1,7 @@
-import type { EnvConfigResult } from '../types/envConfig'
+import type {
+  EnvConfigLoadOptions,
+  EnvConfigResult,
+} from '../types/envConfig'
 import { dataverseEnvConfigService } from './dataverseEnvConfigService'
 
 /**
@@ -11,10 +14,12 @@ export interface EnvConfigService {
   /**
    * Load environment variables and connection references across every
    * configured environment. Per-environment failures are collected in
-   * `errors` rather than failing the whole load.
+   * `errors` rather than failing the whole load. `options.solutionUniqueName`
+   * restricts the result to that solution's components (resolved in the host).
    */
   loadEnvConfig(
     onProgress?: (done: number, total: number, label: string) => void,
+    options?: EnvConfigLoadOptions,
   ): Promise<EnvConfigResult>
 }
 

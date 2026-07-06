@@ -5,7 +5,9 @@ import type {
   EnvConfigResult,
   EnvVarRow,
 } from '../types/envConfig'
+import type { WorkingSolution } from '../types/solution'
 import { envConfigService } from '../services/envConfigService'
+import { SolutionSelect } from './SolutionSelect'
 
 /**
  * Environment Variable & Connection Reference cockpit — every configured
@@ -14,14 +16,31 @@ import { envConfigService } from '../services/envConfigService'
  *
  * - env var present but without a value (and no default) in an environment,
  * - connection reference not bound to a connection,
- * - a setting that exists in one environment but is missing from another
- *   (a transport gap).
+ * - a setting that exists in one environment but is missing from another.
  *
- * Read-only; all environments are read through the connector. The whole result
- * is loaded once and then filtered client-side: a name search, three clickable
- * counter chips (missing values / unbound / transport gaps) and two collapsible
- * sections (collapsed by default), all sorted by display name.
+ * Read-only; all environments are read through the connector. The result is
+ * kept in a session-scoped cache so switching to this tab does NOT re-fetch —
+ * only the Refresh button and changing the release-solution filter do. Once
+ * loaded, the picture is filtered client-side (name search, counter chips, two
+ * collapsible sections, sorted by display name). A release-solution filter is
+ * server-side: only that solution's components (resolved in the host) are read.
  */
+
+interface Props {
+  /** All working solutions — the release ones drive the solution filter. */
+  solutions: WorkingSolution[]
+}
+
+/**
+ * Session cache: survives tab navigation (module scope), resets on reload.
+ * Holds the last loaded picture AND the release filter it was loaded with, so
+ * a remount restores exactly what the user last saw.
+ */
+let sessionCache: {
+  releaseId: string
+  result: EnvConfigResult
+  loadedAt: Date
+} | null = null
 
 /** Which counter chip is currently narrowing the tables. */
 type Filter = 'missing' | 'unbound' | 'gaps' | null
@@ -55,39 +74,72 @@ function connHasGap(row: ConnRefRow, cols: EnvConfigColumn[]): boolean {
 const byDisplayName = <T extends { displayName: string }>(a: T, b: T) =>
   a.displayName.localeCompare(b.displayName)
 
-export function EnvConfigWorkspace() {
-  const [result, setResult] = useState<EnvConfigResult | null>(null)
+export function EnvConfigWorkspace({ solutions }: Props) {
+  const [result, setResult] = useState<EnvConfigResult | null>(
+    sessionCache?.result ?? null,
+  )
+  const [loadedAt, setLoadedAt] = useState<Date | null>(
+    sessionCache?.loadedAt ?? null,
+  )
+  const [releaseId, setReleaseId] = useState<string>(
+    sessionCache?.releaseId ?? '',
+  )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<string | null>(null)
-  const [loadedAt, setLoadedAt] = useState<Date | null>(null)
 
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>(null)
   const [openEnv, setOpenEnv] = useState(false)
   const [openConn, setOpenConn] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await envConfigService.loadEnvConfig((done, total, label) =>
-        setProgress(`Reading ${label} (${done}/${total})…`),
-      )
-      setResult(res)
-      setLoadedAt(new Date())
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setLoading(false)
-      setProgress(null)
-    }
+  // Release solutions (deployment kind, real record) drive the solution filter.
+  const releases = solutions.filter(
+    (s, index) =>
+      s.kind === 'deployment' &&
+      !s.solutionMissing &&
+      !!s.recordId &&
+      solutions.findIndex((o) => o.id === s.id) === index,
+  )
+
+  const load = useCallback(
+    async (relId: string) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const rel = relId ? releases.find((r) => r.id === relId) : null
+        const res = await envConfigService.loadEnvConfig(
+          (done, total, label) =>
+            setProgress(`Reading ${label} (${done}/${total})…`),
+          rel ? { solutionUniqueName: rel.uniqueName } : undefined,
+        )
+        const now = new Date()
+        setResult(res)
+        setLoadedAt(now)
+        sessionCache = { releaseId: relId, result: res, loadedAt: now }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setLoading(false)
+        setProgress(null)
+      }
+    },
+    [releases],
+  )
+
+  // Fetch on first mount ONLY when the session cache is empty — later visits
+  // reuse the cached picture. Refresh and a release change re-fetch explicitly.
+  useEffect(() => {
+    if (sessionCache) return
+    const t = window.setTimeout(() => void load(''), 30)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    const t = window.setTimeout(() => void load(), 30)
-    return () => window.clearTimeout(t)
-  }, [load])
+  const onReleaseChange = (id: string) => {
+    setReleaseId(id)
+    void load(id)
+  }
 
   // Row-based counts so that clicking a chip surfaces exactly that many rows.
   const stats = useMemo(() => {
@@ -200,10 +252,16 @@ export function EnvConfigWorkspace() {
           value={search}
           onChange={(e) => onSearch(e.target.value)}
         />
+        <SolutionSelect
+          options={releases}
+          value={releaseId}
+          onChange={onReleaseChange}
+          placeholder="All solutions"
+        />
         <span className="trace-toolbar-right">
           <span className="muted">
             {result?.columns.length ?? 0} environment
-            {result?.columns.length === 1 ? '' : 's'}, matched by name
+            {result?.columns.length === 1 ? '' : 's'}
           </span>
           {loadedAt && (
             <span className="muted" title={loadedAt.toLocaleString()}>
@@ -216,13 +274,21 @@ export function EnvConfigWorkspace() {
           )}
           <button
             className="btn btn--small"
-            onClick={() => void load()}
+            onClick={() => void load(releaseId)}
             disabled={loading}
           >
             {loading ? 'Reading…' : '⟳ Refresh'}
           </button>
         </span>
       </div>
+
+      {releaseId && (
+        <div className="muted jobs-sample-note">
+          Filtered to the environment variables &amp; connection references that
+          are components of the selected release solution (matched in the host
+          environment).
+        </div>
+      )}
 
       {progress && (
         <div className="sharing-progress" aria-live="polite">

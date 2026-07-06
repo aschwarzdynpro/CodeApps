@@ -612,6 +612,15 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               without a value”) to narrow the tables to exactly those rows —
               click it again or “Clear filter” to reset.
             </p>
+            <p>
+              The loaded picture is <strong>cached for the session</strong> —
+              switching to this tab does not re-read; use <strong>Refresh</strong>{' '}
+              (the “Updated …” time shows how fresh it is). Pick a{' '}
+              <strong>release solution</strong> to restrict the cockpit to that
+              solution's env vars &amp; connection references (its components in
+              the host environment); changing or clearing the selection
+              re-reads.
+            </p>
           </section>
 
           <section className="help-section">

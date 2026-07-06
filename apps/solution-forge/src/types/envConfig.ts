@@ -61,6 +61,16 @@ export interface EnvConfigResult {
   errors: string[]
 }
 
+/** Optional narrowing for a cockpit load. */
+export interface EnvConfigLoadOptions {
+  /**
+   * Restrict to the environment variables & connection references that are
+   * components of this solution — resolved in the HOST environment, then
+   * matched across all environments by name. Undefined = every setting.
+   */
+  solutionUniqueName?: string
+}
+
 /** environmentvariabledefinition.type option values. */
 export const ENV_VAR_TYPE_LABELS: Record<number, string> = {
   100000000: 'String',

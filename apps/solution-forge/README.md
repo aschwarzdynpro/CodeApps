@@ -70,7 +70,11 @@ nach Typ.
   **Bedienung:** Suchfeld (filtert beide Sektionen nach Namen), zwei
   **ein-/ausklappbare** Sektionen (zugeklappt by default, nach Anzeigename
   sortiert) und **klickbare Counter-Chips** als Filter (z. B. „4 env vars ohne
-  Wert" → zeigt genau diese Zeilen).
+  Wert" → zeigt genau diese Zeilen). Das geladene Bild wird **für die Session
+  gecacht** (kein Re-Fetch bei jedem Tab-Wechsel; Refresh + „Updated"-Zeit).
+  Ein **Release-Solution-Filter** beschränkt das Cockpit auf die Env Vars &
+  Connection References, die Komponenten dieser Solution im Host-Env sind
+  (`solutioncomponent`, Typen 380/381/10064); Wechsel/Reset löst Re-Fetch aus.
 - **Audit Config** (Validate, gated) — **Audit-Konfiguration** einer
   wählbaren Umgebung: der Org-Master-Schalter (`organization.isauditenabled`)
   + Retention (`auditretentionperiodv2`) und je **Tabelle/Spalte**
