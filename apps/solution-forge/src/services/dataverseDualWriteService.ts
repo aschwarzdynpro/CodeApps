@@ -54,7 +54,12 @@ class DataverseDualWriteService implements DualWriteService {
         name,
         version: rowStr(row.msdyn_version),
         versionCount: 1,
-        owner: formattedValue(row, 'ownerid') ?? '',
+        // A lookup's display name comes back on `_ownerid_value@…FormattedValue`
+        // (the OData/FetchXML form), not on `ownerid` — read both to be safe.
+        owner:
+          formattedValue(row, '_ownerid_value') ??
+          formattedValue(row, 'ownerid') ??
+          '',
         modifiedOn: rowStr(row.modifiedon),
       }
       const existing = byName.get(name)

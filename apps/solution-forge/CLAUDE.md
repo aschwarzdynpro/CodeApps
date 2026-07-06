@@ -258,7 +258,10 @@ Dual-Write-Table-Maps der Host-Env. **Entity `msdyn_dualwriteentitymap`**
 (Entity-Set `msdyn_dualwriteentitymaps`) — empirisch am INT-11 verifiziert
 (nicht `msdyn_dualwritetablemap`!). Felder: `msdyn_name` (z. B.
 `sst_[uoms - Units]`), `msdyn_displayname`, `msdyn_version` (dotted, z. B.
-`2.0.1.5`), `ownerid` (Name via `formattedValue`), `ismanaged`
+`2.0.1.5`), `ownerid` (Owner-**Name** kommt via FetchXML/OData auf
+`_ownerid_value@…FormattedValue`, NICHT auf `ownerid` — `formattedValue(row,
+'_ownerid_value')` lesen; `formattedValue(row,'ownerid')` liefert leer),
+`ismanaged`
 (Filter `eq 0` = custom), `msdyn_mapping` (**die Mapping-JSON**, groß ⇒ NICHT
 in der Liste selektieren, lazy je Record), `msdyn_properties`, `modifiedon`.
 **Jede gespeicherte Version ist ein eigener Record** ⇒ `listTableMaps` gruppiert
