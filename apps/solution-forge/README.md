@@ -94,7 +94,11 @@ nach Typ.
   Table Maps** der Current Environment aus `msdyn_dualwriteentitymap` (jede
   gespeicherte Version = eigener Record ⇒ **Gruppierung nach Name, aktuelle =
   höchste Version**, plus Zähler älterer Versionen). Liste: Name, aktuelle
-  Version, Besitzer (`ownerid`), geändert am. **Klick auf ein Mapping** öffnet
+  Version, **Quell- → Zieltabelle mit Richtung** (aus dem Mapping der aktuellen
+  Version — Env-Chips AX/CRM + Richtungspfeil ↔/→/←, `overallDirection`),
+  geändert am. Die Mappings der aktuellen Versionen werden dafür in einer
+  zweiten, gechunkten Query nachgeladen (nur die aktuellen, nicht alle
+  Versions-Records). **Klick auf ein Mapping** öffnet
   ein Overlay, das die `msdyn_mapping`-Definition aufbereitet: je Leg
   Source ↔ Destination-Schema und eine **Field-Mapping-Tabelle** mit
   Sync-Richtung (↔ bidirektional / → to destination / ← to source),

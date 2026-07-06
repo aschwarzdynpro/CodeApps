@@ -17,8 +17,16 @@ export interface DualWriteMapSummary {
   version: string
   /** How many version records exist for this map name (>= 1). */
   versionCount: number
-  /** Owner display name (`ownerid` formatted value). */
-  owner: string
+  /** Source table + its environment type (from the current version's first
+   *  leg), e.g. "Units" / "AX". '' when the mapping could not be read. */
+  sourceSchema: string
+  sourceEnv: string
+  /** Destination (target) table + its environment type, e.g. "uoms" / "CRM". */
+  destinationSchema: string
+  destinationEnv: string
+  /** Overall sync direction: 1 = source→target, 2 = target→source,
+   *  3 = bidirectional, 0 = unknown. */
+  direction: number
   /** ISO modified timestamp of the current-version record. */
   modifiedOn: string
 }

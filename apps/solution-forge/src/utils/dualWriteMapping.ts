@@ -170,3 +170,25 @@ export function parseDualWriteMapping(json: string): DualWriteMapDetail {
 export function countFieldMappings(detail: DualWriteMapDetail): number {
   return detail.legs.reduce((n, l) => n + l.fieldMappings.length, 0)
 }
+
+/**
+ * Overall sync direction of a whole map, summarised from its field directions:
+ * bidirectional (3) when any field is bidirectional OR both one-way directions
+ * occur; otherwise the single one-way direction (1 or 2); 0 when there are no
+ * field mappings.
+ */
+export function overallDirection(detail: DualWriteMapDetail): number {
+  let toDest = false
+  let toSource = false
+  let both = false
+  for (const leg of detail.legs)
+    for (const f of leg.fieldMappings) {
+      if (f.syncDirection === 3) both = true
+      else if (f.syncDirection === 1) toDest = true
+      else if (f.syncDirection === 2) toSource = true
+    }
+  if (both || (toDest && toSource)) return 3
+  if (toDest) return 1
+  if (toSource) return 2
+  return 0
+}

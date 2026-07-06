@@ -4835,6 +4835,23 @@
   margin-left: 8px;
   font-size: 11px;
 }
+/* Source → Target connection cell in the list. */
+.dw-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dw-conn-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.dw-conn-dir {
+  font-weight: 700;
+  font-size: 15px;
+}
 
 /* Mapping overlay */
 .dw-modal-title {

@@ -258,17 +258,19 @@ Dual-Write-Table-Maps der Host-Env. **Entity `msdyn_dualwriteentitymap`**
 (Entity-Set `msdyn_dualwriteentitymaps`) — empirisch am INT-11 verifiziert
 (nicht `msdyn_dualwritetablemap`!). Felder: `msdyn_name` (z. B.
 `sst_[uoms - Units]`), `msdyn_displayname`, `msdyn_version` (dotted, z. B.
-`2.0.1.5`), **Owner-Name** (der Konnektor liefert für den `ownerid`-Lookup
-KEINE Formatted-Value-Annotation ⇒ `formattedValue` bleibt leer; stattdessen
-den Namen per **link-entity** auflösen: `systemuser` über `owninguser` +
-`team` über `owningteam` als `link-type="outer"`, Aliase `ownuser.fullname`/
-`ownteam.name` lesen — SP darf systemuser/team lesen wie beim Role Analyzer),
-`ismanaged`
-(Filter `eq 0` = custom), `msdyn_mapping` (**die Mapping-JSON**, groß ⇒ NICHT
-in der Liste selektieren, lazy je Record), `msdyn_properties`, `modifiedon`.
-**Jede gespeicherte Version ist ein eigener Record** ⇒ `listTableMaps` gruppiert
-nach `msdyn_name` und behält die höchste Version (`compareMapVersions`, semver-
-numerisch), plus Zähler älterer. Detail: `getMapping(id)` holt nur
+`2.0.1.5`), `ismanaged`
+(Filter `eq 0` = custom), `msdyn_mapping` (**die Mapping-JSON**, groß),
+`msdyn_properties`, `modifiedon`. (Owner bewusst NICHT angezeigt — der
+Konnektor liefert für `ownerid` keine Formatted-Value-Annotation und Owner ist
+fachlich irrelevant.) **Jede gespeicherte Version ist ein eigener Record** ⇒
+`listTableMaps` läuft **zweistufig**: (1) günstige Query ohne `msdyn_mapping`
+(id/name/version/modifiedon), gruppiert nach `msdyn_name`, behält die höchste
+Version (`compareMapVersions`, semver-numerisch) + Zähler älterer; (2) lädt
+`msdyn_mapping` NUR für die aktuellen Versionen (`mappingsByIds`, `in`-Filter in
+40er-Chunks — nicht alle ~300 Versions-Records) und zieht daraus je Map
+**Quelltabelle/Zieltabelle/Richtung** (`overallDirection`: bidi wenn ein Feld 3
+ist oder 1+2 gemischt, sonst die eine Richtung). Liste zeigt „Source → Target"
+(mit Env-Chips AX/CRM + Richtungspfeil). Detail: `getMapping(id)` holt nur
 `msdyn_mapping`; Parser = pure function `utils/dualWriteMapping.ts →
 parseDualWriteMapping` (Vitest, wirft nie): `legs[]` mit
 `sourceSchema`/`destinationSchema` (+ `sourceEnvironmentType`/`…Type` = AX/CRM)

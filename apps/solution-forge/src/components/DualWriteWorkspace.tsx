@@ -88,7 +88,6 @@ function DualWriteMappingModal({
                 {detail.leftEnvironmentType} ↔ {detail.centerEnvironmentType}
               </span>
             )}
-            <span className="muted">Owner: {map.owner || '—'}</span>
             {detail && !detail.unparsed && (
               <span className="muted">
                 {detail.legs.length} leg{detail.legs.length === 1 ? '' : 's'} ·{' '}
@@ -289,7 +288,8 @@ export function DualWriteWorkspace() {
       (m) =>
         !q ||
         m.name.toLowerCase().includes(q) ||
-        m.owner.toLowerCase().includes(q),
+        m.sourceSchema.toLowerCase().includes(q) ||
+        m.destinationSchema.toLowerCase().includes(q),
     )
   }, [maps, q])
 
@@ -299,7 +299,7 @@ export function DualWriteWorkspace() {
         <input
           className="search"
           type="search"
-          placeholder="Search maps by name or owner…"
+          placeholder="Search maps by name or table…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -350,7 +350,7 @@ export function DualWriteWorkspace() {
                 <tr>
                   <th>Table map</th>
                   <th>Current version</th>
-                  <th>Owner</th>
+                  <th>Source → Target</th>
                   <th>Modified</th>
                 </tr>
               </thead>
@@ -375,7 +375,32 @@ export function DualWriteWorkspace() {
                         </span>
                       )}
                     </td>
-                    <td>{m.owner || '—'}</td>
+                    <td>
+                      {m.sourceSchema || m.destinationSchema ? (
+                        <span className="dw-conn">
+                          <span className="dw-conn-side">
+                            {m.sourceSchema || '—'}
+                            {m.sourceEnv && (
+                              <span className="dw-env">{m.sourceEnv}</span>
+                            )}
+                          </span>
+                          <span
+                            className={`dw-conn-dir dw-dir--${syncDirectionInfo(m.direction).key}`}
+                            title={syncDirectionInfo(m.direction).label}
+                          >
+                            {syncDirectionInfo(m.direction).arrow}
+                          </span>
+                          <span className="dw-conn-side">
+                            {m.destinationSchema || '—'}
+                            {m.destinationEnv && (
+                              <span className="dw-env">{m.destinationEnv}</span>
+                            )}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
                     <td className="nowrap muted">{fmtDateTime(m.modifiedOn)}</td>
                   </tr>
                 ))}

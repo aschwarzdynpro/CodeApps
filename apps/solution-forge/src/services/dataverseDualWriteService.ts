@@ -7,10 +7,13 @@ import {
   fetchXmlAllPages,
   fetchXmlEscape,
   fetchXmlQuery,
-  formattedValue,
   rowStr,
 } from './currentEnvQuery'
-import { compareMapVersions } from '../utils/dualWriteMapping'
+import {
+  compareMapVersions,
+  overallDirection,
+  parseDualWriteMapping,
+} from '../utils/dualWriteMapping'
 
 /**
  * Real {@link DualWriteService}. Dual-write table maps live in
@@ -27,14 +30,9 @@ class DataverseDualWriteService implements DualWriteService {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockDualWriteService.listTableMaps()
 
-    // Custom (unmanaged) maps only. The `msdyn_mapping` payload is deliberately
-    // NOT selected here — it is large and loaded per-row on demand.
-    // Owner NAME is resolved via link-entity, not the owner lookup's
-    // formatted-value annotation: the connector doesn't return that annotation
-    // for `ownerid` here (the column came back blank), but the SP can read
-    // `systemuser`/`team` (same as the Role Analyzer), so an aliased fullname
-    // comes through reliably. Outer joins on owninguser/owningteam — exactly one
-    // is set per record, so no row fan-out.
+    // Step 1 — cheap grouping query: the `msdyn_mapping` payload is large and
+    // NOT selected here. Custom (unmanaged) maps only; every saved version is
+    // its own record, so we group by name and keep the highest version.
     const fetchXml =
       `<fetch>` +
       `<entity name="msdyn_dualwriteentitymap">` +
@@ -45,17 +43,11 @@ class DataverseDualWriteService implements DualWriteService {
       `<filter type="and">` +
       `<condition attribute="ismanaged" operator="eq" value="0" />` +
       `</filter>` +
-      `<link-entity name="systemuser" from="systemuserid" to="owninguser" link-type="outer" alias="ownuser">` +
-      `<attribute name="fullname" />` +
-      `</link-entity>` +
-      `<link-entity name="team" from="teamid" to="owningteam" link-type="outer" alias="ownteam">` +
-      `<attribute name="name" />` +
-      `</link-entity>` +
       `<order attribute="msdyn_name" />` +
       `</entity></fetch>`
-    const rows = await fetchXmlAllPages(ENTITY_SET, fetchXml, currentOrgUrl())
+    const orgUrl = currentOrgUrl()
+    const rows = await fetchXmlAllPages(ENTITY_SET, fetchXml, orgUrl)
 
-    // Group by name → keep the highest version as "current", count the rest.
     const byName = new Map<string, { current: DualWriteMapSummary; count: number }>()
     for (const row of rows) {
       const name = rowStr(row.msdyn_name)
@@ -65,11 +57,11 @@ class DataverseDualWriteService implements DualWriteService {
         name,
         version: rowStr(row.msdyn_version),
         versionCount: 1,
-        owner:
-          rowStr(row['ownuser.fullname']) ||
-          rowStr(row['ownteam.name']) ||
-          formattedValue(row, '_ownerid_value') ||
-          '',
+        sourceSchema: '',
+        sourceEnv: '',
+        destinationSchema: '',
+        destinationEnv: '',
+        direction: 0,
         modifiedOn: rowStr(row.modifiedon),
       }
       const existing = byName.get(name)
@@ -82,9 +74,59 @@ class DataverseDualWriteService implements DualWriteService {
       }
     }
 
-    return [...byName.values()]
+    const currents = [...byName.values()]
       .map((e) => ({ ...e.current, versionCount: e.count }))
       .sort((a, b) => a.name.localeCompare(b.name))
+
+    // Step 2 — load ONLY the current versions' mappings (bounded to the grouped
+    // count, not every version) and pull the source/target/direction from each.
+    const mappings = await this.mappingsByIds(
+      currents.map((c) => c.id),
+      orgUrl,
+    )
+    for (const c of currents) {
+      const detail = parseDualWriteMapping(mappings.get(c.id) ?? '')
+      const leg = detail.legs[0]
+      if (leg) {
+        c.sourceSchema = leg.sourceSchema
+        c.sourceEnv = leg.sourceEnvironmentType
+        c.destinationSchema = leg.destinationSchema
+        c.destinationEnv = leg.destinationEnvironmentType
+      }
+      c.direction = overallDirection(detail)
+    }
+    return currents
+  }
+
+  /**
+   * `msdyn_mapping` JSON for a set of record ids, keyed by id. Chunks the ids
+   * into `in`-filtered queries so the list only transfers the current versions'
+   * mappings (not every historical version).
+   */
+  private async mappingsByIds(
+    ids: string[],
+    orgUrl: string,
+  ): Promise<Map<string, string>> {
+    const map = new Map<string, string>()
+    const CHUNK = 40
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const values = ids
+        .slice(i, i + CHUNK)
+        .map((id) => `<value>${fetchXmlEscape(id)}</value>`)
+        .join('')
+      const fetchXml =
+        `<fetch>` +
+        `<entity name="msdyn_dualwriteentitymap">` +
+        `<attribute name="msdyn_dualwriteentitymapid" />` +
+        `<attribute name="msdyn_mapping" />` +
+        `<filter>` +
+        `<condition attribute="msdyn_dualwriteentitymapid" operator="in">${values}</condition>` +
+        `</filter>` +
+        `</entity></fetch>`
+      for (const row of await fetchXmlQuery(ENTITY_SET, fetchXml, orgUrl))
+        map.set(rowStr(row.msdyn_dualwriteentitymapid), rowStr(row.msdyn_mapping))
+    }
+    return map
   }
 
   async getMapping(id: string): Promise<string> {

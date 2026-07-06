@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   compareMapVersions,
   countFieldMappings,
+  overallDirection,
   parseDualWriteMapping,
   syncDirectionInfo,
 } from './dualWriteMapping'
@@ -113,6 +114,36 @@ describe('compareMapVersions', () => {
     expect(compareMapVersions('1.0.0.0', '1.0.0.0')).toBe(0)
     // 10 > 2 numerically (not lexically)
     expect(compareMapVersions('10.0.383.25', '2.0.0.0')).toBeGreaterThan(0)
+  })
+})
+
+describe('overallDirection', () => {
+  const mk = (dirs: number[]) =>
+    parseDualWriteMapping(
+      JSON.stringify({
+        legs: [
+          {
+            fieldMappings: dirs.map((d) => ({
+              syncDirection: d,
+              sourceField: 'a',
+              destinationField: 'b',
+            })),
+          },
+        ],
+      }),
+    )
+  it('is bidirectional when any field is bidirectional', () => {
+    expect(overallDirection(mk([1, 1, 3]))).toBe(3)
+  })
+  it('is bidirectional when both one-way directions occur', () => {
+    expect(overallDirection(mk([1, 2]))).toBe(3)
+  })
+  it('is one-way when all fields share a single one-way direction', () => {
+    expect(overallDirection(mk([1, 1, 1]))).toBe(1)
+    expect(overallDirection(mk([2, 2]))).toBe(2)
+  })
+  it('is 0 with no field mappings', () => {
+    expect(overallDirection(mk([]))).toBe(0)
   })
 })
 

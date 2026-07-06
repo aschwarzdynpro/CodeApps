@@ -653,8 +653,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <strong>custom (unmanaged)</strong> dual-write table maps in the
               current environment (<code>msdyn_dualwriteentitymap</code>) — one
               row per map at its <strong>current (highest) version</strong>,
-              with its owner and how many older version records exist. Click a
-              map to open an overlay that renders the mapping from its{' '}
+              its <strong>source → target table</strong> with the sync
+              direction (↔ / → / ←) and how many older version records exist.
+              Click a map to open an overlay that renders the mapping from its{' '}
               <code>msdyn_mapping</code> definition: each leg's source ↔
               destination schema and a <strong>field-mapping table</strong> with
               the sync direction (↔ bidirectional, → to destination, ← to
