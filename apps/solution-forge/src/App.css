@@ -4050,6 +4050,14 @@
   min-width: 140px;
   flex: 0 1 190px;
 }
+/* The solution picker defaults to width:100% (full-width in forms); inside a
+   toolbar that forces every other control onto its own line — bound it so the
+   search field and the picker share the first row. */
+.trace-toolbar .sselect {
+  width: auto;
+  flex: 0 1 320px;
+  min-width: 200px;
+}
 .trace-toolbar-right {
   margin-left: auto;
   display: inline-flex;
