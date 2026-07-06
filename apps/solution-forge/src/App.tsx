@@ -1324,6 +1324,7 @@ function App() {
           key={importEnvKey}
           envKey={importEnvKey}
           onEnvChange={setImportEnvKey}
+          solutions={allSolutions}
         />
       )}
 

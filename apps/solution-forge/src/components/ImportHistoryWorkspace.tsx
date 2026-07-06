@@ -1,11 +1,14 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import type {
+  ImportJobQuery,
   ImportJobStatus,
   ImportJobSummary,
   ImportLogDetail,
 } from '../types/importHistory'
+import type { WorkingSolution } from '../types/solution'
 import { importHistoryService } from '../services/importHistoryService'
 import { OperateEnvPicker } from './OperateEnvPicker'
+import { SolutionSelect } from './SolutionSelect'
 
 /**
  * Solution Import History — the `importjob` rows of the selected environment,
@@ -13,11 +16,28 @@ import { OperateEnvPicker } from './OperateEnvPicker'
  * missing-dependency failures are extracted into a precise table (which
  * component is missing, which imported component needs it), other
  * failures/warnings are listed below it.
+ *
+ * The list is capped server-side (latest 100), so all narrowing happens in the
+ * query, not client-side: a status chip (e.g. Failed → the latest 100 failed),
+ * a free-text solution-name search and a picker over the release solutions.
  */
 interface Props {
   envKey: string
   onEnvChange: (envKey: string) => void
+  /** All working solutions — the picker offers the release ones. */
+  solutions: WorkingSolution[]
 }
+
+const LIST_LIMIT = 100
+
+/** Server-side status filters offered as chips. */
+type StatusChip = 'all' | 'failed' | 'succeeded' | 'running'
+const STATUS_CHIPS: { key: StatusChip; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'failed', label: 'Failed' },
+  { key: 'succeeded', label: 'Succeeded' },
+  { key: 'running', label: 'Running' },
+]
 
 function fmtDateTime(iso: string): string {
   if (!iso) return '—'
@@ -45,11 +65,20 @@ function StatusBadge({ status }: { status: ImportJobStatus }) {
   return <span className={`jobs-status ${m.cls}`}>{m.label}</span>
 }
 
-export function ImportHistoryWorkspace({ envKey, onEnvChange }: Props) {
+export function ImportHistoryWorkspace({
+  envKey,
+  onEnvChange,
+  solutions,
+}: Props) {
   const [jobs, setJobs] = useState<ImportJobSummary[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
+  const [nonce, setNonce] = useState(0)
+
+  // Server-side narrowing.
+  const [status, setStatus] = useState<StatusChip>('all')
+  const [solutionText, setSolutionText] = useState('')
+  const [releaseId, setReleaseId] = useState('')
 
   const [expanded, setExpanded] = useState<string | null>(null)
   const [details, setDetails] = useState<Map<string, ImportLogDetail>>(
@@ -58,15 +87,38 @@ export function ImportHistoryWorkspace({ envKey, onEnvChange }: Props) {
   const [detailLoading, setDetailLoading] = useState<string | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
 
+  // Release solutions (deployment kind, real record) power the picker.
+  const releases = solutions.filter(
+    (s, index) =>
+      s.kind === 'deployment' &&
+      !s.solutionMissing &&
+      !!s.recordId &&
+      solutions.findIndex((o) => o.id === s.id) === index,
+  )
+  const release = releases.find((r) => r.id === releaseId) ?? null
+  const releaseName = release?.uniqueName ?? ''
+
   useEffect(() => {
     let cancelled = false
     const t = window.setTimeout(() => {
+      const query: ImportJobQuery = {}
+      if (status !== 'all') query.status = status
+      if (releaseName) {
+        query.solutionName = releaseName
+        query.solutionMatch = 'eq'
+      } else if (solutionText.trim()) {
+        query.solutionName = solutionText.trim()
+        query.solutionMatch = 'like'
+      }
       setLoading(true)
       setError(null)
       importHistoryService
-        .listImportJobs(envKey)
+        .listImportJobs(envKey, query)
         .then((rows) => {
-          if (!cancelled) setJobs(rows)
+          if (cancelled) return
+          setJobs(rows)
+          setExpanded(null)
+          setDetails(new Map())
         })
         .catch((err) => {
           if (!cancelled)
@@ -75,26 +127,20 @@ export function ImportHistoryWorkspace({ envKey, onEnvChange }: Props) {
         .finally(() => {
           if (!cancelled) setLoading(false)
         })
-    }, 20)
+    }, 300)
     return () => {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [envKey])
+  }, [envKey, status, releaseName, solutionText, nonce])
 
-  const reload = () => {
-    setJobs(null)
-    setDetails(new Map())
-    setExpanded(null)
-    setLoading(true)
-    setError(null)
-    importHistoryService
-      .listImportJobs(envKey)
-      .then(setJobs)
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : String(err)),
-      )
-      .finally(() => setLoading(false))
+  const pickRelease = (id: string) => {
+    setReleaseId(id)
+    if (id) setSolutionText('')
+  }
+  const onSolutionText = (v: string) => {
+    setSolutionText(v)
+    if (v) setReleaseId('')
   }
 
   const toggle = (job: ImportJobSummary) => {
@@ -115,21 +161,9 @@ export function ImportHistoryWorkspace({ envKey, onEnvChange }: Props) {
       .finally(() => setDetailLoading(null))
   }
 
-  const filtered = useMemo(() => {
-    if (!jobs) return []
-    const q = search.trim().toLowerCase()
-    return jobs.filter(
-      (j) =>
-        !q ||
-        j.solutionName.toLowerCase().includes(q) ||
-        j.createdBy.toLowerCase().includes(q),
-    )
-  }, [jobs, search])
-
-  const failedCount = useMemo(
-    () => (jobs ?? []).filter((j) => j.status === 'failed').length,
-    [jobs],
-  )
+  const active =
+    status !== 'all' || !!releaseName || solutionText.trim() !== ''
+  const capped = jobs?.length === LIST_LIMIT
 
   return (
     <div>
@@ -139,20 +173,26 @@ export function ImportHistoryWorkspace({ envKey, onEnvChange }: Props) {
         <input
           className="search"
           type="search"
-          placeholder="Search solution or user…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search solution name…"
+          value={solutionText}
+          onChange={(e) => onSolutionText(e.target.value)}
+        />
+        <SolutionSelect
+          options={releases}
+          value={releaseId}
+          onChange={pickRelease}
+          placeholder="Release solution…"
         />
         <span className="trace-toolbar-right">
           {jobs && (
             <span className="muted">
-              {jobs.length} import{jobs.length === 1 ? '' : 's'}
-              {failedCount > 0 ? ` · ${failedCount} failed` : ''}
+              {jobs.length}
+              {capped ? '+' : ''} import{jobs.length === 1 ? '' : 's'}
             </span>
           )}
           <button
             className="btn btn--small"
-            onClick={reload}
+            onClick={() => setNonce((n) => n + 1)}
             disabled={loading}
           >
             {loading ? 'Reading…' : '⟳ Refresh'}
@@ -160,17 +200,35 @@ export function ImportHistoryWorkspace({ envKey, onEnvChange }: Props) {
         </span>
       </div>
 
+      <div className="chips import-status-chips">
+        {STATUS_CHIPS.map((s) => (
+          <button
+            key={s.key}
+            className={`chip ${status === s.key ? 'chip--active' : ''}`}
+            onClick={() => setStatus(s.key)}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
       {error && <div className="state state--error">{error}</div>}
       {loading && !jobs && <div className="state">Reading import history…</div>}
-      {jobs && filtered.length === 0 && (
+      {jobs && jobs.length === 0 && (
         <div className="state">
-          {jobs.length === 0
-            ? 'No import jobs recorded in this environment.'
-            : 'No imports match the search.'}
+          {active
+            ? 'No imports match the filter.'
+            : 'No import jobs recorded in this environment.'}
+        </div>
+      )}
+      {capped && (
+        <div className="muted jobs-sample-note">
+          Showing the latest {LIST_LIMIT} — narrow with a status, the search or a
+          release to see older imports.
         </div>
       )}
 
-      {filtered.length > 0 && (
+      {jobs && jobs.length > 0 && (
         <div className="card trace-list">
           <table className="ops-table">
             <thead>
@@ -185,7 +243,7 @@ export function ImportHistoryWorkspace({ envKey, onEnvChange }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((job) => {
+              {jobs.map((job) => {
                 const isOpen = expanded === job.id
                 const detail = details.get(job.id)
                 return (

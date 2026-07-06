@@ -1,4 +1,5 @@
 import type {
+  ImportJobQuery,
   ImportJobSummary,
   ImportLogDetail,
 } from '../types/importHistory'
@@ -134,12 +135,24 @@ const ENV_JOBS: Record<string, ImportJobSummary[]> = {
 }
 
 class MockImportHistoryService implements ImportHistoryService {
-  async listImportJobs(envKey: string): Promise<ImportJobSummary[]> {
+  async listImportJobs(
+    envKey: string,
+    query?: ImportJobQuery,
+  ): Promise<ImportJobSummary[]> {
     await delay(250)
     const extra = ENV_JOBS[envKey] ?? []
     // The host env carries the rich base list; others just their extras.
-    const base = extra.length > 0 ? extra : JOBS
-    return base.map((j) => ({ ...j }))
+    let base = (extra.length > 0 ? extra : JOBS).map((j) => ({ ...j }))
+    if (query?.solutionName) {
+      const needle = query.solutionName.toLowerCase()
+      base = base.filter((j) =>
+        query.solutionMatch === 'like'
+          ? j.solutionName.toLowerCase().includes(needle)
+          : j.solutionName.toLowerCase() === needle,
+      )
+    }
+    if (query?.status) base = base.filter((j) => j.status === query.status)
+    return base
   }
 
   async getImportLog(jobId: string, _envKey: string): Promise<ImportLogDetail> {

@@ -604,6 +604,14 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               environment but <strong>absent</strong> in another (a transport
               gap). Secrets are masked; a default fallback is tagged. Read-only.
             </p>
+            <p>
+              The two sections (Environment Variables, Connection References)
+              are <strong>collapsed by default</strong> and sorted by display
+              name. Use the <strong>search box</strong> to filter both by name,
+              and click a <strong>counter chip</strong> (e.g. “4 env vars
+              without a value”) to narrow the tables to exactly those rows —
+              click it again or “Clear filter” to reset.
+            </p>
           </section>
 
           <section className="help-section">
@@ -638,8 +646,12 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <p>
               The <strong>Solution Import History</strong> lists a chosen
               environment's <code>importjob</code> rows — started, solution,
-              status, progress, duration, user. Expanding a row lazily loads
-              and parses the import log:{' '}
+              status, progress, duration, user. The list is capped at the
+              latest 100, so all narrowing is <strong>server-side</strong>:{' '}
+              a <strong>status chip</strong> (e.g. <em>Failed</em> → the latest
+              100 failed imports), a <strong>solution-name search</strong>, and
+              a <strong>picker over the release solutions</strong>. Expanding a
+              row lazily loads and parses the import log:{' '}
               <strong>missing-dependency failures become a precise table</strong>{' '}
               — on the left the component that is missing in the target (type,
               name, source solution → install first), on the right the

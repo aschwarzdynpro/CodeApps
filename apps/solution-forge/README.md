@@ -67,6 +67,10 @@ nach Typ.
   **Transport-Lücken** (Setting in einem Env vorhanden, im anderen nicht).
   Secrets werden maskiert, Default-Fallback markiert. Read-only über den
   Konnektor je Umgebung; Mock-Fallback mit eingebauten Beispiel-Lücken.
+  **Bedienung:** Suchfeld (filtert beide Sektionen nach Namen), zwei
+  **ein-/ausklappbare** Sektionen (zugeklappt by default, nach Anzeigename
+  sortiert) und **klickbare Counter-Chips** als Filter (z. B. „4 env vars ohne
+  Wert" → zeigt genau diese Zeilen).
 - **Audit Config** (Validate, gated) — **Audit-Konfiguration** einer
   wählbaren Umgebung: der Org-Master-Schalter (`organization.isauditenabled`)
   + Retention (`auditretentionperiodv2`) und je **Tabelle/Spalte**
@@ -86,7 +90,10 @@ nach Typ.
   (Typ, Name, Herkunfts-Solution = „install first"), rechts die importierte
   Komponente, die sie **braucht** (Typ, Name, Parent). Sonstige
   Failure/Warning-Results dedupliziert darunter. Das schwere XML wird nie in
-  der Liste geladen; Parser ist eine pure function mit Tests.
+  der Liste geladen; Parser ist eine pure function mit Tests. Die Liste ist auf
+  die neuesten 100 begrenzt ⇒ **serverseitige Suche** (FetchXML): **Status-Chip**
+  (z. B. Failed → die 100 neuesten fehlgeschlagenen Importe), **Solution-Namen-
+  Suche** und ein **Picker über die Release-Solutions**.
 - **Timeline** (Manage) — **Release-Timeline**: „was ging wann wohin" für
   eine gewählte Release-Solution als vertikaler Zeitstrahl (neueste zuerst):
   **Merge-Runs** (`pro_mergerun`, mit Counts + Quell-Solutions),

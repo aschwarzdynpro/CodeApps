@@ -1,4 +1,5 @@
 import type {
+  ImportJobQuery,
   ImportJobSummary,
   ImportLogDetail,
 } from '../types/importHistory'
@@ -25,11 +26,51 @@ import { importJobStatusHeuristic, parseImportLog } from '../utils/importLog'
 
 const LIST_LIMIT = 100
 
+/**
+ * Build the `<filter>` for a query. Status is the viewer's heuristic
+ * (`utils/importLog.ts → importJobStatusHeuristic`) expressed as fetch
+ * conditions: succeeded = progress ≥ 100; failed = completed but progress < 100;
+ * running = not completed and progress < 100.
+ */
+function buildFilter(query?: ImportJobQuery): string {
+  const conditions: string[] = []
+  if (query?.solutionName) {
+    const op = query.solutionMatch === 'like' ? 'like' : 'eq'
+    const value =
+      op === 'like'
+        ? `%${fetchXmlEscape(query.solutionName)}%`
+        : fetchXmlEscape(query.solutionName)
+    conditions.push(
+      `<condition attribute="solutionname" operator="${op}" value="${value}" />`,
+    )
+  }
+  if (query?.status === 'failed')
+    conditions.push(
+      `<condition attribute="completedon" operator="not-null" />`,
+      `<condition attribute="progress" operator="lt" value="100" />`,
+    )
+  else if (query?.status === 'succeeded')
+    conditions.push(
+      `<condition attribute="progress" operator="ge" value="100" />`,
+    )
+  else if (query?.status === 'running')
+    conditions.push(
+      `<condition attribute="completedon" operator="null" />`,
+      `<condition attribute="progress" operator="lt" value="100" />`,
+    )
+  return conditions.length
+    ? `<filter type="and">${conditions.join('')}</filter>`
+    : ''
+}
+
 class DataverseImportHistoryService implements ImportHistoryService {
-  async listImportJobs(envKey: string): Promise<ImportJobSummary[]> {
+  async listImportJobs(
+    envKey: string,
+    query?: ImportJobQuery,
+  ): Promise<ImportJobSummary[]> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockImportHistoryService.listImportJobs(envKey)
+      return mockImportHistoryService.listImportJobs(envKey, query)
     const fetchXml =
       `<fetch count="${LIST_LIMIT}">` +
       `<entity name="importjob">` +
@@ -42,6 +83,7 @@ class DataverseImportHistoryService implements ImportHistoryService {
       `<attribute name="createdon" />` +
       `<attribute name="importcontext" />` +
       `<attribute name="operationcontext" />` +
+      buildFilter(query) +
       `<order attribute="startedon" descending="true" />` +
       `</entity></fetch>`
     const rows = await fetchXmlQuery(

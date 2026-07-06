@@ -8,6 +8,21 @@
 /** Derived from progress/completedon in the list; refined by the parsed log. */
 export type ImportJobStatus = 'succeeded' | 'failed' | 'running' | 'unknown'
 
+/**
+ * Server-side narrowing for the import list. All conditions run in FetchXML
+ * against `importjob` (the list is capped, so client-side filtering would only
+ * ever see the latest page). Status is the same heuristic the viewer shows,
+ * expressed as `progress`/`completedon` conditions.
+ */
+export interface ImportJobQuery {
+  /** Filter by `importjob.solutionname`. */
+  solutionName?: string
+  /** Exact match (from the release-solution picker) or substring (free text). */
+  solutionMatch?: 'eq' | 'like'
+  /** Only jobs of this status (heuristic → fetch conditions). */
+  status?: Exclude<ImportJobStatus, 'unknown'>
+}
+
 export interface ImportJobSummary {
   id: string
   /** Solution unique name the job reports (importjob.solutionname). */

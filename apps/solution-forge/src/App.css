@@ -4595,6 +4595,55 @@
   padding: 0 4px;
 }
 
+/* Clickable counter chips (filters) + collapsible sections */
+.envcfg-pill--btn {
+  cursor: pointer;
+  transition:
+    filter 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.envcfg-pill--btn:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+.envcfg-pill--btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.envcfg-pill.is-active {
+  box-shadow: 0 0 0 2px var(--brand);
+}
+.envcfg-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.envcfg-section-head:hover {
+  background: #f5f6fb;
+}
+.envcfg-section-head[aria-expanded='true'] {
+  border-bottom: 1px solid var(--border);
+}
+.envcfg-caret {
+  width: 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.envcfg-section-head .muted {
+  margin-left: auto;
+  font-size: 12px;
+}
+.import-status-chips {
+  margin: 0 0 12px;
+}
+
 /* ---- Audit Configuration Analyzer ---- */
 .audit-org {
   padding: 14px;
