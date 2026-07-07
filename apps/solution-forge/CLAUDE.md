@@ -374,8 +374,15 @@ Connector) + Sichtbarkeit des „Sync with DevOps"-Buttons + Auto-Sync. **Alles
 Connector-Basierte** (Reads/Badge, DevOps-Suche im New-Dialog, „My work items"-
 Drawer) hängt NUR an `isDevOpsAvailable()` — es gibt keinen Flow-Read, der Flow
 schreibt nur Status. Also NICHT wieder die Suche/den Drawer an den Sync-Schalter
-hängen. UI-Gating: DevOps-Karte in `SolutionDetail` + Work-Item-Load in `App.tsx`
-hängen an `isDevOpsAvailable()`.
+hängen. **Work-Item-Ansicht = rechtes Slide-in-Drawer** (`WorkItemDrawer.tsx`),
+geöffnet per Klick auf die DevOps-`#id` in der Zeile (`SolutionList` →
+`onOpenWorkItem`, nur gesetzt wenn `isDevOpsAvailable()`) — **entkoppelt vom
+Solution-Detail** (kein Aufklappen der Components nötig; `SolutionDetail` zeigt
+KEINE DevOps-Karte mehr). Ohne DevOps bleibt die `#id` ein externer Link nach
+Azure DevOps. Der Drawer liest den Work Item aus dem `workItems`-Batch-Cache
+(sofort da) bzw. lädt ihn on-demand (`openWorkItem`→`loadWorkItem`); Rich-Text/
+Markdown via `renderWorkItemDescription`. UI-Gating: Drawer-Trigger +
+Work-Item-Load in `App.tsx` hängen an `isDevOpsAvailable()`.
 Mock-Parität: `mockDevOpsService` seedet Work Items, Mock-`getRuntimeConfig`
 liefert `devOpsEnabled:true` → offline demobar. Der alte Kill-Switch
 `DEVOPS_PANEL_ENABLED` ist entfernt.

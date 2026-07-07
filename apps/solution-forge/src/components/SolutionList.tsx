@@ -32,6 +32,9 @@ interface Props {
   onDetailClosed?: () => void
   /** Deployment-manager role — gates Edit/Delete on Release solutions. */
   canManageReleases: boolean
+  /** Peek the DevOps work item in a drawer (only wired when DevOps is on).
+   *  When set, the row's #id opens the drawer instead of linking out. */
+  onOpenWorkItem?: (solution: WorkingSolution) => void
   /** Row quick-actions (also available without opening the detail). */
   onEdit: (solution: WorkingSolution) => void
   onComplete: (solution: WorkingSolution) => void
@@ -286,6 +289,7 @@ export function SolutionList({
   detailClosing,
   onDetailClosed,
   canManageReleases,
+  onOpenWorkItem,
   onEdit,
   onComplete,
   onDelete,
@@ -345,6 +349,9 @@ export function SolutionList({
       (s.devOpsId && liveWorkItemStates?.get(s.devOpsId)) || s.workItemStatus
     const dev = wiStatus ? deriveDev(wiStatus) : null
     const devUrl = s.devOpsId ? devOpsWorkItemUrl(s.devOpsId) : null
+    // With DevOps on, the #id opens the work-item drawer (peek) instead of
+    // linking straight out — the drawer carries the "Open ↗" link itself.
+    const canPeek = !!onOpenWorkItem && /^\d+$/.test(s.devOpsId ?? '')
     const makerUrl = s.solutionMissing
       ? null
       : makerSolutionUrl(environmentId, s.id)
@@ -484,7 +491,19 @@ export function SolutionList({
             {s.devOpsId ? (
               <>
                 <div className="ws-dev-head">
-                  {devUrl ? (
+                  {canPeek ? (
+                    <button
+                      type="button"
+                      className="ws-dev-id ws-dev-id--peek"
+                      title="View work item details"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onOpenWorkItem?.(s)
+                      }}
+                    >
+                      #{s.devOpsId}
+                    </button>
+                  ) : devUrl ? (
                     <a
                       className="ws-dev-id"
                       href={devUrl}

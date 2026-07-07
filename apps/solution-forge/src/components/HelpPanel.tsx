@@ -268,7 +268,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 <strong>status</strong> (colour-coded by stage) and a{' '}
                 <strong>progress bar</strong> derived from the numbered workflow
                 stage (e.g. “13a-UAT…” → ~87%, Closed → 100%; from{' '}
-                <code>pro_devopsworkitemstatus</code>).
+                <code>pro_devopsworkitemstatus</code>). With the optional DevOps
+                integration on, clicking the <strong>#number</strong> opens a{' '}
+                <strong>work-item drawer</strong> on the right (type, title,
+                state, owner, formatted description, “Open ↗”) — no need to
+                expand the row.
               </li>
               <li>
                 When an open entry's DevOps work item is <strong>Closed</strong>,
@@ -296,10 +300,14 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 <strong>Refresh</strong> forces a reload.
               </li>
               <li>
-                The Azure DevOps work item panel (status, assignee, link)
-                appears here when the optional DevOps integration is on —
-                enabled in settings, its connection reference bound and an
-                org/project configured. Without DevOps it stays hidden.
+                The full Azure DevOps <strong>work item</strong> (type, title,
+                state, owner, formatted description) no longer lives in this
+                pane — it opens in a <strong>right slide-in drawer</strong> from
+                the row's <strong>#number</strong>, so you can peek it without
+                expanding the components. Only when the optional DevOps
+                integration is on (enabled in settings, connection reference
+                bound, org/project configured); otherwise the #number just links
+                out to Azure DevOps.
               </li>
               <li>
                 <strong>Mark completed…</strong> (active tracked entries) sets

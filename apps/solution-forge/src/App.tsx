@@ -12,6 +12,7 @@ import { SolutionList } from './components/SolutionList'
 import { SolutionDetail } from './components/SolutionDetail'
 import { CreateSolutionDialog } from './components/CreateSolutionDialog'
 import { MyWorkItemsDrawer } from './components/MyWorkItemsDrawer'
+import { WorkItemDrawer } from './components/WorkItemDrawer'
 import { MergeWorkbench } from './components/MergeWorkbench'
 import { MergeRules } from './components/MergeRules'
 import { ReadinessWorkspace } from './components/ReadinessWorkspace'
@@ -39,6 +40,7 @@ import {
   currentEnvKey,
   DEPLOYMENT_MANAGER_ROLE,
   devOpsSyncVia,
+  devOpsWorkItemUrl,
   isDevOpsAvailable,
   makerSolutionUrl,
 } from './config'
@@ -328,7 +330,6 @@ function App() {
   const [workItems, setWorkItems] = useState<Map<string, WorkItemInfo | null>>(
     new Map(),
   )
-  const [workItemLoading, setWorkItemLoading] = useState(false)
   // devOpsId → live work-item state, so an opened row's status badge reflects the
   // freshly loaded work item (not just the last synced pro_devopsworkitemstatus).
   const liveWorkItemStates = useMemo(() => {
@@ -343,6 +344,12 @@ function App() {
   // The connector auto-sync runs at most once per session.
   const autoSyncRef = useRef(false)
   const [showCreate, setShowCreate] = useState(false)
+  // Work-item detail drawer (DevOps): the solution whose #id was clicked in the
+  // row. Decoupled from the solution detail pane — peek the work item without
+  // expanding components. null = closed.
+  const [workItemTarget, setWorkItemTarget] = useState<WorkingSolution | null>(
+    null,
+  )
   // "My work items" drawer (DevOps): the signed-in user's open work items, each
   // adoptable into a pre-filled New Working Solution. Only offered with the
   // connector-backed integration; createInitial carries the pre-fill.
@@ -769,14 +776,17 @@ function App() {
   const loadWorkItem = (devOpsId: string) => {
     if (workItems.has(devOpsId)) return
     fetchedWiRef.current.add(devOpsId)
-    setWorkItemLoading(true)
     devOpsService
       .getWorkItem(devOpsId)
       .then((wi) => setWorkItems((prev) => new Map(prev).set(devOpsId, wi)))
-      .catch(() =>
-        setWorkItems((prev) => new Map(prev).set(devOpsId, null)),
-      )
-      .finally(() => setWorkItemLoading(false))
+      .catch(() => setWorkItems((prev) => new Map(prev).set(devOpsId, null)))
+  }
+
+  /** Open the work-item drawer for a row and make sure its details are loaded
+   *  (the batch effect usually has them already, so this is instant). */
+  const openWorkItem = (s: WorkingSolution) => {
+    setWorkItemTarget(s)
+    if (s.devOpsId) loadWorkItem(s.devOpsId)
   }
 
   const loadMyItems = () => {
@@ -819,8 +829,6 @@ function App() {
     } else {
       loadComponents(id)
     }
-    if (isDevOpsAvailable() && solution?.devOpsId)
-      loadWorkItem(solution.devOpsId)
   }
 
   // Called when the fade-out finishes — only now do we drop the selection so
@@ -1352,6 +1360,7 @@ function App() {
               detailClosing={detailClosing}
               onDetailClosed={finishCloseDetail}
               canManageReleases={isDeploymentManager}
+              onOpenWorkItem={isDevOpsAvailable() ? openWorkItem : undefined}
               onEdit={(s) => setEditTarget(s)}
               onComplete={(s) => setCompleteTarget(s)}
               onDelete={(s) => setConfirmDelete(s)}
@@ -1379,16 +1388,6 @@ function App() {
                       loadComponents(target.id)
                       reload()
                     }}
-                    workItem={
-                      selected.devOpsId
-                        ? (workItems.get(selected.devOpsId) ?? null)
-                        : null
-                    }
-                    workItemLoading={
-                      workItemLoading &&
-                      !!selected.devOpsId &&
-                      !workItems.has(selected.devOpsId)
-                    }
                   />
                 ) : null
               }
@@ -1764,6 +1763,26 @@ function App() {
           onPick={createFromWorkItem}
           onRefresh={loadMyItems}
           onClose={() => setShowMyItems(false)}
+        />
+      )}
+      {workItemTarget && (
+        <WorkItemDrawer
+          devOpsId={workItemTarget.devOpsId ?? ''}
+          workItem={
+            workItemTarget.devOpsId
+              ? (workItems.get(workItemTarget.devOpsId) ?? null)
+              : null
+          }
+          loading={
+            !!workItemTarget.devOpsId &&
+            !workItems.has(workItemTarget.devOpsId)
+          }
+          url={
+            workItemTarget.devOpsId
+              ? devOpsWorkItemUrl(workItemTarget.devOpsId)
+              : null
+          }
+          onClose={() => setWorkItemTarget(null)}
         />
       )}
     </div>

@@ -8,22 +8,16 @@ import {
   type SolutionComponentInfo,
   type TrackSolutionInput,
   type UserRef,
-  type WorkItemInfo,
   type WorkingSolution,
 } from '../types/solution'
-import { devOpsWorkItemUrl, isDevOpsAvailable } from '../config'
 import { solutionService } from '../services/solutionService'
 import { formatDateTime, groupBy } from '../utils/format'
-import { renderWorkItemDescription } from '../utils/richText'
 
 interface Props {
   solution: WorkingSolution
   components: SolutionComponentInfo[]
   loadingComponents: boolean
   onRefreshComponents: () => void
-  /** Resolved work item for solution.devOpsId, or null when unavailable. */
-  workItem: WorkItemInfo | null
-  workItemLoading: boolean
   /** Collision-radar findings for this solution (null = not scanned). */
   collisions?: ComponentCollision[] | null
   /** Creates the working-solution record for an untracked solution. */
@@ -553,30 +547,16 @@ export function AssignOwnerPanel({
   )
 }
 
-/** Visual bucket for a work item state across common process templates. */
-function stateBucket(state: string): string {
-  const s = state.toLowerCase()
-  if (['new', 'to do', 'proposed', 'approved'].includes(s)) return 'new'
-  if (['active', 'in progress', 'doing', 'committed'].includes(s)) return 'active'
-  if (['resolved'].includes(s)) return 'resolved'
-  if (['closed', 'done', 'completed'].includes(s)) return 'closed'
-  if (['removed'].includes(s)) return 'removed'
-  return 'other'
-}
-
 export function SolutionDetail({
   solution,
   components,
   loadingComponents,
   onRefreshComponents,
-  workItem,
-  workItemLoading,
   collisions,
   onTrack,
   linkCandidates,
   onLink,
 }: Props) {
-  const adoUrl = workItem?.url ?? devOpsWorkItemUrl(solution.devOpsId)
   const grouped = [...groupBy(components, (c) => c.typeName).entries()].sort(
     (a, b) => a[0].localeCompare(b[0]),
   )
@@ -616,75 +596,6 @@ export function SolutionDetail({
 
       {!solution.recordId && !solution.solutionMissing && (
         <TrackPanel solution={solution} onTrack={onTrack} />
-      )}
-
-      {isDevOpsAvailable() && solution.devOpsId && (
-        <div className="devops-card">
-          <div className="devops-card-header">
-            <span className="devops-card-title">
-              Azure DevOps #{solution.devOpsId}
-            </span>
-            {adoUrl ? (
-              <a
-                className="btn btn--small"
-                href={adoUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open ↗
-              </a>
-            ) : (
-              <span
-                className="btn btn--small btn--disabled"
-                title="Set VITE_ADO_ORG_URL and VITE_ADO_PROJECT in .env.local to enable work item links."
-              >
-                Open
-              </span>
-            )}
-          </div>
-          {workItemLoading && (
-            <div className="devops-card-body muted">Loading work item…</div>
-          )}
-          {!workItemLoading && workItem && (
-            <div className="devops-card-body">
-              <div className="wi-title" title={workItem.title}>
-                <span className="wi-type muted">{workItem.type}</span>{' '}
-                {workItem.title}
-              </div>
-              <dl className="wi-fields">
-                <dt>Status</dt>
-                <dd>
-                  <span
-                    className={`wi-state wi-state--${stateBucket(workItem.state)}`}
-                  >
-                    {workItem.state}
-                  </span>
-                </dd>
-                <dt>Owner</dt>
-                <dd>{workItem.assignedTo ?? 'Unassigned'}</dd>
-                <dt>Description</dt>
-                {(() => {
-                  const html = renderWorkItemDescription(workItem.description)
-                  return html ? (
-                    <dd
-                      className="wi-description"
-                      // Sanitized DevOps rich text (utils/richText.sanitizeHtml).
-                      dangerouslySetInnerHTML={{ __html: html }}
-                    />
-                  ) : (
-                    <dd className="wi-description muted">—</dd>
-                  )
-                })()}
-              </dl>
-            </div>
-          )}
-          {!workItemLoading && !workItem && (
-            <div className="devops-card-body muted">
-              No details for work item #{solution.devOpsId} — it may not exist in
-              the configured project, or the connection can’t read it.
-            </div>
-          )}
-        </div>
       )}
 
       {!!collisions?.length && (

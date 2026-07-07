@@ -1698,6 +1698,14 @@
 .ws-dev-id:hover {
   text-decoration: underline;
 }
+/* #id rendered as a button that peeks the work-item drawer (DevOps on). */
+.ws-dev-id--peek {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
 .ws-devstate {
   font-size: 11px;
   font-weight: 600;
@@ -1886,33 +1894,8 @@
   font-size: 14px;
   line-height: 1;
 }
-/* Azure DevOps work item card */
-.devops-card {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin: 12px 0;
-  background: #f8f9fd;
-}
-.devops-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.devops-card-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: #1a56db;
-}
-.devops-card-body {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-  margin-top: 8px;
-  font-size: 13px;
-}
+/* Azure DevOps work item — state / type / field styles, shared by the row
+   badge and the work-item detail drawer. */
 .wi-state {
   font-size: 11px;
   font-weight: 700;
@@ -2018,6 +2001,32 @@
 .wi-description th {
   border: 1px solid var(--border, #e5e7eb);
   padding: 2px 6px;
+}
+
+/* Work item detail drawer (opened from a row's DevOps #id). Reuses the
+   .drawer* shell; the body scrolls and the description gets full room (no
+   220px cap like the old inline card). */
+.wi-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.wi-drawer-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wi-drawer-name {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.wi-description--drawer {
+  max-height: none;
+  overflow: visible;
 }
 
 /* Live work-item search in the New Working Solution dialog. */

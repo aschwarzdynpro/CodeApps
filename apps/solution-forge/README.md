@@ -463,10 +463,12 @@ genauso im Deployment-Ziel.
 
 ### Azure DevOps anbinden (optional)
 
-Die Detail-Ansicht zeigt pro Solution ein Work-Item-Panel (Status,
-Assignee, Absprung). Die Nummer kommt aus dem Unique Name
-(`feature_4711`), einem rein numerischen Unique Name oder dem Titel
-(„Assembly App V2 | 11941").
+Ein Klick auf die DevOps-**#Nummer** in der Solution-Liste öffnet ein
+**rechtes Slide-in-Drawer** (`WorkItemDrawer`) mit dem vollen Work Item
+(Typ, Titel, Status, Owner, formatierte Beschreibung, „Open ↗") —
+**entkoppelt vom Solution-Detail**, kein Aufklappen der Components nötig.
+Die Nummer kommt aus dem Unique Name (`feature_4711`), einem rein
+numerischen Unique Name oder dem Titel („Assembly App V2 | 11941").
 
 Angebunden **direkt über den Azure-DevOps-Konnektor** (kein Cloud-Flow):
 `devOpsService.getWorkItem()` ruft `ListWorkItems` auf und mappt
@@ -484,7 +486,8 @@ alle drei Signale stimmen (`config.ts → isDevOpsAvailable()`):
    demselben Record.
 
 Ein Kunde **ohne** DevOps importiert die (managed) Solution mit ungebundener
-CR → das Panel bleibt einfach aus, nichts wird aufgerufen.
+CR → der Drawer-Trigger bleibt aus, die #Nummer verlinkt nur nach Azure
+DevOps, nichts wird über den Konnektor aufgerufen.
 
 Einrichtung in einer neuen Umgebung:
 

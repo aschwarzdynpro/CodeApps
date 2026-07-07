@@ -97,6 +97,11 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       `DEVOPS_PANEL_ENABLED`-Compile-Switch ist entfernt. **Offen:** die zwei
       Config-Spalten provisionieren, Playground-Smoke, Schulz-ADO-Connection,
       `syncViaConnector()` live testen (siehe CLAUDE.md „Offen / Nächstes").
+- [x] **Work-Item-Ansicht als rechtes Drawer** (`WorkItemDrawer`) — vom
+      Solution-Detail entkoppelt, öffnet per Klick auf die DevOps-`#id` in der
+      Zeile (kein Aufklappen der Components nötig). Volle Rich-Text/Markdown-
+      Beschreibung, „Open ↗". Die inline DevOps-Karte im `SolutionDetail` ist
+      entfernt.
 
 ## Team & Komfort
 
