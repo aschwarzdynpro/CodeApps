@@ -65,16 +65,6 @@ export function WorkItemDrawer({
             <p className="drawer-subtitle muted">#{devOpsId}</p>
           </div>
           <div className="drawer-header-actions">
-            {url && (
-              <a
-                className="btn btn--small"
-                href={url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open ↗
-              </a>
-            )}
             <button className="modal-close" onClick={onClose} aria-label="Close">
               ✕
             </button>
@@ -84,9 +74,21 @@ export function WorkItemDrawer({
         <div className="drawer-body wi-drawer-body">
           {loading && <div className="muted">Loading work item…</div>}
           {!loading && !workItem && (
-            <div className="muted">
-              No details for work item #{devOpsId} — it may not exist in the
-              configured project, or the connection can’t read it.
+            <div className="wi-drawer-notfound">
+              <p className="muted">
+                No details for work item #{devOpsId} — it may not exist in the
+                configured project, or the connection can’t read it.
+              </p>
+              {url && (
+                <a
+                  className="btn btn--small wi-open-link"
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open #{devOpsId} in Azure DevOps ↗
+                </a>
+              )}
             </div>
           )}
           {!loading && workItem && (
@@ -96,6 +98,16 @@ export function WorkItemDrawer({
                 <span className="wi-drawer-name" title={workItem.title}>
                   {workItem.title}
                 </span>
+                {url && (
+                  <a
+                    className="btn btn--small wi-open-link"
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open in Azure DevOps ↗
+                  </a>
+                )}
               </div>
               <dl className="wi-fields">
                 <dt>Status</dt>
