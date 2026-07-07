@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { MergeRun, ReleaseNote, WorkingSolution } from '../types/solution'
+import type {
+  MergeRun,
+  ReleaseNote,
+  WorkingSolution,
+  WorkItemInfo,
+} from '../types/solution'
 import { solutionService } from '../services/solutionService'
+import { devOpsService } from '../services/devOpsService'
+import { isDevOpsAvailable } from '../config'
 import {
   buildReleaseNotes,
   type ReleaseNotesContent,
@@ -212,12 +219,51 @@ function ReleaseNotesForRelease({
       runs ? (cutoff ? runs.filter((r) => r.createdOn > cutoff) : runs) : null,
     [runs, cutoff],
   )
+
+  // Enrich the notes with Azure DevOps work items (title/state/assignee, grouped
+  // by type) — a single batch read for the sources in this delta. Stays empty
+  // without the connector, so the builder falls back to plain title/#id lines.
+  const [wiMap, setWiMap] = useState<Map<string, WorkItemInfo>>(new Map())
+  useEffect(() => {
+    if (!isDevOpsAvailable() || !deltaRuns) return
+    const sourceTitles = new Set(
+      deltaRuns.flatMap((r) => r.sources.map((t) => t.trim().toLowerCase())),
+    )
+    const ids = [
+      ...new Set(
+        solutions
+          .filter(
+            (s) => s.devOpsId && sourceTitles.has(s.title.trim().toLowerCase()),
+          )
+          .map((s) => s.devOpsId as string),
+      ),
+    ]
+    if (ids.length === 0) return
+    let cancelled = false
+    void devOpsService
+      .getWorkItems(ids)
+      .then((infos) => {
+        if (!cancelled) setWiMap(new Map(infos.map((i) => [i.id, i])))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [deltaRuns, solutions])
+
   const draft = useMemo<ReleaseNotesContent | null>(
     () =>
       deltaRuns
-        ? buildReleaseNotes(release, deltaRuns, solutions, generatedAt, cutoff)
+        ? buildReleaseNotes(
+            release,
+            deltaRuns,
+            solutions,
+            generatedAt,
+            cutoff,
+            wiMap,
+          )
         : null,
-    [deltaRuns, release, solutions, generatedAt, cutoff],
+    [deltaRuns, release, solutions, generatedAt, cutoff, wiMap],
   )
 
   const everMerged = !!runs && runs.length > 0

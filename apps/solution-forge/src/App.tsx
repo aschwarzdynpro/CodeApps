@@ -6,10 +6,12 @@ import { useAnalysisRun } from './hooks/useAnalysisRun'
 import { useReadinessRun } from './hooks/useReadinessRun'
 import { PHASE_LABELS, type DetectivePhaseKey } from './types/detective'
 import { solutionService } from './services/solutionService'
+import { devOpsService } from './services/devOpsService'
 import { SolutionFilterBar, type KindFilter } from './components/SolutionFilterBar'
 import { SolutionList } from './components/SolutionList'
 import { SolutionDetail } from './components/SolutionDetail'
 import { CreateSolutionDialog } from './components/CreateSolutionDialog'
+import { MyWorkItemsDrawer } from './components/MyWorkItemsDrawer'
 import { MergeWorkbench } from './components/MergeWorkbench'
 import { MergeRules } from './components/MergeRules'
 import { ReadinessWorkspace } from './components/ReadinessWorkspace'
@@ -36,9 +38,12 @@ import {
   applyRuntimeConfig,
   currentEnvKey,
   DEPLOYMENT_MANAGER_ROLE,
-  DEVOPS_PANEL_ENABLED,
+  devOpsSyncVia,
+  isDevOpsAvailable,
+  isDevOpsSearchEnabled,
   makerSolutionUrl,
 } from './config'
+import type { WorkItemPick } from './utils/workItem'
 import {
   DEPLOYMENT_COMPLETED_CODE,
   isOpenStatus,
@@ -222,8 +227,10 @@ function App() {
   // visible but disabled until the role check confirms access.
   const [isDeploymentManager, setIsDeploymentManager] = useState(false)
   // Bumped once startup config is applied, so children re-read the (live-bound)
-  // ENVIRONMENTS / role / ADO values from config.ts.
-  const [, setConfigVersion] = useState(0)
+  // ENVIRONMENTS / role / ADO values from config.ts. Also a dependency for the
+  // DevOps batch-load / auto-sync effects, which must re-run once availability
+  // is resolved.
+  const [configVersion, setConfigVersion] = useState(0)
 
   useEffect(() => {
     // Load runtime config (Compare targets, ADO, role) from Dataverse and apply
@@ -236,6 +243,13 @@ function App() {
         if (!cancelled) applyRuntimeConfig(cfg)
       } catch {
         /* keep build-time defaults */
+      }
+      try {
+        // Resolve whether DevOps is wired (connection reference bound) so the
+        // isDevOpsAvailable() gate is correct on the first post-config render.
+        await devOpsService.refreshAvailability()
+      } catch {
+        /* DevOps stays unavailable */
       }
       try {
         const granted = await solutionService.hasRole(DEPLOYMENT_MANAGER_ROLE)
@@ -316,7 +330,31 @@ function App() {
     new Map(),
   )
   const [workItemLoading, setWorkItemLoading] = useState(false)
+  // devOpsId → live work-item state, so an opened row's status badge reflects the
+  // freshly loaded work item (not just the last synced pro_devopsworkitemstatus).
+  const liveWorkItemStates = useMemo(() => {
+    const m = new Map<string, string>()
+    workItems.forEach((wi, id) => {
+      if (wi?.state) m.set(id, wi.state)
+    })
+    return m
+  }, [workItems])
+  // Ids already requested (batch or single), so the batch effect never refetches.
+  const fetchedWiRef = useRef<Set<string>>(new Set())
+  // The connector auto-sync runs at most once per session.
+  const autoSyncRef = useRef(false)
   const [showCreate, setShowCreate] = useState(false)
+  // "My work items" drawer (DevOps): the signed-in user's open work items, each
+  // adoptable into a pre-filled New Working Solution. Only offered with the
+  // connector-backed integration; createInitial carries the pre-fill.
+  const [showMyItems, setShowMyItems] = useState(false)
+  const [myItems, setMyItems] = useState<WorkItemPick[]>([])
+  const [myItemsLoading, setMyItemsLoading] = useState(false)
+  const [createInitial, setCreateInitial] = useState<{
+    kind: 'feature' | 'bug'
+    devOpsId: string
+    title: string
+  } | null>(null)
   const [showHelp, setShowHelp] = useState(false)
   const [showHowTo, setShowHowTo] = useState(false)
   // "Sync with DevOps": runs the cloud flow, then reloads so the
@@ -435,6 +473,70 @@ function App() {
     for (const p of pendingDeletes) hidden.add(p.key)
     return merged.filter((s) => !hidden.has(s.recordId ?? s.id))
   }, [solutions, created, pendingDeletes, removedKeys])
+
+  // devOpsId → title of an existing working solution, so the "My work items"
+  // drawer can flag items that are already tracked and block a duplicate.
+  const solutionTitleByDevOpsId = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const s of allSolutions) {
+      if (s.devOpsId && !m.has(s.devOpsId)) m.set(s.devOpsId, s.title)
+    }
+    return m
+  }, [allSolutions])
+
+  // Batch-load the work items for every row with a devOps id in as few connector
+  // calls as possible, so ALL status badges (and the detail panel) show live
+  // state — not just the row you open. Each id is fetched once (fetchedWiRef).
+  useEffect(() => {
+    if (!isDevOpsAvailable()) return
+    const ids = [
+      ...new Set(
+        allSolutions
+          .map((s) => s.devOpsId)
+          .filter((d): d is string => !!d && /^\d+$/.test(d)),
+      ),
+    ]
+    const missing = ids.filter((id) => !fetchedWiRef.current.has(id))
+    if (missing.length === 0) return
+    missing.forEach((id) => fetchedWiRef.current.add(id))
+    let cancelled = false
+    void devOpsService
+      .getWorkItems(missing)
+      .then((infos) => {
+        if (cancelled) return
+        const byId = new Map(infos.map((i) => [i.id, i]))
+        setWorkItems((prev) => {
+          const next = new Map(prev)
+          for (const id of missing) {
+            const info = byId.get(id)
+            // Never downgrade an entry a single load already resolved to null.
+            if (info) next.set(id, info)
+            else if (!next.has(id)) next.set(id, null)
+          }
+          return next
+        })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [allSolutions, configVersion])
+
+  // Connector mode only: keep the persisted work-item statuses (and the
+  // "to be completed" reconciliation) current automatically — no button click.
+  // Once per session, best-effort; reloads only when something actually changed.
+  useEffect(() => {
+    if (autoSyncRef.current) return
+    if (loading || allSolutions.length === 0) return
+    if (!isDevOpsAvailable() || devOpsSyncVia() !== 'connector') return
+    autoSyncRef.current = true
+    void solutionService
+      .syncDevOpsWorkItemStatus()
+      .then((count) => {
+        if (count > 0) reload()
+      })
+      .catch(() => {})
+  }, [allSolutions, configVersion, loading, reload])
 
   // Structural filters (open / tracked / owner) applied before kind and
   // search — the kind counts reflect this base set.
@@ -667,14 +769,38 @@ function App() {
 
   const loadWorkItem = (devOpsId: string) => {
     if (workItems.has(devOpsId)) return
+    fetchedWiRef.current.add(devOpsId)
     setWorkItemLoading(true)
-    solutionService
+    devOpsService
       .getWorkItem(devOpsId)
       .then((wi) => setWorkItems((prev) => new Map(prev).set(devOpsId, wi)))
       .catch(() =>
         setWorkItems((prev) => new Map(prev).set(devOpsId, null)),
       )
       .finally(() => setWorkItemLoading(false))
+  }
+
+  const loadMyItems = () => {
+    setMyItemsLoading(true)
+    devOpsService
+      .myWorkItems()
+      .then(setMyItems)
+      .catch(() => setMyItems([]))
+      .finally(() => setMyItemsLoading(false))
+  }
+  const openMyItems = () => {
+    setShowMyItems(true)
+    loadMyItems()
+  }
+  /** Adopt a DevOps work item into a pre-filled New Working Solution. */
+  const createFromWorkItem = (p: WorkItemPick) => {
+    setCreateInitial({
+      kind: /bug/i.test(p.type) ? 'bug' : 'feature',
+      devOpsId: p.id,
+      title: p.title,
+    })
+    setShowMyItems(false)
+    setShowCreate(true)
   }
 
   const openSolution = (id: string) => {
@@ -694,7 +820,7 @@ function App() {
     } else {
       loadComponents(id)
     }
-    if (DEVOPS_PANEL_ENABLED && solution?.devOpsId)
+    if (isDevOpsAvailable() && solution?.devOpsId)
       loadWorkItem(solution.devOpsId)
   }
 
@@ -712,6 +838,9 @@ function App() {
     setJustCreated(solution)
     setSelectedId(solution.id)
     setComponents([])
+    // Load the work item straight away so the new row's status badge and the
+    // detail panel show immediately (openSolution isn't run for fresh entries).
+    if (isDevOpsAvailable() && solution.devOpsId) loadWorkItem(solution.devOpsId)
     reload()
   }
 
@@ -1111,6 +1240,15 @@ function App() {
             >
               + New Working Solution
             </button>
+            {isDevOpsSearchEnabled() && (
+              <button
+                className="btn btn--small"
+                onClick={openMyItems}
+                title="Your assigned Azure DevOps work items → create a working solution in one click"
+              >
+                ☰ My work items{myItems.length ? ` (${myItems.length})` : ''}
+              </button>
+            )}
             <button
               className="btn btn--small"
               onClick={() => void scanCollisions()}
@@ -1122,14 +1260,16 @@ function App() {
                   ? '⚠ Re-scan collisions'
                   : '⚠ Scan collisions'}
             </button>
-            <button
-              className="btn btn--small"
-              title="Run the 'Sync DevOps Work Item Status' cloud flow, then refresh the to-be-completed check."
-              onClick={() => void syncDevOps()}
-              disabled={syncingDevOps}
-            >
-              {syncingDevOps ? 'Syncing with DevOps…' : '⟳ Sync with DevOps'}
-            </button>
+            {devOpsSyncVia() === 'flow' && (
+              <button
+                className="btn btn--small"
+                title="Run the 'Sync DevOps Work Item Status' cloud flow, then refresh the to-be-completed check."
+                onClick={() => void syncDevOps()}
+                disabled={syncingDevOps}
+              >
+                {syncingDevOps ? 'Syncing with DevOps…' : '⟳ Sync with DevOps'}
+              </button>
+            )}
             <div className="search-group">
               <input
                 className="search"
@@ -1206,6 +1346,7 @@ function App() {
               activeId={selectedId}
               onOpen={openSolution}
               environmentId={environmentId}
+              liveWorkItemStates={liveWorkItemStates}
               componentMatches={componentMatches}
               collisions={collisions}
               groupByWorkItem={groupByWorkItem}
@@ -1602,9 +1743,28 @@ function App() {
           defaultPublisherId={defaultPublisherId}
           existingUniqueNames={allSolutions.map((s) => s.uniqueName)}
           canCreateRelease={isDeploymentManager}
+          initialKind={createInitial?.kind}
+          initialDevOpsId={createInitial?.devOpsId}
+          initialTitle={createInitial?.title}
           onCreate={(input) => solutionService.createWorkingSolution(input)}
-          onCreated={handleCreated}
-          onClose={() => setShowCreate(false)}
+          onCreated={(s) => {
+            setCreateInitial(null)
+            handleCreated(s)
+          }}
+          onClose={() => {
+            setCreateInitial(null)
+            setShowCreate(false)
+          }}
+        />
+      )}
+      {showMyItems && (
+        <MyWorkItemsDrawer
+          items={myItems}
+          loading={myItemsLoading}
+          existingByDevOpsId={solutionTitleByDevOpsId}
+          onPick={createFromWorkItem}
+          onRefresh={loadMyItems}
+          onClose={() => setShowMyItems(false)}
         />
       )}
     </div>

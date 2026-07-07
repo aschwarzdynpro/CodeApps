@@ -461,40 +461,54 @@ Der Merge nutzt die Dataverse-Action **AddSolutionComponent**
 Shell bzw. ohne Subkomponenten in der Feature-Solution stecken, landen
 genauso im Deployment-Ziel.
 
-### Azure DevOps anbinden
+### Azure DevOps anbinden (optional)
 
 Die Detail-Ansicht zeigt pro Solution ein Work-Item-Panel (Status,
 Assignee, Absprung). Die Nummer kommt aus dem Unique Name
 (`feature_4711`), einem rein numerischen Unique Name oder dem Titel
 („Assembly App V2 | 11941").
 
-Angebunden über den offiziellen **Azure-DevOps-Konnektor** (bereits
-verdrahtet): `dataverseSolutionService.getWorkItem()` ruft die generierte
-Operation `ListWorkItems` auf und mappt `System_State` /
-`System_AssignedTo` / `System_Title`. Einrichtung in einer neuen
-Umgebung:
+Angebunden **direkt über den Azure-DevOps-Konnektor** (kein Cloud-Flow):
+`devOpsService.getWorkItem()` ruft `ListWorkItems` auf und mappt
+`System_State` / `System_AssignedTo` / `System_Title`
+(`utils/workItem.ts`). Der Konnektor ist an die **Connection Reference
+`pro_CR_SAC_DevOps`** gebunden.
+
+**Das Feature ist optional und standardmäßig AUS.** Es erscheint nur, wenn
+alle drei Signale stimmen (`config.ts → isDevOpsAvailable()`):
+
+1. **Opt-in** — `pro_devopsenabled` (Yes/No) auf dem
+   `pro_workbenchsettings`-Record = Yes.
+2. **Connection gebunden** — `pro_CR_SAC_DevOps` zeigt auf eine Connection.
+3. **Org/Projekt gesetzt** — `pro_adoorgurl` / `pro_adoproject` auf
+   demselben Record.
+
+Ein Kunde **ohne** DevOps importiert die (managed) Solution mit ungebundener
+CR → das Panel bleibt einfach aus, nichts wird aufgerufen.
+
+Einrichtung in einer neuen Umgebung:
 
 1. In [make.powerapps.com](https://make.powerapps.com) → Connections →
-   **New connection** → *Azure DevOps* → mit dem DevOps-Konto anmelden.
-2. `pac connection list` → Connection-ID notieren.
-3. ```bash
-   pac code add-data-source -a shared_visualstudioteamservices -c <connection-id>
-   ```
-   (vorher das `AddSolutionComponent`-Schema beiseite legen, siehe
-   „Achtung beim Nachgenerieren").
+   **New connection** → *Azure DevOps* → anmelden (oder SP-Connection).
+2. Connection an `pro_CR_SAC_DevOps` binden — bei Kunden per Settings-File
+   ([`installer/devops-settings.example.json`](installer/devops-settings.example.json),
+   `pac solution import --settings-file`), lokal via
+   `pac code add-data-source -a shared_visualstudioteamservices -cr
+   pro_CR_SAC_DevOps -s <solution-id>` (siehe „Achtung beim Nachgenerieren").
+3. Auf dem `pro_workbenchsettings`-Record `pro_adoorgurl` / `pro_adoproject`
+   setzen und `pro_devopsenabled = Yes`.
 
-Organisation/Projekt stehen in [`.env`](.env) (zur Build-Zeit
-eingebacken, lokal via `.env.local` überschreibbar):
+**Status-Sync** (Workbench-Toolbar „Sync with DevOps"): Default über den
+Cloud-Flow (Schulz); mit `pro_devopsuseconnectorsync = Yes` läuft er flow-los
+über den Konnektor (`syncViaConnector`).
+
+Fallback für lokale Builds (`.env.local`, zur Build-Zeit):
 
 ```
 VITE_ADO_ORG_URL=https://dev.azure.com/SchulzD365
 VITE_ADO_PROJECT=D365UO
 VITE_ENVIRONMENT_ID=<env-id>   # Fallback für Maker-Links außerhalb des Hosts
 ```
-
-Andere Benutzer der App werden beim ersten Start aufgefordert, ihre
-eigene Azure-DevOps-Verbindung zu bestätigen (Standard-Verhalten von
-Konnektor-Connections in Code Apps).
 
 ## Roadmap (Denkrichtung)
 

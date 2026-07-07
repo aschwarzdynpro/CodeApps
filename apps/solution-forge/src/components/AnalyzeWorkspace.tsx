@@ -63,6 +63,9 @@ export function AnalyzeWorkspace({
   const targetEnvs = ENVIRONMENTS.filter(
     (e) => e.key === 'uat' || e.key === 'prod',
   )
+  // Analyze compares against a TARGET env; with only the current environment
+  // configured there is nothing to compare against, so it is disabled.
+  const noTarget = targetEnvs.length === 0
 
   const [checks, setChecks] = useState<Record<DetectivePhaseKey, boolean>>({
     compare: true,
@@ -89,7 +92,7 @@ export function AnalyzeWorkspace({
   )
 
   const start = () => {
-    if (!solution || selectedPhases.length === 0) return
+    if (noTarget || !solution || selectedPhases.length === 0) return
     setSubTab('summary')
     setOpenedDetails(new Set())
     onAnalyze(solution, envKey, selectedPhases)
@@ -123,15 +126,19 @@ export function AnalyzeWorkspace({
         <div className="analyze-toolbar-env">
           <span className="form-label">Target</span>
           <div className="chips">
-            {targetEnvs.map((env) => (
-              <button
-                key={env.key}
-                className={`chip ${envKey === env.key ? 'chip--active' : ''}`}
-                onClick={() => onEnvChange(env.key as 'uat' | 'prod')}
-              >
-                {env.label}
-              </button>
-            ))}
+            {noTarget ? (
+              <span className="muted">No target environment</span>
+            ) : (
+              targetEnvs.map((env) => (
+                <button
+                  key={env.key}
+                  className={`chip ${envKey === env.key ? 'chip--active' : ''}`}
+                  onClick={() => onEnvChange(env.key as 'uat' | 'prod')}
+                >
+                  {env.label}
+                </button>
+              ))
+            )}
           </div>
         </div>
 
@@ -155,14 +162,23 @@ export function AnalyzeWorkspace({
 
         <button
           className="btn btn--primary analyze-toolbar-run"
-          disabled={!solution || selectedPhases.length === 0 || running}
+          disabled={noTarget || !solution || selectedPhases.length === 0 || running}
           onClick={start}
         >
           {running ? 'Analyzing…' : done ? '↻ Re-analyze' : '🔍 Analyze'}
         </button>
       </div>
 
-      {!solution && (
+      {noTarget && (
+        <div className="state state--warn">
+          Analyze compares the release against a <strong>target</strong>{' '}
+          environment. Only the current environment is configured — add a
+          UAT/PROD target (in the <code>pro_environmentconfig</code> table) to
+          enable this.
+        </div>
+      )}
+
+      {!noTarget && !solution && (
         <div className="state">
           Select a release solution, the target environment and the checks to
           include — the sweep then fills the Summary plus a tab per check.

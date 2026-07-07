@@ -125,17 +125,55 @@ export let ADO_ACCOUNT: string = adoAccount(ADO_ORG_URL)
 /** Project name for connector calls, e.g. "D365UO". */
 export let ADO_PROJECT_NAME: string = ADO_PROJECT
 
+/** Logical name of the Azure DevOps connection reference the app binds to. */
+export const DEVOPS_CONNECTION_REFERENCE = 'pro_CR_SAC_DevOps'
+
 /**
- * TEMPORARY: the Azure DevOps work item panel is disabled until the
- * service-principal access to dev.azure.com/SchulzD365 is sorted out
- * (see TODO.md "Auth auf Service Principal umstellen"). While false, the
- * panel is hidden, no work items are fetched, and the DevOps connector is
- * removed from the app so users get no connection prompt at startup.
- * Re-enable: re-add the connector data source (-cr pro_CRDevOps), restore
- * the AzureDevOpsService call in dataverseSolutionService.getWorkItem(),
- * then flip this to true.
+ * Azure DevOps integration is OPTIONAL and OFF by default. Three independent
+ * signals must all be true for it to surface (see {@link isDevOpsAvailable}):
+ *   1. DEVOPS_ENABLED — explicit opt-in (`pro_devopsenabled`), so the feature
+ *      never turns on by accident. Replaces the old build-time
+ *      DEVOPS_PANEL_ENABLED constant.
+ *   2. DEVOPS_CONNECTION_BOUND — the `pro_CR_SAC_DevOps` connection reference is
+ *      actually bound to a connection (hydrated by devOpsService.refreshAvailability
+ *      at startup). A customer without DevOps ships it unbound → stays off.
+ *   3. a configured org URL + project (ADO_ACCOUNT / ADO_PROJECT_NAME).
+ * All are `let` (live bindings) hydrated at startup; the UI reads
+ * {@link isDevOpsAvailable}.
  */
-export const DEVOPS_PANEL_ENABLED = false
+let DEVOPS_ENABLED = false
+let DEVOPS_CONNECTION_BOUND = false
+let DEVOPS_SYNC_VIA: 'flow' | 'connector' = 'flow'
+
+/** Called by devOpsService.refreshAvailability once the CR binding is known. */
+export function setDevOpsConnectionBound(bound: boolean): void {
+  DEVOPS_CONNECTION_BOUND = bound
+}
+
+/** Which path syncs work-item status back onto records: the cloud flow
+ *  (default, Schulz) or the direct connector (product bundle). */
+export function devOpsSyncVia(): 'flow' | 'connector' {
+  return DEVOPS_SYNC_VIA
+}
+
+/** Whether an ADO org URL + project are configured (needed for connector calls). */
+export function isDevOpsConfigured(): boolean {
+  return ADO_ACCOUNT !== '' && ADO_PROJECT_NAME !== ''
+}
+
+/** Single gate for every DevOps affordance: enabled AND connection bound AND
+ *  org/project configured. False keeps the feature entirely dark. */
+export function isDevOpsAvailable(): boolean {
+  return DEVOPS_ENABLED && DEVOPS_CONNECTION_BOUND && isDevOpsConfigured()
+}
+
+/** Whether the interactive DevOps search (New-Solution work-item picker) should
+ *  be offered: DevOps available AND the connector is the chosen path
+ *  (`pro_devopsuseconnectorsync` = Yes). When false, ids/titles are entered
+ *  manually — the app always works without the connector. */
+export function isDevOpsSearchEnabled(): boolean {
+  return isDevOpsAvailable() && DEVOPS_SYNC_VIA === 'connector'
+}
 
 /** Security role required for the Merge and Compare tabs. Hydrated from the
  *  config table at startup; falls back to the build-time value. */
@@ -148,6 +186,10 @@ export interface RuntimeConfig {
   adoOrgUrl?: string
   adoProject?: string
   deploymentManagerRole?: string
+  /** Explicit opt-in for the Azure DevOps integration (`pro_devopsenabled`). */
+  devOpsEnabled?: boolean
+  /** Work-item status sync path: 'flow' (default, Schulz) or 'connector'. */
+  devOpsSyncVia?: 'flow' | 'connector'
 }
 
 /**
@@ -167,6 +209,8 @@ export function applyRuntimeConfig(cfg: RuntimeConfig): void {
     ADO_PROJECT_NAME = cfg.adoProject
   }
   if (cfg.deploymentManagerRole) DEPLOYMENT_MANAGER_ROLE = cfg.deploymentManagerRole
+  if (cfg.devOpsEnabled !== undefined) DEVOPS_ENABLED = cfg.devOpsEnabled
+  if (cfg.devOpsSyncVia) DEVOPS_SYNC_VIA = cfg.devOpsSyncVia
 }
 
 /** Maker-portal deep link to one solution (objects list), or the solutions

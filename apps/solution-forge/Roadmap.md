@@ -88,7 +88,15 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       Items" listen, Klick → Dialog vorbefüllt.
 - [ ] **Branch/PR-Verknüpfung**: PRs zur Branch-Konvention `feature/<id>` am
       Eintrag zeigen (`pro_devopslink`).
-- [ ] **DevOps-Panel reaktivieren** (`DEVOPS_PANEL_ENABLED`, siehe TODO.md).
+- [x] **DevOps-Panel reaktiviert — optional & flow-los.** Work-Item-Reads laufen
+      jetzt **direkt über den Azure-DevOps-Konnektor** (`devOpsService`, CR
+      `pro_CR_SAC_DevOps`), kein Cloud-Flow für die Anzeige. Das Feature ist
+      **optional/kundenseitig aussteuerbar**: gated über `isDevOpsAvailable()`
+      (`pro_devopsenabled` + CR gebunden + Org/Projekt). Sync-Weiche
+      `pro_devopsuseconnectorsync` (flow ⇄ connector). Der alte
+      `DEVOPS_PANEL_ENABLED`-Compile-Switch ist entfernt. **Offen:** die zwei
+      Config-Spalten provisionieren, Playground-Smoke, Schulz-ADO-Connection,
+      `syncViaConnector()` live testen (siehe CLAUDE.md „Offen / Nächstes").
 
 ## Team & Komfort
 

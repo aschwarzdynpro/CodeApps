@@ -137,6 +137,8 @@ export interface WorkItemInfo {
   state: string
   /** Display name of the assignee, or null when unassigned. */
   assignedTo: string | null
+  /** Plain-text description (HTML stripped), empty string when none. */
+  description: string
   /** Browser link to the work item, when resolvable. */
   url: string | null
 }

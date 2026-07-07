@@ -81,6 +81,10 @@ $Registry = @{
     AppId       = '0f71f8ea-1f93-4ac7-838f-63b5123d4ae9'
     Solution    = 'DynamicsProSolutionAdminConsole'
     Connector   = @{ Mode = 'cr'; Ref = 'pro_CR_SAC_Dataverse'; Solution = 'd64f1785-c86f-f111-ab0d-6045bda01a46' }
+    # Azure DevOps connector — reads (work items) via the direct connector bound
+    # to pro_CR_SAC_DevOps; also generates AzureDevOpsService for the build. The
+    # feature stays gated at runtime (pro_devopsenabled + CR bound).
+    DevOpsConnector = @{ Mode = 'cr'; Ref = 'pro_CR_SAC_DevOps'; Solution = 'd64f1785-c86f-f111-ab0d-6045bda01a46' }
     Envs        = @(
       [ordered]@{ key = 'dev'; label = 'Current'; url = 'https://ascsfacs.crm4.dynamics.com'; environmentId = 'a5b19a39-a9ec-ec82-98b9-74f5cf513c52'; isCurrent = $true }
     )
@@ -94,6 +98,14 @@ $Registry = @{
     AppId       = 'cade30e1-dd5c-4532-82eb-fd8520ba7b29'
     Solution    = 'DynamicsProSolutionAdminConsole'
     Connector   = @{ Mode = 'c'; ConnectionId = '73569138b7c4466d9ee6933ad6e66a3c' }
+    # Azure DevOps connector — bound to the existing INT-11 ADO connection so the
+    # generated AzureDevOpsService is present for the build (Schulz has no
+    # pro_CR_SAC_DevOps, so Mode 'c' like the Dataverse connector above).
+    # NOTE: this connection is the aschwarz@hso.com (HSO) account; its DevOps token
+    # may hit TF400813 against the Schulz DevOps org (gotcha #9) → real work-item
+    # reads need the SP migration (TODO.md). The DevOps feature stays OFF at Schulz
+    # until pro_devopsenabled=Yes; the status sync stays on the cloud flow regardless.
+    DevOpsConnector = @{ Mode = 'c'; ConnectionId = '09a08f8f519c44b1a4bf9e47f66afb4d' }
     # Schulz nutzt den DevOps-Sync-Cloud-Flow. Wenn gesetzt, deployt das Skript
     # ueber die npm-CLI (power-apps add-flow + power-apps push) statt 'pac code
     # push' — sonst fehlt die Flow-Registrierung und der "Sync with DevOps"-Button
@@ -165,6 +177,18 @@ if ($cfg.Connector.Mode -eq 'cr') {
 }
 else {
   & .\scripts\add-data-source.ps1 -a shared_commondataserviceforapps -c $cfg.Connector.ConnectionId 2>&1 | Select-Object -Last 1
+}
+
+# Azure DevOps connector (optional per env). Adds the shared_visualstudioteamservices
+# data source so the generated AzureDevOpsService is present for the build; the
+# DevOps feature itself is gated at runtime (pro_devopsenabled + CR bound).
+if ($cfg.DevOpsConnector) {
+  if ($cfg.DevOpsConnector.Mode -eq 'cr') {
+    & .\scripts\add-data-source.ps1 -a shared_visualstudioteamservices -cr $cfg.DevOpsConnector.Ref -s $cfg.DevOpsConnector.Solution 2>&1 | Select-Object -Last 1
+  }
+  else {
+    & .\scripts\add-data-source.ps1 -a shared_visualstudioteamservices -c $cfg.DevOpsConnector.ConnectionId 2>&1 | Select-Object -Last 1
+  }
 }
 
 # Snapshot zur Referenz (gitignored)

@@ -1,0 +1,11 @@
+{
+  "_comment": "Deployment settings for `pac solution import --settings-file` — binds the OPTIONAL Azure DevOps connection reference when a customer HAS Azure DevOps. Customers WITHOUT DevOps skip this file entirely: the connection reference imports unbound and the feature stays dark. Enabling DevOps is a two-step act: (1) bind pro_CR_SAC_DevOps below, (2) set the pro_workbenchsettings record fields pro_adoorgurl, pro_adoproject and pro_devopsenabled=Yes (and pro_devopsuseconnectorsync=Yes if the flow-less connector sync is wanted). EnvironmentVariables is left empty — the ADO org/project live on the pro_workbenchsettings record, not in env vars.",
+  "EnvironmentVariables": [],
+  "ConnectionReferences": [
+    {
+      "LogicalName": "pro_CR_SAC_DevOps",
+      "ConnectionId": "<paste the customer's Azure DevOps connection id, e.g. shared-visualstudiot-xxxxxxxx>",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_visualstudioteamservices"
+    }
+  ]
+}

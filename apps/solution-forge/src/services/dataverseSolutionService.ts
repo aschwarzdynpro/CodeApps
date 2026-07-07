@@ -11,12 +11,12 @@ import type {
   TrackSolutionInput,
   UpdateWorkingSolutionInput,
   UserRef,
-  WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
 import { isClosedWorkItemState } from '../types/solution'
 import type { SolutionService } from './solutionService'
 import { mockSolutionService } from './mockSolutionService'
+import { devOpsService } from './devOpsService'
 import { hostUserHints, powerModeReady } from '../PowerProvider'
 import {
   buildUniqueName,
@@ -25,8 +25,9 @@ import {
 } from '../utils/naming'
 import { shortGuid } from '../utils/format'
 import {
-  DEVOPS_PANEL_ENABLED,
+  devOpsSyncVia,
   ENVIRONMENTS,
+  isDevOpsAvailable,
   makerLayerPath,
   makerSolutionUrl,
 } from '../config'
@@ -758,6 +759,26 @@ export class DataverseSolutionService implements SolutionService {
     } catch (err) {
       console.warn('[config] workbench settings read failed:', err)
     }
+    // DevOps opt-in + sync path. Separate best-effort read so a not-yet-
+    // provisioned column (pro_devopsenabled / pro_devopssyncvia) can't break the
+    // main workbench-settings read above. Defaults stay off / flow.
+    try {
+      const d = await Pro_workbenchsettingsesService.getAll({
+        select: ['pro_devopsenabled', 'pro_devopsuseconnectorsync'],
+      })
+      const row = d.data?.[0] as
+        | { pro_devopsenabled?: boolean; pro_devopsuseconnectorsync?: boolean }
+        | undefined
+      if (row?.pro_devopsenabled !== undefined)
+        cfg.devOpsEnabled = !!row.pro_devopsenabled
+      if (row?.pro_devopsuseconnectorsync !== undefined)
+        cfg.devOpsSyncVia = row.pro_devopsuseconnectorsync ? 'connector' : 'flow'
+    } catch (err) {
+      console.warn(
+        '[config] devops settings read failed (columns may not exist yet):',
+        err,
+      )
+    }
     // Compare/Dependency target environments from pro_environmentconfig.
     try {
       const e = await Pro_environmentconfigsService.getAll({
@@ -1076,6 +1097,9 @@ export class DataverseSolutionService implements SolutionService {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
       return mockSolutionService.syncDevOpsWorkItemStatus()
+    // Weiche (pro_devopssyncvia): the product bundle syncs flow-less via the
+    // Azure DevOps connector; Schulz keeps the cloud flow (default 'flow').
+    if (devOpsSyncVia() === 'connector') return this.syncViaConnector()
     const result =
       await PA_MANUAL_WorkingSolution_SyncDevOpsWorkItemStatusService.Run({})
     if (!result.success) {
@@ -1086,6 +1110,66 @@ export class DataverseSolutionService implements SolutionService {
       )
     }
     return result.data?.count ?? 0
+  }
+
+  /**
+   * Connector-based status sync (product path, `pro_devopssyncvia` = 'connector').
+   * Reads each open working solution's DevOps work-item state directly through
+   * the Azure DevOps connector ({@link devOpsService}) and writes it onto
+   * `pro_devopsworkitemstatus` — the same effect the cloud flow has at Schulz,
+   * but flow-less. Best-effort per record; returns the count updated.
+   *
+   * NOT yet live-verified end-to-end (no product customer yet) — smoke-test on
+   * the first environment that binds the DevOps connection reference.
+   */
+  private async syncViaConnector(): Promise<number> {
+    if (!isDevOpsAvailable())
+      throw new Error(
+        'Azure DevOps is not configured for the direct connector sync — enable it, bind the connection reference, and set the org URL + project.',
+      )
+    const res = await Pro_workingsolutionsService.getAll({
+      select: [
+        'pro_workingsolutionid',
+        'pro_devopsid',
+        'pro_devopsworkitemstatus',
+      ],
+      filter: 'statecode eq 0',
+    })
+    const rows = (res.data ?? []) as Array<{
+      pro_workingsolutionid?: string
+      pro_devopsid?: string
+      pro_devopsworkitemstatus?: string
+    }>
+    const ids = rows
+      .map((r) => (r.pro_devopsid ?? '').trim())
+      .filter((id) => /^\d+$/.test(id))
+    if (ids.length === 0) return 0
+    // ONE batch read for all states, then write only records whose stored status
+    // actually changed (delta) — cheap enough to run automatically.
+    const stateById = new Map(
+      (await devOpsService.getWorkItems([...new Set(ids)])).map((w) => [
+        w.id,
+        w.state,
+      ]),
+    )
+    let updated = 0
+    for (const row of rows) {
+      const recordId = row.pro_workingsolutionid
+      const devOpsId = (row.pro_devopsid ?? '').trim()
+      const live = stateById.get(devOpsId)
+      if (!recordId || !live || live === (row.pro_devopsworkitemstatus ?? ''))
+        continue
+      const upd = await Pro_workingsolutionsService.update(
+        recordId,
+        {
+          pro_devopsworkitemstatus: live,
+        } as unknown as Partial<
+          Omit<Pro_workingsolutionsBase, 'pro_workingsolutionid'>
+        >,
+      )
+      if (!(upd && upd.success === false)) updated++
+    }
+    return updated
   }
 
   /** Delete only the real solution (container), keeping the record. */
@@ -2184,28 +2268,6 @@ export class DataverseSolutionService implements SolutionService {
       const name = nameById.get(c.objectId.toLowerCase())
       if (name) c.displayName = name
     }
-  }
-
-  /**
-   * Work item summary via the Azure DevOps connector. TEMPORARILY
-   * DISABLED (DEVOPS_PANEL_ENABLED = false) while the service-principal
-   * access to the DevOps org is being set up — the connector data source
-   * has been removed from the app so users get no connection prompt.
-   *
-   * To restore (see TODO.md):
-   *   pac code add-data-source -a shared_visualstudioteamservices
-   *     -cr pro_CRDevOps -s <WorkbenchSchulz-id> -env <INT-11-url>
-   * then re-import AzureDevOpsService and map ListWorkItems(ADO_ACCOUNT,
-   * ADO_PROJECT_NAME, devOpsId): System_WorkItemType / System_Title /
-   * System_State / System_AssignedTo → WorkItemInfo, with
-   * devOpsWorkItemUrl(devOpsId) as the link.
-   */
-  async getWorkItem(devOpsId: string): Promise<WorkItemInfo | null> {
-    const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockSolutionService.getWorkItem(devOpsId)
-    if (!DEVOPS_PANEL_ENABLED) return null
-    console.info('[devops] connector not wired — DEVOPS_PANEL_ENABLED without data source')
-    return null
   }
 
   async mergeIntoDeployment(

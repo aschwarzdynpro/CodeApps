@@ -1,4 +1,4 @@
-import type { MergeRun, WorkingSolution } from '../types/solution'
+import type { MergeRun, WorkingSolution, WorkItemInfo } from '../types/solution'
 import {
   COLLAPSED_COMPONENT_TYPE_LABELS,
   canonicalCollapsedLabel,
@@ -17,6 +17,9 @@ interface IncludedSolution {
   title: string
   devOpsId: string | null
   url: string | null
+  /** Enriched from Azure DevOps (batch read) when available, for the
+   *  type-grouped listing. Undefined ⇒ falls back to the plain title/#id line. */
+  wi?: WorkItemInfo
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
@@ -36,6 +39,10 @@ export function buildReleaseNotes(
   /** ISO date-time of the previous published note — adds an "incremental"
    *  subtitle. The caller is responsible for passing only the runs since then. */
   sincePublishedOn?: string | null,
+  /** devOpsId → work item (batch-read by the caller when DevOps is available).
+   *  When a source's work item is present, the listing groups by work-item type
+   *  and shows title · state · assignee; otherwise it falls back to title/#id. */
+  workItems?: Map<string, WorkItemInfo>,
 ): ReleaseNotesContent {
   // Included solutions — union of merge-run source titles, deduped. A title
   // that resolves to exactly one current working solution with a work item id
@@ -64,10 +71,30 @@ export function buildReleaseNotes(
         title,
         devOpsId,
         url: devOpsId ? devOpsWorkItemUrl(devOpsId) : null,
+        wi: devOpsId ? workItems?.get(devOpsId) : undefined,
       })
     }
   }
   included.sort((a, b) => a.title.localeCompare(b.title))
+
+  // When any source resolved to a work item, group the listing by work-item type
+  // (Feature / Bug / …); sources without a work item drop into an "Other" bucket.
+  const enriched = included.some((s) => s.wi)
+  const wiGroups = new Map<string, IncludedSolution[]>()
+  const otherIncluded: IncludedSolution[] = []
+  for (const s of included) {
+    if (s.wi) {
+      const list = wiGroups.get(s.wi.type) ?? []
+      list.push(s)
+      wiGroups.set(s.wi.type, list)
+    } else otherIncluded.push(s)
+  }
+  const wiGroupList = [...wiGroups.entries()]
+    .map(([type, items]) => ({
+      type,
+      items: items.sort((a, b) => a.wi!.title.localeCompare(b.wi!.title)),
+    }))
+    .sort((a, b) => a.type.localeCompare(b.type))
 
   // Components — union across runs, deduped by canonical type + name. Collapsed
   // types (App Element) are counted, not listed.
@@ -119,11 +146,34 @@ export function buildReleaseNotes(
   ]
   if (since) md.push(`_Incremental — changes since ${since}_`)
   md.push('', `## Included solutions (${included.length})`, '')
-  if (included.length === 0) md.push('_None._', '')
-  for (const s of included) {
-    if (s.devOpsId && s.url) md.push(`- ${s.title} ([#${s.devOpsId}](${s.url}))`)
-    else if (s.devOpsId) md.push(`- ${s.title} (#${s.devOpsId})`)
-    else md.push(`- ${s.title}`)
+  if (included.length === 0) {
+    md.push('_None._', '')
+  } else if (enriched) {
+    for (const g of wiGroupList) {
+      md.push(`### ${g.type} (${g.items.length})`, '')
+      for (const s of g.items) {
+        const link = s.url ? `[#${s.devOpsId}](${s.url})` : `#${s.devOpsId}`
+        const who = s.wi!.assignedTo ? ` · ${s.wi!.assignedTo}` : ''
+        md.push(`- **${link}** ${s.wi!.title} — _${s.wi!.state}_${who}`)
+      }
+      md.push('')
+    }
+    if (otherIncluded.length > 0) {
+      md.push(`### Other (${otherIncluded.length})`, '')
+      for (const s of otherIncluded) {
+        if (s.devOpsId && s.url)
+          md.push(`- ${s.title} ([#${s.devOpsId}](${s.url}))`)
+        else if (s.devOpsId) md.push(`- ${s.title} (#${s.devOpsId})`)
+        else md.push(`- ${s.title}`)
+      }
+      md.push('')
+    }
+  } else {
+    for (const s of included) {
+      if (s.devOpsId && s.url) md.push(`- ${s.title} ([#${s.devOpsId}](${s.url}))`)
+      else if (s.devOpsId) md.push(`- ${s.title} (#${s.devOpsId})`)
+      else md.push(`- ${s.title}`)
+    }
   }
   md.push('', `## Components (${totalComponents})`, '')
   if (normalGroups.length === 0 && collapsedGroups.length === 0)
@@ -163,11 +213,34 @@ export function buildReleaseNotes(
   ]
   if (since) tx.push(`Incremental — changes since ${since}`)
   tx.push('', `INCLUDED SOLUTIONS (${included.length})`)
-  if (included.length === 0) tx.push('  (none)')
-  for (const s of included) {
-    if (s.devOpsId && s.url) tx.push(`  - ${s.title} (#${s.devOpsId}  ${s.url})`)
-    else if (s.devOpsId) tx.push(`  - ${s.title} (#${s.devOpsId})`)
-    else tx.push(`  - ${s.title}`)
+  if (included.length === 0) {
+    tx.push('  (none)')
+  } else if (enriched) {
+    for (const g of wiGroupList) {
+      tx.push(`  ${g.type} (${g.items.length})`)
+      for (const s of g.items) {
+        const who = s.wi!.assignedTo ? ` · ${s.wi!.assignedTo}` : ''
+        const link = s.url ? `  ${s.url}` : ''
+        tx.push(
+          `    - #${s.devOpsId}  ${s.wi!.title} — ${s.wi!.state}${who}${link}`,
+        )
+      }
+    }
+    if (otherIncluded.length > 0) {
+      tx.push(`  Other (${otherIncluded.length})`)
+      for (const s of otherIncluded) {
+        if (s.devOpsId && s.url)
+          tx.push(`    - ${s.title} (#${s.devOpsId}  ${s.url})`)
+        else if (s.devOpsId) tx.push(`    - ${s.title} (#${s.devOpsId})`)
+        else tx.push(`    - ${s.title}`)
+      }
+    }
+  } else {
+    for (const s of included) {
+      if (s.devOpsId && s.url) tx.push(`  - ${s.title} (#${s.devOpsId}  ${s.url})`)
+      else if (s.devOpsId) tx.push(`  - ${s.title} (#${s.devOpsId})`)
+      else tx.push(`  - ${s.title}`)
+    }
   }
   tx.push('', `COMPONENTS (${totalComponents})`)
   if (normalGroups.length === 0 && collapsedGroups.length === 0)

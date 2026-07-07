@@ -11,7 +11,7 @@ import {
   type WorkItemInfo,
   type WorkingSolution,
 } from '../types/solution'
-import { DEVOPS_PANEL_ENABLED, devOpsWorkItemUrl } from '../config'
+import { devOpsWorkItemUrl, isDevOpsAvailable } from '../config'
 import { solutionService } from '../services/solutionService'
 import { formatDateTime, groupBy } from '../utils/format'
 
@@ -617,7 +617,7 @@ export function SolutionDetail({
         <TrackPanel solution={solution} onTrack={onTrack} />
       )}
 
-      {DEVOPS_PANEL_ENABLED && solution.devOpsId && (
+      {isDevOpsAvailable() && solution.devOpsId && (
         <div className="devops-card">
           <div className="devops-card-header">
             <span className="devops-card-title">
@@ -646,22 +646,30 @@ export function SolutionDetail({
           )}
           {!workItemLoading && workItem && (
             <div className="devops-card-body">
-              <span className={`wi-state wi-state--${stateBucket(workItem.state)}`}>
-                {workItem.state}
-              </span>
-              <span className="wi-title" title={workItem.title}>
+              <div className="wi-title" title={workItem.title}>
                 <span className="wi-type muted">{workItem.type}</span>{' '}
                 {workItem.title}
-              </span>
-              <span className="wi-assignee">
-                {workItem.assignedTo ?? 'Unassigned'}
-              </span>
+              </div>
+              <dl className="wi-fields">
+                <dt>Status</dt>
+                <dd>
+                  <span
+                    className={`wi-state wi-state--${stateBucket(workItem.state)}`}
+                  >
+                    {workItem.state}
+                  </span>
+                </dd>
+                <dt>Owner</dt>
+                <dd>{workItem.assignedTo ?? 'Unassigned'}</dd>
+                <dt>Description</dt>
+                <dd className="wi-description">{workItem.description || '—'}</dd>
+              </dl>
             </div>
           )}
           {!workItemLoading && !workItem && (
             <div className="devops-card-body muted">
-              Work item details unavailable — connect Azure DevOps (see
-              README) or check the number.
+              No details for work item #{solution.devOpsId} — it may not exist in
+              the configured project, or the connection can’t read it.
             </div>
           )}
         </div>

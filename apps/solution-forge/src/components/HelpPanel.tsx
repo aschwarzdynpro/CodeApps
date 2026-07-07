@@ -297,7 +297,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               </li>
               <li>
                 The Azure DevOps work item panel (status, assignee, link)
-                appears here once the DevOps connection is active.
+                appears here when the optional DevOps integration is on —
+                enabled in settings, its connection reference bound and an
+                org/project configured. Without DevOps it stays hidden.
               </li>
               <li>
                 <strong>Mark completed…</strong> (active tracked entries) sets

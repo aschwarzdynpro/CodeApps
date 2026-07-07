@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type {
   CreateWorkingSolutionInput,
   PublisherInfo,
   WorkingSolution,
 } from '../types/solution'
+import type { WorkItemPick } from '../utils/workItem'
 import { buildUniqueName, sanitizeIdPart } from '../utils/naming'
-import { DEPLOYMENT_MANAGER_ROLE } from '../config'
+import { DEPLOYMENT_MANAGER_ROLE, isDevOpsSearchEnabled } from '../config'
+import { devOpsService } from '../services/devOpsService'
 
 type Kind = CreateWorkingSolutionInput['kind']
 
@@ -22,6 +24,10 @@ interface Props {
   existingUniqueNames: string[]
   /** Release solutions may only be created by deployment managers. */
   canCreateRelease: boolean
+  /** Optional pre-fill (e.g. when created from a DevOps work item in the drawer). */
+  initialKind?: Kind
+  initialDevOpsId?: string
+  initialTitle?: string
   onCreate: (input: CreateWorkingSolutionInput) => Promise<WorkingSolution>
   onCreated: (solution: WorkingSolution) => void
   onClose: () => void
@@ -38,19 +44,95 @@ export function CreateSolutionDialog({
   defaultPublisherId,
   existingUniqueNames,
   canCreateRelease,
+  initialKind,
+  initialDevOpsId,
+  initialTitle,
   onCreate,
   onCreated,
   onClose,
 }: Props) {
-  const [kind, setKind] = useState<Kind>('feature')
-  const [devOpsId, setDevOpsId] = useState('')
-  const [title, setTitle] = useState('')
+  const [kind, setKind] = useState<Kind>(initialKind ?? 'feature')
+  const [devOpsId, setDevOpsId] = useState(initialDevOpsId ?? '')
+  const [title, setTitle] = useState(initialTitle ?? '')
   const [description, setDescription] = useState('')
   const [publisherId, setPublisherId] = useState(
     defaultPublisherId || publishers[0]?.id || '',
   )
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Optional live work-item search (a separate "Azure DevOps search" field that
+  // fills the id + title). Only offered when the connector is the chosen path
+  // (pro_devopsuseconnectorsync = Yes) and the type is feature/bug; the id + title
+  // are always editable manually, so the dialog works with no connector at all.
+  const [searchTerm, setSearchTerm] = useState('')
+  const [suggestions, setSuggestions] = useState<WorkItemPick[]>([])
+  const [searching, setSearching] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
+  const activeRef = useRef<HTMLButtonElement | null>(null)
+  const searchEnabled = kind !== 'deployment' && isDevOpsSearchEnabled()
+
+  useEffect(() => {
+    const q = searchTerm.trim()
+    if (!searchEnabled || !showSuggestions || q.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSuggestions([])
+      return
+    }
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      setSearching(true)
+      void devOpsService
+        .searchWorkItems(q)
+        .then((res) => {
+          if (!cancelled) {
+            setSuggestions(res)
+            setActiveIndex(res.length ? 0 : -1)
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setSuggestions([])
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false)
+        })
+    }, 300)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [searchTerm, searchEnabled, showSuggestions])
+
+  // Keep the keyboard-highlighted suggestion scrolled into view.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [activeIndex])
+
+  const pickWorkItem = (p: WorkItemPick) => {
+    setDevOpsId(p.id)
+    setTitle(p.title)
+    setSearchTerm('')
+    setSuggestions([])
+    setShowSuggestions(false)
+  }
+
+  const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setShowSuggestions(false)
+      return
+    }
+    if (!showSuggestions || suggestions.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIndex((i) => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter' && activeIndex >= 0) {
+      e.preventDefault()
+      pickWorkItem(suggestions[activeIndex])
+    }
+  }
 
   const idPart = sanitizeIdPart(devOpsId)
   const uniqueName = idPart ? buildUniqueName(kind, idPart) : ''
@@ -132,6 +214,67 @@ export function CreateSolutionDialog({
           </div>
         </div>
 
+        {searchEnabled && (
+          <div className="form-row">
+            <span className="form-label">Azure DevOps search</span>
+            <div className="wi-search">
+              <input
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value)
+                  setShowSuggestions(true)
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() =>
+                  window.setTimeout(() => setShowSuggestions(false), 150)
+                }
+                onKeyDown={onSearchKeyDown}
+                placeholder="Search work items by title or id…"
+                autoFocus
+                autoComplete="off"
+                role="combobox"
+                aria-expanded={showSuggestions && suggestions.length > 0}
+                aria-controls="wi-suggestion-list"
+              />
+              {showSuggestions && (searching || suggestions.length > 0) && (
+                <ul
+                  className="wi-suggestions"
+                  id="wi-suggestion-list"
+                  role="listbox"
+                >
+                  {searching && suggestions.length === 0 && (
+                    <li className="wi-suggestion-empty muted">Searching…</li>
+                  )}
+                  {suggestions.map((p, i) => (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        ref={i === activeIndex ? activeRef : undefined}
+                        className={`wi-suggestion ${
+                          i === activeIndex ? 'wi-suggestion--active' : ''
+                        }`}
+                        role="option"
+                        aria-selected={i === activeIndex}
+                        onMouseEnter={() => setActiveIndex(i)}
+                        onClick={() => pickWorkItem(p)}
+                      >
+                        <span className="wi-suggestion-id">#{p.id}</span>
+                        <span className="wi-suggestion-title" title={p.title}>
+                          {p.title}
+                        </span>
+                        <span className="wi-suggestion-meta muted">
+                          {p.type} · {p.state}
+                          {p.assignedTo ? ` · ${p.assignedTo}` : ''}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+
         <label className="form-row">
           <span className="form-label">
             {kind === 'deployment' ? 'Release / sprint name' : 'Azure DevOps ID'}
@@ -140,7 +283,7 @@ export function CreateSolutionDialog({
             value={devOpsId}
             onChange={(e) => setDevOpsId(e.target.value)}
             placeholder={kind === 'deployment' ? 'sprint_12' : '4711'}
-            autoFocus
+            autoFocus={!searchEnabled}
           />
           {idInvalid && (
             <span className="form-error">

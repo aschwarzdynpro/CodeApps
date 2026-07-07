@@ -47,6 +47,12 @@ power-apps init --non-interactive -n "Solution Administration Console (Pro)" --c
 # D365-CE nonProd", SP). Für den Installer/ALM stattdessen Connection-Reference
 # `pro_CRDataverse` (muss vorab existieren, sonst „Failed to resolve connection ID"):
 ./scripts/add-data-source.ps1 -a shared_commondataserviceforapps -c 73569138b7c4466d9ee6933ad6e66a3c
+# Azure DevOps connector (OPTIONALES Feature, aber die Data Source MUSS existieren,
+# sonst fehlt der generierte AzureDevOpsService und der Build bricht). Playground
+# bindet die (bereits gebundene) CR pro_CR_SAC_DevOps; das Feature bleibt zur
+# Laufzeit gated (pro_devopsenabled + CR gebunden). Schulz: eigene ADO-Connection
+# binden (siehe deploy-env.ps1 DevOpsConnector-TODO):
+./scripts/add-data-source.ps1 -a shared_visualstudioteamservices -cr pro_CR_SAC_DevOps -s d64f1785-c86f-f111-ab0d-6045bda01a46
 # Cloud-Flow (npm-CLI, droppt danach den retrievemissingdependencies-Block
 # aus dataSourcesInfo.ts → manuell wieder einsetzen, Vorlage im Wrapper-Skript):
 # (Optional/derzeit weggelassen — DevOps deaktiviert; der Flow zielt noch aufs Altmodell.)
@@ -343,6 +349,31 @@ Per-Env-Import-Fehler landen in einem Hinweis-Banner statt zu werfen. Der
 Import-History-Mock hat env-spezifische `deploy_sprint_12`-Jobs (UAT ok,
 PROD failed), damit die Timeline offline demobar ist.
 
+**Azure DevOps (optional, flow-los)** — `devOpsService` (`dataverse…`/`mock…`)
+liest Work Items **direkt über den Azure-DevOps-Connector** (generierter
+`AzureDevOpsService`, gebunden an die Connection Reference `pro_CR_SAC_DevOps`) —
+**kein Cloud-Flow**. Das Feature ist **optional & default AUS**: `config.ts →
+isDevOpsAvailable()` = `DEVOPS_ENABLED` (Opt-in `pro_devopsenabled`) **UND**
+`DEVOPS_CONNECTION_BOUND` (CR gebunden, beim Start via
+`devOpsService.refreshAvailability()` aus `connectionreference.connectionid`
+gelesen) **UND** Org+Projekt gesetzt (`ADO_ACCOUNT`/`ADO_PROJECT_NAME` aus
+`pro_workbenchsettings`). Ein Kunde ohne DevOps importiert die (managed) Solution
+mit **ungebundener** CR → alles bleibt dunkel (siehe Gotcha 15). **Reads**:
+`getWorkItem(devOpsId)` → `AzureDevOpsService.ListWorkItems(account,project,id)` →
+`utils/workItem.ts → workItemInfoFrom` (pure, Vitest). **Sync-Weiche**
+(`pro_devopsuseconnectorsync` → `RuntimeConfig.devOpsSyncVia`):
+`solutionService.syncDevOpsWorkItemStatus()` läuft bei `'flow'` (Default, **Schulz
+unverändert**) über den Cloud-Flow `6253ef0c-…`; bei `'connector'` über
+`syncViaConnector()` (liest je offener Working Solution den State, schreibt
+`pro_devopsworkitemstatus` — flow-los, **noch nicht live-verifiziert**).
+Config-Spalten auf `pro_workbenchsettings`: `pro_devopsenabled` (Yes/No) +
+`pro_devopsuseconnectorsync` (Yes/No), in **eigenem** try/catch gelesen (fehlende
+Spalte bricht den Haupt-Config-Read NICHT). UI-Gating: DevOps-Karte in
+`SolutionDetail` + Work-Item-Load in `App.tsx` hängen an `isDevOpsAvailable()`.
+Mock-Parität: `mockDevOpsService` seedet Work Items, Mock-`getRuntimeConfig`
+liefert `devOpsEnabled:true` → offline demobar. Der alte Kill-Switch
+`DEVOPS_PANEL_ENABLED` ist entfernt.
+
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT
@@ -521,10 +552,45 @@ PROD failed), damit die Timeline offline demobar ist.
     liefern (deckt sich mit Merge/Layer-Inspector). Custom Control = `66`.
     Spalten (type 2) sind cross-env (noch) nicht verifizierbar → bleiben
     bewusst `unknown` (ehrlich), kein Auto-Check.
+14. **Azure-DevOps-Connector läuft als Code-App-Data-Source** (empirisch
+    verifiziert 2026-07-07 im Playground): `pac code add-data-source -a
+    shared_visualstudioteamservices -cr pro_CR_SAC_DevOps -s <sol>` erzeugt
+    `generated/services/AzureDevOpsService.ts` + Model mit voller Action-Fläche
+    (`ListWorkItems`, `GetWorkItemDetails`, `UpdateWorkItem`, `RunWiqlQuery`, …)
+    und bundelt sauber → DevOps-Sync geht **flow-los**. `authenticationType`
+    spiegelt die gebundene Connection (EntraOAuth per-User bzw. SP). Die Data
+    Source MUSS in **jedem** Env-Setup dabei sein (deploy-env.ps1
+    `DevOpsConnector`) — sonst fehlt der generierte Service und der Build bricht,
+    unabhängig davon, ob das Feature an ist.
+15. **Connection References sind „optional stellbar" — und NICHT als RootComponent
+    10064 deklarierbar.** Beim Handpaketieren gehört eine CR **ausschließlich** in
+    den `<connectionreferences>`-Block der `customizations.xml`; als
+    `<RootComponent type="10064">` in solution.xml wirft der Import „Invalid
+    component type provided 10064". CRs exportieren **immer ohne `connectionid`**
+    (Bindung ist ziel-spezifisch) → eine **ungebundene** ADO-CR blockiert den
+    managed Import bei einem Kunden **ohne** DevOps NICHT (empirisch 2026-07-07:
+    Import in eine Sandbox ohne ADO-Connection, ohne Settings-File, exit 0). Das
+    ist die Grundlage des optionalen DevOps-Features: CR unbound ausliefern,
+    Feature bleibt aus. Kunden **mit** DevOps binden per
+    `installer/devops-settings.example.json` (`pac solution import --settings-file`).
 
 ## Offen / Nächstes
 
 Abarbeitung nach `Roadmap.md` (⭐: Kollisions-Auflösung,
 Release-Notes-Generator, Drift-Report). Vorher prüfen, ob der
 Dependency-Check-Fix (`2089b37`, WithOrganization-Umstellung) vom User
-bestätigt wurde. SP-Migration & DevOps-Reaktivierung: `TODO.md`.
+bestätigt wurde. SP-Migration: `TODO.md`.
+
+**DevOps-Reaktivierung — Stand (2026-07-07):** optionaler, flow-loser Connector
+gebaut + im **Playground deployt & konfiguriert** (siehe Azure-DevOps-Abschnitt +
+Gotchas 14/15). Playground-Settings: `pro_devopsenabled=Yes`,
+`pro_devopsuseconnectorsync=Yes`, Org `Dynamicspro`/Projekt `ASCDEV`, CR gebunden →
+`isDevOpsAvailable()=true`. Schulz-`DevOpsConnector` in deploy-env.ps1 verdrahtet
+(Mode 'c' auf die INT-11-ADO-Connection `09a08f8f…`; **HSO-Konto ⇒ ggf. TF400813 bei
+Reads**, SP-Migration nötig — Gotcha #9). **Noch in-app zu verifizieren (kein
+Headless-Zugriff, Gotcha #11):** (a) Working Solution „Demo" (#1234) öffnen →
+DevOps-Panel populated (setzt voraus, dass WI #1234 in Dynamicspro/ASCDEV existiert);
+(b) „Sync with DevOps"-Button → läuft im Playground über `syncViaConnector()`
+(useconnectorsync=Yes), schreibt `pro_devopsworkitemstatus`. **Noch offen:** Schulz-
+Deploy zieht die ADO-Data-Source automatisch mit; SP-Migration für echte
+Schulz-Reads (TODO.md).

@@ -10,7 +10,6 @@ import type {
   TrackSolutionInput,
   UpdateWorkingSolutionInput,
   UserRef,
-  WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
 import type { DependencyCheckResult } from '../types/dependency'
@@ -49,40 +48,6 @@ const MOCK_USERS: { id: string; name: string; username: string }[] = [
   { id: 'u-0005', name: 'Albert Einstein', username: 'a.einstein@dynpro.de' },
   { id: 'u-0006', name: 'Andy Schwarz', username: 'andy.schwarz@dynpro.de' },
 ]
-
-/** Sample work items matching the seeded solutions' DevOps ids. */
-const MOCK_WORK_ITEMS: Record<string, Omit<WorkItemInfo, 'id' | 'url'>> = {
-  '4711': {
-    type: 'Feature',
-    title: 'Customer onboarding wizard',
-    state: 'Active',
-    assignedTo: 'Marie Curie',
-  },
-  '4720': {
-    type: 'Feature',
-    title: 'Service-level dashboards',
-    state: 'New',
-    assignedTo: 'Niels Bohr',
-  },
-  '4732': {
-    type: 'Bug',
-    title: 'Duplicate detection fires twice on quote lines',
-    state: 'Active',
-    assignedTo: 'Lise Meitner',
-  },
-  '4699': {
-    type: 'Bug',
-    title: 'Wrong currency on opportunity rollup',
-    state: 'Resolved',
-    assignedTo: 'Max Planck',
-  },
-  '4655': {
-    type: 'Feature',
-    title: 'Partner portal access requests',
-    state: 'Closed',
-    assignedTo: null,
-  },
-}
 
 export class MockSolutionService {
   private solutions: WorkingSolution[] = mockSolutions.map((s) => ({ ...s }))
@@ -135,8 +100,10 @@ export class MockSolutionService {
   }
 
   async getRuntimeConfig(): Promise<RuntimeConfig> {
-    // Offline/mock: keep the build-time defaults (config.ts) — no overrides.
-    return {}
+    // Offline/mock: keep the build-time defaults (config.ts) but enable DevOps so
+    // the Azure DevOps card is demoable (mockDevOpsService marks the connection
+    // reference bound).
+    return { devOpsEnabled: true, devOpsSyncVia: 'flow' }
   }
 
   async createWorkingSolution(
@@ -476,13 +443,6 @@ export class MockSolutionService {
     solution.owner = 'Marie Curie'
     solution.ownerId = 'u-0001'
     solution.deploymentStatus = 'None'
-  }
-
-  async getWorkItem(devOpsId: string): Promise<WorkItemInfo | null> {
-    await delay(350)
-    const item = MOCK_WORK_ITEMS[devOpsId]
-    if (!item) return null
-    return { ...item, id: devOpsId, url: null }
   }
 
   async mergeIntoDeployment(

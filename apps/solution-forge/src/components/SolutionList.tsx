@@ -15,6 +15,9 @@ interface Props {
   onOpen: (id: string) => void
   /** Maker-portal links need the host environment id. */
   environmentId: string | null
+  /** Live Azure DevOps work-item state per devOpsId (from a loaded work item);
+   *  overrides the last synced status on the row badge once it arrives. */
+  liveWorkItemStates?: Map<string, string>
   /** Components that matched the active search, keyed by solution id. */
   componentMatches?: Map<string, SolutionComponentInfo[]>
   /** Collision-radar result, keyed by solution id (null = not scanned). */
@@ -275,6 +278,7 @@ export function SolutionList({
   activeId,
   onOpen,
   environmentId,
+  liveWorkItemStates,
   componentMatches,
   collisions,
   groupByWorkItem,
@@ -335,7 +339,11 @@ export function SolutionList({
     const collCount = collisions?.get(s.id)?.length ?? 0
     const type = TYPE_META[s.kind]
     const status = STATUS_STYLE[stateKey(s)]
-    const dev = s.workItemStatus ? deriveDev(s.workItemStatus) : null
+    // Prefer the live work-item state (from a loaded work item) over the last
+    // synced status, so opening a row refreshes its badge immediately.
+    const wiStatus =
+      (s.devOpsId && liveWorkItemStates?.get(s.devOpsId)) || s.workItemStatus
+    const dev = wiStatus ? deriveDev(wiStatus) : null
     const devUrl = s.devOpsId ? devOpsWorkItemUrl(s.devOpsId) : null
     const makerUrl = s.solutionMissing
       ? null

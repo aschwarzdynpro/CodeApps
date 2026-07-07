@@ -41,6 +41,9 @@ export function DependencyCheck({
   const targetEnvs = ENVIRONMENTS.filter(
     (e) => e.key === 'uat' || e.key === 'prod',
   )
+  // The check needs a TARGET env to test presence against; with only the current
+  // environment configured there is nothing to check, so it is disabled.
+  const noTarget = targetEnvs.length === 0
 
   const running = run?.running ?? false
   const progress = run?.progress ?? ''
@@ -48,6 +51,7 @@ export function DependencyCheck({
   const error = run?.error ?? null
 
   const startCheck = () => {
+    if (noTarget) return
     setAddedIds(new Set())
     setAddError(null)
     onCheck()
@@ -164,24 +168,37 @@ export function DependencyCheck({
     <div>
       <div className="validate-toolbar">
         <div className="chips" title="Target environment for the check">
-          {targetEnvs.map((env) => (
-            <button
-              key={env.key}
-              className={`chip ${envKey === env.key ? 'chip--active' : ''}`}
-              onClick={() => onEnvChange(env.key as 'uat' | 'prod')}
-            >
-              {env.label}
-            </button>
-          ))}
+          {noTarget ? (
+            <span className="muted">No target environment</span>
+          ) : (
+            targetEnvs.map((env) => (
+              <button
+                key={env.key}
+                className={`chip ${envKey === env.key ? 'chip--active' : ''}`}
+                onClick={() => onEnvChange(env.key as 'uat' | 'prod')}
+              >
+                {env.label}
+              </button>
+            ))
+          )}
         </div>
         <button
           className="btn btn--primary"
-          disabled={running}
+          disabled={running || noTarget}
           onClick={startCheck}
         >
           {running ? `Checking… ${progress}` : 'Dependency Check'}
         </button>
       </div>
+
+      {noTarget && (
+        <div className="state state--warn">
+          The dependency check verifies required components against a{' '}
+          <strong>target</strong> environment. Only the current environment is
+          configured — add a UAT/PROD target (in the{' '}
+          <code>pro_environmentconfig</code> table) to enable it.
+        </div>
+      )}
 
       {error && <div className="state state--error">{error}</div>}
       {!!result?.lookupWarnings?.length && (
