@@ -6,7 +6,7 @@ import type {
 } from '../types/solution'
 import type { WorkItemPick } from '../utils/workItem'
 import { buildUniqueName, sanitizeIdPart } from '../utils/naming'
-import { DEPLOYMENT_MANAGER_ROLE, isDevOpsSearchEnabled } from '../config'
+import { DEPLOYMENT_MANAGER_ROLE, isDevOpsAvailable } from '../config'
 import { devOpsService } from '../services/devOpsService'
 
 type Kind = CreateWorkingSolutionInput['kind']
@@ -61,16 +61,16 @@ export function CreateSolutionDialog({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Optional live work-item search (a separate "Azure DevOps search" field that
-  // fills the id + title). Only offered when the connector is the chosen path
-  // (pro_devopsuseconnectorsync = Yes) and the type is feature/bug; the id + title
-  // are always editable manually, so the dialog works with no connector at all.
+  // fills the id + title). Offered whenever the connector is available (reads work
+  // regardless of the sync path) and the type is feature/bug; the id + title are
+  // always editable manually, so the dialog works with no connector at all.
   const [searchTerm, setSearchTerm] = useState('')
   const [suggestions, setSuggestions] = useState<WorkItemPick[]>([])
   const [searching, setSearching] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const activeRef = useRef<HTMLButtonElement | null>(null)
-  const searchEnabled = kind !== 'deployment' && isDevOpsSearchEnabled()
+  const searchEnabled = kind !== 'deployment' && isDevOpsAvailable()
 
   useEffect(() => {
     const q = searchTerm.trim()

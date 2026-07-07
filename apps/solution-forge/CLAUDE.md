@@ -368,8 +368,14 @@ unverändert**) über den Cloud-Flow `6253ef0c-…`; bei `'connector'` über
 `pro_devopsworkitemstatus` — flow-los, **noch nicht live-verifiziert**).
 Config-Spalten auf `pro_workbenchsettings`: `pro_devopsenabled` (Yes/No) +
 `pro_devopsuseconnectorsync` (Yes/No), in **eigenem** try/catch gelesen (fehlende
-Spalte bricht den Haupt-Config-Read NICHT). UI-Gating: DevOps-Karte in
-`SolutionDetail` + Work-Item-Load in `App.tsx` hängen an `isDevOpsAvailable()`.
+Spalte bricht den Haupt-Config-Read NICHT). **Entkopplung (wichtig):**
+`pro_devopsuseconnectorsync` steuert AUSSCHLIESSLICH den Rückschreib-Pfad (Flow ↔
+Connector) + Sichtbarkeit des „Sync with DevOps"-Buttons + Auto-Sync. **Alles
+Connector-Basierte** (Reads/Badge, DevOps-Suche im New-Dialog, „My work items"-
+Drawer) hängt NUR an `isDevOpsAvailable()` — es gibt keinen Flow-Read, der Flow
+schreibt nur Status. Also NICHT wieder die Suche/den Drawer an den Sync-Schalter
+hängen. UI-Gating: DevOps-Karte in `SolutionDetail` + Work-Item-Load in `App.tsx`
+hängen an `isDevOpsAvailable()`.
 Mock-Parität: `mockDevOpsService` seedet Work Items, Mock-`getRuntimeConfig`
 liefert `devOpsEnabled:true` → offline demobar. Der alte Kill-Switch
 `DEVOPS_PANEL_ENABLED` ist entfernt.

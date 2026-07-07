@@ -167,13 +167,6 @@ export function isDevOpsAvailable(): boolean {
   return DEVOPS_ENABLED && DEVOPS_CONNECTION_BOUND && isDevOpsConfigured()
 }
 
-/** Whether the interactive DevOps search (New-Solution work-item picker) should
- *  be offered: DevOps available AND the connector is the chosen path
- *  (`pro_devopsuseconnectorsync` = Yes). When false, ids/titles are entered
- *  manually — the app always works without the connector. */
-export function isDevOpsSearchEnabled(): boolean {
-  return isDevOpsAvailable() && DEVOPS_SYNC_VIA === 'connector'
-}
 
 /** Security role required for the Merge and Compare tabs. Hydrated from the
  *  config table at startup; falls back to the build-time value. */

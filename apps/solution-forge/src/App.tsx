@@ -40,7 +40,6 @@ import {
   DEPLOYMENT_MANAGER_ROLE,
   devOpsSyncVia,
   isDevOpsAvailable,
-  isDevOpsSearchEnabled,
   makerSolutionUrl,
 } from './config'
 import type { WorkItemPick } from './utils/workItem'
@@ -1240,7 +1239,7 @@ function App() {
             >
               + New Working Solution
             </button>
-            {isDevOpsSearchEnabled() && (
+            {isDevOpsAvailable() && (
               <button
                 className="btn btn--small"
                 onClick={openMyItems}
