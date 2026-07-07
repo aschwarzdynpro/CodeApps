@@ -1,4 +1,5 @@
 import DOMPurify from 'dompurify'
+import { marked } from 'marked'
 
 // Sanitized links open in a new tab, safely (noopener/noreferrer).
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
@@ -17,4 +18,17 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 export function sanitizeHtml(html: string): string {
   if (!html || !html.trim()) return ''
   return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } })
+}
+
+/**
+ * Render an Azure DevOps work-item description to safe HTML. Descriptions can be
+ * **Markdown** (newer Markdown fields) OR **rich text (HTML)** depending on the
+ * field/process — `marked` converts the Markdown and passes any embedded HTML
+ * through, then {@link sanitizeHtml} strips anything unsafe. GFM + single-newline
+ * line breaks match how DevOps renders it. Returns '' for empty input.
+ */
+export function renderWorkItemDescription(text: string): string {
+  if (!text || !text.trim()) return ''
+  const html = marked.parse(text, { gfm: true, breaks: true, async: false })
+  return sanitizeHtml(html)
 }

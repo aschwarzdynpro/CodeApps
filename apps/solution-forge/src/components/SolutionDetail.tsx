@@ -14,7 +14,7 @@ import {
 import { devOpsWorkItemUrl, isDevOpsAvailable } from '../config'
 import { solutionService } from '../services/solutionService'
 import { formatDateTime, groupBy } from '../utils/format'
-import { sanitizeHtml } from '../utils/richText'
+import { renderWorkItemDescription } from '../utils/richText'
 
 interface Props {
   solution: WorkingSolution
@@ -664,7 +664,7 @@ export function SolutionDetail({
                 <dd>{workItem.assignedTo ?? 'Unassigned'}</dd>
                 <dt>Description</dt>
                 {(() => {
-                  const html = sanitizeHtml(workItem.description)
+                  const html = renderWorkItemDescription(workItem.description)
                   return html ? (
                     <dd
                       className="wi-description"
