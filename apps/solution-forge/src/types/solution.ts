@@ -137,7 +137,8 @@ export interface WorkItemInfo {
   state: string
   /** Display name of the assignee, or null when unassigned. */
   assignedTo: string | null
-  /** Plain-text description (HTML stripped), empty string when none. */
+  /** Rich-text (HTML) description as returned by Azure DevOps; sanitize before
+   *  rendering (see utils/richText.sanitizeHtml). Empty string when none. */
   description: string
   /** Browser link to the work item, when resolvable. */
   url: string | null

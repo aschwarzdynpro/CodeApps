@@ -14,6 +14,7 @@ import {
 import { devOpsWorkItemUrl, isDevOpsAvailable } from '../config'
 import { solutionService } from '../services/solutionService'
 import { formatDateTime, groupBy } from '../utils/format'
+import { sanitizeHtml } from '../utils/richText'
 
 interface Props {
   solution: WorkingSolution
@@ -662,7 +663,18 @@ export function SolutionDetail({
                 <dt>Owner</dt>
                 <dd>{workItem.assignedTo ?? 'Unassigned'}</dd>
                 <dt>Description</dt>
-                <dd className="wi-description">{workItem.description || '—'}</dd>
+                {(() => {
+                  const html = sanitizeHtml(workItem.description)
+                  return html ? (
+                    <dd
+                      className="wi-description"
+                      // Sanitized DevOps rich text (utils/richText.sanitizeHtml).
+                      dangerouslySetInnerHTML={{ __html: html }}
+                    />
+                  ) : (
+                    <dd className="wi-description muted">—</dd>
+                  )
+                })()}
               </dl>
             </div>
           )}

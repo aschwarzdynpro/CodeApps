@@ -1,25 +1,5 @@
 import type { WorkItemInfo } from '../types/solution'
 
-/**
- * Reduce an Azure DevOps rich-text (HTML) description to plain text: drop tags,
- * decode the few entities that matter, collapse whitespace. Keeps the panel free
- * of tag soup without pulling in a sanitiser.
- */
-export function htmlToPlainText(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<\/(p|div|li|h[1-6])>/gi, ' ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
 type Row = Record<string, unknown>
 
 /**
@@ -62,8 +42,9 @@ export function asText(v: unknown): string {
  * when the row is missing (work item not found). Field spellings are resolved
  * defensively ({@link fieldValue}); blank fields fall back to readable
  * placeholders; a blank assignee becomes null (rendered "Unassigned"); the
- * description is HTML-stripped to plain text. The browser link is passed in
- * (built by config.devOpsWorkItemUrl) so this stays independent of config.
+ * description keeps its raw Azure DevOps rich text (HTML) — sanitize at render.
+ * The browser link is passed in (built by config.devOpsWorkItemUrl) so this
+ * stays independent of config.
  */
 export function workItemInfoFrom(
   devOpsId: string,
@@ -77,7 +58,8 @@ export function workItemInfoFrom(
     title: asText(fieldValue(row, 'Title')) || `#${devOpsId}`,
     state: asText(fieldValue(row, 'State')) || 'Unknown',
     assignedTo: asText(fieldValue(row, 'AssignedTo')) || null,
-    description: htmlToPlainText(asText(fieldValue(row, 'Description'))),
+    // Raw Azure DevOps rich text (HTML); sanitized at render (utils/richText).
+    description: asText(fieldValue(row, 'Description')),
     url,
   }
 }

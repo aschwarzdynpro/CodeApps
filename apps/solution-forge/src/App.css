@@ -1982,9 +1982,42 @@
 }
 .wi-fields dd.wi-description {
   font-weight: 400;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
   line-height: 1.45;
+  overflow-wrap: anywhere;
+  max-height: 220px;
+  overflow-y: auto;
+}
+/* Rendered Azure DevOps rich text (sanitized). */
+.wi-description p,
+.wi-description ul,
+.wi-description ol,
+.wi-description h1,
+.wi-description h2,
+.wi-description h3,
+.wi-description h4 {
+  margin: 0 0 6px;
+}
+.wi-description > *:last-child {
+  margin-bottom: 0;
+}
+.wi-description ul,
+.wi-description ol {
+  padding-left: 20px;
+}
+.wi-description a {
+  color: var(--brand, #4f46e5);
+}
+.wi-description img {
+  max-width: 100%;
+  height: auto;
+}
+.wi-description table {
+  border-collapse: collapse;
+}
+.wi-description td,
+.wi-description th {
+  border: 1px solid var(--border, #e5e7eb);
+  padding: 2px 6px;
 }
 
 /* Live work-item search in the New Working Solution dialog. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { htmlToPlainText, workItemInfoFrom, workItemPickFrom } from './workItem'
+import { workItemInfoFrom, workItemPickFrom } from './workItem'
 
 describe('workItemInfoFrom', () => {
   it('returns null for a missing row', () => {
@@ -25,7 +25,7 @@ describe('workItemInfoFrom', () => {
       title: 'Login broken',
       state: 'Active',
       assignedTo: 'Marie Curie',
-      description: 'Users cannot sign in.',
+      description: '<div>Users cannot sign in.</div>',
       url: 'https://dev.azure.com/acme/proj/_workitems/edit/4711',
     })
   })
@@ -69,7 +69,7 @@ describe('workItemInfoFrom', () => {
       title: 'Lead Scanner einrichten',
       state: 'New',
       assignedTo: 'Andy Schwarz',
-      description: 'Viel Text Noch mehr Text',
+      description: '<div>Viel Text<br>Noch mehr Text</div>',
     })
   })
 
@@ -120,19 +120,5 @@ describe('workItemPickFrom', () => {
   it('returns null without an id', () => {
     expect(workItemPickFrom({ 'System.Title': 'no id' })).toBeNull()
     expect(workItemPickFrom(undefined)).toBeNull()
-  })
-})
-
-describe('htmlToPlainText', () => {
-  it('strips tags, decodes entities and collapses whitespace', () => {
-    expect(
-      htmlToPlainText('<p>Line&nbsp;one</p><p>Line two &amp; more</p>'),
-    ).toBe('Line one Line two & more')
-  })
-  it('turns <br> into spaces', () => {
-    expect(htmlToPlainText('a<br>b<br/>c')).toBe('a b c')
-  })
-  it('returns empty for empty input', () => {
-    expect(htmlToPlainText('')).toBe('')
   })
 })
