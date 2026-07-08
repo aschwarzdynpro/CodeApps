@@ -45,6 +45,7 @@ import {
   makerSolutionUrl,
 } from './config'
 import type { WorkItemPick } from './utils/workItem'
+import type { StateOrders } from './utils/workItemProgress'
 import {
   DEPLOYMENT_COMPLETED_CODE,
   isOpenStatus,
@@ -330,15 +331,21 @@ function App() {
   const [workItems, setWorkItems] = useState<Map<string, WorkItemInfo | null>>(
     new Map(),
   )
-  // devOpsId → live work-item state, so an opened row's status badge reflects the
-  // freshly loaded work item (not just the last synced pro_devopsworkitemstatus).
-  const liveWorkItemStates = useMemo(() => {
-    const m = new Map<string, string>()
+  // devOpsId → live work-item type + state, so an opened row's status badge and
+  // progress bar reflect the freshly loaded work item (not just the last synced
+  // pro_devopsworkitemstatus). The type drives the real per-type progress.
+  const liveWorkItems = useMemo(() => {
+    const m = new Map<string, { type: string; state: string }>()
     workItems.forEach((wi, id) => {
-      if (wi?.state) m.set(id, wi.state)
+      if (wi?.state) m.set(id, { type: wi.type, state: wi.state })
     })
     return m
   }, [workItems])
+  // Ordered states per work-item type (from ListWorkItemTypes) — powers the real
+  // progress bar. Fetched once per session when DevOps is available; empty until
+  // then (rows fall back to the numeric-name heuristic).
+  const [stateOrders, setStateOrders] = useState<StateOrders>(new Map())
+  const stateOrdersFetched = useRef(false)
   // Ids already requested (batch or single), so the batch effect never refetches.
   const fetchedWiRef = useRef<Set<string>>(new Set())
   // The connector auto-sync runs at most once per session.
@@ -527,6 +534,19 @@ function App() {
       cancelled = true
     }
   }, [allSolutions, configVersion])
+
+  // Fetch the ordered states per work-item type once DevOps is available, so the
+  // progress bar reflects the real workflow position. Best-effort, once/session.
+  useEffect(() => {
+    if (stateOrdersFetched.current || !isDevOpsAvailable()) return
+    stateOrdersFetched.current = true
+    void devOpsService
+      .getWorkItemTypeStates()
+      .then((m) => {
+        if (m.size) setStateOrders(m)
+      })
+      .catch(() => {})
+  }, [configVersion])
 
   // Connector mode only: keep the persisted work-item statuses (and the
   // "to be completed" reconciliation) current automatically — no button click.
@@ -1363,7 +1383,8 @@ function App() {
               activeId={selectedId}
               onOpen={openSolution}
               environmentId={environmentId}
-              liveWorkItemStates={liveWorkItemStates}
+              liveWorkItems={liveWorkItems}
+              stateOrders={stateOrders}
               componentMatches={componentMatches}
               collisions={collisions}
               groupByWorkItem={groupByWorkItem}

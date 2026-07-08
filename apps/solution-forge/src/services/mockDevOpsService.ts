@@ -1,5 +1,6 @@
 import type { WorkItemInfo } from '../types/solution'
 import type { WorkItemPick } from '../utils/workItem'
+import type { StateOrders } from '../utils/workItemProgress'
 import type { DevOpsService } from './devOpsService'
 import { isDevOpsAvailable, setDevOpsConnectionBound } from '../config'
 
@@ -99,6 +100,21 @@ class MockDevOpsService implements DevOpsService {
     // Offline demo has no attachment bytes — the seeded descriptions carry no
     // images, so nothing calls this in mock mode.
     return null
+  }
+
+  async getWorkItemTypeStates(): Promise<StateOrders> {
+    // A standard Agile-ish workflow so the mock progress bar shows real,
+    // ordered positions (New → Active → Resolved → Closed) for both seed types.
+    const flow = [
+      { name: 'New', category: 'Proposed' },
+      { name: 'Active', category: 'InProgress' },
+      { name: 'Resolved', category: 'Resolved' },
+      { name: 'Closed', category: 'Completed' },
+    ]
+    return new Map([
+      ['feature', flow],
+      ['bug', flow],
+    ])
   }
 
   async myWorkItems(): Promise<WorkItemPick[]> {

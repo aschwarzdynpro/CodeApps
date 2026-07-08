@@ -18,6 +18,7 @@ import {
   workItemInfoFromRow,
   workItemPickFrom,
 } from '../utils/workItem'
+import { buildStateOrders, type StateOrders } from '../utils/workItemProgress'
 
 /**
  * Pull work-item ids out of a WIQL result, tolerant of the connector's wrapping:
@@ -217,6 +218,29 @@ class DataverseDevOpsService implements DevOpsService {
     } catch (err) {
       console.warn('[devops] getAttachment failed:', err)
       return null
+    }
+  }
+
+  async getWorkItemTypeStates(): Promise<StateOrders> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockDevOpsService.getWorkItemTypeStates()
+    if (!isDevOpsAvailable()) return new Map()
+    try {
+      const result = await AzureDevOpsService.ListWorkItemTypes(
+        ADO_ACCOUNT,
+        ADO_PROJECT_NAME,
+      )
+      if (result && result.success === false) {
+        console.warn('[devops] ListWorkItemTypes failed:', result)
+        return new Map()
+      }
+      return buildStateOrders(
+        result.data?.value as Parameters<typeof buildStateOrders>[0],
+      )
+    } catch (err) {
+      console.warn('[devops] getWorkItemTypeStates failed:', err)
+      return new Map()
     }
   }
 

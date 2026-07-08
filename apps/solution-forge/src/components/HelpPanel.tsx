@@ -264,12 +264,15 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               </li>
               <li>
                 The <strong>DevOps Item</strong> column shows the linked{' '}
-                <strong>#number</strong>, the synced work-item{' '}
-                <strong>status</strong> (colour-coded by stage) and a{' '}
-                <strong>progress bar</strong> derived from the numbered workflow
-                stage (e.g. “13a-UAT…” → ~87%, Closed → 100%; from{' '}
-                <code>pro_devopsworkitemstatus</code>). With the optional DevOps
-                integration on, clicking the <strong>#number</strong> opens a{' '}
+                <strong>#number</strong>, the work-item <strong>status</strong>{' '}
+                and a <strong>progress bar</strong>. With the DevOps integration
+                on, the bar shows the <strong>real workflow position</strong> of
+                the state within its work-item type (fetched once per session
+                from Azure DevOps: e.g. a Bug at <em>Active</em> → 33% of
+                New→Active→Resolved→Closed), coloured by state category. Without
+                that data it falls back to the numbered-name heuristic
+                (“13a-UAT…” → ~87%; from <code>pro_devopsworkitemstatus</code>).
+                Clicking the <strong>#number</strong> opens a{' '}
                 <strong>work-item drawer</strong> on the right (type, title,
                 state, owner, formatted description, “Open ↗”) — no need to
                 expand the row.

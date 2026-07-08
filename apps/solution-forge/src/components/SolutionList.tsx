@@ -8,6 +8,10 @@ import type {
 import { isClosedWorkItemState, isOpenStatus } from '../types/solution'
 import { formatRelative } from '../utils/format'
 import { devOpsWorkItemUrl, makerSolutionUrl } from '../config'
+import {
+  deriveWorkItemProgress,
+  type StateOrders,
+} from '../utils/workItemProgress'
 
 interface Props {
   solutions: WorkingSolution[]
@@ -15,9 +19,13 @@ interface Props {
   onOpen: (id: string) => void
   /** Maker-portal links need the host environment id. */
   environmentId: string | null
-  /** Live Azure DevOps work-item state per devOpsId (from a loaded work item);
-   *  overrides the last synced status on the row badge once it arrives. */
-  liveWorkItemStates?: Map<string, string>
+  /** Live Azure DevOps work-item type + state per devOpsId (from a loaded work
+   *  item); overrides the last synced status on the row badge once it arrives,
+   *  and the type drives the real per-type progress. */
+  liveWorkItems?: Map<string, { type: string; state: string }>
+  /** Ordered states per work-item type — the progress bar's real workflow order
+   *  (empty until fetched; rows then fall back to the numeric-name heuristic). */
+  stateOrders?: StateOrders
   /** Components that matched the active search, keyed by solution id. */
   componentMatches?: Map<string, SolutionComponentInfo[]>
   /** Collision-radar result, keyed by solution id (null = not scanned). */
@@ -193,8 +201,42 @@ function initials(name: string): string {
   return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase()
 }
 
-/** Map a synced work-item state string to a chip colour + progress percent. */
-function deriveDev(status: string): { bg: string; fg: string; pct: string } {
+/** DevOps state category → chip colour bucket. */
+function catForCategory(category: string): CatKey {
+  switch (category.toLowerCase()) {
+    case 'proposed':
+      return 'slate'
+    case 'inprogress':
+      return 'blue'
+    case 'resolved':
+      return 'amber'
+    case 'completed':
+      return 'green'
+    case 'removed':
+      return 'gray'
+    default:
+      return 'blue'
+  }
+}
+
+/**
+ * Map a work-item state to a chip colour + progress percent. Prefers the REAL
+ * workflow position from the type's ordered states ({@link deriveWorkItemProgress});
+ * falls back to the numeric-name heuristic (Schulz "01-…"–"15-…" convention)
+ * when the type/state can't be resolved or the state orders aren't loaded.
+ */
+function deriveDev(
+  status: string,
+  type?: string,
+  orders?: StateOrders,
+): { bg: string; fg: string; pct: string } {
+  if (orders && orders.size > 0) {
+    const real = deriveWorkItemProgress(type, status, orders)
+    if (real) {
+      const cat = catForCategory(real.category)
+      return { bg: CAT[cat].bg, fg: CAT[cat].fg, pct: `${real.pct}%` }
+    }
+  }
   let cat: CatKey = 'blue'
   let num = 8
   if (isClosedWorkItemState(status)) {
@@ -281,7 +323,8 @@ export function SolutionList({
   activeId,
   onOpen,
   environmentId,
-  liveWorkItemStates,
+  liveWorkItems,
+  stateOrders,
   componentMatches,
   collisions,
   groupByWorkItem,
@@ -343,11 +386,12 @@ export function SolutionList({
     const collCount = collisions?.get(s.id)?.length ?? 0
     const type = TYPE_META[s.kind]
     const status = STATUS_STYLE[stateKey(s)]
-    // Prefer the live work-item state (from a loaded work item) over the last
-    // synced status, so opening a row refreshes its badge immediately.
-    const wiStatus =
-      (s.devOpsId && liveWorkItemStates?.get(s.devOpsId)) || s.workItemStatus
-    const dev = wiStatus ? deriveDev(wiStatus) : null
+    // Prefer the live work-item type + state (from a loaded work item) over the
+    // last synced status, so opening a row refreshes its badge immediately and
+    // the progress reflects the real per-type workflow position.
+    const live = s.devOpsId ? liveWorkItems?.get(s.devOpsId) : undefined
+    const wiStatus = live?.state || s.workItemStatus
+    const dev = wiStatus ? deriveDev(wiStatus, live?.type, stateOrders) : null
     const devUrl = s.devOpsId ? devOpsWorkItemUrl(s.devOpsId) : null
     // With DevOps on, the #id opens the work-item drawer (peek) instead of
     // linking straight out — the drawer carries the "Open ↗" link itself.
@@ -516,13 +560,13 @@ export function SolutionList({
                   ) : (
                     <span className="ws-dev-id">#{s.devOpsId}</span>
                   )}
-                  {dev && s.workItemStatus && (
+                  {dev && wiStatus && (
                     <span
                       className="ws-devstate"
                       style={{ background: dev.bg, color: dev.fg }}
-                      title={`DevOps work item status: ${s.workItemStatus}`}
+                      title={`DevOps work item status: ${wiStatus}`}
                     >
-                      {s.workItemStatus}
+                      {wiStatus}
                     </span>
                   )}
                 </div>

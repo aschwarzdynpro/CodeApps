@@ -1,5 +1,6 @@
 import type { WorkItemInfo } from '../types/solution'
 import type { WorkItemPick } from '../utils/workItem'
+import type { StateOrders } from '../utils/workItemProgress'
 import { dataverseDevOpsService } from './dataverseDevOpsService'
 
 /**
@@ -56,6 +57,13 @@ export interface DevOpsService {
    * Returns null when DevOps is unavailable or the attachment can't be read.
    */
   getAttachment(attachmentId: string, fileName?: string): Promise<string | null>
+  /**
+   * The ordered states of each work-item type in the configured project (from
+   * `ListWorkItemTypes`), so the list's progress bar reflects the REAL workflow
+   * position of a state — not a guess from its numbered name. Returns an empty
+   * map when DevOps is unavailable; callers then fall back to the heuristic.
+   */
+  getWorkItemTypeStates(): Promise<StateOrders>
 }
 
 export const devOpsService: DevOpsService = dataverseDevOpsService

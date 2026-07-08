@@ -391,6 +391,18 @@ Connector (`AzureDevOpsService.GetWorkItemAttachmentAsync` → Base64 `content` 
 `data:`-URI (contentType auf `image/*` geklemmt; **noch nicht live verifiziert**,
 CSP muss `img-src data:` erlauben). UI-Gating: Drawer-Trigger + Work-Item-Load
 in `App.tsx` hängen an `isDevOpsAvailable()`.
+**Progress-Bar = echte State-Reihenfolge je Typ:** statt die Prozent aus der
+führenden Zahl im Status zu raten (Schulz-Konvention „01-…"–„15-…"), zieht
+`devOpsService.getWorkItemTypeStates()` einmal pro Session `ListWorkItemTypes`
+(jeder Typ trägt sein `states`-Array in Workflow-Reihenfolge + `category`) und
+baut daraus `StateOrders` (`utils/workItemProgress.ts`, pure, Vitest). Der Balken
+= `deriveWorkItemProgress(type, state, orders)` → Index/(Anzahl−1), Farbe nach
+`category` (Proposed/InProgress/Resolved/Completed/Removed). Typ+State je Zeile
+aus dem geladenen Work Item (`liveWorkItems` Map devOpsId→{type,state} in App.tsx,
+an `SolutionList`). **Fallback** auf die alte Nummern-Heuristik (`deriveDev`) wenn
+Typ/State nicht auflösbar oder `stateOrders` leer (DevOps aus / Schulz-Nummern) —
+so bleibt Schulz und „kein DevOps" unverändert. In-Memory only (keine Persistenz).
+Mock-`getWorkItemTypeStates` seedet New→Active→Resolved→Closed → offline demobar.
 Mock-Parität: `mockDevOpsService` seedet Work Items, Mock-`getRuntimeConfig`
 liefert `devOpsEnabled:true` → offline demobar. Der alte Kill-Switch
 `DEVOPS_PANEL_ENABLED` ist entfernt.
