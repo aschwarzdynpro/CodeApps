@@ -57,7 +57,7 @@ fünf `pro_`-Tabellen (`pro_workingsolution`, `pro_workbenchsettings`,
 
 ## Schritt 2 — Konfigurationsdatensätze anlegen
 
-Beide Tabellen werden im Maker-Portal gepflegt: **Solutions** → importierte
+Alle Konfigurationstabellen werden über die mitgelieferte App Solution Administration Console Settings gepflegt: **Solutions** → importierte
 Solution öffnen → Tabelle anklicken → **Edit** (Daten bearbeiten). Die App
 liest die Werte **beim Start** — nach Änderungen die App neu laden.
 
