@@ -5,6 +5,7 @@
  * `ListWorkItemTypes` (each type carries its `states` in workflow order, with a
  * `category`: Proposed → InProgress → Resolved → Completed, plus Removed).
  */
+import { isClosedWorkItemState } from '../types/solution'
 
 /** One state in a work-item type's workflow. */
 export interface StateRef {
@@ -89,4 +90,81 @@ export function deriveWorkItemProgress(
       ? 100
       : Math.max(6, Math.round((idx / (states.length - 1)) * 100))
   return { pct, category: states[idx].category }
+}
+
+/** Chip colour buckets (shared by the list badge/progress and the drawer badge
+ *  so the two never drift). */
+type CatKey = 'green' | 'gray' | 'blue' | 'amber' | 'violet' | 'slate'
+const CAT: Record<CatKey, { bg: string; fg: string }> = {
+  green: { bg: '#e7f6ec', fg: '#15803d' },
+  gray: { bg: '#eef0f4', fg: '#5b6172' },
+  blue: { bg: '#e7effd', fg: '#1d4ed8' },
+  amber: { bg: '#fdefda', fg: '#b45309' },
+  violet: { bg: '#efeafe', fg: '#6d3fd1' },
+  slate: { bg: '#eef1f6', fg: '#475569' },
+}
+/** Last (closed) stage — the numbered fallback states run "01-…" up to here. */
+const MAX_STAGE = 15
+
+/** DevOps state category → chip colour bucket. */
+function catForCategory(category: string): CatKey {
+  switch (category.toLowerCase()) {
+    case 'proposed':
+      return 'slate'
+    case 'inprogress':
+      return 'blue'
+    case 'resolved':
+      return 'amber'
+    case 'completed':
+      return 'green'
+    case 'removed':
+      return 'gray'
+    default:
+      return 'blue'
+  }
+}
+
+/** Colour + progress percent for a work-item state. */
+export interface StateVisual {
+  bg: string
+  fg: string
+  /** CSS width string, e.g. "33%". */
+  pct: string
+}
+
+/**
+ * The single source of truth for how a work-item state is coloured (and how far
+ * its progress bar fills). Prefers the REAL category from the type's ordered
+ * states ({@link deriveWorkItemProgress}); otherwise falls back to the numbered-
+ * name heuristic (Schulz "01-…"–"15-…" convention). Used by BOTH the list row
+ * and the detail drawer so their badges always match.
+ */
+export function deriveStateVisual(
+  state: string,
+  type: string | undefined,
+  orders: StateOrders | undefined,
+): StateVisual {
+  if (orders && orders.size > 0) {
+    const real = deriveWorkItemProgress(type, state, orders)
+    if (real) {
+      const c = CAT[catForCategory(real.category)]
+      return { bg: c.bg, fg: c.fg, pct: `${real.pct}%` }
+    }
+  }
+  let cat: CatKey = 'blue'
+  let num = 8
+  if (isClosedWorkItemState(state)) {
+    cat = 'gray'
+    num = MAX_STAGE
+  } else {
+    const m = /^(\d+)/.exec(state)
+    num = m ? parseInt(m[1], 10) : 8
+    if (/Proposed/i.test(state)) cat = 'slate'
+    else if (/Deployment/i.test(state)) cat = 'violet'
+    else if (/UAT|Pr(ü|ue)fung|Test|Review/i.test(state)) cat = 'amber'
+  }
+  const pct = isClosedWorkItemState(state)
+    ? 100
+    : Math.max(8, Math.round((num / MAX_STAGE) * 100))
+  return { bg: CAT[cat].bg, fg: CAT[cat].fg, pct: `${pct}%` }
 }

@@ -2,17 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { WorkItemInfo } from '../types/solution'
 import { renderWorkItemDescription } from '../utils/richText'
 import { devOpsService } from '../services/devOpsService'
-
-/** Visual bucket for a work item state across common process templates. */
-function stateBucket(state: string): string {
-  const s = state.toLowerCase()
-  if (['new', 'to do', 'proposed', 'approved'].includes(s)) return 'new'
-  if (['active', 'in progress', 'doing', 'committed'].includes(s)) return 'active'
-  if (['resolved'].includes(s)) return 'resolved'
-  if (['closed', 'done', 'completed'].includes(s)) return 'closed'
-  if (['removed'].includes(s)) return 'removed'
-  return 'other'
-}
+import { deriveStateVisual, type StateOrders } from '../utils/workItemProgress'
 
 /**
  * Find the Azure DevOps attachment images in a sanitized description: their
@@ -45,6 +35,9 @@ interface Props {
   loading: boolean
   /** Browser link into Azure DevOps, or null when org/project aren't configured. */
   url: string | null
+  /** Ordered states per type — so the state badge colours by the real category,
+   *  identical to the list row. */
+  stateOrders?: StateOrders
   /** Re-fetch the work item from Azure DevOps (returns when done). */
   onRefresh: () => Promise<void> | void
   onClose: () => void
@@ -63,6 +56,7 @@ export function WorkItemDrawer({
   workItem,
   loading,
   url,
+  stateOrders,
   onRefresh,
   onClose,
 }: Props) {
@@ -192,11 +186,21 @@ export function WorkItemDrawer({
               <dl className="wi-fields">
                 <dt>Status</dt>
                 <dd>
-                  <span
-                    className={`wi-state wi-state--${stateBucket(workItem.state)}`}
-                  >
-                    {workItem.state}
-                  </span>
+                  {(() => {
+                    const v = deriveStateVisual(
+                      workItem.state,
+                      workItem.type,
+                      stateOrders,
+                    )
+                    return (
+                      <span
+                        className="wi-state"
+                        style={{ background: v.bg, color: v.fg }}
+                      >
+                        {workItem.state}
+                      </span>
+                    )
+                  })()}
                 </dd>
                 <dt>Owner</dt>
                 <dd>{workItem.assignedTo ?? 'Unassigned'}</dd>

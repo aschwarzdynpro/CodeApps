@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildStateOrders, deriveWorkItemProgress } from './workItemProgress'
+import {
+  buildStateOrders,
+  deriveStateVisual,
+  deriveWorkItemProgress,
+} from './workItemProgress'
 
 const TYPES = [
   {
@@ -103,5 +107,34 @@ describe('deriveWorkItemProgress', () => {
     expect(deriveWorkItemProgress('Epic', 'New', orders)).toBeNull()
     expect(deriveWorkItemProgress(undefined, 'New', orders)).toBeNull()
     expect(deriveWorkItemProgress('Bug', '', orders)).toBeNull()
+  })
+})
+
+describe('deriveStateVisual', () => {
+  const orders = buildStateOrders(TYPES)
+
+  it('colours the same state identically regardless of caller (list vs drawer)', () => {
+    // Same inputs → same visual, so the row badge and the drawer badge match.
+    expect(deriveStateVisual('Active', 'Bug', orders)).toEqual(
+      deriveStateVisual('Active', 'Bug', orders),
+    )
+  })
+
+  it('colours by real category: New (Proposed)=slate, Active (InProgress)=blue', () => {
+    expect(deriveStateVisual('New', 'Bug', orders)).toMatchObject({
+      bg: '#eef1f6',
+      fg: '#475569',
+      pct: '6%',
+    })
+    expect(deriveStateVisual('Active', 'Bug', orders)).toMatchObject({
+      bg: '#e7effd',
+      fg: '#1d4ed8',
+      pct: '33%',
+    })
+    expect(deriveStateVisual('Closed', 'Bug', orders).fg).toBe('#15803d') // green
+  })
+
+  it('falls back to the numeric heuristic when no orders resolve', () => {
+    expect(deriveStateVisual('New', 'Bug', new Map()).pct).toBe('53%') // 8/15
   })
 })

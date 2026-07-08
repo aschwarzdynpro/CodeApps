@@ -5,13 +5,10 @@ import type {
   SolutionKind,
   WorkingSolution,
 } from '../types/solution'
-import { isClosedWorkItemState, isOpenStatus } from '../types/solution'
+import { isOpenStatus } from '../types/solution'
 import { formatRelative } from '../utils/format'
 import { devOpsWorkItemUrl, makerSolutionUrl } from '../config'
-import {
-  deriveWorkItemProgress,
-  type StateOrders,
-} from '../utils/workItemProgress'
+import { deriveStateVisual, type StateOrders } from '../utils/workItemProgress'
 
 interface Props {
   solutions: WorkingSolution[]
@@ -171,19 +168,6 @@ const STATUS_STYLE: Record<
   },
 }
 
-/** DevOps work-item state category → chip colours. */
-type CatKey = 'green' | 'gray' | 'blue' | 'amber' | 'violet' | 'slate'
-const CAT: Record<CatKey, { bg: string; fg: string }> = {
-  green: { bg: '#e7f6ec', fg: '#15803d' },
-  gray: { bg: '#eef0f4', fg: '#5b6172' },
-  blue: { bg: '#e7effd', fg: '#1d4ed8' },
-  amber: { bg: '#fdefda', fg: '#b45309' },
-  violet: { bg: '#efeafe', fg: '#6d3fd1' },
-  slate: { bg: '#eef1f6', fg: '#475569' },
-}
-/** Last (closed) stage — the synced states are numbered "01-…" up to here. */
-const MAX_STAGE = 15
-
 function stateKey(s: WorkingSolution): StateKey {
   return s.recordId ? (s.solutionMissing ? 'record-only' : 'both') : 'solution-only'
 }
@@ -199,60 +183,6 @@ function initials(name: string): string {
     .trim()
   const parts = clean.split(/\s+/).filter(Boolean)
   return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase()
-}
-
-/** DevOps state category → chip colour bucket. */
-function catForCategory(category: string): CatKey {
-  switch (category.toLowerCase()) {
-    case 'proposed':
-      return 'slate'
-    case 'inprogress':
-      return 'blue'
-    case 'resolved':
-      return 'amber'
-    case 'completed':
-      return 'green'
-    case 'removed':
-      return 'gray'
-    default:
-      return 'blue'
-  }
-}
-
-/**
- * Map a work-item state to a chip colour + progress percent. Prefers the REAL
- * workflow position from the type's ordered states ({@link deriveWorkItemProgress});
- * falls back to the numeric-name heuristic (Schulz "01-…"–"15-…" convention)
- * when the type/state can't be resolved or the state orders aren't loaded.
- */
-function deriveDev(
-  status: string,
-  type?: string,
-  orders?: StateOrders,
-): { bg: string; fg: string; pct: string } {
-  if (orders && orders.size > 0) {
-    const real = deriveWorkItemProgress(type, status, orders)
-    if (real) {
-      const cat = catForCategory(real.category)
-      return { bg: CAT[cat].bg, fg: CAT[cat].fg, pct: `${real.pct}%` }
-    }
-  }
-  let cat: CatKey = 'blue'
-  let num = 8
-  if (isClosedWorkItemState(status)) {
-    cat = 'gray'
-    num = MAX_STAGE
-  } else {
-    const m = /^(\d+)/.exec(status)
-    num = m ? parseInt(m[1], 10) : 8
-    if (/Proposed/i.test(status)) cat = 'slate'
-    else if (/Deployment/i.test(status)) cat = 'violet'
-    else if (/UAT|Pr(ü|ue)fung|Test|Review/i.test(status)) cat = 'amber'
-  }
-  const pct = isClosedWorkItemState(status)
-    ? 100
-    : Math.max(8, Math.round((num / MAX_STAGE) * 100))
-  return { bg: CAT[cat].bg, fg: CAT[cat].fg, pct: `${pct}%` }
 }
 
 /**
@@ -391,7 +321,9 @@ export function SolutionList({
     // the progress reflects the real per-type workflow position.
     const live = s.devOpsId ? liveWorkItems?.get(s.devOpsId) : undefined
     const wiStatus = live?.state || s.workItemStatus
-    const dev = wiStatus ? deriveDev(wiStatus, live?.type, stateOrders) : null
+    const dev = wiStatus
+      ? deriveStateVisual(wiStatus, live?.type, stateOrders)
+      : null
     const devUrl = s.devOpsId ? devOpsWorkItemUrl(s.devOpsId) : null
     // With DevOps on, the #id opens the work-item drawer (peek) instead of
     // linking straight out — the drawer carries the "Open ↗" link itself.

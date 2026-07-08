@@ -1864,6 +1864,7 @@ function App() {
               ? devOpsWorkItemUrl(workItemTarget.devOpsId)
               : null
           }
+          stateOrders={stateOrders}
           onRefresh={() =>
             workItemTarget.devOpsId
               ? refreshWorkItem(workItemTarget.devOpsId)
