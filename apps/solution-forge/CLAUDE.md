@@ -519,16 +519,21 @@ PROD failed), damit die Timeline offline demobar ist.
     Solution"). **Connection Reference = componenttype `10064`** (NICHT 372 — das
     war der Bug); der Wert, den `RetrieveMissingDependencies`/`solutioncomponent`
     liefern (deckt sich mit Merge/Layer-Inspector). Custom Control = `66`.
-    Spalten (type 2) sind cross-env (noch) nicht verifizierbar → bleiben
-    bewusst `unknown` (ehrlich), kein Auto-Check. **Namen der `unknown`-Typen**
-    (die ohne Spec) werden trotzdem best-effort aufgelöst, damit die Liste nicht
-    nur GUIDs zeigt (`resolveRequiredMetadataNames`): Choice (9) via
-    `GlobalOptionSetDefinitions`, Table (1) via `EntityDefinitions`, Relationship
-    (3/10) via `RelationshipDefinitions`, Column (2) via `EntityDefinitions` mit
-    nach `MetadataId` gefiltertem `Attributes`-Expand (Entity der fehlenden Spalte
-    ist unbekannt → alle Entities, aber winzige Bodies). Die „required by"-Seite
+    **Metadaten-Typen ohne Spec werden jetzt per Namen echt geprüft**
+    (`resolveMetadataDeps`): die import-stabile Identität wird im Current-Env
+    aufgelöst (Column 2 → `entity.attribut`-LogicalName via `EntityDefinitions`
+    mit nach `MetadataId` gefiltertem `Attributes`-Expand; Choice 9 → OptionSet-
+    `Name`; Table 1 → `LogicalName`; Relationship 3/10 → `SchemaName`) und dann
+    **im Ziel nach diesem Namen** gesucht (überlebt Transport, auch wenn die
+    MetadataId je Env divergiert) → `present`/`missing` statt pauschal `unknown`.
+    **Safety (kein False-Green):** `present` nur bei positivem Fund, `false` nur
+    wenn das Ziel für genau diese Identität **erfolgreich** abgefragt wurde und
+    sie fehlt; bei JEDER Lookup-Panne bleibt die id aus `presence` → `unknown`
+    (per-Chunk `queried`-Set trackt, welche Entities/Namen das Ziel wirklich
+    beantwortet hat). Klassifikation ist entkoppelt vom Spec: `targetPresence.has`
+    entscheidet (nicht mehr `DEPENDENCY_SPECS[type] && …`). Die „required by"-Seite
     nutzt `listMergeComponents` (löst Sub-Komponenten-Namen wie Forms/Spalten).
-    Alles in eigenem try/catch — schlägt es fehl, bleibt die GUID.
+    Alles best-effort in eigenem try/catch.
 
 ## Offen / Nächstes
 

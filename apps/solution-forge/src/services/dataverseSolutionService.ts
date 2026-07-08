@@ -1465,16 +1465,21 @@ export class DataverseSolutionService implements SolutionService {
       }
     }
 
-    // Names for the metadata component types that have no table spec (columns,
-    // choices, relationships, tables) — otherwise the whole "could not verify"
-    // list shows bare GUIDs. Best-effort: a failure just keeps those on GUIDs.
-    onProgress?.('Resolving component names…')
+    // Names AND real target presence for the metadata component types that have
+    // no table spec (columns, choices, relationships, tables). Matched by their
+    // import-stable name in the target, so these no longer stay a blanket
+    // "could not verify" — they resolve to present/missing where the target can
+    // be read. Best-effort; a failure keeps those ids as unknown (never a false
+    // "present" — see gotcha #13).
+    onProgress?.('Verifying columns, choices & relationships…')
     try {
-      const metaNames = await this.resolveRequiredMetadataNames(idsByType)
-      for (const [id, name] of metaNames)
+      const meta = await this.resolveMetadataDeps(idsByType, orgUrl)
+      for (const [id, name] of meta.names)
         if (!requiredNames.has(id)) requiredNames.set(id, name)
+      for (const [id, present] of meta.presence)
+        if (!targetPresence.has(id)) targetPresence.set(id, present)
     } catch (err) {
-      console.warn('[deps] metadata name resolution failed:', err)
+      console.warn('[deps] metadata dependency resolution failed:', err)
     }
 
     const typeNameOf = (row: Row, column: string, code: number): string =>
@@ -1492,12 +1497,16 @@ export class DataverseSolutionService implements SolutionService {
         const requiredId = str(row.requiredcomponentobjectid)
         const dependentId = str(row.dependentcomponentobjectid)
         const key = requiredId.toLowerCase()
-        const targetStatus: DependencyItem['targetStatus'] =
-          DEPENDENCY_SPECS[requiredType] && targetPresence.has(key)
-            ? targetPresence.get(key)
-              ? 'present'
-              : 'missing'
-            : 'unknown'
+        // present/missing whenever a presence verdict was recorded (spec-based
+        // table lookup OR the metadata name-match); unknown only when neither
+        // path could verify it.
+        const targetStatus: DependencyItem['targetStatus'] = targetPresence.has(
+          key,
+        )
+          ? targetPresence.get(key)
+            ? 'present'
+            : 'missing'
+          : 'unknown'
         return {
           requiredObjectId: requiredId,
           requiredType,
@@ -1531,27 +1540,138 @@ export class DataverseSolutionService implements SolutionService {
   }
 
   /**
-   * Best-effort readable names for the required metadata component types that
-   * have no table-based {@link DependencySpec} (so the "could not verify" list
-   * shows names, not bare GUIDs): Choice (9) via GlobalOptionSetDefinitions,
-   * Table (1) via EntityDefinitions, Relationship (3/10) via
-   * RelationshipDefinitions, and Column (2) via the owning entities' attributes
-   * (the entity is unknown for a *missing* attribute, so we filter the expanded
-   * Attributes by MetadataId). Keyed by lower-cased object id; every lookup is
-   * isolated so one failure only leaves those ids on their GUID fallback.
+   * NAMES + TARGET PRESENCE for the required metadata component types that have
+   * no table-based {@link DependencySpec} (Column 2, Choice 9, Table 1,
+   * Relationship 3/10). Their object id is a MetadataId, so we resolve their
+   * import-stable identity in the current env (column = `entity.attribute`
+   * logical name; choice/table/relationship = Name/SchemaName) and then check
+   * whether that identity exists in the **target** — matched by NAME, which
+   * survives transport even when the MetadataId differs per environment.
+   * Keyed by lower-cased object id.
+   *
+   * Safety (gotcha #13 — a false "present" is worse than "unknown"): presence is
+   * set to `true` ONLY when positively found in the target, to `false` ONLY when
+   * the target was successfully queried for that exact identity and it was
+   * absent; on ANY lookup failure the id is left OUT of `presence` and stays
+   * "unknown". Every lookup is isolated.
    */
-  private async resolveRequiredMetadataNames(
+  private async resolveMetadataDeps(
     idsByType: Map<number, Set<string>>,
-  ): Promise<Map<string, string>> {
+    targetOrgUrl: string,
+  ): Promise<{ names: Map<string, string>; presence: Map<string, boolean> }> {
     const names = new Map<string, string>()
-    const url =
+    const presence = new Map<string, boolean>()
+    const currentUrl =
       ENVIRONMENTS.find((e) => e.isCurrent)?.url.replace(/\/+$/, '') ?? null
 
-    // Choice (9) — global option sets: fetch id→name and pick the ones we need.
+    /** EntityDefinitions rows with a (filtered) Attributes expand, for one org. */
+    const entityAttrRows = async (
+      url: string,
+      entityFilter: string | undefined,
+      attrExpand: string,
+    ): Promise<Array<Record<string, unknown>>> => {
+      const res = await MicrosoftDataverseService.ListRecordsWithOrganization(
+        url,
+        'EntityDefinitions',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'LogicalName',
+        entityFilter,
+        undefined,
+        attrExpand,
+      )
+      return (
+        (res.data as { value?: Array<Record<string, unknown>> } | undefined)
+          ?.value ?? []
+      )
+    }
+
+    // ── Column (2) ──────────────────────────────────────────────────────────
+    const attrIds = idsByType.get(2)
+    if (attrIds?.size && currentUrl) {
+      // 1) Current env: MetadataId → { entity, attr } (+ readable name). The
+      //    owning entity is unknown for a *missing* attribute, so filter the
+      //    expanded Attributes by MetadataId (entity rows come back tiny).
+      const meta = new Map<string, { entity: string; attr: string }>()
+      for (const chunk of chunksOf([...attrIds], 40)) {
+        const attrFilter = chunk.map((id) => `MetadataId eq ${id}`).join(' or ')
+        try {
+          for (const row of await entityAttrRows(
+            currentUrl,
+            undefined,
+            `Attributes($select=MetadataId,LogicalName,DisplayName;$filter=${attrFilter})`,
+          )) {
+            const entity = str(row.LogicalName)
+            for (const a of (row.Attributes as
+              | Array<Record<string, unknown>>
+              | undefined) ?? []) {
+              const id =
+                typeof a.MetadataId === 'string'
+                  ? a.MetadataId.toLowerCase()
+                  : ''
+              const attr = typeof a.LogicalName === 'string' ? a.LogicalName : ''
+              if (!id || !attr) continue
+              meta.set(id, { entity, attr })
+              const label = (
+                a.DisplayName as
+                  | { UserLocalizedLabel?: { Label?: string } }
+                  | undefined
+              )?.UserLocalizedLabel?.Label
+              const display = typeof label === 'string' && label ? label : attr
+              names.set(id, entity ? `${display} (${entity})` : display)
+            }
+          }
+        } catch (err) {
+          console.warn('[deps] column current-env resolve failed:', err)
+        }
+      }
+      // 2) Target env: which attribute logical names exist on the involved
+      //    entities. `queried` = entities we could actually ask the target about.
+      const entities = [
+        ...new Set([...meta.values()].map((m) => m.entity).filter(Boolean)),
+      ]
+      const queried = new Set<string>()
+      const targetAttrs = new Set<string>()
+      for (const chunk of chunksOf(entities, 25)) {
+        const entFilter = chunk
+          .map((e) => `LogicalName eq '${e.replace(/'/g, "''")}'`)
+          .join(' or ')
+        try {
+          const rows = await entityAttrRows(
+            targetOrgUrl,
+            entFilter,
+            'Attributes($select=LogicalName)',
+          )
+          for (const e of chunk) queried.add(e)
+          for (const row of rows) {
+            const entity = str(row.LogicalName)
+            for (const a of (row.Attributes as
+              | Array<Record<string, unknown>>
+              | undefined) ?? []) {
+              const attr = typeof a.LogicalName === 'string' ? a.LogicalName : ''
+              if (entity && attr)
+                targetAttrs.add(`${entity}.${attr}`.toLowerCase())
+            }
+          }
+        } catch (err) {
+          console.warn('[deps] column target-env check failed:', err)
+        }
+      }
+      // 3) Verdict — only for columns whose entity the target was asked about.
+      for (const [id, m] of meta) {
+        if (!queried.has(m.entity)) continue
+        presence.set(id, targetAttrs.has(`${m.entity}.${m.attr}`.toLowerCase()))
+      }
+    }
+
+    // ── Choice (9) — global option sets, matched by Name ────────────────────
     const choiceIds = idsByType.get(9)
     if (choiceIds?.size) {
       try {
         const wanted = new Set([...choiceIds].map((s) => s.toLowerCase()))
+        const nameById = new Map<string, string>()
         for (const r of await this.queryRows(
           null,
           'GlobalOptionSetDefinitions',
@@ -1559,16 +1679,33 @@ export class DataverseSolutionService implements SolutionService {
         )) {
           const id = str(r.MetadataId).toLowerCase()
           const name = str(r.Name)
-          if (id && name && wanted.has(id)) names.set(id, name)
+          if (id && name && wanted.has(id)) {
+            names.set(id, name)
+            nameById.set(id, name)
+          }
+        }
+        if (nameById.size) {
+          const targetNames = new Set<string>()
+          for (const r of await this.queryRows(
+            targetOrgUrl,
+            'GlobalOptionSetDefinitions',
+            'Name',
+          )) {
+            const n = str(r.Name)
+            if (n) targetNames.add(n.toLowerCase())
+          }
+          for (const [id, name] of nameById)
+            presence.set(id, targetNames.has(name.toLowerCase()))
         }
       } catch (err) {
-        console.warn('[deps] choice (option set) name lookup failed:', err)
+        console.warn('[deps] choice presence check failed:', err)
       }
     }
 
-    // Table (1) — EntityDefinitions by MetadataId → LogicalName.
+    // ── Table (1) — matched by LogicalName ──────────────────────────────────
     const tableIds = idsByType.get(1)
     if (tableIds?.size) {
+      const logicalById = new Map<string, string>()
       for (const chunk of chunksOf([...tableIds], 20)) {
         const filter = chunk.map((id) => `MetadataId eq ${id}`).join(' or ')
         try {
@@ -1580,20 +1717,49 @@ export class DataverseSolutionService implements SolutionService {
           )) {
             const id = str(r.MetadataId).toLowerCase()
             const name = str(r.LogicalName)
-            if (id && name) names.set(id, name)
+            if (id && name) {
+              names.set(id, name)
+              logicalById.set(id, name)
+            }
           }
         } catch (err) {
-          console.warn('[deps] table name lookup failed:', err)
+          console.warn('[deps] table current-env resolve failed:', err)
         }
+      }
+      const queried = new Set<string>()
+      const targetTables = new Set<string>()
+      for (const chunk of chunksOf([...new Set(logicalById.values())], 25)) {
+        const filter = chunk
+          .map((n) => `LogicalName eq '${n.replace(/'/g, "''")}'`)
+          .join(' or ')
+        try {
+          for (const r of await this.queryRows(
+            targetOrgUrl,
+            'EntityDefinitions',
+            'LogicalName',
+            filter,
+          )) {
+            const n = str(r.LogicalName)
+            if (n) targetTables.add(n.toLowerCase())
+          }
+          for (const n of chunk) queried.add(n.toLowerCase())
+        } catch (err) {
+          console.warn('[deps] table target-env check failed:', err)
+        }
+      }
+      for (const [id, logical] of logicalById) {
+        if (!queried.has(logical.toLowerCase())) continue
+        presence.set(id, targetTables.has(logical.toLowerCase()))
       }
     }
 
-    // Relationship (3 / 10) — RelationshipDefinitions by MetadataId → SchemaName.
+    // ── Relationship (3 / 10) — matched by SchemaName ───────────────────────
     const relIds = new Set<string>([
       ...(idsByType.get(3) ?? []),
       ...(idsByType.get(10) ?? []),
     ])
     if (relIds.size) {
+      const schemaById = new Map<string, string>()
       for (const chunk of chunksOf([...relIds], 20)) {
         const filter = chunk.map((id) => `MetadataId eq ${id}`).join(' or ')
         try {
@@ -1605,70 +1771,43 @@ export class DataverseSolutionService implements SolutionService {
           )) {
             const id = str(r.MetadataId).toLowerCase()
             const name = str(r.SchemaName)
-            if (id && name) names.set(id, name)
-          }
-        } catch (err) {
-          console.warn('[deps] relationship name lookup failed:', err)
-        }
-      }
-    }
-
-    // Column (2) — attributes. The owning entity is unknown for a *missing*
-    // attribute, so query EntityDefinitions and filter the expanded Attributes
-    // by MetadataId (chunked; the entity rows come back tiny/mostly-empty).
-    // Each match carries its entity's LogicalName for context.
-    const attrIds = idsByType.get(2)
-    if (attrIds?.size && url) {
-      for (const chunk of chunksOf([...attrIds], 40)) {
-        const attrFilter = chunk.map((id) => `MetadataId eq ${id}`).join(' or ')
-        try {
-          const res = await MicrosoftDataverseService.ListRecordsWithOrganization(
-            url,
-            'EntityDefinitions',
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            'LogicalName',
-            undefined,
-            undefined,
-            `Attributes($select=MetadataId,LogicalName,DisplayName;$filter=${attrFilter})`,
-          )
-          const rows =
-            (res.data as { value?: Array<Record<string, unknown>> } | undefined)
-              ?.value ?? []
-          for (const row of rows) {
-            const entity = str(row.LogicalName)
-            const attributes =
-              (row.Attributes as Array<Record<string, unknown>> | undefined) ??
-              []
-            for (const a of attributes) {
-              const id =
-                typeof a.MetadataId === 'string'
-                  ? a.MetadataId.toLowerCase()
-                  : ''
-              if (!id) continue
-              const label = (
-                a.DisplayName as
-                  | { UserLocalizedLabel?: { Label?: string } }
-                  | undefined
-              )?.UserLocalizedLabel?.Label
-              const base =
-                typeof label === 'string' && label
-                  ? label
-                  : typeof a.LogicalName === 'string'
-                    ? a.LogicalName
-                    : ''
-              if (base) names.set(id, entity ? `${base} (${entity})` : base)
+            if (id && name) {
+              names.set(id, name)
+              schemaById.set(id, name)
             }
           }
         } catch (err) {
-          console.warn('[deps] column (attribute) name lookup failed:', err)
+          console.warn('[deps] relationship current-env resolve failed:', err)
         }
+      }
+      const queried = new Set<string>()
+      const targetRels = new Set<string>()
+      for (const chunk of chunksOf([...new Set(schemaById.values())], 20)) {
+        const filter = chunk
+          .map((n) => `SchemaName eq '${n.replace(/'/g, "''")}'`)
+          .join(' or ')
+        try {
+          for (const r of await this.queryRows(
+            targetOrgUrl,
+            'RelationshipDefinitions',
+            'SchemaName',
+            filter,
+          )) {
+            const n = str(r.SchemaName)
+            if (n) targetRels.add(n.toLowerCase())
+          }
+          for (const n of chunk) queried.add(n.toLowerCase())
+        } catch (err) {
+          console.warn('[deps] relationship target-env check failed:', err)
+        }
+      }
+      for (const [id, schema] of schemaById) {
+        if (!queried.has(schema.toLowerCase())) continue
+        presence.set(id, targetRels.has(schema.toLowerCase()))
       }
     }
 
-    return names
+    return { names, presence }
   }
 
   /**

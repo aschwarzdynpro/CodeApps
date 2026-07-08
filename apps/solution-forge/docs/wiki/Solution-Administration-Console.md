@@ -269,11 +269,17 @@ Die Validate-Gruppe trennt sauber nach Zeitpunkt:
 
 - **Missing in target:** Die Komponente fehlt sowohl in der Solution als auch im
   Ziel → der Import würde scheitern. **Add to Solution** zieht sie direkt in den
-  Release. Name-gematchte Typen (Environment Variables, Connection References,
-  Web Resources, Canvas Apps) zählen als vorhanden, wenn das Ziel sie unter
-  gleichem Namen kennt – auch bei abweichender ID.
-- Alles übrige (bereits im Ziel vorhanden oder von der App nicht prüfbar) wird in
-  einer Zeile zusammengefasst – dort ist nichts zu tun.
+  Release. Über den Namen gematchte Typen zählen als vorhanden, wenn das Ziel sie
+  unter gleichem Namen kennt – auch bei abweichender ID. Geprüft werden neben den
+  tabellenbasierten Typen (Roles, Views, Web Resources, Canvas Apps, Connection
+  References, Environment Variables, Custom Controls …) auch die **Metadaten-Typen
+  über ihren import-stabilen Namen**: **Columns** (`entity.spalte`), **Choices**
+  (Option-Set-Name), **Tables** (LogicalName) und **Relationships** (SchemaName).
+- **Could not verify:** bleibt nur, wo die App die Identität nicht auflösen kann
+  oder das **Ziel nicht lesbar** ist – bewusst **konservativ** (nie fälschlich
+  „grün"): eine solche Komponente kann beim Import trotzdem fehlen.
+- Bereits im Ziel vorhandene Komponenten werden in einer Zeile zusammengefasst –
+  dort ist nichts zu tun.
 - Der Check **läuft im Hintergrund weiter**, wenn man wegnavigiert (siehe
   [Hintergrund-Aktivität](#hintergrund-aktivität)).
 
