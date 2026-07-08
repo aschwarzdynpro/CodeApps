@@ -102,6 +102,32 @@ describe('deriveWorkItemProgress', () => {
     expect(deriveWorkItemProgress('USER STORY', 'Closed', orders)?.pct).toBe(100)
   })
 
+  it('treats both terminal categories as 100%, even Closed sorted before Removed', () => {
+    const withRemoved = buildStateOrders([
+      {
+        Name: 'Bug',
+        states: [
+          { name: 'New', category: 'Proposed' },
+          { name: 'Active', category: 'InProgress' },
+          { name: 'Resolved', category: 'Resolved' },
+          { name: 'Closed', category: 'Completed' },
+          { name: 'Removed', category: 'Removed' },
+        ],
+      },
+    ])
+    expect(deriveWorkItemProgress('Bug', 'Closed', withRemoved)).toEqual({
+      pct: 100,
+      category: 'Completed',
+    })
+    expect(deriveWorkItemProgress('Bug', 'Removed', withRemoved)).toEqual({
+      pct: 100,
+      category: 'Removed',
+    })
+    // Non-terminal ramps toward the first Completed (idx 3), not the array end.
+    expect(deriveWorkItemProgress('Bug', 'Active', withRemoved)?.pct).toBe(33)
+    expect(deriveWorkItemProgress('Bug', 'Resolved', withRemoved)?.pct).toBe(67)
+  })
+
   it('returns null when the type or state is unknown (caller falls back)', () => {
     expect(deriveWorkItemProgress('Bug', 'Frozen', orders)).toBeNull()
     expect(deriveWorkItemProgress('Epic', 'New', orders)).toBeNull()

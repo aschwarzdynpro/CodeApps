@@ -70,9 +70,14 @@ export function buildStateOrders(
 
 /**
  * Position of a work item's current state within its type's real workflow.
- * Returns the percent (index / (count-1), floored at 6 so a first state is still
- * visible) and the state's category (for colour), or null when the type/state
- * can't be resolved — the caller then falls back to the numeric heuristic.
+ * Returns the percent and the state's category (for colour), or null when the
+ * type/state can't be resolved — the caller then falls back to the heuristic.
+ *
+ * Both terminal categories — **Completed** (Closed/Done) AND **Removed** — count
+ * as 100%: each one closes the item. Non-terminal states ramp toward the "done"
+ * frontier (the first Completed state), so reaching Completed is 100% even when
+ * a Removed state is sorted after it (floored at 6% so a first state stays
+ * visible).
  */
 export function deriveWorkItemProgress(
   typeName: string | undefined | null,
@@ -85,11 +90,16 @@ export function deriveWorkItemProgress(
   const target = state.trim().toLowerCase()
   const idx = states.findIndex((s) => s.name.toLowerCase() === target)
   if (idx < 0) return null
-  const pct =
-    states.length <= 1
-      ? 100
-      : Math.max(6, Math.round((idx / (states.length - 1)) * 100))
-  return { pct, category: states[idx].category }
+  const category = states[idx].category
+  const cat = category.toLowerCase()
+  if (cat === 'completed' || cat === 'removed') return { pct: 100, category }
+  // Ramp toward the first Completed state (fall back to the last state when a
+  // type has no Completed category at all).
+  let doneIdx = states.findIndex((s) => s.category.toLowerCase() === 'completed')
+  if (doneIdx < 1) doneIdx = states.length - 1
+  if (doneIdx < 1) return { pct: 100, category }
+  const pct = Math.max(6, Math.round((idx / doneIdx) * 100))
+  return { pct, category }
 }
 
 /** Chip colour buckets (shared by the list badge/progress and the drawer badge

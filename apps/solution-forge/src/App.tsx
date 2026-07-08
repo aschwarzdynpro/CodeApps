@@ -346,6 +346,9 @@ function App() {
   // then (rows fall back to the numeric-name heuristic).
   const [stateOrders, setStateOrders] = useState<StateOrders>(new Map())
   const stateOrdersFetched = useRef(false)
+  // True while the list Refresh is re-pulling DevOps statuses in the background,
+  // so the button can show a spinner (the connector calls outlast the list load).
+  const [devOpsRefreshing, setDevOpsRefreshing] = useState(false)
   // Ids already requested (batch or single), so the batch effect never refetches.
   const fetchedWiRef = useRef<Set<string>>(new Set())
   // The connector auto-sync runs at most once per session.
@@ -830,7 +833,7 @@ function App() {
    * entry to null on a transient failure); new ids after a reload are still
    * picked up by the batch-load effect.
    */
-  const refreshDevOpsData = () => {
+  const refreshDevOpsData = async () => {
     if (!isDevOpsAvailable()) return
     const ids = [
       ...new Set(
@@ -841,29 +844,30 @@ function App() {
     ]
     // Mark all as (re)fetched so the batch effect doesn't double-fetch them.
     fetchedWiRef.current = new Set(ids)
-    if (ids.length > 0) {
-      void devOpsService
-        .getWorkItems(ids)
-        .then((infos) => {
-          const byId = new Map(infos.map((i) => [i.id, i]))
-          setWorkItems((prev) => {
-            const next = new Map(prev)
-            for (const id of ids) {
-              const fresh = byId.get(id)
-              if (fresh) next.set(id, fresh)
-            }
-            return next
-          })
-        })
-        .catch(() => {})
-    }
     stateOrdersFetched.current = true
-    void devOpsService
-      .getWorkItemTypeStates()
-      .then((m) => {
-        if (m.size) setStateOrders(m)
+    setDevOpsRefreshing(true)
+    try {
+      const [infos, m] = await Promise.all([
+        ids.length > 0
+          ? devOpsService.getWorkItems(ids)
+          : Promise.resolve([] as WorkItemInfo[]),
+        devOpsService.getWorkItemTypeStates(),
+      ])
+      const byId = new Map(infos.map((i) => [i.id, i]))
+      setWorkItems((prev) => {
+        const next = new Map(prev)
+        for (const id of ids) {
+          const fresh = byId.get(id)
+          if (fresh) next.set(id, fresh)
+        }
+        return next
       })
-      .catch(() => {})
+      if (m.size) setStateOrders(m)
+    } catch {
+      /* best-effort — keep the last-known DevOps data */
+    } finally {
+      setDevOpsRefreshing(false)
+    }
   }
 
   const loadMyItems = () => {
@@ -1222,12 +1226,23 @@ function App() {
                   className="btn btn--small"
                   onClick={() => {
                     reload()
-                    refreshDevOpsData()
+                    void refreshDevOpsData()
                   }}
-                  disabled={loading}
+                  disabled={loading || devOpsRefreshing}
                   title="Reload the working solutions list and refresh DevOps statuses"
                 >
-                  {loading ? 'Refreshing…' : '⟳ Refresh'}
+                  <span
+                    className={
+                      loading || devOpsRefreshing ? 'wi-refresh-spin' : ''
+                    }
+                  >
+                    ⟳
+                  </span>{' '}
+                  {loading
+                    ? 'Refreshing…'
+                    : devOpsRefreshing
+                      ? 'Syncing DevOps…'
+                      : 'Refresh'}
                 </button>
               </div>
             )}
