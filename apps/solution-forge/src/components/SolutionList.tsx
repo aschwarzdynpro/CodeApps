@@ -425,35 +425,50 @@ export function SolutionList({
             ) : (
               <>
                 <div className="ws-sol-name">
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#0e9384"
-                    strokeWidth="2"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 3 3 8l9 5 9-5-9-5Z" />
-                    <path d="m3 13 9 5 9-5" />
-                  </svg>
                   {makerUrl ? (
                     <a
-                      className="ws-sol-link"
+                      className="ws-sol-pill"
                       href={makerUrl}
                       target="_blank"
                       rel="noreferrer"
                       title="Open this solution in the Maker Portal"
                       onClick={(e) => e.stopPropagation()}
                     >
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 3 3 8l9 5 9-5-9-5Z" />
+                        <path d="m3 13 9 5 9-5" />
+                      </svg>
                       <code>{s.uniqueName}</code>
                       <span className="ws-sol-ext" aria-hidden="true">
                         ↗
                       </span>
                     </a>
                   ) : (
-                    <code>{s.uniqueName}</code>
+                    <span className="ws-sol-pill ws-sol-pill--static">
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 3 3 8l9 5 9-5-9-5Z" />
+                        <path d="m3 13 9 5 9-5" />
+                      </svg>
+                      <code>{s.uniqueName}</code>
+                    </span>
                   )}
                   <CopyUniqueName value={s.uniqueName} />
                 </div>

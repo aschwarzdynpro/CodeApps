@@ -250,11 +250,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 “INT | Deployment Manager” role).
               </li>
               <li>
-                Open a solution in the <strong>Maker Portal</strong> via its{' '}
-                <strong>unique name</strong> in the Solution column — it's a link
-                (with a ↗ icon). The detail pane is kept short (type, title,
+                Open a solution in the <strong>Maker Portal</strong> via the{' '}
+                <strong>teal pill button</strong> (unique name + ↗) in the
+                Solution column. The detail pane is kept short (type, title,
                 description, components, merge history); the row actions and this
-                link replace the old command bar and metadata block.
+                button replace the old command bar and metadata block.
               </li>
               <li>
                 The list is a <strong>columnar table</strong> — Type ·{' '}

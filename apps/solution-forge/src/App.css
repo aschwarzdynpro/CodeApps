@@ -1637,33 +1637,57 @@
   gap: 7px;
   min-width: 0;
 }
-.ws-sol-name svg {
+/* Solution jump: a clear pill button into the Maker Portal, in the Solution
+   column's teal — mirrors the DevOps #id pill but with an external ↗ glyph so
+   it reads as "opens the solution", not just a hyperlink. */
+.ws-sol-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid #bfe3dd;
+  background: #eefaf7;
+  color: #0e7d70;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+.ws-sol-pill:hover {
+  background: #dcf3ee;
+  border-color: #8fd3c8;
+}
+.ws-sol-pill:focus-visible {
+  outline: 2px solid #0e9384;
+  outline-offset: 1px;
+}
+.ws-sol-pill svg {
   flex: none;
 }
-.ws-sol-name code {
+.ws-sol-pill code {
   font-size: 12px;
-  color: #2f3440;
+  font-weight: 600;
+  color: inherit;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.ws-sol-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
   min-width: 0;
-  text-decoration: none;
-}
-.ws-sol-link code {
-  color: #2563eb;
-}
-.ws-sol-link:hover code {
-  text-decoration: underline;
 }
 .ws-sol-ext {
   font-size: 11px;
-  color: #2563eb;
+  font-weight: 700;
+  color: #0e9384;
   flex: none;
+}
+.ws-sol-pill--static {
+  cursor: default;
+  color: #5b6172;
+  background: #f4f7f6;
+  border-color: #dde5e3;
 }
 .ws-version {
   align-self: flex-start;
