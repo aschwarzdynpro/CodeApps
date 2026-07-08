@@ -810,13 +810,60 @@ function App() {
   }
 
   /** Force a fresh read of one work item, bypassing the cache — the drawer's
-   *  refresh button. Returns when the write lands so the button can spin. */
+   *  refresh button. Updates the drawer AND the row (liveWorkItems derives from
+   *  workItems). A null result (item gone) is reflected; a transient error keeps
+   *  the last-known value. Returns when the write lands so the button can spin. */
   const refreshWorkItem = (devOpsId: string): Promise<void> => {
     fetchedWiRef.current.add(devOpsId)
     return devOpsService
       .getWorkItem(devOpsId)
       .then((wi) => setWorkItems((prev) => new Map(prev).set(devOpsId, wi)))
-      .catch(() => setWorkItems((prev) => new Map(prev).set(devOpsId, null)))
+      .catch(() => {
+        /* transient error — keep the last-known work item, don't blank the row */
+      })
+  }
+
+  /**
+   * Re-pull every row's DevOps work item (status) and the per-type state orders
+   * fresh, so the list Refresh reflects the current Azure DevOps state — not the
+   * cached one. Overwrites only ids that re-resolve (never downgrades a good
+   * entry to null on a transient failure); new ids after a reload are still
+   * picked up by the batch-load effect.
+   */
+  const refreshDevOpsData = () => {
+    if (!isDevOpsAvailable()) return
+    const ids = [
+      ...new Set(
+        allSolutions
+          .map((s) => s.devOpsId)
+          .filter((d): d is string => !!d && /^\d+$/.test(d)),
+      ),
+    ]
+    // Mark all as (re)fetched so the batch effect doesn't double-fetch them.
+    fetchedWiRef.current = new Set(ids)
+    if (ids.length > 0) {
+      void devOpsService
+        .getWorkItems(ids)
+        .then((infos) => {
+          const byId = new Map(infos.map((i) => [i.id, i]))
+          setWorkItems((prev) => {
+            const next = new Map(prev)
+            for (const id of ids) {
+              const fresh = byId.get(id)
+              if (fresh) next.set(id, fresh)
+            }
+            return next
+          })
+        })
+        .catch(() => {})
+    }
+    stateOrdersFetched.current = true
+    void devOpsService
+      .getWorkItemTypeStates()
+      .then((m) => {
+        if (m.size) setStateOrders(m)
+      })
+      .catch(() => {})
   }
 
   const loadMyItems = () => {
@@ -1173,9 +1220,12 @@ function App() {
                 )}
                 <button
                   className="btn btn--small"
-                  onClick={() => reload()}
+                  onClick={() => {
+                    reload()
+                    refreshDevOpsData()
+                  }}
                   disabled={loading}
-                  title="Reload the working solutions list"
+                  title="Reload the working solutions list and refresh DevOps statuses"
                 >
                   {loading ? 'Refreshing…' : '⟳ Refresh'}
                 </button>
