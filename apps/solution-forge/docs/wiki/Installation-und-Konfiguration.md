@@ -83,12 +83,12 @@ und können leer bleiben.
 
 **Eine Zeile je Umgebung**, die in der App zur Auswahl stehen soll (Compare,
 Dependency Check, Layers, Env Config, Operate …). Mindestens die
-Host-Umgebung anlegen; typisch sind DEV/UAT/PROD.
+Host-Umgebung anlegen; typisch sind DEV/UAT/PRD.
 
 | Spalte | Anzeigename | Wert |
 | --- | --- | --- |
-| `pro_name` | Name | Anzeigename in der UI (z. B. `DEV`, `UAT`, `PROD`) |
-| `pro_key` | Key | Kurzschlüssel, z. B. `dev` / `uat` / `prod` |
+| `pro_name` | Name | Anzeigename in der UI (z. B. `DEV`, `UAT`, `PRD`) |
+| `pro_key` | Key | Kurzschlüssel, z. B. `dev` / `uat` / `prd` |
 | `pro_url` | Environment URL | Org-URL `https://<org>.crm4.dynamics.com` (ohne Slash am Ende) |
 | `pro_environmentid` | Environment Id | Power-Platform-Environment-ID (aus der Maker-URL `…/environments/<ID>/…`) |
 | `pro_iscurrent` | Is current | `Yes` **nur** bei der Umgebung, in der die App läuft (Host); alle anderen `No` |
@@ -100,7 +100,7 @@ Beispiel:
 | --- | --- | --- | --- | --- |
 | DEV | `dev` | `https://contoso-dev.crm4.dynamics.com` | Yes | 0 |
 | UAT | `uat` | `https://contoso-uat.crm4.dynamics.com` | No | 1 |
-| PROD | `prod` | `https://contoso-prod.crm4.dynamics.com` | No | 2 |
+| PRD | `prd` | `https://contoso-prd.crm4.dynamics.com` | No | 2 |
 
 > **Wichtig:** Genau **eine** Zeile trägt `Is current = Yes` — dort landen
 > die schreibenden Aktionen der App. Die `pro_environmentid` wird für die

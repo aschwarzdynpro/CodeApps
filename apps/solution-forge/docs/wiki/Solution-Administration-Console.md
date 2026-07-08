@@ -23,16 +23,16 @@ und behält die englischen UI-Begriffe bei.
 | Eigenschaft | Wert |
 | --- | --- |
 | **App** | Solution Administration Console (Power Apps Code App) |
-| **App öffnen** | **[▶ Solution Administration Console starten](https://apps.powerapps.com/play/e/431783f6-367c-eb49-984b-4e70e4c0424d/app/459ee5cd-2138-4556-b472-058c676f72ef?hideNavBar=true)** |
-| **Host-Umgebung** | D365-SCHULZ-INT-11 (DEV/„current") |
-| **Vergleichsziele** | UAT, PROD |
-| **Start** | Über den Link oben bzw. das Maker-Portal / den App-Player der Host-Umgebung |
+| **Host-Umgebung** | DEV („current") — die Umgebung, in der die App installiert ist |
+| **Vergleichsziele** | UAT, PRD |
+| **Start** | Über das Maker-Portal bzw. den App-Player der Host-Umgebung |
 
 Die App kennt zwei Berechtigungsstufen:
 
 - **Offen für alle Anwender:** **Workbench** und **Merge**.
-- **Nur mit der Sicherheitsrolle `INT | Deployment Manager`** (direkt am eigenen
-  Benutzer zugewiesen): die gesamte **Validate**-Gruppe (**Deployment
+- **Nur mit der Deployment-Manager-Rolle** (der in den Workbench Settings
+  konfigurierten Sicherheitsrolle, direkt am eigenen Benutzer zugewiesen):
+  die gesamte **Validate**-Gruppe (**Deployment
   Readiness** und **Analyze** inkl. Compare/Layers/App Sharing) sowie
   **Merge Rules**.
 
@@ -50,7 +50,7 @@ Alles in der App dreht sich um die **Working Solution**. Sie besteht aus
    trägt (Tabellen, Flows, Web Resources …). Genau das, was auch im
    Maker-Portal sichtbar ist.
 2. **Darstellungs-/Tracking-Datensatz** – ein Eintrag der Tabelle
-   `ssid_workingsolution` mit Titel, Typ (Feature / Bug / Release), Owner,
+   `pro_workingsolution` mit Titel, Typ (Feature / Bug / Release), Owner,
    Azure-DevOps-ID, Deployment-Status und Merge-Log. Verlinkt über den
    **Unique Name** der echten Solution.
 
@@ -106,7 +106,7 @@ Die zentrale Liste aller Working Solutions.
 - **⟳ Refresh** lädt die Liste neu; daneben steht ein „Updated <Zeit>"-Stempel.
 - **incl. components:** baut einmalig einen Komponenten-Index über die
   **offenen** Working Solutions, damit die Suche auch Komponenten-Anzeigenamen
-  trifft („welche offene Solution enthält ‚SST | Monteur'?"). Treffer erscheinen
+  trifft („welche offene Solution enthält ‚Sales | Invoice'?"). Treffer erscheinen
   als gelbe Chips an der Zeile.
 - **group by work item:** gruppiert die Liste nach DevOps-Nummer; ein
   Amber-Zähler markiert Nummern mit mehreren Solutions.
@@ -123,7 +123,7 @@ Die zentrale Liste aller Working Solutions.
 
 - Jede Zeile zeigt den synchronisierten **DevOps-Work-Item-Status** als Chip
   neben der **#Nummer** – **blau** solange aktiv (New/Active/Resolved …),
-  **dezent grau** wenn Closed/Done (Feld `sst_devopsworkitemstatus`).
+  **dezent grau** wenn Closed/Done (Feld `pro_devopsworkitemstatus`).
 - Ist ein **offener** Eintrag im Work Item bereits **Closed/Done**, wird er als
   **✓ to be completed** markiert und seine **Mark completed**-Aktion
   hervorgehoben.
@@ -196,8 +196,8 @@ Overlay mit den hinzugefügten Komponenten gruppiert nach Typ.
 
 Optional kann jeder Release einschränken, welche Komponententypen er aufnimmt:
 
-- **Allow-Liste** (`sst_allowedmergetypes`) – leer = alle Typen erlaubt.
-- **Exclude-Liste** (`sst_excludedmergetypes`) – darüber angewendet.
+- **Allow-Liste** (`pro_allowedmergetypes`) – leer = alle Typen erlaubt.
+- **Exclude-Liste** (`pro_excludedmergetypes`) – darüber angewendet.
 
 Ein Typ ist mergebar, wenn er **(in Allow ODER Allow leer) UND nicht in Exclude**
 ist. Verwaltet im eigenen **Merge Rules**-Tab; die Workbench-Detailansicht zeigt
@@ -220,12 +220,12 @@ zwei Sub-Tabs:
   - Umschalter **Markdown** (gerendert) **| Raw** (Rohtext) + **Copy** des
     aktiven Formats (Markdown-Tab kopiert die Markdown-Quelle).
   - **Publish** friert den Draft als versionierten Snapshot ein (beide Formate
-    gespeichert). **Publish nur mit Rolle „INT | Deployment Manager"**;
+    gespeichert). **Publish nur mit der Deployment-Manager-Rolle**;
     Anzeigen/Kopieren offen.
 - **History** — alle veröffentlichten Stände (Datum · Autor · Summary); Klick
   öffnet den gespeicherten Stand exakt wie veröffentlicht.
 
-Gespeichert in der Tabelle `sst_releasenote` (Lookup auf die Release-Solution).
+Gespeichert in der Tabelle `pro_releasenote` (Lookup auf die Release-Solution).
 Hinweis: Eine Komponente lässt sich nicht einer einzelnen Quell-Solution
 zuordnen (der Merge-Log speichert die kombinierte Liste), daher Gruppierung nach
 Typ. Die Notes sind **historisch** (was gemergt wurde), nicht der aktuelle
@@ -242,7 +242,7 @@ Die Validate-Gruppe trennt sauber nach Zeitpunkt:
 
 ### Deployment Readiness (Dependency Check)
 
-1. **Release-Solution** und **Ziel-Umgebung** (UAT / PROD) wählen.
+1. **Release-Solution** und **Ziel-Umgebung** (UAT / PRD) wählen.
 2. **Dependency Check** läuft `RetrieveMissingDependencies` und listet jede
    benötigte Komponente, die die Solution **nicht** enthält.
 
@@ -260,7 +260,7 @@ Die Validate-Gruppe trennt sauber nach Zeitpunkt:
 
 Ein gebündelter Durchlauf der Post-Deployment-Checks für eine Release-Solution.
 
-1. In einer Toolbar-Zeile **Release-Solution**, **Ziel** (UAT / PROD) und die
+1. In einer Toolbar-Zeile **Release-Solution**, **Ziel** (UAT / PRD) und die
    gewünschten **Checks** wählen: **Compare**, **Layers**, **App Sharing**.
 2. **Analyze** starten. Ein Phasen-Stepper zeigt den Fortschritt.
 3. Das Ergebnis erscheint in Tabs: **Summary** plus je ein Tab pro gewähltem
@@ -284,11 +284,11 @@ Der Lauf **läuft im Hintergrund weiter**, wenn man wegnavigiert.
 #### Compare (ALM)
 
 Vergleicht Cloud Flows, Workflows, Business Rules, Plugin Steps und Scripts über
-die Umgebungen (current / UAT / PROD), gematcht über import-stabile IDs, gruppiert
+die Umgebungen (DEV / UAT / PRD), gematcht über import-stabile IDs, gruppiert
 nach Typ.
 
 - **Abweichungs-Tags:** **Missing** (nicht im Ziel), **Status drift** (z. B. Flow
-  Draft in PROD, Plugin Step deaktiviert) und **Content drift** (Definition weicht
+  Draft in PRD, Plugin Step deaktiviert) und **Content drift** (Definition weicht
   von DEV ab). Die Summen-Chips filtern die Matrix.
 - **Content drift** braucht den schwereren Content-Durchlauf: in Analyze läuft er
   automatisch; allein über **Check content drift**. Driftende Zeilen erhalten
@@ -320,7 +320,7 @@ im Ziel-Env – dieselbe Sicht wie „See solution layers" im Maker-Portal.
 #### App Sharing
 
 Prüft die **Canvas Apps** und **Custom Pages** einer Solution darauf, mit wem sie
-in DEV/UAT/PROD geteilt sind (cross-env über den import-stabilen Namen gematcht).
+in DEV/UAT/PRD geteilt sind (cross-env über den import-stabilen Namen gematcht).
 
 - Solution-Import überträgt **kein** User-Sharing – eine deployte Canvas App
   erreicht niemanden, bis sie im Ziel geteilt wird. Genau diese Lücke
@@ -353,7 +353,7 @@ Laufen beide Jobs gleichzeitig, stapeln sich die Bars.
   (`feature_4711`), einem rein numerischen Namen oder dem Titel.
 - **⟳ Sync with DevOps** (Workbench-Toolbar) ruft den Cloud Flow
   *PA | MANUAL | Working Solution | Sync DevOps Work Item Status* auf, der je
-  Working Solution `sst_devopsworkitemstatus` aktualisiert. Danach lädt die Liste
+  Working Solution `pro_devopsworkitemstatus` aktualisiert. Danach lädt die Liste
   neu und der **to be completed**-Abgleich sowie die **Status-Chips** rechnen mit
   den frischen Status.
 
@@ -363,12 +363,13 @@ Laufen beide Jobs gleichzeitig, stapeln sich die Bars.
 
 | Schlüssel | Bezeichnung | Rolle |
 | --- | --- | --- |
-| current | INT-11 · current | Host/DEV – hier läuft die App, „Quelle der Wahrheit" für Vergleiche |
+| dev | DEV | Host/„current" – hier läuft die App, „Quelle der Wahrheit" für Vergleiche |
 | uat | UAT | Vergleichs-/Prüfziel |
-| prod | PROD | Vergleichs-/Prüfziel |
+| prd | PRD | Vergleichs-/Prüfziel |
 
 Cross-Env-Zugriff erfolgt über den Microsoft-Dataverse-Konnektor; die Umgebungen
-sind aktuell in der App-Konfiguration hinterlegt.
+werden in der Tabelle **Environment Config** (`pro_environmentconfig`) gepflegt
+(siehe [Installation & Konfiguration](Installation-und-Konfiguration.md)).
 
 ---
 
@@ -399,7 +400,7 @@ sind aktuell in der App-Konfiguration hinterlegt.
 4. **Deployen:** Export/Deployment des Release läuft über die normale Pipeline
    **außerhalb** dieser App – die Console bereitet vor und trackt, deployt aber
    nicht selbst.
-5. **Nach dem Deployment:** **Analyze** gegen UAT/PROD laufen lassen (Risk Score,
+5. **Nach dem Deployment:** **Analyze** gegen UAT/PRD laufen lassen (Risk Score,
    Compare, Layers, App Sharing) und Abweichungen abarbeiten – z. B. unmanaged
    Layer im Portal entfernen, Canvas Apps im Ziel teilen.
 6. **Abschließen:** Fertige Feature/Bugs per **Mark completed** aus der
@@ -413,13 +414,16 @@ sind aktuell in der App-Konfiguration hinterlegt.
 - **Typ:** Power Apps **Code App** (React + TypeScript + Vite,
   `@microsoft/power-apps`). Deploy über `power-apps push`.
 - **Datenmodell (Auswahl):**
-  - `ssid_workingsolution` – Tracking-/Darstellungs-Datensatz (Titel, Typ
-    `sst_type_opt`, DevOps-ID `ssid_devopsid`, Deployment-Status
-    `ssid_deploymentstatus`, Work-Item-Status `sst_devopsworkitemstatus`,
-    Merge-Regeln `sst_allowedmergetypes` / `sst_excludedmergetypes`).
-  - `ssid_workbenchsettings` – Konfiguration (u. a. Standard-Publisher).
-  - `sst_mergerun` – eine Zeile je Merge (Counts, Quell-Titel, hinzugefügte
+  - `pro_workingsolution` – Tracking-/Darstellungs-Datensatz (Titel, Typ
+    `pro_type_opt`, DevOps-ID `pro_devopsid`, Deployment-Status
+    `pro_deploymentstatus`, Work-Item-Status `pro_devopsworkitemstatus`,
+    Merge-Regeln `pro_allowedmergetypes` / `pro_excludedmergetypes`).
+  - `pro_workbenchsettings` – Konfiguration (u. a. Standard-Publisher,
+    Deployment-Manager-Rollenname).
+  - `pro_environmentconfig` – die konfigurierten Umgebungen (DEV/UAT/PRD).
+  - `pro_mergerun` – eine Zeile je Merge (Counts, Quell-Titel, hinzugefügte
     Komponenten als JSON, Ziel-Lookup).
+  - `pro_releasenote` – veröffentlichte Release-Notes-Snapshots.
   - Standard-Tabellen: `solution`, `solutioncomponent`,
     `msdyn_solutioncomponentsummary`, `publisher`, `systemuser`, `role`.
 - **Merge** nutzt die Dataverse-Action `AddSolutionComponent` (Mitgliedschaft,
@@ -427,8 +431,9 @@ sind aktuell in der App-Konfiguration hinterlegt.
 - **Cross-Env-Daten** kommen über den Dataverse-Konnektor
   (`ListRecordsWithOrganization` mit expliziter Org-URL); Sharing-Daten aus
   `principalobjectaccess` per FetchXML.
-- **Rollen-Gate:** Sicherheitsrolle `INT | Deployment Manager` (direkte
-  Zuweisung) schaltet Validate + Merge Rules frei.
+- **Rollen-Gate:** die in den Workbench Settings konfigurierte
+  Deployment-Manager-Rolle (direkte Zuweisung) schaltet Validate +
+  Merge Rules frei.
 
 ---
 
