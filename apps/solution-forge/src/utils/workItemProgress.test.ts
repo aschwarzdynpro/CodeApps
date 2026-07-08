@@ -33,6 +33,33 @@ describe('buildStateOrders', () => {
     ])
   })
 
+  it('orders states by category even when the array comes unordered', () => {
+    const orders = buildStateOrders([
+      {
+        Name: 'Bug',
+        states: [
+          { name: 'Closed', category: 'Completed' },
+          { name: 'New', category: 'Proposed' },
+          { name: 'Resolved', category: 'Resolved' },
+          { name: 'Active', category: 'InProgress' },
+        ],
+      },
+    ])
+    expect(orders.get('bug')!.map((s) => s.name)).toEqual([
+      'New',
+      'Active',
+      'Resolved',
+      'Closed',
+    ])
+  })
+
+  it('reads the raw-REST lower-case type name too', () => {
+    const orders = buildStateOrders([
+      { name: 'Task', states: [{ name: 'To Do', category: 'Proposed' }] },
+    ])
+    expect(orders.has('task')).toBe(true)
+  })
+
   it('skips types without usable states', () => {
     const orders = buildStateOrders([
       { Name: 'Empty', states: [] },

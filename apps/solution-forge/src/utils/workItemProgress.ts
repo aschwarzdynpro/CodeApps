@@ -16,15 +16,30 @@ export interface StateRef {
 /** Ordered states per work-item type. Key = lower-cased type name. */
 export type StateOrders = Map<string, StateRef[]>
 
-/** The subset of the connector's WorkItemType shape we read (kept loose so this
- *  stays independent of the generated model). */
+/** Canonical progression of DevOps state categories. Unknown categories sort
+ *  between InProgress and Resolved so a custom category still lands mid-flow. */
+const CATEGORY_RANK: Record<string, number> = {
+  proposed: 0,
+  inprogress: 1,
+  resolved: 2,
+  completed: 3,
+  removed: 4,
+}
+function categoryRank(category: string): number {
+  return CATEGORY_RANK[category.toLowerCase()] ?? 1.5
+}
+
+/** The subset of a WorkItemType we read (kept loose so this stays independent of
+ *  the generated model). The typed connector op returns `Name`; the raw REST
+ *  passthrough returns `name` — accept both. */
 interface RawWorkItemType {
   Name?: string
+  name?: string
   states?: { name?: string; category?: string }[]
 }
 
 /**
- * Build the {@link StateOrders} map from the connector's `ListWorkItemTypes`
+ * Build the {@link StateOrders} map from a `ListWorkItemTypes` / `workitemtypes`
  * value array. Type names are lower-cased for case-insensitive lookup; the
  * per-type `states` order is preserved (it IS the workflow order). Types without
  * usable states are skipped.
@@ -34,7 +49,7 @@ export function buildStateOrders(
 ): StateOrders {
   const map: StateOrders = new Map()
   for (const t of types ?? []) {
-    const name = (t?.Name ?? '').trim()
+    const name = (t?.Name ?? t?.name ?? '').trim()
     if (!name || !Array.isArray(t.states)) continue
     const states = t.states
       .map((s) => ({
@@ -42,7 +57,12 @@ export function buildStateOrders(
         category: (s?.category ?? '').trim(),
       }))
       .filter((s) => s.name)
-    if (states.length) map.set(name.toLowerCase(), states)
+    if (!states.length) continue
+    // Order by category (Proposed → InProgress → Resolved → Completed → Removed),
+    // keeping the source order within a category (Array.sort is stable) — robust
+    // even when the API returns the states array unordered.
+    states.sort((a, b) => categoryRank(a.category) - categoryRank(b.category))
+    map.set(name.toLowerCase(), states)
   }
   return map
 }

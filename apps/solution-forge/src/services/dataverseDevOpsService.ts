@@ -226,6 +226,10 @@ class DataverseDevOpsService implements DevOpsService {
     if (mode !== 'power-platform')
       return mockDevOpsService.getWorkItemTypeStates()
     if (!isDevOpsAvailable()) return new Map()
+
+    // Primary: the typed ListWorkItemTypes — each type is meant to carry its
+    // `states`. Some connector responses drop the states, so we verify the
+    // parse produced something and otherwise fall through to the raw REST call.
     try {
       const result = await AzureDevOpsService.ListWorkItemTypes(
         ADO_ACCOUNT,
@@ -233,13 +237,47 @@ class DataverseDevOpsService implements DevOpsService {
       )
       if (result && result.success === false) {
         console.warn('[devops] ListWorkItemTypes failed:', result)
+      } else {
+        const orders = buildStateOrders(
+          (result.data?.value ??
+            result.data) as Parameters<typeof buildStateOrders>[0],
+        )
+        if (orders.size > 0) return orders
+        console.warn(
+          '[devops] ListWorkItemTypes returned no states — trying raw REST. Payload:',
+          result.data,
+        )
+      }
+    } catch (err) {
+      console.warn('[devops] ListWorkItemTypes threw:', err)
+    }
+
+    // Fallback: the generic HttpRequest passthrough to the raw work-item-types
+    // endpoint, which returns each type with its `states` array inline (gotcha:
+    // GET-Functions aren't callable cross-env, but HttpRequest runs against the
+    // bound connection's own org, which is what we want here).
+    try {
+      const res = await AzureDevOpsService.HttpRequest(ADO_ACCOUNT, {
+        Method: 'GET',
+        Uri: `${ADO_PROJECT_NAME}/_apis/wit/workitemtypes?api-version=7.1`,
+      })
+      if (res && res.success === false) {
+        console.warn('[devops] workitemtypes HttpRequest failed:', res)
         return new Map()
       }
-      return buildStateOrders(
-        result.data?.value as Parameters<typeof buildStateOrders>[0],
+      const data = res.data as { value?: unknown } | undefined
+      const orders = buildStateOrders(
+        (data?.value ?? data) as Parameters<typeof buildStateOrders>[0],
       )
+      if (orders.size === 0)
+        console.warn(
+          '[devops] workitemtypes passthrough parsed no states. Payload:',
+          res.data,
+        )
+      else console.warn('[devops] state orders for types:', [...orders.keys()])
+      return orders
     } catch (err) {
-      console.warn('[devops] getWorkItemTypeStates failed:', err)
+      console.warn('[devops] workitemtypes HttpRequest threw:', err)
       return new Map()
     }
   }
