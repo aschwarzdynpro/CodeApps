@@ -95,6 +95,12 @@ class MockDevOpsService implements DevOpsService {
       }))
   }
 
+  async getAttachment(): Promise<string | null> {
+    // Offline demo has no attachment bytes — the seeded descriptions carry no
+    // images, so nothing calls this in mock mode.
+    return null
+  }
+
   async myWorkItems(): Promise<WorkItemPick[]> {
     await delay(300)
     const closed = new Set(['closed', 'done', 'removed'])

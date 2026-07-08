@@ -49,6 +49,13 @@ export interface DevOpsService {
    * [] when DevOps is unavailable.
    */
   myWorkItems(): Promise<WorkItemPick[]>
+  /**
+   * Fetch a work-item attachment (an image embedded in the description) as a
+   * `data:` URI, so it can render inline without the browser needing the
+   * connector's auth token. `attachmentId` is the GUID from the attachment URL.
+   * Returns null when DevOps is unavailable or the attachment can't be read.
+   */
+  getAttachment(attachmentId: string, fileName?: string): Promise<string | null>
 }
 
 export const devOpsService: DevOpsService = dataverseDevOpsService

@@ -381,8 +381,16 @@ Solution-Detail** (kein Aufklappen der Components nötig; `SolutionDetail` zeigt
 KEINE DevOps-Karte mehr). Ohne DevOps bleibt die `#id` ein externer Link nach
 Azure DevOps. Der Drawer liest den Work Item aus dem `workItems`-Batch-Cache
 (sofort da) bzw. lädt ihn on-demand (`openWorkItem`→`loadWorkItem`); Rich-Text/
-Markdown via `renderWorkItemDescription`. UI-Gating: Drawer-Trigger +
-Work-Item-Load in `App.tsx` hängen an `isDevOpsAvailable()`.
+Markdown via `renderWorkItemDescription`; **Refresh-Button** erzwingt einen
+frischen Read (`refreshWorkItem`, Cache-Bypass). **Attachment-Bilder in der
+Description**: DevOps bettet Bilder als `…/_apis/wit/attachments/{guid}?…` ein —
+der Browser kann die ohne Auth-Token NICHT laden (401). Der Drawer zieht sie
+darum per `devOpsService.getAttachment(attachmentId, fileName)` über den
+Connector (`AzureDevOpsService.GetWorkItemAttachmentAsync` → Base64 `content` +
+`contentType`) und ersetzt den `<img src>` NACH der Sanitization durch eine
+`data:`-URI (contentType auf `image/*` geklemmt; **noch nicht live verifiziert**,
+CSP muss `img-src data:` erlauben). UI-Gating: Drawer-Trigger + Work-Item-Load
+in `App.tsx` hängen an `isDevOpsAvailable()`.
 Mock-Parität: `mockDevOpsService` seedet Work Items, Mock-`getRuntimeConfig`
 liefert `devOpsEnabled:true` → offline demobar. Der alte Kill-Switch
 `DEVOPS_PANEL_ENABLED` ist entfernt.

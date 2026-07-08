@@ -789,6 +789,16 @@ function App() {
     if (s.devOpsId) loadWorkItem(s.devOpsId)
   }
 
+  /** Force a fresh read of one work item, bypassing the cache — the drawer's
+   *  refresh button. Returns when the write lands so the button can spin. */
+  const refreshWorkItem = (devOpsId: string): Promise<void> => {
+    fetchedWiRef.current.add(devOpsId)
+    return devOpsService
+      .getWorkItem(devOpsId)
+      .then((wi) => setWorkItems((prev) => new Map(prev).set(devOpsId, wi)))
+      .catch(() => setWorkItems((prev) => new Map(prev).set(devOpsId, null)))
+  }
+
   const loadMyItems = () => {
     setMyItemsLoading(true)
     devOpsService
@@ -1767,6 +1777,7 @@ function App() {
       )}
       {workItemTarget && (
         <WorkItemDrawer
+          key={workItemTarget.id}
           devOpsId={workItemTarget.devOpsId ?? ''}
           workItem={
             workItemTarget.devOpsId
@@ -1781,6 +1792,11 @@ function App() {
             workItemTarget.devOpsId
               ? devOpsWorkItemUrl(workItemTarget.devOpsId)
               : null
+          }
+          onRefresh={() =>
+            workItemTarget.devOpsId
+              ? refreshWorkItem(workItemTarget.devOpsId)
+              : Promise.resolve()
           }
           onClose={() => setWorkItemTarget(null)}
         />

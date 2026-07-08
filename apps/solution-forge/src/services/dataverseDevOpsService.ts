@@ -186,6 +186,40 @@ class DataverseDevOpsService implements DevOpsService {
     return this.hydrateWiql(wiql, 50)
   }
 
+  async getAttachment(
+    attachmentId: string,
+    fileName?: string,
+  ): Promise<string | null> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockDevOpsService.getAttachment(attachmentId, fileName)
+    if (!isDevOpsAvailable()) return null
+    const id = attachmentId.trim()
+    if (!id) return null
+    try {
+      const result = await AzureDevOpsService.GetWorkItemAttachmentAsync(
+        ADO_ACCOUNT,
+        id,
+        ADO_PROJECT_NAME,
+        fileName,
+      )
+      if (result && result.success === false) {
+        console.warn('[devops] GetWorkItemAttachment failed:', result)
+        return null
+      }
+      const content = result.data?.content
+      if (!content) return null
+      // Clamp the MIME to an image/* value so nothing but an image can be built
+      // into the data: URI we later drop into the sanitized description HTML.
+      const raw = result.data?.contentType ?? ''
+      const mime = /^image\/[a-z0-9.+-]+$/i.test(raw) ? raw : 'image/png'
+      return `data:${mime};base64,${content}`
+    } catch (err) {
+      console.warn('[devops] getAttachment failed:', err)
+      return null
+    }
+  }
+
   /**
    * Run a WIQL query and hydrate the resulting work-item id refs into
    * {@link WorkItemPick}s via ListWorkItems (the proven read path). Best-effort:
