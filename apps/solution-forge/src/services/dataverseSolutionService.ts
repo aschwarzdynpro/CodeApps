@@ -295,6 +295,14 @@ const DEPENDENCY_SPECS: Record<number, DependencySpec> = {
     displayField: 'name',
     matchField: 'name',
   },
+  62: {
+    // Site Map — a record (not metadata). Model-driven apps depend on it;
+    // matched cross-env by its import-stable unique name.
+    entitySet: 'sitemaps',
+    idField: 'sitemapid',
+    displayField: 'sitemapnameunique',
+    matchField: 'sitemapnameunique',
+  },
   66: {
     // Custom control (PCF). Forms (type 60) depend on these; a missing one
     // fails the import. Matched cross-env by the control's unique name
@@ -1472,12 +1480,22 @@ export class DataverseSolutionService implements SolutionService {
     // be read. Best-effort; a failure keeps those ids as unknown (never a false
     // "present" — see gotcha #13).
     onProgress?.('Verifying columns, choices & relationships…')
+    const metadataIdCount = [1, 2, 3, 9, 10].reduce(
+      (n, t) => n + (idsByType.get(t)?.size ?? 0),
+      0,
+    )
     try {
       const meta = await this.resolveMetadataDeps(idsByType, orgUrl)
       for (const [id, name] of meta.names)
         if (!requiredNames.has(id)) requiredNames.set(id, name)
       for (const [id, present] of meta.presence)
         if (!targetPresence.has(id)) targetPresence.set(id, present)
+      // Diagnostic: how many metadata deps got a real present/missing verdict.
+      // 0 despite a non-zero count means the target metadata queries failed —
+      // check the preceding [deps] warnings.
+      console.info(
+        `[deps] metadata verify: ${meta.presence.size}/${metadataIdCount} got present/missing, ${meta.names.size} named`,
+      )
     } catch (err) {
       console.warn('[deps] metadata dependency resolution failed:', err)
     }
