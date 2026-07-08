@@ -1380,9 +1380,11 @@ export class DataverseSolutionService implements SolutionService {
     const rows =
       (result.data as { value?: Row[] } | undefined)?.value ?? []
 
-    // Display names of the solution's own members (the dependent side).
+    // Display names of the solution's own members (the dependent side). Merge
+    // components resolve sub-component names (forms, columns, …), so the
+    // "required by …" side shows a real name instead of the member's GUID.
     onProgress?.('Resolving solution components…')
-    const members = await this.listComponents(solution.id).catch(
+    const members = await this.listMergeComponents(solution.id).catch(
       () => [] as SolutionComponentInfo[],
     )
     const memberNames = new Map(
@@ -1463,6 +1465,18 @@ export class DataverseSolutionService implements SolutionService {
       }
     }
 
+    // Names for the metadata component types that have no table spec (columns,
+    // choices, relationships, tables) — otherwise the whole "could not verify"
+    // list shows bare GUIDs. Best-effort: a failure just keeps those on GUIDs.
+    onProgress?.('Resolving component names…')
+    try {
+      const metaNames = await this.resolveRequiredMetadataNames(idsByType)
+      for (const [id, name] of metaNames)
+        if (!requiredNames.has(id)) requiredNames.set(id, name)
+    } catch (err) {
+      console.warn('[deps] metadata name resolution failed:', err)
+    }
+
     const typeNameOf = (row: Row, column: string, code: number): string =>
       prettifyTypeName(
         formatted(row, column) ??
@@ -1514,6 +1528,147 @@ export class DataverseSolutionService implements SolutionService {
       ...(targetUnreachable ? { targetUnreachable } : {}),
       ...(lookupWarnings.length ? { lookupWarnings } : {}),
     }
+  }
+
+  /**
+   * Best-effort readable names for the required metadata component types that
+   * have no table-based {@link DependencySpec} (so the "could not verify" list
+   * shows names, not bare GUIDs): Choice (9) via GlobalOptionSetDefinitions,
+   * Table (1) via EntityDefinitions, Relationship (3/10) via
+   * RelationshipDefinitions, and Column (2) via the owning entities' attributes
+   * (the entity is unknown for a *missing* attribute, so we filter the expanded
+   * Attributes by MetadataId). Keyed by lower-cased object id; every lookup is
+   * isolated so one failure only leaves those ids on their GUID fallback.
+   */
+  private async resolveRequiredMetadataNames(
+    idsByType: Map<number, Set<string>>,
+  ): Promise<Map<string, string>> {
+    const names = new Map<string, string>()
+    const url =
+      ENVIRONMENTS.find((e) => e.isCurrent)?.url.replace(/\/+$/, '') ?? null
+
+    // Choice (9) — global option sets: fetch id→name and pick the ones we need.
+    const choiceIds = idsByType.get(9)
+    if (choiceIds?.size) {
+      try {
+        const wanted = new Set([...choiceIds].map((s) => s.toLowerCase()))
+        for (const r of await this.queryRows(
+          null,
+          'GlobalOptionSetDefinitions',
+          'MetadataId,Name',
+        )) {
+          const id = str(r.MetadataId).toLowerCase()
+          const name = str(r.Name)
+          if (id && name && wanted.has(id)) names.set(id, name)
+        }
+      } catch (err) {
+        console.warn('[deps] choice (option set) name lookup failed:', err)
+      }
+    }
+
+    // Table (1) — EntityDefinitions by MetadataId → LogicalName.
+    const tableIds = idsByType.get(1)
+    if (tableIds?.size) {
+      for (const chunk of chunksOf([...tableIds], 20)) {
+        const filter = chunk.map((id) => `MetadataId eq ${id}`).join(' or ')
+        try {
+          for (const r of await this.queryRows(
+            null,
+            'EntityDefinitions',
+            'MetadataId,LogicalName',
+            filter,
+          )) {
+            const id = str(r.MetadataId).toLowerCase()
+            const name = str(r.LogicalName)
+            if (id && name) names.set(id, name)
+          }
+        } catch (err) {
+          console.warn('[deps] table name lookup failed:', err)
+        }
+      }
+    }
+
+    // Relationship (3 / 10) — RelationshipDefinitions by MetadataId → SchemaName.
+    const relIds = new Set<string>([
+      ...(idsByType.get(3) ?? []),
+      ...(idsByType.get(10) ?? []),
+    ])
+    if (relIds.size) {
+      for (const chunk of chunksOf([...relIds], 20)) {
+        const filter = chunk.map((id) => `MetadataId eq ${id}`).join(' or ')
+        try {
+          for (const r of await this.queryRows(
+            null,
+            'RelationshipDefinitions',
+            'MetadataId,SchemaName',
+            filter,
+          )) {
+            const id = str(r.MetadataId).toLowerCase()
+            const name = str(r.SchemaName)
+            if (id && name) names.set(id, name)
+          }
+        } catch (err) {
+          console.warn('[deps] relationship name lookup failed:', err)
+        }
+      }
+    }
+
+    // Column (2) — attributes. The owning entity is unknown for a *missing*
+    // attribute, so query EntityDefinitions and filter the expanded Attributes
+    // by MetadataId (chunked; the entity rows come back tiny/mostly-empty).
+    // Each match carries its entity's LogicalName for context.
+    const attrIds = idsByType.get(2)
+    if (attrIds?.size && url) {
+      for (const chunk of chunksOf([...attrIds], 40)) {
+        const attrFilter = chunk.map((id) => `MetadataId eq ${id}`).join(' or ')
+        try {
+          const res = await MicrosoftDataverseService.ListRecordsWithOrganization(
+            url,
+            'EntityDefinitions',
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            'LogicalName',
+            undefined,
+            undefined,
+            `Attributes($select=MetadataId,LogicalName,DisplayName;$filter=${attrFilter})`,
+          )
+          const rows =
+            (res.data as { value?: Array<Record<string, unknown>> } | undefined)
+              ?.value ?? []
+          for (const row of rows) {
+            const entity = str(row.LogicalName)
+            const attributes =
+              (row.Attributes as Array<Record<string, unknown>> | undefined) ??
+              []
+            for (const a of attributes) {
+              const id =
+                typeof a.MetadataId === 'string'
+                  ? a.MetadataId.toLowerCase()
+                  : ''
+              if (!id) continue
+              const label = (
+                a.DisplayName as
+                  | { UserLocalizedLabel?: { Label?: string } }
+                  | undefined
+              )?.UserLocalizedLabel?.Label
+              const base =
+                typeof label === 'string' && label
+                  ? label
+                  : typeof a.LogicalName === 'string'
+                    ? a.LogicalName
+                    : ''
+              if (base) names.set(id, entity ? `${base} (${entity})` : base)
+            }
+          }
+        } catch (err) {
+          console.warn('[deps] column (attribute) name lookup failed:', err)
+        }
+      }
+    }
+
+    return names
   }
 
   /**

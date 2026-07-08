@@ -520,7 +520,15 @@ PROD failed), damit die Timeline offline demobar ist.
     war der Bug); der Wert, den `RetrieveMissingDependencies`/`solutioncomponent`
     liefern (deckt sich mit Merge/Layer-Inspector). Custom Control = `66`.
     Spalten (type 2) sind cross-env (noch) nicht verifizierbar → bleiben
-    bewusst `unknown` (ehrlich), kein Auto-Check.
+    bewusst `unknown` (ehrlich), kein Auto-Check. **Namen der `unknown`-Typen**
+    (die ohne Spec) werden trotzdem best-effort aufgelöst, damit die Liste nicht
+    nur GUIDs zeigt (`resolveRequiredMetadataNames`): Choice (9) via
+    `GlobalOptionSetDefinitions`, Table (1) via `EntityDefinitions`, Relationship
+    (3/10) via `RelationshipDefinitions`, Column (2) via `EntityDefinitions` mit
+    nach `MetadataId` gefiltertem `Attributes`-Expand (Entity der fehlenden Spalte
+    ist unbekannt → alle Entities, aber winzige Bodies). Die „required by"-Seite
+    nutzt `listMergeComponents` (löst Sub-Komponenten-Namen wie Forms/Spalten).
+    Alles in eigenem try/catch — schlägt es fehl, bleibt die GUID.
 
 ## Offen / Nächstes
 
