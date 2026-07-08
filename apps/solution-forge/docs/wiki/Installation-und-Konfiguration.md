@@ -8,7 +8,7 @@ Konfiguration in Dataverse. Die Bedienung der App selbst ist in
 [Solution-Administration-Console.md](Solution-Administration-Console.md)
 dokumentiert.
 
-Die Installation besteht aus zwei Schritten:
+Die Installation besteht aus drei Schritten:
 
 1. **Managed Solution importieren** — bringt die App und das Datenmodell
    (Publisher **Dynamics Pro**, Prefix `pro`) in die Ziel-Umgebung.
@@ -16,6 +16,8 @@ Die Installation besteht aus zwei Schritten:
    den Tabellen **Workbench Settings** (`pro_workbenchsettings`) und
    **Environment Config** (`pro_environmentconfig`). Die App liest beide
    Tabellen beim Start.
+3. **App mit den Benutzern teilen** — erst dadurch können die Anwender die
+   App sehen und starten.
 
 ---
 
@@ -105,6 +107,27 @@ Beispiel:
 > **Wichtig:** Genau **eine** Zeile trägt `Is current = Yes` — dort landen
 > die schreibenden Aktionen der App. Die `pro_environmentid` wird für die
 > Deep-Links ins Maker-Portal und nach Power Automate gebraucht.
+
+---
+
+## Schritt 3 — App mit den Benutzern teilen
+
+Nach dem Import ist die App nur für den Installierenden sichtbar. Damit die
+Anwender sie starten können, muss sie geteilt werden:
+
+1. [make.powerapps.com](https://make.powerapps.com) → Ziel-Umgebung wählen →
+   **Apps**.
+2. Die App **Solution Administration Console** wählen → **… (More commands)**
+   → **Share**.
+3. Die Benutzer bzw. eine Entra-ID-Sicherheitsgruppe hinzufügen und teilen.
+
+Hinweise:
+
+- Die Anwender brauchen eine **Power Apps Premium**-Lizenz (siehe
+  Voraussetzungen).
+- Benutzer, die die **Validate**-Bereiche u. a. nutzen sollen, brauchen
+  zusätzlich die in den Workbench Settings konfigurierte
+  **Deployment-Manager-Rolle** (direkt am Benutzer zugewiesen).
 
 ---
 
