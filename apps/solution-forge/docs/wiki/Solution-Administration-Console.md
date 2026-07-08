@@ -9,6 +9,11 @@ Komponenten einsehen, Feature-/Bug-Solutions in eine Release-Solution **mergen**
 und Releases **vor** und **nach** dem Deployment prüfen (Dependencies, Compare,
 Layers, App Sharing).
 
+Über die reine Solution-Verwaltung hinaus bündelt die App **Validierungs-Cockpits**
+(Environment-Config, Audit-Config, Dual-Write-Maps, Import-Historie) und
+**Betriebs-Ansichten** über eine gewählte Umgebung (Plugin-Traces, Job-/
+Flow-Monitor, Security-Role-Analyzer).
+
 Die Oberfläche ist auf Englisch; diese Dokumentation beschreibt sie auf Deutsch
 und behält die englischen UI-Begriffe bei.
 
@@ -29,12 +34,16 @@ und behält die englischen UI-Begriffe bei.
 
 Die App kennt zwei Berechtigungsstufen:
 
-- **Offen für alle Anwender:** **Workbench** und **Merge**.
+- **Offen für alle Anwender:** **Workbench**, **Merge**, **Release Notes**
+  (Ansehen/Kopieren), **Timeline** sowie in der **Operate**-Gruppe **Plugin
+  Traces** und **Job Monitor** (lesend).
 - **Nur mit der Deployment-Manager-Rolle** (der in den Workbench Settings
   konfigurierten Sicherheitsrolle, direkt am eigenen Benutzer zugewiesen):
-  die gesamte **Validate**-Gruppe (**Deployment
-  Readiness** und **Analyze** inkl. Compare/Layers/App Sharing) sowie
-  **Merge Rules**.
+  die gesamte **Validate**-Gruppe (**Deployment Readiness**, **Analyze** inkl.
+  Compare/Layers/App Sharing, **Env Config**, **Audit Config**, **Dual-Write
+  Maps**, **Import History**), **Merge Rules**, der **Role Analyzer** sowie alle
+  **schreibenden** Aktionen (Release-Notes **Publish**, Trace-Level umschalten,
+  Jobs bulk-canceln/-retrien, **Core Roles** anlegen).
 
 Ohne die Rolle erscheinen die gesperrten Menüpunkte ausgegraut mit einem
 Hinweis-Symbol.
@@ -84,8 +93,10 @@ Unmanaged Solutions **ohne** Tracking-Datensatz erscheinen trotzdem in der Liste
   Icons **📖 How-To** (Onboarding-Walkthrough) und **? Help** (Feature-Referenz
   pro Bereich).
 - **Sidebar** links, gruppiert in:
-  - **Manage:** Workbench · Merge · Merge Rules · Release Notes
-  - **Validate:** Deployment Readiness · Analyze
+  - **Manage:** Workbench · Merge · Merge Rules · Release Notes · Timeline
+  - **Validate:** Deployment Readiness · Analyze · Env Config · Audit Config ·
+    Dual-Write Maps · Import History
+  - **Operate:** Plugin Traces · Job Monitor · Role Analyzer
 
 ---
 
@@ -231,6 +242,16 @@ zuordnen (der Merge-Log speichert die kombinierte Liste), daher Gruppierung nach
 Typ. Die Notes sind **historisch** (was gemergt wurde), nicht der aktuelle
 Live-Stand.
 
+### Timeline
+
+Eigener Menüpunkt **🕘 Timeline** (ungated). Zeigt „was ging wann wohin" für
+**eine** Release-Solution auf einer einzigen Zeitachse: ihre **Merge-Runs** (mit
+Counts und Quell-Solutions), ihre veröffentlichten **Release Notes** (mit
+Version) und ihre **Imports** in jede konfigurierte Umgebung (über den Unique
+Name gematcht, Badge nach Ergebnis eingefärbt). Ereignistypen per Chips
+ein-/ausblenden; nicht lesbare Umgebungen degradieren zu einem Hinweis. Reine
+Visualisierung vorhandener Daten – kein eigener Datenpfad.
+
 ---
 
 ## Validate (nur Deployment Manager)
@@ -330,6 +351,154 @@ in DEV/UAT/PRD geteilt sind (cross-env über den import-stabilen Namen gematcht)
 - **Custom Pages** erhalten Zugriff über die Rollen der modellgetriebenen App,
   nicht über direktes Sharing – „nicht geteilt" ist dort normal und kein Mangel.
 
+### Env Config
+
+Das **Environment-Variable- & Connection-Reference-Cockpit** zeigt die Config
+**aller konfigurierten Umgebungen nebeneinander**, über den Namen gematcht, und
+markiert die klassischen Deployment-Lücken: eine Env Var **ohne Wert** (und ohne
+Default) in einer Umgebung, eine **ungebundene** Connection Reference und eine
+Einstellung, die in einer Umgebung vorhanden, in einer anderen **fehlt**
+(Transport-Lücke). Secrets werden maskiert, ein Default-Fallback wird markiert.
+Read-only.
+
+- Beide Abschnitte (Environment Variables, Connection References) sind
+  standardmäßig eingeklappt und nach Anzeigename sortiert; die **Suche** filtert
+  beide, ein **Counter-Chip** (z. B. „4 env vars without a value") schränkt die
+  Tabellen auf genau diese Zeilen ein.
+- Das geladene Bild ist **pro Session gecacht** – **Refresh** liest neu (die
+  „Updated …"-Zeit zeigt die Aktualität). Optional eine **Release-Solution**
+  wählen, um das Cockpit auf deren Env Vars & Connection References einzugrenzen.
+- Beim Aufklappen von **Connection References** wird zusätzlich gezählt, **wie
+  viele Cloud Flows** jede Referenz in der Host-Umgebung nutzen (Chip „N flows" –
+  0 = verwaiste Referenz), getrennt nach aktiven/inaktiven Flows; ein Klick auf
+  eine Zeile listet die Flows mit Deep-Link in Power Automate.
+
+### Audit Config
+
+Der **Audit-Configuration-Analyzer** zeigt die Auditing-Einstellungen einer
+gewählten Umgebung: den **Org-Hauptschalter** und die Aufbewahrungsdauer sowie
+je Tabelle/Spalte `IsAuditEnabled`. Eine Tabelle protokolliert nur Historie,
+wenn **Org-Auditing UND die Tabelle** an sind – die **Effective**-Spalte
+markiert eine Tabelle, die für Audit konfiguriert ist, während der Org-Schalter
+aus ist. Eine Tabelle aufklappen zeigt die auditierten Spalten. Read-only.
+
+### Dual-Write Maps
+
+Das **Dual-Write-Table-Maps**-Cockpit listet die **Custom (unmanaged)**
+Dual-Write-Table-Maps der aktuellen Umgebung – eine Zeile je Map in ihrer
+**aktuellen (höchsten) Version**, mit **Source → Target Table** und Sync-Richtung
+(↔ / → / ←) sowie der Anzahl älterer Versions-Datensätze. Ein Klick öffnet ein
+Overlay, das das Mapping rendert: je Leg Quell- ↔ Ziel-Schema und eine
+**Feld-Mapping-Tabelle** mit Richtung (↔ bidirektional, → zum Ziel, ← zur Quelle),
+Value-Map-Transforms, Lookup-aufgelösten Zielen und einer Markierung
+system-generierter (Integration-Key-)Felder. Umschalter **Hide system-generated**
+und **Show raw JSON**. Read-only.
+
+### Import History
+
+Die **Solution Import History** listet die `importjob`-Zeilen einer gewählten
+Umgebung – gestartet, Solution, Status, Fortschritt, Dauer, Publisher (aus der
+importierten Solution aufgelöst, da der Import-User meist das System ist). Die
+Liste ist auf die **neuesten 100** begrenzt, daher wird **serverseitig**
+eingegrenzt: ein **Status-Chip** (z. B. *Failed* → die letzten 100
+fehlgeschlagenen Importe), eine **Solution-Namens-Suche** und ein **Picker über
+die Release-Solutions**. Eine Zeile aufklappen lädt und parst das Import-Log:
+**fehlende-Dependency-Fehler werden zu einer präzisen Tabelle** – links die im
+Ziel fehlende Komponente (Typ, Name, Quell-Solution → zuerst installieren),
+rechts die importierte Komponente, die sie braucht (Typ, Name, Parent). Weitere
+Fehler/Warnungen darunter, dedupliziert. Read-only.
+
+---
+
+## Operate
+
+Die **Operate**-Gruppe bietet Laufzeit-Einblicke in **eine** Umgebung. Jedes
+Feature startet mit einem **Target-environment**-Picker (Host / UAT / PRD …);
+alle **Reads** laufen gegen jede davon (über den Konnektor), **Writes**
+(Trace-Level umschalten, Jobs canceln/retrien) nur gegen die **Host-Umgebung** –
+bei anderer Auswahl werden sie read-only. Die Auswahl ist über die drei Features
+geteilt. **Plugin Traces** und **Job Monitor** sind für alle offen (destruktive
+Aktionen zusätzlich Deployment-Manager-gated); der **Role Analyzer** ist als
+Ganzes gated.
+
+### Plugin Traces
+
+Ein brauchbares Frontend über `plugintracelog`.
+
+- **Trace stream:** pollt alle 15 s (pausiert bei verstecktem Browser-Tab) mit
+  serverseitigen Filtern – Zeitfenster, Plugin-Typ, Message, Entity, sync/async,
+  nur-Exceptions, opt-in Message-Text-Suche (≤ 24 h). Zeilen sind nach Ergebnis
+  eingefärbt: **grün** bei Erfolg, **rot mit ⚠** bei echter Exception
+  (`exceptiondetails`).
+- Eine Zeile aufklappen zeigt den lazy geladenen **Message-Block** (Find-in-Text,
+  Copy) und bei Fehlern den **Exception-details**-Block; der schwere Payload wird
+  im Stream nie geladen.
+- **⛓ Chain** öffnet die Korrelations-Timeline: alle Traces der Request-Kette,
+  nach Tiefe eingerückt, Balkenlänge ∝ Dauer.
+- **Performance** aggregiert die Dauer je Plugin × Message (Count / avg / p95≈ /
+  max); ein Klick springt zurück in den vorgefilterten Stream.
+- Der **Trace level** (oben rechts) zeigt `organization.plugintracelogsetting`;
+  Umschalten braucht die Deployment-Manager-Rolle und läuft als angemeldeter
+  User („All" warnt vor Log-Wachstum). Die Plattform prunt Traces – ein Explorer,
+  kein Archiv.
+
+### Job Monitor
+
+- **Health:** „Ist das Async-Processing gesund?" auf einen Blick –
+  fehlgeschlagene Jobs (24 h), Waiting-Backlog mit der ältesten wartenden
+  Operation, gesampelte Flow-Fehlerrate und die Watchdog-Lampen. Jede Kachel
+  führt in ihren Detail-Tab.
+- **System jobs:** durchsucht `asyncoperation` mit erzwungenem Rückblick-Fenster
+  und Status-/Typ-/Namensfiltern. Deployment Manager können **bulk-canceln /
+  -retrien** (max. 50 je Batch, sequenziell, Ergebnis je Job) – Writes als
+  angemeldeter User.
+- **Flows:** listet **alle** Cloud Flows (ohne Cap), filterbar nach Name und nach
+  **Release-Solution** (die Flows, die deren Komponenten sind). „Load failure
+  rates" sampelt die jüngsten Runs je Flow. Ein Flow öffnet seine Runs im **Side
+  Pane**; ein Run zeigt ein **Popup mit dem vollen Run-Datensatz** plus „Open run
+  ↗" in Power Automate.
+- **Watchdog:** vergleicht je Heartbeat-Definition (erwartetes Intervall + Grace)
+  gegen den letzten Beat – 🔴 überfällig / nie geschlagen, ⚪ inaktiv. Die
+  überwachten Tabellen sind konfigurierbar.
+- **Trends:** fehlgeschlagene Jobs je Tag über 7 / 30 Tage (serverseitige
+  Aggregate).
+
+### Role Analyzer (read-only)
+
+Arbeitet auf einem ~15 min gecachten Snapshot des Security-Modells; Rollen werden
+auf ihrer **Root-Kopie** aggregiert (`parentrootroleid` – BU-Kopien fallen
+zusammen).
+
+- **Matrix:** Rolle × Tabelle × Privileg mit den klassischen Tiefen (User / BU /
+  Parent:Child / Organization).
+- **Diff:** zwei Rollen nebeneinander, nur Deltas, als Markdown oder CSV
+  exportierbar.
+- **User rights:** effektive Tabellen-Privilegien eines Users, aggregiert aus
+  direkten + Team-Rollen (tiefste Tiefe gewinnt) – mit Herkunftspfad je Grant
+  („Rolle X ← Team Y").
+- **Reverse lookup:** „Wer darf Delete auf account?" → alle User/Teams mit ihrem
+  Pfad.
+- **Hygiene:** Rollen ohne jede Zuweisung und User über einem
+  Rollen-Zähler-Schwellwert.
+- **Field security:** das Spalten-Pendant zur Matrix – Field Security Profiles
+  mit ihren gesicherten Spalten (Read / Create / Update / read-unmasked) und wem
+  sie zugewiesen sind, plus eine spaltenzentrierte Sicht („wer darf gesicherte
+  Spalte X lesen/ändern?"). Markiert Profile ohne Zuweisung und Spalten, auf die
+  kein Profil Read gewährt.
+- **Team & BU map:** ein interaktives Org-Chart der Business-Unit-Hierarchie mit
+  den rollen-vergebenden Teams je BU. Ziehen = Pan, Wheel = Zoom, Teilbaum
+  einklappen. Ein Klick auf BU/Team zeigt dessen Rollen und Mitglieder; im
+  **Trace user**-Modus werden die BU und Teams eines Users hervorgehoben samt der
+  über Team-Mitgliedschaft geerbten Rollen.
+- **Core roles** (schreibend, nur Host-Umgebung): analysiert die **Custom
+  (unmanaged)** Rollen auf Privilegien, die ≥ 2 von ihnen teilen, und schlägt je
+  geteiltem Rollen-Set eine konsolidierte **Core Role** vor. Name vergeben, eine
+  **Working Solution** wählen und **Create core role** – die Rolle wird in dieser
+  Solution angelegt, die konsolidierten Privilegien vergeben (tiefste Tiefe
+  gewinnt) und, falls opt-in, die Duplikate aus den Quell-Rollen entfernt (die
+  dann ebenfalls in die Solution wandern). Mitglieder mit nur einer Quell-Rolle
+  brauchen die neue Core Role, um ihren Zugriff zu behalten.
+
 ---
 
 ## Hintergrund-Aktivität
@@ -386,6 +555,11 @@ werden in der Tabelle **Environment Config** (`pro_environmentconfig`) gepflegt
 | **Missing / Status drift / Content drift** | Abweichungen im Compare. |
 | **Unmanaged over managed / Unmanaged only / Missing / Clean** | Layer-Verdicts. |
 | **Risk Score / Low–Medium–High Risk** | Deployment-Risiko im Analyze-Summary. |
+| **⚠ not shared** | Canvas App im Ziel mit niemandem geteilt (App Sharing). |
+| **N flows** | Anzahl Cloud Flows, die eine Connection Reference nutzen – 0 = verwaist (Env Config). |
+| **Effective** | Tabelle für Audit konfiguriert, aber Org-Audit aus (Audit Config). |
+| **grün / rot ⚠** | Plugin-Trace erfolgreich bzw. mit Exception (Plugin Traces). |
+| **🔴 / ⚪** | Watchdog: Heartbeat überfällig / inaktiv (Job Monitor). |
 
 ---
 
@@ -426,11 +600,21 @@ werden in der Tabelle **Environment Config** (`pro_environmentconfig`) gepflegt
   - `pro_releasenote` – veröffentlichte Release-Notes-Snapshots.
   - Standard-Tabellen: `solution`, `solutioncomponent`,
     `msdyn_solutioncomponentsummary`, `publisher`, `systemuser`, `role`.
+  - Read-only-Quellen der Validate-/Operate-Cockpits (alle über den Konnektor):
+    `importjob` (Import History); `asyncoperation` + Cloud Flows (Job Monitor);
+    `plugintracelog` + `organization` (Plugin Traces); `environmentvariable-`
+    `definitions`/`-values` + `connectionreference` (Env Config);
+    `EntityDefinitions` + `organization` (Audit Config); `msdyn_dualwriteentitymap`
+    (Dual-Write Maps); `role`/`privilege` + `fieldsecurityprofile`/`fieldpermission`
+    (Role Analyzer).
 - **Merge** nutzt die Dataverse-Action `AddSolutionComponent` (Mitgliedschaft,
   kein Kopieren) und übernimmt das `rootcomponentbehavior` der Quelle.
 - **Cross-Env-Daten** kommen über den Dataverse-Konnektor
   (`ListRecordsWithOrganization` mit expliziter Org-URL); Sharing-Daten aus
-  `principalobjectaccess` per FetchXML.
+  `principalobjectaccess` per FetchXML. **Reads** laufen cross-env als
+  Konnektor-Identität, **schreibende** Operate-Aktionen (Trace-Level,
+  Job-Cancel/-Retry, Core-Role-Anlage) nur gegen die **Host-Umgebung** und als
+  angemeldeter Benutzer.
 - **Rollen-Gate:** die in den Workbench Settings konfigurierte
   Deployment-Manager-Rolle (direkte Zuweisung) schaltet Validate +
   Merge Rules frei.
