@@ -5630,8 +5630,64 @@
   font-size: 11.5px;
   margin-top: 2px;
 }
-.cmp-row--drift {
-  background: #fff8ed;
+/* Item-name markers — drift (vs current) / off-definition (vs defined state).
+   Highlighting is per-cell now, so the row itself is not tinted. */
+.cmp-mark {
+  margin-left: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+.cmp-mark--drift {
+  background: #fdefda;
+  color: #b45309;
+}
+.cmp-mark--def {
+  background: #fdecec;
+  color: #b42318;
+}
+/* Definition column — the defined desired state (indigo, distinct from the
+   green/gray actual-status pills and the outlined action buttons). */
+.cmp-th-def {
+  min-width: 92px;
+}
+.cmp-def {
+  white-space: nowrap;
+}
+.cmp-defpill {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 9px;
+  border-radius: 6px;
+  border: 1px solid;
+}
+.cmp-defpill--on {
+  border-color: #c7d2fe;
+  color: #4338ca;
+  background: #eef2ff;
+}
+.cmp-defpill--off {
+  border-color: #d5d9e0;
+  color: #5b6172;
+  background: #f6f7fb;
+}
+/* Per-cell defined state (below the actual status); amber ⚠ on mismatch. */
+.cmp-desired {
+  font-size: 11px;
+  font-weight: 600;
+}
+.cmp-desired--ok {
+  color: var(--muted, #9aa0ad);
+}
+.cmp-desired--bad {
+  color: #b42318;
 }
 /* Group header row (e.g. by plugin assembly) — collapsible. */
 .cmp-group-head > td {

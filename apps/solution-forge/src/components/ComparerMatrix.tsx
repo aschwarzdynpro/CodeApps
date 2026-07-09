@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react'
 import type { ComparerResult, ComparerRow } from '../types/comparer'
+import { hasDefinitionMismatch } from '../types/comparer'
 import { ENVIRONMENTS } from '../config'
 import { formatRelative } from '../utils/format'
 
@@ -60,20 +61,58 @@ export function ComparerMatrix({
   const toggleGroup = (key: string) =>
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }))
 
-  const colSpan = 1 + ENVIRONMENTS.length
+  const envKeys = ENVIRONMENTS.map((e) => e.key)
+  // Only flows carry a definition — the column appears only when data exists.
+  const hasDefinition = result.rows.some((r) => r.definition !== undefined)
+  const colSpan = 1 + (hasDefinition ? 1 : 0) + ENVIRONMENTS.length
 
   const renderRow = (row: ComparerRow) => {
     const host = row.byEnv[hostKey] ?? null
+    const offDef = hasDefinition && hasDefinitionMismatch(row, envKeys)
     return (
-      <tr key={row.id} className={row.statusDrift ? 'cmp-row--drift' : ''}>
+      <tr key={row.id}>
         <td className="cmp-item">
           <div className="cmp-item-name" title={row.name}>
             {row.name}
+            {row.statusDrift && (
+              <span
+                className="cmp-mark cmp-mark--drift"
+                title="Status differs from current in some environment"
+              >
+                drift
+              </span>
+            )}
+            {offDef && (
+              <span
+                className="cmp-mark cmp-mark--def"
+                title="Some environment is not in its defined state"
+              >
+                off-def
+              </span>
+            )}
           </div>
           {row.subtitle && !groupKey && (
             <div className="cmp-item-sub muted">{row.subtitle}</div>
           )}
         </td>
+        {hasDefinition && (
+          <td className="cmp-def">
+            {row.definition ? (
+              <span
+                className={`cmp-defpill ${
+                  row.definitionActive ? 'cmp-defpill--on' : 'cmp-defpill--off'
+                }`}
+                title="Defined desired state (hso_cloudflow)"
+              >
+                {row.definition}
+              </span>
+            ) : (
+              <span className="muted" title="No definition found">
+                —
+              </span>
+            )}
+          </td>
+        )}
         {ENVIRONMENTS.map((env) => {
           const state = row.byEnv[env.key] ?? null
           const isHost = env.key === hostKey
@@ -122,6 +161,23 @@ export function ComparerMatrix({
                     )
                   )}
                 </div>
+                {state.desired && (
+                  <span
+                    className={`cmp-desired ${
+                      state.desiredActive === state.active
+                        ? 'cmp-desired--ok'
+                        : 'cmp-desired--bad'
+                    }`}
+                    title={
+                      state.desiredActive === state.active
+                        ? 'Matches the defined state'
+                        : `Should be “${state.desired}” per the definition`
+                    }
+                  >
+                    def: {state.desired}
+                    {state.desiredActive !== state.active && ' ⚠'}
+                  </span>
+                )}
                 {(state.link || canManage) && (
                   <div className="cmp-actions">
                     {state.link && (
@@ -188,6 +244,11 @@ export function ComparerMatrix({
         <thead>
           <tr>
             <th className="cmp-th-item">Item</th>
+            {hasDefinition && (
+              <th className="cmp-th-def" title="Defined desired state">
+                Definition
+              </th>
+            )}
             {ENVIRONMENTS.map((env) => (
               <th
                 key={env.key}

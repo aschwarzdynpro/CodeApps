@@ -9,8 +9,10 @@ import type { FlowComparerService } from './flowComparerService'
 import { mockFlowComparerService } from './mockFlowComparerService'
 import { powerModeReady } from '../PowerProvider'
 import {
+  fetchXmlAllPages,
   fetchXmlEscape,
   fetchXmlQuery,
+  formattedValue,
   rowNum,
   rowStr,
   type Row,
@@ -97,6 +99,7 @@ class DataverseFlowComparerService implements FlowComparerService {
       rowsById.set(id, {
         id,
         name: rowStr(r.name) || id,
+        uniqueId: rowStr(r.workflowidunique) || undefined,
         byEnv: { [hostKey]: flowState(r, hostKey) },
         statusDrift: false,
       })
@@ -126,6 +129,33 @@ class DataverseFlowComparerService implements FlowComparerService {
     }
 
     const rows = [...rowsById.values()]
+
+    // Overlay the DEFINED desired state from the central hso_cloudflow registry
+    // (host side): the overall wanted state per flow + the wanted state per env.
+    onProgress?.('Reading the defined flow states…')
+    const defs = await this.loadDefinitions(orgUrlForEnvKey(hostKey))
+    for (const row of rows) {
+      const def =
+        defs.defByName.get(row.name.toLowerCase()) ||
+        (row.uniqueId ? defs.defByUnique.get(row.uniqueId.toLowerCase()) : undefined)
+      if (def) {
+        row.definition = def.label
+        row.definitionActive = def.active
+      }
+      const perEnv = row.uniqueId
+        ? defs.envDef.get(row.uniqueId.toLowerCase())
+        : undefined
+      if (perEnv) {
+        for (const [envKey, d] of perEnv) {
+          const cell = row.byEnv[envKey]
+          if (cell && cell.present) {
+            cell.desired = d.label
+            cell.desiredActive = d.active
+          }
+        }
+      }
+    }
+
     for (const row of rows) row.statusDrift = recomputeDrift(row, hostKey, envKeys)
     rows.sort(
       (a, b) =>
@@ -133,6 +163,76 @@ class DataverseFlowComparerService implements FlowComparerService {
         a.name.localeCompare(b.name),
     )
     return { rows, envErrors }
+  }
+
+  /**
+   * Read the DEFINED desired flow states from the central Schulz registry
+   * (host side): `hso_cloudflow.hso_flowstate` (overall wanted state, matched by
+   * name / unique id) and the per-environment `hso_cloudflowbyenvironment`
+   * records (wanted state per env — the env resolved from the Dataverse env id
+   * embedded in `hso_flowdetailsurl`). Best-effort: if the tables don't exist
+   * (non-Schulz), everything comes back empty and no definition is shown.
+   */
+  private async loadDefinitions(orgUrl: string): Promise<{
+    defByName: Map<string, { label: string; active: boolean }>
+    defByUnique: Map<string, { label: string; active: boolean }>
+    envDef: Map<string, Map<string, { label: string; active: boolean }>>
+  }> {
+    const defByName = new Map<string, { label: string; active: boolean }>()
+    const defByUnique = new Map<string, { label: string; active: boolean }>()
+    const envDef = new Map<string, Map<string, { label: string; active: boolean }>>()
+    const isOn = (label: string): boolean => /^\s*on\s*$/i.test(label)
+
+    try {
+      const cf =
+        `<fetch><entity name="hso_cloudflow">` +
+        `<attribute name="hso_name" /><attribute name="hso_flowstate" />` +
+        `<attribute name="hso_flowuniqueid" /></entity></fetch>`
+      for (const r of await fetchXmlAllPages('hso_cloudflows', cf, orgUrl)) {
+        const label = formattedValue(r, 'hso_flowstate') ?? ''
+        if (!label) continue
+        const entry = { label, active: isOn(label) }
+        const name = rowStr(r.hso_name).toLowerCase()
+        const uniq = rowStr(r.hso_flowuniqueid).toLowerCase()
+        if (name) defByName.set(name, entry)
+        if (uniq) defByUnique.set(uniq, entry)
+      }
+    } catch (err) {
+      console.warn('[flowcmp] hso_cloudflow read failed:', err)
+    }
+
+    try {
+      const be =
+        `<fetch><entity name="hso_cloudflowbyenvironment">` +
+        `<attribute name="hso_flowuniqueid" /><attribute name="hso_flowstate" />` +
+        `<attribute name="hso_flowdetailsurl" /></entity></fetch>`
+      for (const r of await fetchXmlAllPages(
+        'hso_cloudflowbyenvironments',
+        be,
+        orgUrl,
+      )) {
+        const label = formattedValue(r, 'hso_flowstate') ?? ''
+        const uniq = rowStr(r.hso_flowuniqueid).toLowerCase()
+        const guid = /environments\/([0-9a-f-]{36})\//i
+          .exec(rowStr(r.hso_flowdetailsurl))?.[1]
+          ?.toLowerCase()
+        if (!label || !uniq || !guid) continue
+        const envKey = ENVIRONMENTS.find(
+          (e) => e.environmentId?.toLowerCase() === guid,
+        )?.key
+        if (!envKey) continue
+        let m = envDef.get(uniq)
+        if (!m) {
+          m = new Map()
+          envDef.set(uniq, m)
+        }
+        m.set(envKey, { label, active: isOn(label) })
+      }
+    } catch (err) {
+      console.warn('[flowcmp] hso_cloudflowbyenvironment read failed:', err)
+    }
+
+    return { defByName, defByUnique, envDef }
   }
 
   /** Read workflow rows for a set of ids in one environment, keyed by id. */

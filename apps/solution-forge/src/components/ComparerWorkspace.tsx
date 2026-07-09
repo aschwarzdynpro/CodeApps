@@ -5,7 +5,7 @@ import type {
   ComparerResult,
   ComparerRow,
 } from '../types/comparer'
-import { recomputeDrift } from '../types/comparer'
+import { hasDefinitionMismatch, recomputeDrift } from '../types/comparer'
 import { ENVIRONMENTS, currentEnvKey } from '../config'
 import { SolutionSelect } from './SolutionSelect'
 import { ComparerMatrix } from './ComparerMatrix'
@@ -65,6 +65,7 @@ export function ComparerWorkspace({
   const [actionError, setActionError] = useState<string | null>(null)
   const [busyCell, setBusyCell] = useState<string | null>(null)
   const [driftOnly, setDriftOnly] = useState(false)
+  const [offDefOnly, setOffDefOnly] = useState(false)
   const [grouped, setGrouped] = useState(true)
 
   const solution = releases.find((s) => s.id === solutionId) ?? null
@@ -126,11 +127,16 @@ export function ComparerWorkspace({
   }
 
   const driftCount = result?.rows.filter((r) => r.statusDrift).length ?? 0
+  const hasDefs = !!result?.rows.some((r) => r.definition !== undefined)
+  const offDefCount =
+    result?.rows.filter((r) => hasDefinitionMismatch(r, envKeys)).length ?? 0
   const shown = useMemo(() => {
     if (!result) return null
-    if (!driftOnly) return result
-    return { ...result, rows: result.rows.filter((r) => r.statusDrift) }
-  }, [result, driftOnly])
+    let rows = result.rows
+    if (driftOnly) rows = rows.filter((r) => r.statusDrift)
+    if (offDefOnly) rows = rows.filter((r) => hasDefinitionMismatch(r, envKeys))
+    return rows === result.rows ? result : { ...result, rows }
+  }, [result, driftOnly, offDefOnly, envKeys])
 
   return (
     <div>
@@ -160,6 +166,16 @@ export function ComparerWorkspace({
               onChange={(e) => setDriftOnly(e.target.checked)}
             />
             Only status drift ({driftCount})
+          </label>
+        )}
+        {result && hasDefs && offDefCount > 0 && (
+          <label className="cmp-driftonly">
+            <input
+              type="checkbox"
+              checked={offDefOnly}
+              onChange={(e) => setOffDefOnly(e.target.checked)}
+            />
+            Only off-definition ({offDefCount})
           </label>
         )}
         {result && groupByLabel && (

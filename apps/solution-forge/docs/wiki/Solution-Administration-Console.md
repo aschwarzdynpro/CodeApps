@@ -423,11 +423,18 @@ kann sie **je Umgebung an-/abschalten**.
 2. Die App liest die Flows der Solution aus der **Current**-Umgebung und sucht
    dieselben Flows über ihre **import-stabile ID** in den Ziel-Umgebungen.
 3. **Matrix** je Umgebung: **Status** (Activated / Draft / Missing) und die
-   letzte Änderung. Zellen, deren Status von **Current** abweicht, sind
-   **hervorgehoben**; die ganze Zeile wird als Drift markiert. Ein Filter zeigt
-   nur driftende Flows.
-4. **↗** je Zelle springt in den Flow der jeweiligen Umgebung (Power Automate).
-5. **Turn on / Turn off** je Zelle schaltet den Flow in **genau dieser**
+   letzte Änderung. **Nur die abweichenden Zellen** (Status ≠ Current) sind
+   hervorgehoben; am Item-Namen zeigt ein **drift**-Marker, dass die Zeile
+   betroffen ist. Ein Filter zeigt nur driftende Flows.
+4. **Definition** (Spalte vor den Umgebungen): der **definierte Soll-Zustand**
+   des Flows aus der zentralen Registry `hso_cloudflow` (On / Off). Zusätzlich
+   steht in **jeder Zelle** der je Umgebung definierte Soll-Zustand aus
+   `hso_cloudflowbyenvironment` (Umgebung über die eingebettete Env-Id gemappt);
+   weicht der Ist- vom Soll-Zustand ab, wird die Zelle mit **⚠** markiert und
+   der Item-Name mit **off-def**. Ein Filter zeigt nur Flows, die irgendwo nicht
+   im Soll-Zustand sind. *(Nur bei vorhandener `hso_cloudflow`-Registry.)*
+5. **↗** je Zelle springt in den Flow der jeweiligen Umgebung (Power Automate).
+6. **Turn on / Turn off** je Zelle schaltet den Flow in **genau dieser**
    Umgebung (Activated ↔ Draft). Jeder Schaltvorgang fragt vorher nach;
    **PROD** zusätzlich mit deutlicher Warnung. Nur mit der Deployment-Manager-
    Rolle; die Aktion läuft als Connection-Identität (SP) und braucht dort

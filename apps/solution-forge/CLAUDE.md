@@ -368,7 +368,17 @@ als **Konnektor-SP** cross-env (die nativen Writes gehen nur Host!), **kein
 (PROD extra-stark), danach Zelle einzeln neu gelesen. **SP braucht Schreib-/
 Aktivierungsrecht auf `workflow`/`sdkmessageprocessingstep` im Ziel** (UAT/PROD).
 Mock-Parität: `mockFlowComparerService`/`mockPluginComparerService` seeden dev/
-uat/prod inkl. Drift + fehlendem Item → offline demobar.
+uat/prod inkl. Drift + fehlendem Item → offline demobar. **Highlight je Zelle**
+(nicht ganze Zeile) + Item-Marker (`cmp-mark--drift`/`--def`). **Soll-Zustand
+(Schulz, nur Flow Comparer):** `dataverseFlowComparerService.loadDefinitions()`
+liest **host-seitig** die zentrale Registry — `hso_cloudflow.hso_flowstate`
+(„On"/„Off", gematcht per `hso_name`→Flow-Name bzw. `hso_flowuniqueid`→
+`workflowidunique`) als **Definition-Spalte** vor den Env-Spalten, und
+`hso_cloudflowbyenvironment.hso_flowstate` je Umgebung (Env-Key aus der in
+`hso_flowdetailsurl` eingebetteten Dataverse-Env-GUID gemappt) als Soll je Zelle
+(`ComparerEnvState.desired`). `hasDefinitionMismatch()` = Ist ≠ Soll je Env →
+„off-def"-Marker + „Only off-definition"-Filter. Tabellen fehlen bei Nicht-
+Schulz → Read scheitert still, keine Definition-Spalte (best-effort).
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 

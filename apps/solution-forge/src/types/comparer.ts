@@ -19,6 +19,10 @@ export interface ComparerEnvState {
   isManaged?: boolean
   /** Portal deep link into this environment (flows: Power Automate). */
   link?: string
+  /** DEFINED desired state for this env (flows: hso_cloudflowbyenvironment) —
+   *  the label ("On"/"Off") and its on/off, when a definition exists. */
+  desired?: string
+  desiredActive?: boolean
 }
 
 /** One compared item across the environments. */
@@ -26,12 +30,37 @@ export interface ComparerRow {
   /** Import-stable match key (workflowid / sdkmessageprocessingstepid). */
   id: string
   name: string
+  /** Import-stable unique id (flow: workflowidunique) for definition matching. */
+  uniqueId?: string
   /** Secondary line (flow: none; step: assembly name). */
   subtitle?: string
   /** Keyed by environment key; null = the environment could not be read. */
   byEnv: Record<string, ComparerEnvState | null>
   /** A target environment's on/off differs from the host. */
   statusDrift: boolean
+  /** DEFINED overall desired state (flows: hso_cloudflow.hso_flowstate) — the
+   *  label ("On"/"Off") and its on/off, when a definition exists. */
+  definition?: string
+  definitionActive?: boolean
+}
+
+/**
+ * True when any environment's actual on/off differs from its DEFINED desired
+ * state — i.e. the environment isn't in the state the definition wants.
+ */
+export function hasDefinitionMismatch(
+  row: ComparerRow,
+  envKeys: string[],
+): boolean {
+  return envKeys.some((key) => {
+    const cell = row.byEnv[key]
+    return (
+      !!cell &&
+      cell.present &&
+      cell.desiredActive !== undefined &&
+      cell.desiredActive !== cell.active
+    )
+  })
 }
 
 export interface ComparerResult {
