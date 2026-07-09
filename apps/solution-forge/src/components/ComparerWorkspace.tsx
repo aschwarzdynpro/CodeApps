@@ -77,6 +77,7 @@ export function ComparerWorkspace({
   const [driftOnly, setDriftOnly] = useState(false)
   const [definitionMode, setDefinitionMode] = useState(true)
   const [grouped, setGrouped] = useState(true)
+  const [search, setSearch] = useState('')
 
   const solution = releases.find((s) => s.id === solutionId) ?? null
 
@@ -152,16 +153,20 @@ export function ComparerWorkspace({
   const driftCount =
     result?.rows.filter((r) => rowHasDrift(r, hostKey, envKeys, driftMode))
       .length ?? 0
+  const q = search.trim().toLowerCase()
   const shown = useMemo(() => {
     if (!result) return null
-    if (!driftOnly) return result
-    return {
-      ...result,
-      rows: result.rows.filter((r) =>
-        rowHasDrift(r, hostKey, envKeys, driftMode),
-      ),
-    }
-  }, [result, driftOnly, driftMode, hostKey, envKeys])
+    let rows = result.rows
+    if (driftOnly)
+      rows = rows.filter((r) => rowHasDrift(r, hostKey, envKeys, driftMode))
+    if (q)
+      rows = rows.filter(
+        (r) =>
+          r.name.toLowerCase().includes(q) ||
+          (r.subtitle ?? '').toLowerCase().includes(q),
+      )
+    return rows === result.rows ? result : { ...result, rows }
+  }, [result, driftOnly, driftMode, hostKey, envKeys, q])
 
   return (
     <div>
@@ -183,6 +188,15 @@ export function ComparerWorkspace({
         >
           {running ? `Comparing… ${progress}` : 'Compare'}
         </button>
+        {result && result.rows.length > 0 && (
+          <input
+            className="search"
+            type="search"
+            placeholder={`Search ${noun}s by name…`}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        )}
         {result && hasDefs && (
           <label
             className="cmp-switch"
@@ -245,6 +259,24 @@ export function ComparerWorkspace({
           solution contains none, or they couldn’t be read.
         </div>
       )}
+
+      {!running &&
+        result &&
+        result.rows.length > 0 &&
+        shown &&
+        shown.rows.length === 0 && (
+          <div className="state">
+            No {noun}s match{' '}
+            {q ? (
+              <>
+                “<strong>{search.trim()}</strong>”
+              </>
+            ) : (
+              'the current filter'
+            )}
+            .
+          </div>
+        )}
 
       {!running && shown && shown.rows.length > 0 && (
         <section className="card cmp-card">
