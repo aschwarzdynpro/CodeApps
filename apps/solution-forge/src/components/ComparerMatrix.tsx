@@ -1,3 +1,4 @@
+import { Fragment, useState } from 'react'
 import type { ComparerResult, ComparerRow } from '../types/comparer'
 import { ENVIRONMENTS } from '../config'
 import { formatRelative } from '../utils/format'
@@ -29,6 +30,8 @@ interface Props {
   canManage: boolean
   /** `${envKey}:${rowId}` currently toggling (shows a spinner, disables). */
   busyCell: string | null
+  /** When set, rows are grouped by this key into collapsible sections. */
+  groupKey?: (row: ComparerRow) => string
   onToggle: (
     env: { key: string; label: string },
     row: ComparerRow,
@@ -38,10 +41,11 @@ interface Props {
 
 /**
  * The comparer matrix: one row per compared item (flow / plugin step), one
- * column per configured environment. Each cell shows the item's status
- * (+version or modified time), a portal deep-link and — for deployment managers
- * — a turn on/off button. Cells whose on/off differs from the host are
- * highlighted, and the whole row is flagged when any target drifts.
+ * column per configured environment. Each cell splits an info zone (status
+ * pill + version/modified) from a separated action zone (portal deep-link +
+ * turn on/off). Cells whose on/off differs from the host are highlighted, the
+ * whole row is flagged when any target drifts, and — with `groupKey` — rows are
+ * grouped into collapsible sections (e.g. by plugin assembly).
  */
 export function ComparerMatrix({
   result,
@@ -49,8 +53,135 @@ export function ComparerMatrix({
   showVersion,
   canManage,
   busyCell,
+  groupKey,
   onToggle,
 }: Props) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const toggleGroup = (key: string) =>
+    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }))
+
+  const colSpan = 1 + ENVIRONMENTS.length
+
+  const renderRow = (row: ComparerRow) => {
+    const host = row.byEnv[hostKey] ?? null
+    return (
+      <tr key={row.id} className={row.statusDrift ? 'cmp-row--drift' : ''}>
+        <td className="cmp-item">
+          <div className="cmp-item-name" title={row.name}>
+            {row.name}
+          </div>
+          {row.subtitle && !groupKey && (
+            <div className="cmp-item-sub muted">{row.subtitle}</div>
+          )}
+        </td>
+        {ENVIRONMENTS.map((env) => {
+          const state = row.byEnv[env.key] ?? null
+          const isHost = env.key === hostKey
+          const busy = busyCell === `${env.key}:${row.id}`
+          if (state === null)
+            return (
+              <td
+                key={env.key}
+                className="cmp-cell cmp-cell--unknown"
+                title="Environment could not be read"
+              >
+                ?
+              </td>
+            )
+          if (!state.present)
+            return (
+              <td key={env.key} className="cmp-cell cmp-cell--missing">
+                <span className="cmp-missing">Missing</span>
+              </td>
+            )
+          const drift =
+            !isHost && !!host?.present && state.active !== host.active
+          return (
+            <td
+              key={env.key}
+              className={`cmp-cell ${drift ? 'cmp-cell--drift' : ''}`}
+            >
+              <div className="cmp-cell-body">
+                <div className="cmp-cell-info">
+                  <span
+                    className={`cmp-pill ${
+                      state.active ? 'cmp-pill--on' : 'cmp-pill--off'
+                    }`}
+                  >
+                    {state.statusLabel}
+                  </span>
+                  {showVersion ? (
+                    <span className={`cmp-ver ${state.version ? '' : 'muted'}`}>
+                      {state.version ? `v${state.version}` : '—'}
+                    </span>
+                  ) : (
+                    state.modifiedOn && (
+                      <span className="cmp-when muted">
+                        {formatRelative(state.modifiedOn)}
+                      </span>
+                    )
+                  )}
+                </div>
+                {(state.link || canManage) && (
+                  <div className="cmp-actions">
+                    {state.link && (
+                      <a
+                        className="cmp-jump"
+                        href={state.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={`Open in ${env.label}`}
+                        aria-label={`Open in ${env.label}`}
+                      >
+                        ↗
+                      </a>
+                    )}
+                    {canManage && (
+                      <button
+                        className={`cmp-toggle ${
+                          state.active ? 'cmp-toggle--off' : 'cmp-toggle--on'
+                        }`}
+                        disabled={busy}
+                        onClick={() => onToggle(env, row, !state.active)}
+                        title={
+                          state.active
+                            ? `Turn off in ${env.label}`
+                            : `Turn on in ${env.label}`
+                        }
+                      >
+                        <PowerIcon />
+                        {busy ? '…' : state.active ? 'Turn off' : 'Turn on'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </td>
+          )
+        })}
+      </tr>
+    )
+  }
+
+  // Group rows by the key when provided; groups with any drift first, then by
+  // name; every row keeps its incoming (drift-first) order within a group.
+  const groups: { key: string; rows: ComparerRow[] }[] = []
+  if (groupKey) {
+    const byKey = new Map<string, ComparerRow[]>()
+    for (const row of result.rows) {
+      const k = groupKey(row) || '(none)'
+      const list = byKey.get(k)
+      if (list) list.push(row)
+      else byKey.set(k, [row])
+    }
+    groups.push(...[...byKey.entries()].map(([key, rows]) => ({ key, rows })))
+    groups.sort((a, b) => {
+      const da = a.rows.some((r) => r.statusDrift) ? 0 : 1
+      const db = b.rows.some((r) => r.statusDrift) ? 0 : 1
+      return da - db || a.key.localeCompare(b.key)
+    })
+  }
+
   return (
     <div className="cmp-table-wrap">
       <table className="cmp-table">
@@ -78,117 +209,41 @@ export function ComparerMatrix({
           </tr>
         </thead>
         <tbody>
-          {result.rows.map((row) => {
-            const host = row.byEnv[hostKey] ?? null
-            return (
-              <tr
-                key={row.id}
-                className={row.statusDrift ? 'cmp-row--drift' : ''}
-              >
-                <td className="cmp-item">
-                  <div className="cmp-item-name" title={row.name}>
-                    {row.name}
-                  </div>
-                  {row.subtitle && (
-                    <div className="cmp-item-sub muted">{row.subtitle}</div>
-                  )}
-                </td>
-                {ENVIRONMENTS.map((env) => {
-                  const state = row.byEnv[env.key] ?? null
-                  const isHost = env.key === hostKey
-                  const busy = busyCell === `${env.key}:${row.id}`
-                  if (state === null)
-                    return (
-                      <td
-                        key={env.key}
-                        className="cmp-cell cmp-cell--unknown"
-                        title="Environment could not be read"
+          {!groupKey && result.rows.map(renderRow)}
+          {groupKey &&
+            groups.map((g) => {
+              const open = !collapsed[g.key]
+              const driftInGroup = g.rows.filter((r) => r.statusDrift).length
+              return (
+                <Fragment key={`g:${g.key}`}>
+                  <tr className="cmp-group-head">
+                    <td colSpan={colSpan}>
+                      <button
+                        className="cmp-group-toggle"
+                        onClick={() => toggleGroup(g.key)}
+                        aria-expanded={open}
                       >
-                        ?
-                      </td>
-                    )
-                  if (!state.present)
-                    return (
-                      <td key={env.key} className="cmp-cell cmp-cell--missing">
-                        <span className="cmp-missing">Missing</span>
-                      </td>
-                    )
-                  const drift =
-                    !isHost && !!host?.present && state.active !== host.active
-                  return (
-                    <td
-                      key={env.key}
-                      className={`cmp-cell ${drift ? 'cmp-cell--drift' : ''}`}
-                    >
-                      <div className="cmp-cell-body">
-                        <div className="cmp-cell-info">
-                          <span
-                            className={`cmp-pill ${
-                              state.active ? 'cmp-pill--on' : 'cmp-pill--off'
-                            }`}
-                          >
-                            {state.statusLabel}
+                        <span
+                          className={`cmp-group-chevron ${
+                            open ? 'cmp-group-chevron--open' : ''
+                          }`}
+                        >
+                          ▸
+                        </span>
+                        <span className="cmp-group-name">{g.key}</span>
+                        <span className="muted">({g.rows.length})</span>
+                        {driftInGroup > 0 && (
+                          <span className="cmp-group-drift">
+                            {driftInGroup} drift
                           </span>
-                          {showVersion ? (
-                            <span
-                              className={`cmp-ver ${state.version ? '' : 'muted'}`}
-                            >
-                              {state.version ? `v${state.version}` : '—'}
-                            </span>
-                          ) : (
-                            state.modifiedOn && (
-                              <span className="cmp-when muted">
-                                {formatRelative(state.modifiedOn)}
-                              </span>
-                            )
-                          )}
-                        </div>
-                        {(state.link || canManage) && (
-                          <div className="cmp-actions">
-                            {state.link && (
-                              <a
-                                className="cmp-jump"
-                                href={state.link}
-                                target="_blank"
-                                rel="noreferrer"
-                                title={`Open in ${env.label}`}
-                                aria-label={`Open in ${env.label}`}
-                              >
-                                ↗
-                              </a>
-                            )}
-                            {canManage && (
-                              <button
-                                className={`cmp-toggle ${
-                                  state.active
-                                    ? 'cmp-toggle--off'
-                                    : 'cmp-toggle--on'
-                                }`}
-                                disabled={busy}
-                                onClick={() => onToggle(env, row, !state.active)}
-                                title={
-                                  state.active
-                                    ? `Turn off in ${env.label}`
-                                    : `Turn on in ${env.label}`
-                                }
-                              >
-                                <PowerIcon />
-                                {busy
-                                  ? '…'
-                                  : state.active
-                                    ? 'Turn off'
-                                    : 'Turn on'}
-                              </button>
-                            )}
-                          </div>
                         )}
-                      </div>
+                      </button>
                     </td>
-                  )
-                })}
-              </tr>
-            )
-          })}
+                  </tr>
+                  {open && g.rows.map(renderRow)}
+                </Fragment>
+              )
+            })}
         </tbody>
       </table>
     </div>

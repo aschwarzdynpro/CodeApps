@@ -17,6 +17,9 @@ interface Props {
   noun: string
   /** Plugin steps show a version; flows show the modified time. */
   showVersion: boolean
+  /** When set (e.g. "assembly"), offer a "Group by <label>" toggle that groups
+   *  the rows by their subtitle. */
+  groupByLabel?: string
   compare: (
     solution: WorkingSolution,
     onProgress?: (message: string) => void,
@@ -39,6 +42,7 @@ export function ComparerWorkspace({
   canManage,
   noun,
   showVersion,
+  groupByLabel,
   compare,
   setState,
 }: Props) {
@@ -61,6 +65,7 @@ export function ComparerWorkspace({
   const [actionError, setActionError] = useState<string | null>(null)
   const [busyCell, setBusyCell] = useState<string | null>(null)
   const [driftOnly, setDriftOnly] = useState(false)
+  const [grouped, setGrouped] = useState(true)
 
   const solution = releases.find((s) => s.id === solutionId) ?? null
 
@@ -157,6 +162,16 @@ export function ComparerWorkspace({
             Only status drift ({driftCount})
           </label>
         )}
+        {result && groupByLabel && (
+          <label className="cmp-driftonly">
+            <input
+              type="checkbox"
+              checked={grouped}
+              onChange={(e) => setGrouped(e.target.checked)}
+            />
+            Group by {groupByLabel}
+          </label>
+        )}
       </div>
 
       {error && <div className="state state--error">{error}</div>}
@@ -199,6 +214,11 @@ export function ComparerWorkspace({
             showVersion={showVersion}
             canManage={canManage}
             busyCell={busyCell}
+            groupKey={
+              groupByLabel && grouped
+                ? (r) => r.subtitle || `(no ${groupByLabel})`
+                : undefined
+            }
             onToggle={onToggle}
           />
         </section>

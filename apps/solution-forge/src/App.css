@@ -5633,6 +5633,43 @@
 .cmp-row--drift {
   background: #fff8ed;
 }
+/* Group header row (e.g. by plugin assembly) — collapsible. */
+.cmp-group-head > td {
+  background: #eef1f6;
+  padding: 0;
+}
+.cmp-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+.cmp-group-chevron {
+  display: inline-block;
+  transition: transform 0.12s ease;
+  color: var(--muted, #5b6172);
+}
+.cmp-group-chevron--open {
+  transform: rotate(90deg);
+}
+.cmp-group-name {
+  font-variant-numeric: tabular-nums;
+}
+.cmp-group-drift {
+  font-size: 11px;
+  font-weight: 700;
+  color: #b45309;
+  background: #fdefda;
+  padding: 1px 8px;
+  border-radius: 999px;
+}
 .cmp-cell {
   min-width: 132px;
 }
