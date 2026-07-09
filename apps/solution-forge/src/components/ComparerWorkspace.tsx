@@ -5,7 +5,7 @@ import type {
   ComparerResult,
   ComparerRow,
 } from '../types/comparer'
-import { hasDefinitionMismatch, recomputeDrift } from '../types/comparer'
+import { recomputeDrift, rowHasDrift } from '../types/comparer'
 import { ENVIRONMENTS, currentEnvKey } from '../config'
 import { SolutionSelect } from './SolutionSelect'
 import { ComparerMatrix } from './ComparerMatrix'
@@ -72,7 +72,7 @@ export function ComparerWorkspace({
   } | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [driftOnly, setDriftOnly] = useState(false)
-  const [offDefOnly, setOffDefOnly] = useState(false)
+  const [definitionMode, setDefinitionMode] = useState(true)
   const [grouped, setGrouped] = useState(true)
 
   const solution = releases.find((s) => s.id === solutionId) ?? null
@@ -136,17 +136,23 @@ export function ComparerWorkspace({
     }
   }
 
-  const driftCount = result?.rows.filter((r) => r.statusDrift).length ?? 0
   const hasDefs = !!result?.rows.some((r) => r.definition !== undefined)
-  const offDefCount =
-    result?.rows.filter((r) => hasDefinitionMismatch(r, envKeys)).length ?? 0
+  // Drift is measured against the definition when the toggle is on and there is
+  // definition data; otherwise against the current environment.
+  const driftMode = definitionMode && hasDefs ? 'definition' : 'current'
+  const driftCount =
+    result?.rows.filter((r) => rowHasDrift(r, hostKey, envKeys, driftMode))
+      .length ?? 0
   const shown = useMemo(() => {
     if (!result) return null
-    let rows = result.rows
-    if (driftOnly) rows = rows.filter((r) => r.statusDrift)
-    if (offDefOnly) rows = rows.filter((r) => hasDefinitionMismatch(r, envKeys))
-    return rows === result.rows ? result : { ...result, rows }
-  }, [result, driftOnly, offDefOnly, envKeys])
+    if (!driftOnly) return result
+    return {
+      ...result,
+      rows: result.rows.filter((r) =>
+        rowHasDrift(r, hostKey, envKeys, driftMode),
+      ),
+    }
+  }, [result, driftOnly, driftMode, hostKey, envKeys])
 
   return (
     <div>
@@ -168,6 +174,19 @@ export function ComparerWorkspace({
         >
           {running ? `Comparing… ${progress}` : 'Compare'}
         </button>
+        {result && hasDefs && (
+          <label
+            className="cmp-switch"
+            title="On: show the Definition column and measure drift against the defined state. Off: measure drift against the current environment."
+          >
+            <input
+              type="checkbox"
+              checked={definitionMode}
+              onChange={(e) => setDefinitionMode(e.target.checked)}
+            />
+            Definition
+          </label>
+        )}
         {result && driftCount > 0 && (
           <label className="cmp-driftonly">
             <input
@@ -175,17 +194,9 @@ export function ComparerWorkspace({
               checked={driftOnly}
               onChange={(e) => setDriftOnly(e.target.checked)}
             />
-            Only status drift ({driftCount})
-          </label>
-        )}
-        {result && hasDefs && offDefCount > 0 && (
-          <label className="cmp-driftonly">
-            <input
-              type="checkbox"
-              checked={offDefOnly}
-              onChange={(e) => setOffDefOnly(e.target.checked)}
-            />
-            Only off-definition ({offDefCount})
+            {driftMode === 'definition'
+              ? `Only off-definition (${driftCount})`
+              : `Only status drift (${driftCount})`}
           </label>
         )}
         {result && groupByLabel && (
@@ -231,8 +242,11 @@ export function ComparerWorkspace({
           <p className="muted cmp-hint">
             {result?.rows.length} {noun}
             {result?.rows.length === 1 ? '' : 's'} · matched across environments
-            by their id. Highlighted cells differ in status from{' '}
-            <strong>current</strong>.
+            by their id. Highlighted cells differ from{' '}
+            <strong>
+              {driftMode === 'definition' ? 'the defined state' : 'current'}
+            </strong>
+            .
             {canManage
               ? ' Turn on/off writes to the selected environment (confirm first).'
               : ' Turning items on/off needs the deployment-manager role.'}
@@ -243,6 +257,8 @@ export function ComparerWorkspace({
             showVersion={showVersion}
             canManage={canManage}
             busyCell={busyCell}
+            driftMode={driftMode}
+            showDefinition={definitionMode}
             groupKey={
               groupByLabel && grouped
                 ? (r) => r.subtitle || `(no ${groupByLabel})`

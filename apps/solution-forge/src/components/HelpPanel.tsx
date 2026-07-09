@@ -712,20 +712,20 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 A <strong>matrix</strong> shows each flow's{' '}
                 <strong>status</strong> (Activated / Draft / Missing) and last
-                change per environment. Only the <strong>cells</strong> whose
-                status differs from <strong>current</strong> are highlighted; the
-                item name carries a <strong>drift</strong> marker. A filter shows
-                only drifting flows.
+                change per environment. Only the <strong>cells</strong> that
+                drift are highlighted; the item name carries a{' '}
+                <strong>drift</strong> marker. A filter shows only drifting flows.
               </li>
               <li>
-                With the central <code>hso_cloudflow</code> registry present, a{' '}
+                A <strong>Definition</strong> switch (next to Compare, when the
+                central <code>hso_cloudflow</code> registry is present) chooses
+                what drift is measured against. <strong>On:</strong> a{' '}
                 <strong>Definition</strong> column shows the flow's{' '}
-                <strong>defined desired state</strong> (On / Off), and each cell
-                shows the <strong>per-environment defined state</strong>
-                (matched by the environment id). A cell whose actual state is
-                off the definition gets a <strong>⚠</strong> and an{' '}
-                <strong>off-def</strong> marker; a filter shows only off-definition
-                flows.
+                <strong>defined state</strong> (On / Off) and drift = an
+                environment differs from that defined state (every env,
+                including current). <strong>Off:</strong> the column is hidden and
+                drift = a target environment differs from{' '}
+                <strong>current</strong>.
               </li>
               <li>
                 <strong>↗</strong> per cell jumps to that flow in the

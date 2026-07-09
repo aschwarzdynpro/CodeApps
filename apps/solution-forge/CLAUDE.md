@@ -369,16 +369,23 @@ als **Konnektor-SP** cross-env (die nativen Writes gehen nur Host!), **kein
 Aktivierungsrecht auf `workflow`/`sdkmessageprocessingstep` im Ziel** (UAT/PROD).
 Mock-Parität: `mockFlowComparerService`/`mockPluginComparerService` seeden dev/
 uat/prod inkl. Drift + fehlendem Item → offline demobar. **Highlight je Zelle**
-(nicht ganze Zeile) + Item-Marker (`cmp-mark--drift`/`--def`). **Soll-Zustand
-(Schulz, nur Flow Comparer):** `dataverseFlowComparerService.loadDefinitions()`
-liest **host-seitig** die zentrale Registry — `hso_cloudflow.hso_flowstate`
-(„On"/„Off", gematcht per `hso_name`→Flow-Name bzw. `hso_flowuniqueid`→
-`workflowidunique`) als **Definition-Spalte** vor den Env-Spalten, und
-`hso_cloudflowbyenvironment.hso_flowstate` je Umgebung (Env-Key aus der in
-`hso_flowdetailsurl` eingebetteten Dataverse-Env-GUID gemappt) als Soll je Zelle
-(`ComparerEnvState.desired`). `hasDefinitionMismatch()` = Ist ≠ Soll je Env →
-„off-def"-Marker + „Only off-definition"-Filter. Tabellen fehlen bei Nicht-
-Schulz → Read scheitert still, keine Definition-Spalte (best-effort).
+(kein Row-Tint) + Item-`drift`-Marker. **Soll-Zustand (Schulz, nur Flow
+Comparer):** `dataverseFlowComparerService.loadDefinitions()` liest
+**host-seitig** die zentrale Registry `hso_cloudflow.hso_flowstate` (gematcht per
+`hso_name`→Flow-Name bzw. `hso_flowuniqueid`→`workflowidunique`) als
+**Definition-Spalte**. ⚠ `hso_flowstate` ist ein **Zwei-Optionen-Feld** → der
+Konnektor liefert **JS-Boolean** (`true`/`false`), NICHT 1/0; `rowNum(true)===0`
+→ alles „Off". Daher `stateOf` robust gegen boolean/number/string/label (`Number`
+/Regex, NICHT `rowNum`). **Definition-Schalter** (neben Compare, `definitionMode`,
+Default an, nur bei Registry-Daten) steuert `driftMode`: **`definition`** = Ist ≠
+Soll je Env inkl. Host (+ Spalte); **`current`** = Ist ≠ Host (Spalte aus). Drift
+zentral in `types/comparer.ts → cellHasDrift`/`rowHasDrift(row, hostKey, envKeys,
+mode)`. `hso_cloudflowbyenvironment` (per-Env-Soll) wird gelesen, aber aktuell
+NICHT angezeigt/bewertet (bewusst zurückgestellt). Registry-Read als Konnektor-SP
+**D365-CE-nonProd = System Administrator** (voller Read); Entity-Set-Namen via
+`EntityDefinitions`-Metadaten aufgelöst (nicht naiv pluralisiert). Turn On/Off-
+Confirm = modernes `ConfirmDialog` (PROD-Danger-Variante), kein `window.confirm`.
+Tabellen fehlen bei Nicht-Schulz → Read scheitert still, keine Definition-Spalte.
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 

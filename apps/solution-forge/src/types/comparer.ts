@@ -45,22 +45,41 @@ export interface ComparerRow {
 }
 
 /**
- * True when any environment's actual on/off differs from its DEFINED desired
- * state — i.e. the environment isn't in the state the definition wants.
+ * How "status drift" is measured:
+ * - `current`    — a target env differs from the current (host) env.
+ * - `definition` — an env differs from the flow's defined state (hso_cloudflow);
+ *                  applies to every env, including the host.
  */
-export function hasDefinitionMismatch(
+export type DriftMode = 'current' | 'definition'
+
+/** Whether one environment's cell counts as drift under the given mode. */
+export function cellHasDrift(
   row: ComparerRow,
-  envKeys: string[],
+  envKey: string,
+  hostKey: string,
+  mode: DriftMode,
 ): boolean {
-  return envKeys.some((key) => {
-    const cell = row.byEnv[key]
+  const cell = row.byEnv[envKey]
+  if (!cell || !cell.present) return false
+  if (mode === 'definition') {
     return (
-      !!cell &&
-      cell.present &&
-      cell.desiredActive !== undefined &&
-      cell.desiredActive !== cell.active
+      row.definitionActive !== undefined &&
+      cell.active !== row.definitionActive
     )
-  })
+  }
+  if (envKey === hostKey) return false
+  const host = row.byEnv[hostKey]
+  return !!host && host.present && cell.active !== host.active
+}
+
+/** Whether any environment of a row drifts under the given mode. */
+export function rowHasDrift(
+  row: ComparerRow,
+  hostKey: string,
+  envKeys: string[],
+  mode: DriftMode,
+): boolean {
+  return envKeys.some((k) => cellHasDrift(row, k, hostKey, mode))
 }
 
 export interface ComparerResult {

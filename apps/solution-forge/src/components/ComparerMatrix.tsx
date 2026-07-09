@@ -1,6 +1,10 @@
 import { Fragment, useState } from 'react'
-import type { ComparerResult, ComparerRow } from '../types/comparer'
-import { hasDefinitionMismatch } from '../types/comparer'
+import type {
+  ComparerResult,
+  ComparerRow,
+  DriftMode,
+} from '../types/comparer'
+import { cellHasDrift, rowHasDrift } from '../types/comparer'
 import { ENVIRONMENTS } from '../config'
 import { formatRelative } from '../utils/format'
 
@@ -31,6 +35,10 @@ interface Props {
   canManage: boolean
   /** `${envKey}:${rowId}` currently toggling (shows a spinner, disables). */
   busyCell: string | null
+  /** How drift is measured — vs. current env or vs. the definition. */
+  driftMode: DriftMode
+  /** Show the Definition column (definition mode + data present). */
+  showDefinition: boolean
   /** When set, rows are grouped by this key into collapsible sections. */
   groupKey?: (row: ComparerRow) => string
   onToggle: (
@@ -54,6 +62,8 @@ export function ComparerMatrix({
   showVersion,
   canManage,
   busyCell,
+  driftMode,
+  showDefinition,
   groupKey,
   onToggle,
 }: Props) {
@@ -62,32 +72,24 @@ export function ComparerMatrix({
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }))
 
   const envKeys = ENVIRONMENTS.map((e) => e.key)
-  // Only flows carry a definition — the column appears only when data exists.
-  const hasDefinition = result.rows.some((r) => r.definition !== undefined)
+  const hasDefinition =
+    showDefinition && result.rows.some((r) => r.definition !== undefined)
   const colSpan = 1 + (hasDefinition ? 1 : 0) + ENVIRONMENTS.length
+  const driftTitle =
+    driftMode === 'definition'
+      ? 'Not in its defined state in some environment'
+      : 'Status differs from current in some environment'
 
   const renderRow = (row: ComparerRow) => {
-    const host = row.byEnv[hostKey] ?? null
-    const offDef = hasDefinition && hasDefinitionMismatch(row, envKeys)
+    const drift = rowHasDrift(row, hostKey, envKeys, driftMode)
     return (
       <tr key={row.id}>
         <td className="cmp-item">
           <div className="cmp-item-name" title={row.name}>
             {row.name}
-            {row.statusDrift && (
-              <span
-                className="cmp-mark cmp-mark--drift"
-                title="Status differs from current in some environment"
-              >
+            {drift && (
+              <span className="cmp-mark cmp-mark--drift" title={driftTitle}>
                 drift
-              </span>
-            )}
-            {offDef && (
-              <span
-                className="cmp-mark cmp-mark--def"
-                title="Some environment is not in its defined state"
-              >
-                off-def
               </span>
             )}
           </div>
@@ -115,7 +117,6 @@ export function ComparerMatrix({
         )}
         {ENVIRONMENTS.map((env) => {
           const state = row.byEnv[env.key] ?? null
-          const isHost = env.key === hostKey
           const busy = busyCell === `${env.key}:${row.id}`
           if (state === null)
             return (
@@ -133,12 +134,11 @@ export function ComparerMatrix({
                 <span className="cmp-missing">Missing</span>
               </td>
             )
-          const drift =
-            !isHost && !!host?.present && state.active !== host.active
+          const cellDrift = cellHasDrift(row, env.key, hostKey, driftMode)
           return (
             <td
               key={env.key}
-              className={`cmp-cell ${drift ? 'cmp-cell--drift' : ''}`}
+              className={`cmp-cell ${cellDrift ? 'cmp-cell--drift' : ''}`}
             >
               <div className="cmp-cell-body">
                 <div className="cmp-cell-info">
@@ -161,23 +161,6 @@ export function ComparerMatrix({
                     )
                   )}
                 </div>
-                {state.desired && (
-                  <span
-                    className={`cmp-desired ${
-                      state.desiredActive === state.active
-                        ? 'cmp-desired--ok'
-                        : 'cmp-desired--bad'
-                    }`}
-                    title={
-                      state.desiredActive === state.active
-                        ? 'Matches the defined state'
-                        : `Should be “${state.desired}” per the definition`
-                    }
-                  >
-                    def: {state.desired}
-                    {state.desiredActive !== state.active && ' ⚠'}
-                  </span>
-                )}
                 {(state.link || canManage) && (
                   <div className="cmp-actions">
                     {state.link && (
