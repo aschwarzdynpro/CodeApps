@@ -130,11 +130,12 @@ export function ComparerWorkspace({
       const cell = await setState(env.key, row.id, desiredOn)
       applyCell(row.id, env.key, cell)
       setPending(null)
-      // Flash the changed cell, then let it fade to its resting colour.
+      // Flash the changed cell green, hold it, then fade to its resting colour.
+      // Keep this in sync with the `cmp-cell--flash` animation length (3s).
       const key = `${env.key}:${row.id}`
       window.clearTimeout(flashTimer.current)
       setFlashCell(key)
-      flashTimer.current = window.setTimeout(() => setFlashCell(null), 1700)
+      flashTimer.current = window.setTimeout(() => setFlashCell(null), 3100)
     } catch (err) {
       setActionError(err instanceof Error ? err.message : String(err))
       setPending(null)

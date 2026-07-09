@@ -5800,14 +5800,14 @@
    colour (transparent for OK, the drift amber for a drifting cell). Animating
    background-color keeps the cell content readable. */
 .cmp-cell--flash {
-  animation: cmp-flash-ok 1.7s ease-out;
+  animation: cmp-flash-ok 3s ease-out;
 }
 .cmp-cell--flash.cmp-cell--drift {
-  animation: cmp-flash-drift 1.7s ease-out;
+  animation: cmp-flash-drift 3s ease-out;
 }
 @keyframes cmp-flash-ok {
   0%,
-  12% {
+  66% {
     background-color: rgba(22, 163, 74, 0.4);
   }
   100% {
@@ -5816,7 +5816,7 @@
 }
 @keyframes cmp-flash-drift {
   0%,
-  12% {
+  66% {
     background-color: rgba(22, 163, 74, 0.4);
   }
   100% {
