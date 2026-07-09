@@ -134,6 +134,7 @@ class DataverseFlowComparerService implements FlowComparerService {
     // (host side): the overall wanted state per flow + the wanted state per env.
     onProgress?.('Reading the defined flow states…')
     const defs = await this.loadDefinitions(orgUrlForEnvKey(hostKey))
+    let matched = 0
     for (const row of rows) {
       const def =
         defs.defByName.get(row.name.toLowerCase()) ||
@@ -141,6 +142,7 @@ class DataverseFlowComparerService implements FlowComparerService {
       if (def) {
         row.definition = def.label
         row.definitionActive = def.active
+        matched++
       }
       const perEnv = row.uniqueId
         ? defs.envDef.get(row.uniqueId.toLowerCase())
@@ -162,7 +164,17 @@ class DataverseFlowComparerService implements FlowComparerService {
         Number(b.statusDrift) - Number(a.statusDrift) ||
         a.name.localeCompare(b.name),
     )
-    return { rows, envErrors }
+
+    console.info(
+      `[flowcmp] definitions: ${defs.defByName.size} names / ${defs.envDef.size} env-maps read, ${matched}/${rows.length} flows matched`,
+    )
+    const definitionNote = defs.error
+      ? `Defined states (hso_cloudflow) couldn’t be read — the connection may lack read access. ${defs.error}`
+      : defs.defByName.size > 0 && matched === 0
+        ? 'Read the definition registry, but no flow name matched it.'
+        : undefined
+
+    return { rows, envErrors, ...(definitionNote ? { definitionNote } : {}) }
   }
 
   /**
@@ -177,11 +189,13 @@ class DataverseFlowComparerService implements FlowComparerService {
     defByName: Map<string, { label: string; active: boolean }>
     defByUnique: Map<string, { label: string; active: boolean }>
     envDef: Map<string, Map<string, { label: string; active: boolean }>>
+    error?: string
   }> {
     const defByName = new Map<string, { label: string; active: boolean }>()
     const defByUnique = new Map<string, { label: string; active: boolean }>()
     const envDef = new Map<string, Map<string, { label: string; active: boolean }>>()
     const isOn = (label: string): boolean => /^\s*on\s*$/i.test(label)
+    let error: string | undefined
 
     try {
       const cf =
@@ -198,6 +212,7 @@ class DataverseFlowComparerService implements FlowComparerService {
         if (uniq) defByUnique.set(uniq, entry)
       }
     } catch (err) {
+      error = err instanceof Error ? err.message : String(err)
       console.warn('[flowcmp] hso_cloudflow read failed:', err)
     }
 
@@ -232,7 +247,7 @@ class DataverseFlowComparerService implements FlowComparerService {
       console.warn('[flowcmp] hso_cloudflowbyenvironment read failed:', err)
     }
 
-    return { defByName, defByUnique, envDef }
+    return { defByName, defByUnique, envDef, ...(error ? { error } : {}) }
   }
 
   /** Read workflow rows for a set of ids in one environment, keyed by id. */

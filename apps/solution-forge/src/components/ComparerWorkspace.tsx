@@ -192,6 +192,9 @@ export function ComparerWorkspace({
 
       {error && <div className="state state--error">{error}</div>}
       {actionError && <div className="state state--error">{actionError}</div>}
+      {result?.definitionNote && (
+        <div className="state">ℹ {result.definitionNote}</div>
+      )}
 
       {result && Object.keys(result.envErrors).length > 0 && (
         <div className="state state--error">

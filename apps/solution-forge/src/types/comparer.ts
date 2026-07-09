@@ -67,6 +67,9 @@ export interface ComparerResult {
   rows: ComparerRow[]
   /** Per-env read failures (env not queryable). */
   envErrors: Record<string, string>
+  /** Why the defined-state (Definition) column is absent, when it was expected
+   *  (e.g. the registry read failed) — shown as a hint. */
+  definitionNote?: string
 }
 
 /**
