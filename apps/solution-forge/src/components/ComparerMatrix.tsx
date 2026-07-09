@@ -2,6 +2,23 @@ import type { ComparerResult, ComparerRow } from '../types/comparer'
 import { ENVIRONMENTS } from '../config'
 import { formatRelative } from '../utils/format'
 
+/** A power (on/off) glyph so the action button reads as a control, not a badge. */
+const PowerIcon = () => (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.4"
+    strokeLinecap="round"
+    aria-hidden="true"
+  >
+    <path d="M12 3v9" />
+    <path d="M6.3 6.3a8 8 0 1 0 11.4 0" />
+  </svg>
+)
+
 interface Props {
   result: ComparerResult
   /** Host (current) env key — the reference the target cells are compared to. */
@@ -47,8 +64,8 @@ export function ComparerMatrix({
                 title={result.envErrors[env.key]}
               >
                 {env.label}
-                {env.key === hostKey && (
-                  <span className="cmp-th-tag"> current</span>
+                {env.key === hostKey && !/current/i.test(env.label) && (
+                  <span className="cmp-th-tag"> · current</span>
                 )}
                 {result.envErrors[env.key] && (
                   <span className="cmp-th-err" title={result.envErrors[env.key]}>
@@ -104,59 +121,67 @@ export function ComparerMatrix({
                       className={`cmp-cell ${drift ? 'cmp-cell--drift' : ''}`}
                     >
                       <div className="cmp-cell-body">
-                        <span
-                          className={`cmp-pill ${
-                            state.active ? 'cmp-pill--on' : 'cmp-pill--off'
-                          }`}
-                        >
-                          {state.statusLabel}
-                        </span>
-                        {showVersion ? (
+                        <div className="cmp-cell-info">
                           <span
-                            className={`cmp-ver ${state.version ? '' : 'muted'}`}
+                            className={`cmp-pill ${
+                              state.active ? 'cmp-pill--on' : 'cmp-pill--off'
+                            }`}
                           >
-                            {state.version ? `v${state.version}` : '—'}
+                            {state.statusLabel}
                           </span>
-                        ) : (
-                          state.modifiedOn && (
-                            <span className="cmp-when muted">
-                              {formatRelative(state.modifiedOn)}
+                          {showVersion ? (
+                            <span
+                              className={`cmp-ver ${state.version ? '' : 'muted'}`}
+                            >
+                              {state.version ? `v${state.version}` : '—'}
                             </span>
-                          )
-                        )}
-                        <div className="cmp-actions">
-                          {state.link && (
-                            <a
-                              className="cmp-jump"
-                              href={state.link}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={`Open in ${env.label}`}
-                            >
-                              ↗
-                            </a>
-                          )}
-                          {canManage && (
-                            <button
-                              className={`cmp-toggle ${
-                                state.active
-                                  ? 'cmp-toggle--off'
-                                  : 'cmp-toggle--on'
-                              }`}
-                              disabled={busy}
-                              onClick={() =>
-                                onToggle(env, row, !state.active)
-                              }
-                              title={
-                                state.active
-                                  ? `Turn off in ${env.label}`
-                                  : `Turn on in ${env.label}`
-                              }
-                            >
-                              {busy ? '…' : state.active ? 'Turn off' : 'Turn on'}
-                            </button>
+                          ) : (
+                            state.modifiedOn && (
+                              <span className="cmp-when muted">
+                                {formatRelative(state.modifiedOn)}
+                              </span>
+                            )
                           )}
                         </div>
+                        {(state.link || canManage) && (
+                          <div className="cmp-actions">
+                            {state.link && (
+                              <a
+                                className="cmp-jump"
+                                href={state.link}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={`Open in ${env.label}`}
+                                aria-label={`Open in ${env.label}`}
+                              >
+                                ↗
+                              </a>
+                            )}
+                            {canManage && (
+                              <button
+                                className={`cmp-toggle ${
+                                  state.active
+                                    ? 'cmp-toggle--off'
+                                    : 'cmp-toggle--on'
+                                }`}
+                                disabled={busy}
+                                onClick={() => onToggle(env, row, !state.active)}
+                                title={
+                                  state.active
+                                    ? `Turn off in ${env.label}`
+                                    : `Turn on in ${env.label}`
+                                }
+                              >
+                                <PowerIcon />
+                                {busy
+                                  ? '…'
+                                  : state.active
+                                    ? 'Turn off'
+                                    : 'Turn on'}
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </td>
                   )
