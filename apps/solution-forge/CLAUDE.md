@@ -369,23 +369,29 @@ als **Konnektor-SP** cross-env (die nativen Writes gehen nur Host!), **kein
 Aktivierungsrecht auf `workflow`/`sdkmessageprocessingstep` im Ziel** (UAT/PROD).
 Mock-Parität: `mockFlowComparerService`/`mockPluginComparerService` seeden dev/
 uat/prod inkl. Drift + fehlendem Item → offline demobar. **Highlight je Zelle**
-(kein Row-Tint) + Item-`drift`-Marker. **Soll-Zustand (Schulz, nur Flow
-Comparer):** `dataverseFlowComparerService.loadDefinitions()` liest
-**host-seitig** die zentrale Registry `hso_cloudflow.hso_flowstate` (gematcht per
-`hso_name`→Flow-Name bzw. `hso_flowuniqueid`→`workflowidunique`) als
-**Definition-Spalte**. ⚠ `hso_flowstate` ist ein **Zwei-Optionen-Feld** → der
-Konnektor liefert **JS-Boolean** (`true`/`false`), NICHT 1/0; `rowNum(true)===0`
-→ alles „Off". Daher `stateOf` robust gegen boolean/number/string/label (`Number`
-/Regex, NICHT `rowNum`). **Definition-Schalter** (neben Compare, `definitionMode`,
-Default an, nur bei Registry-Daten) steuert `driftMode`: **`definition`** = Ist ≠
-Soll je Env inkl. Host (+ Spalte); **`current`** = Ist ≠ Host (Spalte aus). Drift
-zentral in `types/comparer.ts → cellHasDrift`/`rowHasDrift(row, hostKey, envKeys,
-mode)`. `hso_cloudflowbyenvironment` (per-Env-Soll) wird gelesen, aber aktuell
-NICHT angezeigt/bewertet (bewusst zurückgestellt). Registry-Read als Konnektor-SP
-**D365-CE-nonProd = System Administrator** (voller Read); Entity-Set-Namen via
-`EntityDefinitions`-Metadaten aufgelöst (nicht naiv pluralisiert). Turn On/Off-
-Confirm = modernes `ConfirmDialog` (PROD-Danger-Variante), kein `window.confirm`.
-Tabellen fehlen bei Nicht-Schulz → Read scheitert still, keine Definition-Spalte.
+(kein Row-Tint) + Item-`drift`-Marker. **Soll-Zustand (Flow Comparer) — voll konfigurierbar, KEINE `hso_`-Hartkodierung:**
+Quelle kommt aus `pro_workbenchsettings` (`config.ts → flowDefinitionConfig()`,
+`RuntimeConfig.flowDefinition`, hydriert in `getRuntimeConfig`): Spalten
+`pro_flowdefinitiontable` (Tabelle), `pro_flowdefinitionstatus` (Boolean-Spalte),
+`pro_flowdefinitionname` (Name-Match-Spalte), `pro_flowdefinitionunique`
+(optional, `workflowidunique`-Match). Sind Tabelle/Status/Name nicht alle gesetzt
+→ Feature **komplett aus** (keine Spalte, Drift = vs Current), keine Abhängigkeit.
+Schulz-Werte: `hso_cloudflow`/`hso_flowstate`/`hso_name`/`hso_flowuniqueid`.
+`loadDefinitions(orgUrl, cfg)` liest host-seitig die konfigurierte Tabelle,
+matcht **unique-first** (dann Name). ⚠ Die Status-Spalte ist ein **Zwei-Optionen-
+Feld** → der Konnektor liefert **JS-Boolean** (`true`/`false`), NICHT 1/0;
+`rowNum(true)===0` → alles „Off". Daher `stateOf` robust gegen
+boolean/number/string/label (`Number`/Regex, NICHT `rowNum`). **Definition-
+Schalter** (neben Compare, `definitionMode`, Default an, nur bei Daten) steuert
+`driftMode`: **`definition`** = Ist ≠ Soll je Env inkl. Host (+ Spalte);
+**`current`** = Ist ≠ Host (Spalte aus). Drift zentral in `types/comparer.ts →
+cellHasDrift`/`rowHasDrift(row, hostKey, envKeys, mode)`. Read als Konnektor-SP
+(Schulz: **D365-CE-nonProd = System Administrator**); Entity-Set-Name via
+`EntityDefinitions`-Metadaten aufgelöst (nicht naiv pluralisiert). Die frühere
+`hso_cloudflowbyenvironment`-Lesung (per-Env-Soll) ist **entfernt** (war die
+nächste Hartkodierung; ggf. später als zweites konfigurierbares Set). Turn On/Off-
+Confirm = modernes `ConfirmDialog` (PROD-Danger). Getoggelte Zelle **flasht grün**
+(`cmp-cell--flash`) und fadet in die Ruhefarbe.
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 

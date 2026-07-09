@@ -19,10 +19,6 @@ export interface ComparerEnvState {
   isManaged?: boolean
   /** Portal deep link into this environment (flows: Power Automate). */
   link?: string
-  /** DEFINED desired state for this env (flows: hso_cloudflowbyenvironment) —
-   *  the label ("On"/"Off") and its on/off, when a definition exists. */
-  desired?: string
-  desiredActive?: boolean
 }
 
 /** One compared item across the environments. */

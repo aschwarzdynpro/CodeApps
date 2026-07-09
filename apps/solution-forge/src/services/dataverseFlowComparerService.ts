@@ -22,8 +22,10 @@ import {
   ENVIRONMENTS,
   currentEnvKey,
   environmentIdForEnvKey,
+  flowDefinitionConfig,
   flowDetailsUrl,
   orgUrlForEnvKey,
+  type FlowDefinitionConfig,
 } from '../config'
 
 /** Ids per OData `or` chunk (URL-length safe). */
@@ -130,32 +132,36 @@ class DataverseFlowComparerService implements FlowComparerService {
 
     const rows = [...rowsById.values()]
 
-    // Overlay the DEFINED desired state from the central hso_cloudflow registry
-    // (host side): the overall wanted state per flow + the wanted state per env.
-    onProgress?.('Reading the defined flow states…')
-    const defs = await this.loadDefinitions(orgUrlForEnvKey(hostKey))
-    let matched = 0
-    for (const row of rows) {
-      const def =
-        defs.defByName.get(row.name.toLowerCase()) ||
-        (row.uniqueId ? defs.defByUnique.get(row.uniqueId.toLowerCase()) : undefined)
-      if (def) {
-        row.definition = def.label
-        row.definitionActive = def.active
-        matched++
-      }
-      const perEnv = row.uniqueId
-        ? defs.envDef.get(row.uniqueId.toLowerCase())
-        : undefined
-      if (perEnv) {
-        for (const [envKey, d] of perEnv) {
-          const cell = row.byEnv[envKey]
-          if (cell && cell.present) {
-            cell.desired = d.label
-            cell.desiredActive = d.active
-          }
+    // Overlay the DEFINED desired state from the CONFIGURED definition table
+    // (host side) — the overall wanted On/Off per flow. Off entirely unless
+    // configured in the Workbench Settings (no hard dependency on any table).
+    let definitionNote: string | undefined
+    const defCfg = flowDefinitionConfig()
+    if (defCfg) {
+      onProgress?.('Reading the defined flow states…')
+      const defs = await this.loadDefinitions(orgUrlForEnvKey(hostKey), defCfg)
+      let matched = 0
+      for (const row of rows) {
+        // Prefer the exact unique-id match; fall back to the flow name.
+        const def =
+          (row.uniqueId && defs.byUnique.get(row.uniqueId.toLowerCase())) ||
+          defs.byName.get(row.name.toLowerCase())
+        if (def) {
+          row.definition = def.label
+          row.definitionActive = def.active
+          matched++
         }
       }
+      console.info(
+        `[flowcmp] definitions (${defCfg.table}): ${defs.rawRows} rows read, ${matched}/${rows.length} flows matched`,
+      )
+      definitionNote = defs.error
+        ? `Defined states (${defCfg.table}) couldn’t be read — the connection may lack read access. ${defs.error}`
+        : defs.rawRows === 0
+          ? `No defined states found — ${defCfg.table} returned 0 rows for the app’s connection.`
+          : matched === 0
+            ? `Read ${defs.rawRows} rows from ${defCfg.table}, but none matched a flow.`
+            : undefined
     }
 
     for (const row of rows) row.statusDrift = recomputeDrift(row, hostKey, envKeys)
@@ -165,49 +171,36 @@ class DataverseFlowComparerService implements FlowComparerService {
         a.name.localeCompare(b.name),
     )
 
-    console.info(
-      `[flowcmp] definitions: ${defs.rawCloudflowRows} hso_cloudflow rows read, ${defs.defByName.size} names / ${defs.envDef.size} env-maps, ${matched}/${rows.length} flows matched`,
-    )
-    const definitionNote = defs.error
-      ? `Defined states (hso_cloudflow) couldn’t be read — the connection may lack read access. ${defs.error}`
-      : defs.rawCloudflowRows === 0
-        ? 'No defined states found — hso_cloudflow returned 0 rows for the app’s connection.'
-        : matched === 0
-          ? `Read ${defs.rawCloudflowRows} definitions, but none matched a flow by name — try the real release solution (not a backup).`
-          : undefined
-
     return { rows, envErrors, ...(definitionNote ? { definitionNote } : {}) }
   }
 
   /**
-   * Read the DEFINED desired flow states from the central Schulz registry
-   * (host side): `hso_cloudflow.hso_flowstate` (overall wanted state, matched by
-   * name / unique id) and the per-environment `hso_cloudflowbyenvironment`
-   * records (wanted state per env — the env resolved from the Dataverse env id
-   * embedded in `hso_flowdetailsurl`). Best-effort: if the tables don't exist
-   * (non-Schulz), everything comes back empty and no definition is shown.
+   * Read the DEFINED desired flow states from the CONFIGURED definition table
+   * (host side): its status column (a two-options / boolean field → the wanted
+   * On/Off), keyed by the configured name column and (optionally) unique column.
+   * Best-effort: any failure yields empty maps + an error message.
    */
-  private async loadDefinitions(orgUrl: string): Promise<{
-    defByName: Map<string, { label: string; active: boolean }>
-    defByUnique: Map<string, { label: string; active: boolean }>
-    envDef: Map<string, Map<string, { label: string; active: boolean }>>
-    rawCloudflowRows: number
+  private async loadDefinitions(
+    orgUrl: string,
+    cfg: FlowDefinitionConfig,
+  ): Promise<{
+    byName: Map<string, { label: string; active: boolean }>
+    byUnique: Map<string, { label: string; active: boolean }>
+    rawRows: number
     error?: string
   }> {
-    const defByName = new Map<string, { label: string; active: boolean }>()
-    const defByUnique = new Map<string, { label: string; active: boolean }>()
-    const envDef = new Map<string, Map<string, { label: string; active: boolean }>>()
+    const byName = new Map<string, { label: string; active: boolean }>()
+    const byUnique = new Map<string, { label: string; active: boolean }>()
     let error: string | undefined
-    let rawCloudflowRows = 0
+    let rawRows = 0
 
-    // hso_flowstate is a two-options field (1 = On/active, 0 = Off). The
-    // connector returns it as a JS BOOLEAN (true/false), so `rowNum(true)` gives
-    // 0 (booleans aren't numbers) — that made everything read "Off". Accept
-    // boolean / number / string / formatted-label forms of "on".
+    // The status column is a two-options / boolean field — the connector returns
+    // it as a JS boolean (true/false), so Number()/regex, NOT rowNum (which is 0
+    // for a boolean). Accept boolean / number / string / formatted-label "on".
     const ON_RE = /^\s*(on|yes|true|active|activated|ja|1)\s*$/i
     const stateOf = (r: Row): { label: string; active: boolean } | null => {
-      const raw = r.hso_flowstate
-      const fv = formattedValue(r, 'hso_flowstate')
+      const raw = r[cfg.statusCol]
+      const fv = formattedValue(r, cfg.statusCol)
       if (raw == null && !fv) return null
       const active =
         raw === true ||
@@ -217,79 +210,42 @@ class DataverseFlowComparerService implements FlowComparerService {
       return { label: active ? 'On' : 'Off', active }
     }
 
-    // Resolve the real EntitySetName from metadata — the connector addresses
-    // tables by their collection name, which isn't always the naive plural.
-    const sets = await this.resolveEntitySets(orgUrl)
-
+    const entitySet = await this.resolveEntitySet(orgUrl, cfg.table)
+    const attrs =
+      `<attribute name="${cfg.nameCol}" /><attribute name="${cfg.statusCol}" />` +
+      (cfg.uniqueCol ? `<attribute name="${cfg.uniqueCol}" />` : '')
     try {
-      const cf =
-        `<fetch><entity name="hso_cloudflow">` +
-        `<attribute name="hso_name" /><attribute name="hso_flowstate" />` +
-        `<attribute name="hso_flowuniqueid" /></entity></fetch>`
-      for (const r of await fetchXmlAllPages(sets.cloudflow, cf, orgUrl)) {
-        rawCloudflowRows++
+      const fetch = `<fetch><entity name="${cfg.table}">${attrs}</entity></fetch>`
+      for (const r of await fetchXmlAllPages(entitySet, fetch, orgUrl)) {
+        rawRows++
         const st = stateOf(r)
         if (!st) continue
-        const name = rowStr(r.hso_name).toLowerCase()
-        const uniq = rowStr(r.hso_flowuniqueid).toLowerCase()
-        if (name) defByName.set(name, st)
-        if (uniq) defByUnique.set(uniq, st)
+        const name = rowStr(r[cfg.nameCol]).toLowerCase()
+        const uniq = cfg.uniqueCol
+          ? rowStr(r[cfg.uniqueCol]).toLowerCase()
+          : ''
+        if (name) byName.set(name, st)
+        if (uniq) byUnique.set(uniq, st)
       }
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)
-      console.warn('[flowcmp] hso_cloudflow read failed:', err)
+      console.warn(`[flowcmp] ${cfg.table} read failed:`, err)
     }
 
-    try {
-      const be =
-        `<fetch><entity name="hso_cloudflowbyenvironment">` +
-        `<attribute name="hso_flowuniqueid" /><attribute name="hso_flowstate" />` +
-        `<attribute name="hso_flowdetailsurl" /></entity></fetch>`
-      for (const r of await fetchXmlAllPages(sets.byenv, be, orgUrl)) {
-        const st = stateOf(r)
-        const uniq = rowStr(r.hso_flowuniqueid).toLowerCase()
-        const guid = /environments\/([0-9a-f-]{36})\//i
-          .exec(rowStr(r.hso_flowdetailsurl))?.[1]
-          ?.toLowerCase()
-        if (!st || !uniq || !guid) continue
-        const envKey = ENVIRONMENTS.find(
-          (e) => e.environmentId?.toLowerCase() === guid,
-        )?.key
-        if (!envKey) continue
-        let m = envDef.get(uniq)
-        if (!m) {
-          m = new Map()
-          envDef.set(uniq, m)
-        }
-        m.set(envKey, st)
-      }
-    } catch (err) {
-      console.warn('[flowcmp] hso_cloudflowbyenvironment read failed:', err)
-    }
-
-    return {
-      defByName,
-      defByUnique,
-      envDef,
-      rawCloudflowRows,
-      ...(error ? { error } : {}),
-    }
+    return { byName, byUnique, rawRows, ...(error ? { error } : {}) }
   }
 
   /**
    * Resolve the real `EntitySetName` (collection name the connector addresses)
-   * for the two registry tables from metadata — Dataverse's auto-plural isn't
-   * always the naive "+s". Falls back to the naive plural if the metadata read
-   * fails. EntityDefinitions reads work with the connector (same path the
-   * dependency check uses).
+   * for a table from metadata — Dataverse's auto-plural isn't always the naive
+   * "+s". Falls back to "+s" if the metadata read fails. EntityDefinitions reads
+   * work with the connector (same path the dependency check uses).
    */
-  private async resolveEntitySets(
+  private async resolveEntitySet(
     orgUrl: string,
-  ): Promise<{ cloudflow: string; byenv: string }> {
-    const fallback = {
-      cloudflow: 'hso_cloudflows',
-      byenv: 'hso_cloudflowbyenvironments',
-    }
+    table: string,
+  ): Promise<string> {
+    const fallback = `${table}s`
     try {
       const res = await MicrosoftDataverseService.ListRecordsWithOrganization(
         orgUrl,
@@ -299,23 +255,13 @@ class DataverseFlowComparerService implements FlowComparerService {
         undefined,
         undefined,
         'LogicalName,EntitySetName',
-        `LogicalName eq 'hso_cloudflow' or LogicalName eq 'hso_cloudflowbyenvironment'`,
+        `LogicalName eq '${table.replace(/'/g, "''")}'`,
       )
       if (res && res.success === false) return fallback
       const rows =
         (res.data as { value?: Array<Record<string, unknown>> } | undefined)
           ?.value ?? []
-      const byLogical = new Map<string, string>()
-      for (const r of rows) {
-        const ln = rowStr(r.LogicalName)
-        const es = rowStr(r.EntitySetName)
-        if (ln && es) byLogical.set(ln, es)
-      }
-      return {
-        cloudflow: byLogical.get('hso_cloudflow') ?? fallback.cloudflow,
-        byenv:
-          byLogical.get('hso_cloudflowbyenvironment') ?? fallback.byenv,
-      }
+      return rowStr(rows[0]?.EntitySetName) || fallback
     } catch (err) {
       console.warn('[flowcmp] EntitySetName resolve failed:', err)
       return fallback

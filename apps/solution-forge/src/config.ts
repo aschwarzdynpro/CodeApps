@@ -142,12 +142,41 @@ export const DEVOPS_PANEL_ENABLED = false
 export let DEPLOYMENT_MANAGER_ROLE: string =
   import.meta.env.VITE_DEPLOYMENT_MANAGER_ROLE ?? 'INT | Deployment Manager'
 
+/**
+ * Flow Comparer "defined desired state" source — fully configurable so the app
+ * has NO hard dependency on any specific (e.g. hso_) table. All four are
+ * logical names read from the Workbench Settings; when table/status/name aren't
+ * all set the Definition feature is simply off.
+ */
+export interface FlowDefinitionConfig {
+  /** Definition table logical name (e.g. hso_cloudflow). */
+  table: string
+  /** Boolean / two-options column holding the wanted On/Off state. */
+  statusCol: string
+  /** Column matched against the flow's name. */
+  nameCol: string
+  /** Column matched against workflowidunique (optional; preferred when set). */
+  uniqueCol: string
+}
+let FLOW_DEFINITION: FlowDefinitionConfig = {
+  table: '',
+  statusCol: '',
+  nameCol: '',
+  uniqueCol: '',
+}
+/** The configured flow-definition source, or null when not configured. */
+export function flowDefinitionConfig(): FlowDefinitionConfig | null {
+  const f = FLOW_DEFINITION
+  return f.table && f.statusCol && f.nameCol ? f : null
+}
+
 /** Config values the app loads from Dataverse at startup (see configService). */
 export interface RuntimeConfig {
   environments?: EnvironmentDef[]
   adoOrgUrl?: string
   adoProject?: string
   deploymentManagerRole?: string
+  flowDefinition?: Partial<FlowDefinitionConfig>
 }
 
 /**
@@ -167,6 +196,14 @@ export function applyRuntimeConfig(cfg: RuntimeConfig): void {
     ADO_PROJECT_NAME = cfg.adoProject
   }
   if (cfg.deploymentManagerRole) DEPLOYMENT_MANAGER_ROLE = cfg.deploymentManagerRole
+  if (cfg.flowDefinition) {
+    FLOW_DEFINITION = {
+      table: cfg.flowDefinition.table ?? FLOW_DEFINITION.table,
+      statusCol: cfg.flowDefinition.statusCol ?? FLOW_DEFINITION.statusCol,
+      nameCol: cfg.flowDefinition.nameCol ?? FLOW_DEFINITION.nameCol,
+      uniqueCol: cfg.flowDefinition.uniqueCol ?? FLOW_DEFINITION.uniqueCol,
+    }
+  }
 }
 
 /** Maker-portal deep link to one solution (objects list), or the solutions

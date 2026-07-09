@@ -766,6 +766,35 @@ export class DataverseSolutionService implements SolutionService {
     } catch (err) {
       console.warn('[config] workbench settings read failed:', err)
     }
+    // Flow-definition source (Flow Comparer) — its own try/catch so these
+    // (possibly absent) columns never break the main settings read.
+    try {
+      const f = await Pro_workbenchsettingsesService.getAll({
+        select: [
+          'pro_flowdefinitiontable',
+          'pro_flowdefinitionstatus',
+          'pro_flowdefinitionname',
+          'pro_flowdefinitionunique',
+        ],
+      })
+      const row = f.data?.[0] as
+        | {
+            pro_flowdefinitiontable?: string
+            pro_flowdefinitionstatus?: string
+            pro_flowdefinitionname?: string
+            pro_flowdefinitionunique?: string
+          }
+        | undefined
+      if (row)
+        cfg.flowDefinition = {
+          table: row.pro_flowdefinitiontable ?? '',
+          statusCol: row.pro_flowdefinitionstatus ?? '',
+          nameCol: row.pro_flowdefinitionname ?? '',
+          uniqueCol: row.pro_flowdefinitionunique ?? '',
+        }
+    } catch (err) {
+      console.warn('[config] flow-definition config read failed:', err)
+    }
     // Compare/Dependency target environments from pro_environmentconfig.
     try {
       const e = await Pro_environmentconfigsService.getAll({

@@ -426,11 +426,13 @@ kann sie **je Umgebung an-/abschalten**.
    letzte Änderung. **Nur die abweichenden Zellen** sind hervorgehoben; am
    Item-Namen zeigt ein **drift**-Marker, dass die Zeile betroffen ist. Ein
    Filter zeigt nur driftende Flows.
-4. **Definition-Schalter** (neben Compare, nur bei vorhandener
-   `hso_cloudflow`-Registry) steuert, **wogegen** der Drift gemessen wird:
+4. **Definition-Schalter** (neben Compare) steuert, **wogegen** der Drift
+   gemessen wird. Die **Definitionsquelle ist konfigurierbar** (Workbench
+   Settings — Tabelle, Status-Spalte, Name-Spalte, optional Unique-Spalte); ohne
+   Konfiguration ist das Feature aus, es gibt keine feste Tabellen-Abhängigkeit.
    - **An:** eine **Definition**-Spalte zeigt den **definierten Soll-Zustand**
-     des Flows (`hso_cloudflow.hso_flowstate`, On / Off), und Drift = eine
-     Umgebung weicht vom **Soll-Zustand** ab (jede Umgebung, inkl. Current).
+     des Flows (On / Off), und Drift = eine Umgebung weicht vom **Soll-Zustand**
+     ab (jede Umgebung, inkl. Current).
    - **Aus:** Spalte ausgeblendet, Drift = eine Ziel-Umgebung weicht vom
      **Current-Status** ab.
 5. **↗** je Zelle springt in den Flow der jeweiligen Umgebung (Power Automate).

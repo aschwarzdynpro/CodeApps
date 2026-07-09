@@ -717,15 +717,16 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 <strong>drift</strong> marker. A filter shows only drifting flows.
               </li>
               <li>
-                A <strong>Definition</strong> switch (next to Compare, when the
-                central <code>hso_cloudflow</code> registry is present) chooses
-                what drift is measured against. <strong>On:</strong> a{' '}
+                A <strong>Definition</strong> switch (next to Compare) chooses
+                what drift is measured against. The definition source is{' '}
+                <strong>configurable in the Workbench Settings</strong> (a table
+                + status / name / unique columns) — no fixed table dependency; it
+                stays off until configured. <strong>On:</strong> a{' '}
                 <strong>Definition</strong> column shows the flow's{' '}
                 <strong>defined state</strong> (On / Off) and drift = an
-                environment differs from that defined state (every env,
-                including current). <strong>Off:</strong> the column is hidden and
-                drift = a target environment differs from{' '}
-                <strong>current</strong>.
+                environment differs from that defined state (every env, including
+                current). <strong>Off:</strong> the column is hidden and drift = a
+                target environment differs from <strong>current</strong>.
               </li>
               <li>
                 <strong>↗</strong> per cell jumps to that flow in the
