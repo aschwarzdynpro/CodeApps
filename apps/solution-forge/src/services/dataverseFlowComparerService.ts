@@ -199,12 +199,16 @@ class DataverseFlowComparerService implements FlowComparerService {
     const isOn = (label: string): boolean => /^\s*on\s*$/i.test(label)
     let error: string | undefined
 
+    // Resolve the real EntitySetName from metadata — the connector addresses
+    // tables by their collection name, which isn't always the naive plural.
+    const sets = await this.resolveEntitySets(orgUrl)
+
     try {
       const cf =
         `<fetch><entity name="hso_cloudflow">` +
         `<attribute name="hso_name" /><attribute name="hso_flowstate" />` +
         `<attribute name="hso_flowuniqueid" /></entity></fetch>`
-      for (const r of await fetchXmlAllPages('hso_cloudflows', cf, orgUrl)) {
+      for (const r of await fetchXmlAllPages(sets.cloudflow, cf, orgUrl)) {
         const label = formattedValue(r, 'hso_flowstate') ?? ''
         if (!label) continue
         const entry = { label, active: isOn(label) }
@@ -223,11 +227,7 @@ class DataverseFlowComparerService implements FlowComparerService {
         `<fetch><entity name="hso_cloudflowbyenvironment">` +
         `<attribute name="hso_flowuniqueid" /><attribute name="hso_flowstate" />` +
         `<attribute name="hso_flowdetailsurl" /></entity></fetch>`
-      for (const r of await fetchXmlAllPages(
-        'hso_cloudflowbyenvironments',
-        be,
-        orgUrl,
-      )) {
+      for (const r of await fetchXmlAllPages(sets.byenv, be, orgUrl)) {
         const label = formattedValue(r, 'hso_flowstate') ?? ''
         const uniq = rowStr(r.hso_flowuniqueid).toLowerCase()
         const guid = /environments\/([0-9a-f-]{36})\//i
@@ -250,6 +250,52 @@ class DataverseFlowComparerService implements FlowComparerService {
     }
 
     return { defByName, defByUnique, envDef, ...(error ? { error } : {}) }
+  }
+
+  /**
+   * Resolve the real `EntitySetName` (collection name the connector addresses)
+   * for the two registry tables from metadata — Dataverse's auto-plural isn't
+   * always the naive "+s". Falls back to the naive plural if the metadata read
+   * fails. EntityDefinitions reads work with the connector (same path the
+   * dependency check uses).
+   */
+  private async resolveEntitySets(
+    orgUrl: string,
+  ): Promise<{ cloudflow: string; byenv: string }> {
+    const fallback = {
+      cloudflow: 'hso_cloudflows',
+      byenv: 'hso_cloudflowbyenvironments',
+    }
+    try {
+      const res = await MicrosoftDataverseService.ListRecordsWithOrganization(
+        orgUrl,
+        'EntityDefinitions',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'LogicalName,EntitySetName',
+        `LogicalName eq 'hso_cloudflow' or LogicalName eq 'hso_cloudflowbyenvironment'`,
+      )
+      if (res && res.success === false) return fallback
+      const rows =
+        (res.data as { value?: Array<Record<string, unknown>> } | undefined)
+          ?.value ?? []
+      const byLogical = new Map<string, string>()
+      for (const r of rows) {
+        const ln = rowStr(r.LogicalName)
+        const es = rowStr(r.EntitySetName)
+        if (ln && es) byLogical.set(ln, es)
+      }
+      return {
+        cloudflow: byLogical.get('hso_cloudflow') ?? fallback.cloudflow,
+        byenv:
+          byLogical.get('hso_cloudflowbyenvironment') ?? fallback.byenv,
+      }
+    } catch (err) {
+      console.warn('[flowcmp] EntitySetName resolve failed:', err)
+      return fallback
+    }
   }
 
   /** Read workflow rows for a set of ids in one environment, keyed by id. */

@@ -5844,3 +5844,87 @@
 .cmp-toggle--off:hover:not(:disabled) {
   background: #fdecec;
 }
+
+/* ── Modern confirm dialog (comparer turn on/off) ───────────────────────── */
+.confirm-dialog {
+  width: min(440px, 92vw);
+  align-self: center;
+  background: var(--card-bg, #fff);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(20, 17, 58, 0.28);
+  padding: 22px 22px 18px;
+  animation: confirm-in 0.14s ease-out;
+}
+@keyframes confirm-in {
+  from {
+    transform: translateY(8px) scale(0.985);
+    opacity: 0.5;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.confirm-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.confirm-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 10px;
+  font-size: 18px;
+  background: #eef2ff;
+  color: #4338ca;
+}
+.confirm-dialog--danger .confirm-icon {
+  background: #fdecec;
+  color: #b42318;
+}
+.confirm-title {
+  margin: 0;
+  font-size: 17px;
+}
+.confirm-body {
+  margin: 12px 0 18px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.confirm-body p {
+  margin: 0 0 8px;
+}
+.confirm-body > *:last-child {
+  margin-bottom: 0;
+}
+.confirm-item {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.confirm-warn {
+  color: #b42318;
+  background: #fdecec;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.confirm-cancel {
+  background: #fff;
+}
+.confirm-go--danger {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+.confirm-go--danger:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}

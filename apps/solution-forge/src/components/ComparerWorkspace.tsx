@@ -9,6 +9,7 @@ import { hasDefinitionMismatch, recomputeDrift } from '../types/comparer'
 import { ENVIRONMENTS, currentEnvKey } from '../config'
 import { SolutionSelect } from './SolutionSelect'
 import { ComparerMatrix } from './ComparerMatrix'
+import { ConfirmDialog } from './ConfirmDialog'
 
 interface Props {
   solutions: WorkingSolution[]
@@ -64,6 +65,12 @@ export function ComparerWorkspace({
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [busyCell, setBusyCell] = useState<string | null>(null)
+  const [pending, setPending] = useState<{
+    env: { key: string; label: string }
+    row: ComparerRow
+    desiredOn: boolean
+  } | null>(null)
+  const [confirming, setConfirming] = useState(false)
   const [driftOnly, setDriftOnly] = useState(false)
   const [offDefOnly, setOffDefOnly] = useState(false)
   const [grouped, setGrouped] = useState(true)
@@ -103,25 +110,28 @@ export function ComparerWorkspace({
       return { ...prev, rows }
     })
 
-  const onToggle = async (
+  // A toggle opens the confirm dialog; the write runs on confirm.
+  const requestToggle = (
     env: { key: string; label: string },
     row: ComparerRow,
     desiredOn: boolean,
-  ) => {
-    const verb = desiredOn ? 'turn ON' : 'turn OFF'
-    const prod = env.key === 'prod'
-    const message = prod
-      ? `⚠ PRODUCTION\n\n${verb} the ${noun} “${row.name}” in ${env.label}?\nThis changes live behaviour immediately.`
-      : `${verb} the ${noun} “${row.name}” in ${env.label}?`
-    if (!window.confirm(message)) return
-    setBusyCell(`${env.key}:${row.id}`)
+  ) => setPending({ env, row, desiredOn })
+
+  const confirmToggle = async () => {
+    if (!pending) return
+    const { env, row, desiredOn } = pending
+    setConfirming(true)
     setActionError(null)
+    setBusyCell(`${env.key}:${row.id}`)
     try {
       const cell = await setState(env.key, row.id, desiredOn)
       applyCell(row.id, env.key, cell)
+      setPending(null)
     } catch (err) {
       setActionError(err instanceof Error ? err.message : String(err))
+      setPending(null)
     } finally {
+      setConfirming(false)
       setBusyCell(null)
     }
   }
@@ -238,7 +248,7 @@ export function ComparerWorkspace({
                 ? (r) => r.subtitle || `(no ${groupByLabel})`
                 : undefined
             }
-            onToggle={onToggle}
+            onToggle={requestToggle}
           />
         </section>
       )}
@@ -251,6 +261,32 @@ export function ComparerWorkspace({
           environment
           {ENVIRONMENTS.length - 1 === 1 ? '' : 's'}.
         </div>
+      )}
+
+      {pending && (
+        <ConfirmDialog
+          title={`${pending.desiredOn ? 'Turn on' : 'Turn off'} ${noun}`}
+          confirmLabel={pending.desiredOn ? 'Turn on' : 'Turn off'}
+          danger={pending.env.key === 'prod'}
+          busy={confirming}
+          onConfirm={() => void confirmToggle()}
+          onCancel={() => setPending(null)}
+          message={
+            <>
+              <p className="confirm-item">{pending.row.name}</p>
+              <p>
+                {pending.desiredOn ? 'Activate' : 'Deactivate'} this {noun} in{' '}
+                <strong>{pending.env.label}</strong>.
+              </p>
+              {pending.env.key === 'prod' && (
+                <p className="confirm-warn">
+                  This is <strong>production</strong> — the change takes effect
+                  immediately.
+                </p>
+              )}
+            </>
+          }
+        />
       )}
     </div>
   )
