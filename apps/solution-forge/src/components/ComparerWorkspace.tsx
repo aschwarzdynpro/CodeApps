@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { WorkingSolution } from '../types/solution'
 import type {
   ComparerEnvState,
@@ -71,6 +71,9 @@ export function ComparerWorkspace({
     desiredOn: boolean
   } | null>(null)
   const [confirming, setConfirming] = useState(false)
+  // The cell that just changed — flashes green then fades to its resting colour.
+  const [flashCell, setFlashCell] = useState<string | null>(null)
+  const flashTimer = useRef<number | undefined>(undefined)
   const [driftOnly, setDriftOnly] = useState(false)
   const [definitionMode, setDefinitionMode] = useState(true)
   const [grouped, setGrouped] = useState(true)
@@ -127,6 +130,11 @@ export function ComparerWorkspace({
       const cell = await setState(env.key, row.id, desiredOn)
       applyCell(row.id, env.key, cell)
       setPending(null)
+      // Flash the changed cell, then let it fade to its resting colour.
+      const key = `${env.key}:${row.id}`
+      window.clearTimeout(flashTimer.current)
+      setFlashCell(key)
+      flashTimer.current = window.setTimeout(() => setFlashCell(null), 1700)
     } catch (err) {
       setActionError(err instanceof Error ? err.message : String(err))
       setPending(null)
@@ -257,6 +265,7 @@ export function ComparerWorkspace({
             showVersion={showVersion}
             canManage={canManage}
             busyCell={busyCell}
+            flashCell={flashCell}
             driftMode={driftMode}
             showDefinition={definitionMode}
             groupKey={

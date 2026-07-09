@@ -35,6 +35,8 @@ interface Props {
   canManage: boolean
   /** `${envKey}:${rowId}` currently toggling (shows a spinner, disables). */
   busyCell: string | null
+  /** `${envKey}:${rowId}` that just changed — flashes green, fades to resting. */
+  flashCell?: string | null
   /** How drift is measured — vs. current env or vs. the definition. */
   driftMode: DriftMode
   /** Show the Definition column (definition mode + data present). */
@@ -62,6 +64,7 @@ export function ComparerMatrix({
   showVersion,
   canManage,
   busyCell,
+  flashCell,
   driftMode,
   showDefinition,
   groupKey,
@@ -135,10 +138,13 @@ export function ComparerMatrix({
               </td>
             )
           const cellDrift = cellHasDrift(row, env.key, hostKey, driftMode)
+          const flash = flashCell === `${env.key}:${row.id}`
           return (
             <td
               key={env.key}
-              className={`cmp-cell ${cellDrift ? 'cmp-cell--drift' : ''}`}
+              className={`cmp-cell ${cellDrift ? 'cmp-cell--drift' : ''} ${
+                flash ? 'cmp-cell--flash' : ''
+              }`}
             >
               <div className="cmp-cell-body">
                 <div className="cmp-cell-info">

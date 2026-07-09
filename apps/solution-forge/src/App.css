@@ -5764,6 +5764,33 @@
   background: #fdefda;
   box-shadow: inset 3px 0 0 #d97706;
 }
+/* After a turn on/off: briefly flash the cell green, then fade to its resting
+   colour (transparent for OK, the drift amber for a drifting cell). Animating
+   background-color keeps the cell content readable. */
+.cmp-cell--flash {
+  animation: cmp-flash-ok 1.7s ease-out;
+}
+.cmp-cell--flash.cmp-cell--drift {
+  animation: cmp-flash-drift 1.7s ease-out;
+}
+@keyframes cmp-flash-ok {
+  0%,
+  12% {
+    background-color: rgba(22, 163, 74, 0.4);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+@keyframes cmp-flash-drift {
+  0%,
+  12% {
+    background-color: rgba(22, 163, 74, 0.4);
+  }
+  100% {
+    background-color: #fdefda;
+  }
+}
 .cmp-missing {
   font-size: 11.5px;
   color: #9aa0ad;
