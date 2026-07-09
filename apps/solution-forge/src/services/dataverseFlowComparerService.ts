@@ -200,15 +200,21 @@ class DataverseFlowComparerService implements FlowComparerService {
     let error: string | undefined
     let rawCloudflowRows = 0
 
-    // hso_flowstate is an option set: 1 = On (active), 0 = Off. Read the RAW
-    // value (the connector's fetchXml doesn't reliably return the option-set
-    // formatted value); fall back to the formatted label if present.
+    // hso_flowstate is a two-options field (1 = On/active, 0 = Off). The
+    // connector returns it as a JS BOOLEAN (true/false), so `rowNum(true)` gives
+    // 0 (booleans aren't numbers) — that made everything read "Off". Accept
+    // boolean / number / string / formatted-label forms of "on".
+    const ON_RE = /^\s*(on|yes|true|active|activated|ja|1)\s*$/i
     const stateOf = (r: Row): { label: string; active: boolean } | null => {
-      const fv = formattedValue(r, 'hso_flowstate')
       const raw = r.hso_flowstate
+      const fv = formattedValue(r, 'hso_flowstate')
       if (raw == null && !fv) return null
-      const active = fv ? /^\s*on\s*$/i.test(fv) : rowNum(raw) === 1
-      return { label: fv || (active ? 'On' : 'Off'), active }
+      const active =
+        raw === true ||
+        raw === 1 ||
+        (typeof raw === 'string' && ON_RE.test(raw)) ||
+        (typeof fv === 'string' && ON_RE.test(fv))
+      return { label: active ? 'On' : 'Off', active }
     }
 
     // Resolve the real EntitySetName from metadata — the connector addresses
