@@ -343,6 +343,33 @@ Per-Env-Import-Fehler landen in einem Hinweis-Banner statt zu werfen. Der
 Import-History-Mock hat env-spezifische `deploy_sprint_12`-Jobs (UAT ok,
 PROD failed), damit die Timeline offline demobar ist.
 
+**Flow Comparer / Plugin Comparer** (Validate-Gruppe, gated, Menüpunkte „Flow
+Comparer"/„Plugin Comparer"): eine **schreibende** Cross-Env-Matrix. Release-
+Solution wählen → deren Flows (`workflow` category=5) bzw. Plugin-Steps
+(`sdkmessageprocessingstep`) im **Host** lesen (Solution-Membership via
+`solutioncomponent`-Link-Entity, Typ 29 bzw. 92) → dieselben Items **je Ziel-Env
+über die import-stabile objectId** (`workflowid`/`sdkmessageprocessingstepid`)
+nachschlagen → Matrix je Umgebung (Status + Version), Ziel-Zellen mit Status ≠
+Host **gehighlightet**. **Geteilte Bausteine:** `types/comparer.ts`
+(`ComparerResult`/`ComparerRow`/`ComparerEnvState` + `recomputeDrift`),
+`components/ComparerMatrix.tsx` + `ComparerWorkspace.tsx` (parametrisiert;
+`FlowComparerWorkspace`/`PluginComparerWorkspace` sind dünne Wrapper). Services:
+`flowComparerService`/`pluginComparerService` (+ `dataverse…`/`mock…`). **Reads**
+über `currentEnvQuery.fetchXmlQuery(entitySet, fetchXml, orgUrlForEnvKey(env))`.
+Flows: kein `version` → „modified"-Zeit; Absprung `flowDetailsUrl(envId,
+workflowidunique)`. Plugin-Steps: **Version = Assembly** (Step→plugintype→
+pluginassembly, aliased `pa.version`/`pa.name`). **⚠ Status-Semantik invertiert:**
+Flow an = `statecode 1/statuscode 2` (`statecode===1` aktiv); Plugin-Step an =
+`statecode 0/statuscode 1` (`statecode===0` aktiv). **Turn On/Off** =
+`MicrosoftDataverseService.UpdateRecordWithOrganization(…, orgUrlForEnvKey(env),
+'workflows'|'sdkmessageprocessingsteps', id, { statecode, statuscode })` — läuft
+als **Konnektor-SP** cross-env (die nativen Writes gehen nur Host!), **kein
+`isCurrentEnvKey`-Guard**; UI gated auf Deployment-Manager + `window.confirm`
+(PROD extra-stark), danach Zelle einzeln neu gelesen. **SP braucht Schreib-/
+Aktivierungsrecht auf `workflow`/`sdkmessageprocessingstep` im Ziel** (UAT/PROD).
+Mock-Parität: `mockFlowComparerService`/`mockPluginComparerService` seeden dev/
+uat/prod inkl. Drift + fehlendem Item → offline demobar.
+
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT

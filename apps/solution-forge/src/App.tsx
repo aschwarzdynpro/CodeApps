@@ -21,6 +21,8 @@ import { EnvConfigWorkspace } from './components/EnvConfigWorkspace'
 import { DualWriteWorkspace } from './components/DualWriteWorkspace'
 import { AuditConfigWorkspace } from './components/AuditConfigWorkspace'
 import { ImportHistoryWorkspace } from './components/ImportHistoryWorkspace'
+import { FlowComparerWorkspace } from './components/FlowComparerWorkspace'
+import { PluginComparerWorkspace } from './components/PluginComparerWorkspace'
 import { TraceExplorer } from './components/TraceExplorer'
 import { JobMonitor } from './components/JobMonitor'
 import { RoleAnalyzer } from './components/RoleAnalyzer'
@@ -62,6 +64,8 @@ type Tab =
   | 'auditConfig'
   | 'dualWrite'
   | 'importHistory'
+  | 'flowCompare'
+  | 'pluginCompare'
   | 'traces'
   | 'jobs'
   | 'roles'
@@ -105,6 +109,13 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: '📦',
         gated: true,
       },
+      { key: 'flowCompare', label: 'Flow Comparer', icon: '🔁', gated: true },
+      {
+        key: 'pluginCompare',
+        label: 'Plugin Comparer',
+        icon: '🧩',
+        gated: true,
+      },
     ],
   },
   {
@@ -135,6 +146,8 @@ const TAB_TITLES: Record<Tab, string> = {
   auditConfig: 'Audit Configuration',
   dualWrite: 'Dual-Write Table Maps',
   importHistory: 'Solution Import History',
+  flowCompare: 'Flow Comparer',
+  pluginCompare: 'Plugin Comparer',
   traces: 'Plugin Trace Explorer',
   jobs: '[PREVIEW] Async Job / Flow Monitor',
   roles: '[PREVIEW] Security Role Analyzer',
@@ -1333,6 +1346,20 @@ function App() {
           envKey={importEnvKey}
           onEnvChange={setImportEnvKey}
           solutions={allSolutions}
+        />
+      )}
+
+      {!error && tab === 'flowCompare' && isDeploymentManager && (
+        <FlowComparerWorkspace
+          solutions={allSolutions}
+          canManage={isDeploymentManager}
+        />
+      )}
+
+      {!error && tab === 'pluginCompare' && isDeploymentManager && (
+        <PluginComparerWorkspace
+          solutions={allSolutions}
+          canManage={isDeploymentManager}
         />
       )}
 

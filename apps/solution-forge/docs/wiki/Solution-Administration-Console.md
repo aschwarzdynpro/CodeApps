@@ -95,7 +95,7 @@ Unmanaged Solutions **ohne** Tracking-Datensatz erscheinen trotzdem in der Liste
 - **Sidebar** links, gruppiert in:
   - **Manage:** Workbench · Merge · Merge Rules · Release Notes · Timeline
   - **Validate:** Deployment Readiness · Analyze · Env Config · Audit Config ·
-    Dual-Write Maps · Import History
+    Dual-Write Maps · Import History · Flow Comparer · Plugin Comparer
   - **Operate:** Plugin Traces · Job Monitor · Role Analyzer
 
 ---
@@ -413,6 +413,43 @@ die Release-Solutions**. Eine Zeile aufklappen lädt und parst das Import-Log:
 Ziel fehlende Komponente (Typ, Name, Quell-Solution → zuerst installieren),
 rechts die importierte Komponente, die sie braucht (Typ, Name, Parent). Weitere
 Fehler/Warnungen darunter, dedupliziert. Read-only.
+
+### Flow Comparer
+
+Vergleicht die **Cloud Flows** einer Release-Solution über alle Umgebungen und
+kann sie **je Umgebung an-/abschalten**.
+
+1. **Release-Solution** wählen → **Compare**.
+2. Die App liest die Flows der Solution aus der **Current**-Umgebung und sucht
+   dieselben Flows über ihre **import-stabile ID** in den Ziel-Umgebungen.
+3. **Matrix** je Umgebung: **Status** (Activated / Draft / Missing) und die
+   letzte Änderung. Zellen, deren Status von **Current** abweicht, sind
+   **hervorgehoben**; die ganze Zeile wird als Drift markiert. Ein Filter zeigt
+   nur driftende Flows.
+4. **↗** je Zelle springt in den Flow der jeweiligen Umgebung (Power Automate).
+5. **Turn on / Turn off** je Zelle schaltet den Flow in **genau dieser**
+   Umgebung (Activated ↔ Draft). Jeder Schaltvorgang fragt vorher nach;
+   **PROD** zusätzlich mit deutlicher Warnung. Nur mit der Deployment-Manager-
+   Rolle; die Aktion läuft als Connection-Identität (SP) und braucht dort
+   Schreibrecht.
+
+### Plugin Comparer
+
+Analog zum Flow Comparer, aber für die **Plugin-Registrierungs-Steps** einer
+Release-Solution.
+
+1. **Release-Solution** wählen → **Compare**.
+2. Liest die Plugin-Steps der Solution (mit der **Assembly-Version** dazu) aus
+   der Current-Umgebung und sucht sie über ihre **import-stabile ID** in den
+   Ziel-Umgebungen.
+3. **Matrix** je Umgebung: **Status** (Enabled / Disabled / Missing) und die
+   **Assembly-Version**. Status-Abweichungen von Current sind **hervorgehoben**.
+4. **Enable / Disable** je Zelle schaltet den Step in **genau dieser** Umgebung.
+   Confirm vorab, **PROD** extra-stark; nur Deployment Manager (SP-Schreibrecht
+   im Ziel nötig).
+
+> Turn on/off ist ein **direkter, schreibender Eingriff** in die jeweilige
+> Umgebung — kein Deployment-Artefakt. In UAT/PROD entsprechend bewusst nutzen.
 
 ---
 

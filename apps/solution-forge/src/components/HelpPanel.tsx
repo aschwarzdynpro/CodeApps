@@ -701,6 +701,60 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🔁 Flow Comparer (Validate)</h3>
+            <ul>
+              <li>
+                Pick a <strong>release solution</strong> → <strong>Compare</strong>.
+                Its <strong>cloud flows</strong> are read from the current
+                environment and looked up — by their import-stable id — in every
+                configured environment.
+              </li>
+              <li>
+                A <strong>matrix</strong> shows each flow's{' '}
+                <strong>status</strong> (Activated / Draft / Missing) and last
+                change per environment. Cells whose status differs from{' '}
+                <strong>current</strong> are highlighted (and the row flagged);
+                a filter shows only drifting flows.
+              </li>
+              <li>
+                <strong>↗</strong> per cell jumps to that flow in the
+                environment's Power Automate portal.
+              </li>
+              <li>
+                <strong>Turn on / Turn off</strong> per cell activates/deactivates
+                the flow in <em>that</em> environment. Each write confirms first
+                (<strong>PROD</strong> extra-strong); needs the deployment-manager
+                role, runs as the connection identity and writes to the selected
+                environment.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
+            <h3>🧩 Plugin Comparer (Validate)</h3>
+            <ul>
+              <li>
+                The same idea for a release solution's{' '}
+                <strong>plugin (SDK message processing) steps</strong>, each with
+                its <strong>assembly version</strong>. Steps are matched across
+                environments by their import-stable id.
+              </li>
+              <li>
+                The <strong>matrix</strong> shows each step's{' '}
+                <strong>status</strong> (Enabled / Disabled / Missing) and{' '}
+                <strong>assembly version</strong> per environment; status drift
+                vs. current is highlighted.
+              </li>
+              <li>
+                <strong>Enable / Disable</strong> per cell toggles the step in
+                that environment (confirm first, PROD extra-strong; deployment
+                managers only). Turn on/off is a direct, live change — not a
+                deployment artefact — so use it deliberately in UAT/PROD.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
             <h3>🌐 Operate — target environment</h3>
             <p>
               Each Operate feature (Plugin Traces, Job Monitor, Role Analyzer)
