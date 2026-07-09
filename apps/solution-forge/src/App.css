@@ -5655,6 +5655,17 @@
   position: sticky;
   top: 0;
 }
+/* Row hover — a soft cool tint on the <tr> shows through the transparent cells
+   so you can see which item row you're on. Cells with their own colour (drift
+   amber, missing, flash green) keep it, because the <td> background paints over
+   the row. Group-header rows have their own <td> background, so they're
+   naturally unaffected. */
+.cmp-table tbody tr:hover {
+  background: #eaf1fc;
+}
+.cmp-table tbody tr:hover .cmp-item {
+  box-shadow: inset 3px 0 0 #2563eb;
+}
 .cmp-th--host {
   color: #1d4ed8;
 }
