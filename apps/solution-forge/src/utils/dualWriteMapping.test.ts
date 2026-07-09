@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   compareMapVersions,
   countFieldMappings,
+  mappingFieldNames,
   overallDirection,
   parseDualWriteMapping,
   syncDirectionInfo,
@@ -104,6 +105,29 @@ describe('parseDualWriteMapping', () => {
     expect(parseDualWriteMapping('not json').unparsed).toBe(true)
     expect(parseDualWriteMapping('').unparsed).toBe(true)
     expect(parseDualWriteMapping('{}').legs).toEqual([])
+  })
+})
+
+describe('mappingFieldNames', () => {
+  it('collects distinct lower-cased source + destination field names', () => {
+    const names = mappingFieldNames(parseDualWriteMapping(SAMPLE))
+    expect(names).toContain('linedescription')
+    expect(names).toContain('msdyn_description')
+    expect(names).toContain('lineamount')
+    // Distinct, lower-cased.
+    expect(names).toEqual([...new Set(names)])
+    expect(names.every((n) => n === n.toLowerCase())).toBe(true)
+  })
+
+  it('also indexes the bare last segment of a dotted lookup destination', () => {
+    const names = mappingFieldNames(parseDualWriteMapping(SAMPLE))
+    // Searching the plain column name still hits the dotted destination.
+    expect(names).toContain('msdyn_product.msdyn_productnumber')
+    expect(names).toContain('msdyn_productnumber')
+  })
+
+  it('is empty for an unparsable mapping', () => {
+    expect(mappingFieldNames(parseDualWriteMapping('nonsense'))).toEqual([])
   })
 })
 

@@ -289,7 +289,9 @@ export function DualWriteWorkspace() {
         !q ||
         m.name.toLowerCase().includes(q) ||
         m.sourceSchema.toLowerCase().includes(q) ||
-        m.destinationSchema.toLowerCase().includes(q),
+        m.destinationSchema.toLowerCase().includes(q) ||
+        // Also match a field inside the mapping (e.g. "accountnumber").
+        m.fields?.some((f) => f.includes(q)),
     )
   }, [maps, q])
 
@@ -299,7 +301,7 @@ export function DualWriteWorkspace() {
         <input
           className="search"
           type="search"
-          placeholder="Search maps by name or table…"
+          placeholder="Search maps by name, table or mapped field…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -355,15 +357,41 @@ export function DualWriteWorkspace() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((m) => (
-                  <tr
-                    key={m.id}
-                    className="dw-list-row"
-                    onClick={() => setSelected(m)}
-                  >
-                    <td>
-                      <span className="dw-map-name">{m.name}</span>
-                    </td>
+                {rows.map((m) => {
+                  const nameOrTable =
+                    !!q &&
+                    (m.name.toLowerCase().includes(q) ||
+                      m.sourceSchema.toLowerCase().includes(q) ||
+                      m.destinationSchema.toLowerCase().includes(q))
+                  // Show which mapped fields matched, but only when the row
+                  // appeared solely because of a field (not name/table).
+                  const hits =
+                    q && !nameOrTable
+                      ? (m.fields ?? []).filter((f) => f.includes(q))
+                      : []
+                  return (
+                    <tr
+                      key={m.id}
+                      className="dw-list-row"
+                      onClick={() => setSelected(m)}
+                    >
+                      <td>
+                        <span className="dw-map-name">{m.name}</span>
+                        {hits.length > 0 && (
+                          <div className="dw-field-hits">
+                            {hits.slice(0, 4).map((f) => (
+                              <span key={f} className="dw-field-hit">
+                                <code>{f}</code>
+                              </span>
+                            ))}
+                            {hits.length > 4 && (
+                              <span className="dw-field-more muted">
+                                +{hits.length - 4}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
                     <td className="nowrap">
                       <span className="dw-badge">v{m.version}</span>
                       {m.versionCount > 1 && (
@@ -403,7 +431,8 @@ export function DualWriteWorkspace() {
                     </td>
                     <td className="nowrap muted">{fmtDateTime(m.modifiedOn)}</td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           )}

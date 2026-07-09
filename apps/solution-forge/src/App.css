@@ -4816,6 +4816,27 @@
 .dw-map-name {
   font-weight: 600;
 }
+/* Which mapped field(s) matched the search — shown only for field-only hits. */
+.dw-field-hits {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.dw-field-hit code {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: #fef9c3;
+  color: #854d0e;
+  border: 1px solid #fde68a;
+}
+.dw-field-more {
+  font-size: 11px;
+}
 .dw-badge {
   display: inline-block;
   padding: 1px 8px;

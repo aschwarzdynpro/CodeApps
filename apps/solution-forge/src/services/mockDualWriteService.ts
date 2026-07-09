@@ -1,5 +1,9 @@
 import type { DualWriteMapSummary } from '../types/dualWrite'
 import type { DualWriteService } from './dualWriteService'
+import {
+  mappingFieldNames,
+  parseDualWriteMapping,
+} from '../utils/dualWriteMapping'
 
 /**
  * Mock {@link DualWriteService} — a small, seeded set of custom dual-write
@@ -150,7 +154,12 @@ const MAPPINGS: Record<string, string> = {
 class MockDualWriteService implements DualWriteService {
   async listTableMaps(): Promise<DualWriteMapSummary[]> {
     await delay(200)
-    return MAPS.map((m) => ({ ...m }))
+    // Index each map's mapped field names (mirrors the real service) so field
+    // search works offline too.
+    return MAPS.map((m) => ({
+      ...m,
+      fields: mappingFieldNames(parseDualWriteMapping(MAPPINGS[m.id] ?? '')),
+    }))
   }
 
   async getMapping(id: string): Promise<string> {
