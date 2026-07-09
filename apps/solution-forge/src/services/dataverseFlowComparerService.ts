@@ -166,14 +166,14 @@ class DataverseFlowComparerService implements FlowComparerService {
     )
 
     console.info(
-      `[flowcmp] definitions: ${defs.defByName.size} names / ${defs.envDef.size} env-maps read, ${matched}/${rows.length} flows matched`,
+      `[flowcmp] definitions: ${defs.rawCloudflowRows} hso_cloudflow rows read, ${defs.defByName.size} names / ${defs.envDef.size} env-maps, ${matched}/${rows.length} flows matched`,
     )
     const definitionNote = defs.error
-      ? `Defined states (hso_cloudflow) couldn’t be read — the connection (SP) may lack read access. ${defs.error}`
-      : defs.defByName.size === 0
-        ? 'No defined states found — hso_cloudflow returned 0 rows for the connection (SP). It likely needs Organization-scope read on hso_cloudflow / hso_cloudflowbyenvironment.'
+      ? `Defined states (hso_cloudflow) couldn’t be read — the connection may lack read access. ${defs.error}`
+      : defs.rawCloudflowRows === 0
+        ? 'No defined states found — hso_cloudflow returned 0 rows for the app’s connection.'
         : matched === 0
-          ? `Read ${defs.defByName.size} definitions, but none matched a flow by name — try the real release solution (not a backup).`
+          ? `Read ${defs.rawCloudflowRows} definitions, but none matched a flow by name — try the real release solution (not a backup).`
           : undefined
 
     return { rows, envErrors, ...(definitionNote ? { definitionNote } : {}) }
@@ -191,13 +191,25 @@ class DataverseFlowComparerService implements FlowComparerService {
     defByName: Map<string, { label: string; active: boolean }>
     defByUnique: Map<string, { label: string; active: boolean }>
     envDef: Map<string, Map<string, { label: string; active: boolean }>>
+    rawCloudflowRows: number
     error?: string
   }> {
     const defByName = new Map<string, { label: string; active: boolean }>()
     const defByUnique = new Map<string, { label: string; active: boolean }>()
     const envDef = new Map<string, Map<string, { label: string; active: boolean }>>()
-    const isOn = (label: string): boolean => /^\s*on\s*$/i.test(label)
     let error: string | undefined
+    let rawCloudflowRows = 0
+
+    // hso_flowstate is an option set: 1 = On (active), 0 = Off. Read the RAW
+    // value (the connector's fetchXml doesn't reliably return the option-set
+    // formatted value); fall back to the formatted label if present.
+    const stateOf = (r: Row): { label: string; active: boolean } | null => {
+      const fv = formattedValue(r, 'hso_flowstate')
+      const raw = r.hso_flowstate
+      if (raw == null && !fv) return null
+      const active = fv ? /^\s*on\s*$/i.test(fv) : rowNum(raw) === 1
+      return { label: fv || (active ? 'On' : 'Off'), active }
+    }
 
     // Resolve the real EntitySetName from metadata — the connector addresses
     // tables by their collection name, which isn't always the naive plural.
@@ -209,13 +221,13 @@ class DataverseFlowComparerService implements FlowComparerService {
         `<attribute name="hso_name" /><attribute name="hso_flowstate" />` +
         `<attribute name="hso_flowuniqueid" /></entity></fetch>`
       for (const r of await fetchXmlAllPages(sets.cloudflow, cf, orgUrl)) {
-        const label = formattedValue(r, 'hso_flowstate') ?? ''
-        if (!label) continue
-        const entry = { label, active: isOn(label) }
+        rawCloudflowRows++
+        const st = stateOf(r)
+        if (!st) continue
         const name = rowStr(r.hso_name).toLowerCase()
         const uniq = rowStr(r.hso_flowuniqueid).toLowerCase()
-        if (name) defByName.set(name, entry)
-        if (uniq) defByUnique.set(uniq, entry)
+        if (name) defByName.set(name, st)
+        if (uniq) defByUnique.set(uniq, st)
       }
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)
@@ -228,12 +240,12 @@ class DataverseFlowComparerService implements FlowComparerService {
         `<attribute name="hso_flowuniqueid" /><attribute name="hso_flowstate" />` +
         `<attribute name="hso_flowdetailsurl" /></entity></fetch>`
       for (const r of await fetchXmlAllPages(sets.byenv, be, orgUrl)) {
-        const label = formattedValue(r, 'hso_flowstate') ?? ''
+        const st = stateOf(r)
         const uniq = rowStr(r.hso_flowuniqueid).toLowerCase()
         const guid = /environments\/([0-9a-f-]{36})\//i
           .exec(rowStr(r.hso_flowdetailsurl))?.[1]
           ?.toLowerCase()
-        if (!label || !uniq || !guid) continue
+        if (!st || !uniq || !guid) continue
         const envKey = ENVIRONMENTS.find(
           (e) => e.environmentId?.toLowerCase() === guid,
         )?.key
@@ -243,13 +255,19 @@ class DataverseFlowComparerService implements FlowComparerService {
           m = new Map()
           envDef.set(uniq, m)
         }
-        m.set(envKey, { label, active: isOn(label) })
+        m.set(envKey, st)
       }
     } catch (err) {
       console.warn('[flowcmp] hso_cloudflowbyenvironment read failed:', err)
     }
 
-    return { defByName, defByUnique, envDef, ...(error ? { error } : {}) }
+    return {
+      defByName,
+      defByUnique,
+      envDef,
+      rawCloudflowRows,
+      ...(error ? { error } : {}),
+    }
   }
 
   /**
