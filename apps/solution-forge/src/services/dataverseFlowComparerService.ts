@@ -169,10 +169,12 @@ class DataverseFlowComparerService implements FlowComparerService {
       `[flowcmp] definitions: ${defs.defByName.size} names / ${defs.envDef.size} env-maps read, ${matched}/${rows.length} flows matched`,
     )
     const definitionNote = defs.error
-      ? `Defined states (hso_cloudflow) couldn’t be read — the connection may lack read access. ${defs.error}`
-      : defs.defByName.size > 0 && matched === 0
-        ? 'Read the definition registry, but no flow name matched it.'
-        : undefined
+      ? `Defined states (hso_cloudflow) couldn’t be read — the connection (SP) may lack read access. ${defs.error}`
+      : defs.defByName.size === 0
+        ? 'No defined states found — hso_cloudflow returned 0 rows for the connection (SP). It likely needs Organization-scope read on hso_cloudflow / hso_cloudflowbyenvironment.'
+        : matched === 0
+          ? `Read ${defs.defByName.size} definitions, but none matched a flow by name — try the real release solution (not a backup).`
+          : undefined
 
     return { rows, envErrors, ...(definitionNote ? { definitionNote } : {}) }
   }
