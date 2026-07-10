@@ -5628,6 +5628,15 @@
   font-size: 12.5px;
   white-space: nowrap;
 }
+/* Definition-status filter (All / On / Off) — sits next to the Definition
+   switch; the <select> inherits the shared .validate-toolbar select styling. */
+.cmp-defstatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
 /* Definition on/off switch — an indigo pill (matches the Definition column);
    mutes when off. */
 .cmp-switch {

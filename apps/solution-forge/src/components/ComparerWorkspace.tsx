@@ -76,6 +76,8 @@ export function ComparerWorkspace({
   const flashTimer = useRef<number | undefined>(undefined)
   const [driftOnly, setDriftOnly] = useState(false)
   const [definitionMode, setDefinitionMode] = useState(true)
+  // Filter by the flow's DEFINED status (only used in definition mode).
+  const [defStatus, setDefStatus] = useState<'all' | 'on' | 'off'>('all')
   const [grouped, setGrouped] = useState(true)
   const [search, setSearch] = useState('')
 
@@ -157,6 +159,15 @@ export function ComparerWorkspace({
   const shown = useMemo(() => {
     if (!result) return null
     let rows = result.rows
+    // Two independent filters. Definition-status (definition mode only) narrows
+    // to flows with that defined state; drift-only (both modes) narrows to the
+    // flows that break with the reference (their definition, or current env).
+    if (driftMode === 'definition' && defStatus !== 'all')
+      rows = rows.filter((r) =>
+        defStatus === 'on'
+          ? r.definitionActive === true
+          : r.definitionActive === false,
+      )
     if (driftOnly)
       rows = rows.filter((r) => rowHasDrift(r, hostKey, envKeys, driftMode))
     if (q)
@@ -166,7 +177,7 @@ export function ComparerWorkspace({
           (r.subtitle ?? '').toLowerCase().includes(q),
       )
     return rows === result.rows ? result : { ...result, rows }
-  }, [result, driftOnly, driftMode, hostKey, envKeys, q])
+  }, [result, driftOnly, defStatus, driftMode, hostKey, envKeys, q])
 
   // Grouping is offered only when there's a dimension to group by AND at least
   // one row carries it (plugin: assembly is always there; flow: only when the
@@ -216,6 +227,25 @@ export function ComparerWorkspace({
             Definition
           </label>
         )}
+        {/* Definition-status filter — narrows to a defined state; only shown
+            when Definition is on. Independent of the off-definition filter. */}
+        {result && driftMode === 'definition' && (
+          <label className="cmp-defstatus">
+            Definition status
+            <select
+              value={defStatus}
+              onChange={(e) =>
+                setDefStatus(e.target.value as 'all' | 'on' | 'off')
+              }
+            >
+              <option value="all">All</option>
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select>
+          </label>
+        )}
+        {/* Drift-only filter — shows only the flows that break with the
+            reference (their definition in definition mode, else current). */}
         {result && driftCount > 0 && (
           <label className="cmp-driftonly">
             <input

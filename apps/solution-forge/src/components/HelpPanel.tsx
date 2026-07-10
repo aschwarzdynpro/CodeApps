@@ -714,7 +714,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 <strong>status</strong> (Activated / Draft / Missing) and last
                 change per environment. Only the <strong>cells</strong> that
                 drift are highlighted; the item name carries a{' '}
-                <strong>drift</strong> marker. A filter shows only drifting flows.
+                <strong>drift</strong> marker. A filter shows only the flows that
+                break with the reference (off-definition in definition mode,
+                drifting from current otherwise).
               </li>
               <li>
                 A <strong>search box</strong> filters flows by name. When an{' '}
@@ -733,8 +735,12 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 <strong>Definition</strong> column shows the flow's{' '}
                 <strong>defined state</strong> (On / Off) and drift = an
                 environment differs from that defined state (every env, including
-                current). <strong>Off:</strong> the column is hidden and drift = a
-                target environment differs from <strong>current</strong>.
+                current). A <strong>Definition status</strong> filter (All / On /
+                Off) narrows the list to flows with that defined state — and,
+                independently, an <strong>Only off-definition</strong> toggle
+                keeps just the flows that break with their definition.{' '}
+                <strong>Off:</strong> the column is hidden and drift = a target
+                environment differs from <strong>current</strong>.
               </li>
               <li>
                 <strong>↗</strong> per cell jumps to that flow in the
