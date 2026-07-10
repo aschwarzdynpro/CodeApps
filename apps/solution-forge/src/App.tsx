@@ -127,8 +127,10 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'Operate',
     items: [
       { key: 'traces', label: 'Plugin Traces', icon: '🧵', gated: false },
-      { key: 'jobs', label: '[PREVIEW] Job Monitor', icon: '📡', gated: false },
-      { key: 'roles', label: '[PREVIEW] Role Analyzer', icon: '🛡', gated: true },
+      // Temporarily hidden while their scope is reconsidered — the tabs,
+      // titles and render blocks stay, so re-enable by restoring these two.
+      // { key: 'jobs', label: '[PREVIEW] Job Monitor', icon: '📡', gated: false },
+      // { key: 'roles', label: '[PREVIEW] Role Analyzer', icon: '🛡', gated: true },
     ],
   },
 ]
