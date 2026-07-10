@@ -159,15 +159,16 @@ export function ComparerWorkspace({
   const shown = useMemo(() => {
     if (!result) return null
     let rows = result.rows
-    // Definition mode: filter by the flow's defined status (All / On / Off).
-    // Current mode: keep the "only status drift" filter.
+    // Two independent filters. Definition-status (definition mode only) narrows
+    // to flows with that defined state; drift-only (both modes) narrows to the
+    // flows that break with the reference (their definition, or current env).
     if (driftMode === 'definition' && defStatus !== 'all')
       rows = rows.filter((r) =>
         defStatus === 'on'
           ? r.definitionActive === true
           : r.definitionActive === false,
       )
-    else if (driftMode === 'current' && driftOnly)
+    if (driftOnly)
       rows = rows.filter((r) => rowHasDrift(r, hostKey, envKeys, driftMode))
     if (q)
       rows = rows.filter(
@@ -226,8 +227,8 @@ export function ComparerWorkspace({
             Definition
           </label>
         )}
-        {/* Definition-status filter — replaces the drift-only checkbox while in
-            definition mode; only shown when Definition is on. */}
+        {/* Definition-status filter — narrows to a defined state; only shown
+            when Definition is on. Independent of the off-definition filter. */}
         {result && driftMode === 'definition' && (
           <label className="cmp-defstatus">
             Definition status
@@ -243,15 +244,18 @@ export function ComparerWorkspace({
             </select>
           </label>
         )}
-        {/* Drift-only filter — only in current mode now. */}
-        {result && driftMode === 'current' && driftCount > 0 && (
+        {/* Drift-only filter — shows only the flows that break with the
+            reference (their definition in definition mode, else current). */}
+        {result && driftCount > 0 && (
           <label className="cmp-driftonly">
             <input
               type="checkbox"
               checked={driftOnly}
               onChange={(e) => setDriftOnly(e.target.checked)}
             />
-            Only status drift ({driftCount})
+            {driftMode === 'definition'
+              ? `Only off-definition (${driftCount})`
+              : `Only status drift (${driftCount})`}
           </label>
         )}
         {canGroup && (
