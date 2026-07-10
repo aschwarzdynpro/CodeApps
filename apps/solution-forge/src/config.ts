@@ -144,9 +144,11 @@ export let DEPLOYMENT_MANAGER_ROLE: string =
 
 /**
  * Flow Comparer "defined desired state" source — fully configurable so the app
- * has NO hard dependency on any specific (e.g. hso_) table. All four are
- * logical names read from the Workbench Settings; when table/status/name aren't
- * all set the Definition feature is simply off.
+ * has NO hard dependency on any specific (e.g. hso_) table. All are logical
+ * names read from the Workbench Settings; when table/status/name aren't all set
+ * the Definition feature is simply off. `areaCol` is an independent optional
+ * add-on: an OptionSet column on the same table used only for the "Group by
+ * area" grouping (its label is shown and grouped on).
  */
 export interface FlowDefinitionConfig {
   /** Definition table logical name (e.g. hso_cloudflow). */
@@ -157,12 +159,15 @@ export interface FlowDefinitionConfig {
   nameCol: string
   /** Column matched against workflowidunique (optional; preferred when set). */
   uniqueCol: string
+  /** Optional OptionSet column grouped/shown as "Area"; '' = no area grouping. */
+  areaCol: string
 }
 let FLOW_DEFINITION: FlowDefinitionConfig = {
   table: '',
   statusCol: '',
   nameCol: '',
   uniqueCol: '',
+  areaCol: '',
 }
 /** The configured flow-definition source, or null when not configured. */
 export function flowDefinitionConfig(): FlowDefinitionConfig | null {
@@ -202,6 +207,7 @@ export function applyRuntimeConfig(cfg: RuntimeConfig): void {
       statusCol: cfg.flowDefinition.statusCol ?? FLOW_DEFINITION.statusCol,
       nameCol: cfg.flowDefinition.nameCol ?? FLOW_DEFINITION.nameCol,
       uniqueCol: cfg.flowDefinition.uniqueCol ?? FLOW_DEFINITION.uniqueCol,
+      areaCol: cfg.flowDefinition.areaCol ?? FLOW_DEFINITION.areaCol,
     }
   }
 }

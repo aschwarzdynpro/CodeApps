@@ -717,6 +717,14 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 <strong>drift</strong> marker. A filter shows only drifting flows.
               </li>
               <li>
+                A <strong>search box</strong> filters flows by name. When an{' '}
+                <strong>Area</strong> column is configured in the Workbench
+                Settings (an OptionSet on the definition table), its value is
+                shown per flow and a <strong>Group by area</strong> switch groups
+                the matrix into collapsible areas — analogous to the Plugin
+                Comparer's assembly grouping.
+              </li>
+              <li>
                 A <strong>Definition</strong> switch (next to Compare) chooses
                 what drift is measured against. The definition source is{' '}
                 <strong>configurable in the Workbench Settings</strong> (a table

@@ -31,6 +31,14 @@ import {
 /** Ids per OData `or` chunk (URL-length safe). */
 const ID_CHUNK = 20
 
+/** One flow's defined state from the definition table: the wanted On/Off plus
+ *  the optional Area (OptionSet label) used for grouping. */
+interface DefState {
+  label: string
+  active: boolean
+  area?: string
+}
+
 const FLOW_ATTRS =
   `<attribute name="workflowid" />` +
   `<attribute name="workflowidunique" />` +
@@ -149,6 +157,9 @@ class DataverseFlowComparerService implements FlowComparerService {
         if (def) {
           row.definition = def.label
           row.definitionActive = def.active
+          // Area (OptionSet label) → the row's grouping dimension (subtitle),
+          // mirroring the plugin comparer's assembly grouping.
+          if (def.area) row.subtitle = def.area
           matched++
         }
       }
@@ -184,13 +195,13 @@ class DataverseFlowComparerService implements FlowComparerService {
     orgUrl: string,
     cfg: FlowDefinitionConfig,
   ): Promise<{
-    byName: Map<string, { label: string; active: boolean }>
-    byUnique: Map<string, { label: string; active: boolean }>
+    byName: Map<string, DefState>
+    byUnique: Map<string, DefState>
     rawRows: number
     error?: string
   }> {
-    const byName = new Map<string, { label: string; active: boolean }>()
-    const byUnique = new Map<string, { label: string; active: boolean }>()
+    const byName = new Map<string, DefState>()
+    const byUnique = new Map<string, DefState>()
     let error: string | undefined
     let rawRows = 0
 
@@ -210,22 +221,35 @@ class DataverseFlowComparerService implements FlowComparerService {
       return { label: active ? 'On' : 'Off', active }
     }
 
+    // Area is an OptionSet → prefer its formatted-value label (the connector
+    // returns these for picklists, unlike the boolean status column); fall back
+    // to the raw value so grouping still degrades gracefully.
+    const areaOf = (r: Row): string | undefined => {
+      if (!cfg.areaCol) return undefined
+      const fv = formattedValue(r, cfg.areaCol)
+      if (fv) return fv
+      const raw = r[cfg.areaCol]
+      return raw == null || raw === '' ? undefined : String(raw)
+    }
+
     const entitySet = await this.resolveEntitySet(orgUrl, cfg.table)
     const attrs =
       `<attribute name="${cfg.nameCol}" /><attribute name="${cfg.statusCol}" />` +
-      (cfg.uniqueCol ? `<attribute name="${cfg.uniqueCol}" />` : '')
+      (cfg.uniqueCol ? `<attribute name="${cfg.uniqueCol}" />` : '') +
+      (cfg.areaCol ? `<attribute name="${cfg.areaCol}" />` : '')
     try {
       const fetch = `<fetch><entity name="${cfg.table}">${attrs}</entity></fetch>`
       for (const r of await fetchXmlAllPages(entitySet, fetch, orgUrl)) {
         rawRows++
         const st = stateOf(r)
         if (!st) continue
+        const state: DefState = { ...st, area: areaOf(r) }
         const name = rowStr(r[cfg.nameCol]).toLowerCase()
         const uniq = cfg.uniqueCol
           ? rowStr(r[cfg.uniqueCol]).toLowerCase()
           : ''
-        if (name) byName.set(name, st)
-        if (uniq) byUnique.set(uniq, st)
+        if (name) byName.set(name, state)
+        if (uniq) byUnique.set(uniq, state)
       }
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)

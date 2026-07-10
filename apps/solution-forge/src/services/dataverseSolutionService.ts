@@ -795,6 +795,24 @@ export class DataverseSolutionService implements SolutionService {
     } catch (err) {
       console.warn('[config] flow-definition config read failed:', err)
     }
+    // Optional flow-area grouping column — read on its own so that when this
+    // (newer) column is absent, the read failing never disables the Definition
+    // feature above; it just leaves area grouping off.
+    try {
+      const a = await Pro_workbenchsettingsesService.getAll({
+        select: ['pro_flowdefinitionarea'],
+      })
+      const areaCol = (
+        a.data?.[0] as { pro_flowdefinitionarea?: string } | undefined
+      )?.pro_flowdefinitionarea
+      if (areaCol)
+        cfg.flowDefinition = { ...(cfg.flowDefinition ?? {}), areaCol }
+    } catch (err) {
+      console.warn(
+        '[config] flow-area column not read (pro_flowdefinitionarea may be absent):',
+        err,
+      )
+    }
     // Compare/Dependency target environments from pro_environmentconfig.
     try {
       const e = await Pro_environmentconfigsService.getAll({

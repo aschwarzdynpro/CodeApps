@@ -20,6 +20,7 @@ export function FlowComparerWorkspace({
       canManage={canManage}
       noun="flow"
       showVersion={false}
+      groupByLabel="area"
       compare={(s, p) => flowComparerService.compareFlows(s, p)}
       setState={(env, id, on) => flowComparerService.setFlowState(env, id, on)}
     />

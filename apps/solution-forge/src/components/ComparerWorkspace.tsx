@@ -168,6 +168,12 @@ export function ComparerWorkspace({
     return rows === result.rows ? result : { ...result, rows }
   }, [result, driftOnly, driftMode, hostKey, envKeys, q])
 
+  // Grouping is offered only when there's a dimension to group by AND at least
+  // one row carries it (plugin: assembly is always there; flow: only when the
+  // area column is configured and matched), so the toggle never shows an empty
+  // "(no area)" group.
+  const canGroup = !!groupByLabel && !!result?.rows.some((r) => r.subtitle)
+
   return (
     <div>
       <div className="validate-toolbar">
@@ -222,7 +228,7 @@ export function ComparerWorkspace({
               : `Only status drift (${driftCount})`}
           </label>
         )}
-        {result && groupByLabel && (
+        {canGroup && (
           <label className="cmp-driftonly">
             <input
               type="checkbox"
@@ -302,7 +308,7 @@ export function ComparerWorkspace({
             driftMode={driftMode}
             showDefinition={definitionMode}
             groupKey={
-              groupByLabel && grouped
+              canGroup && grouped
                 ? (r) => r.subtitle || `(no ${groupByLabel})`
                 : undefined
             }

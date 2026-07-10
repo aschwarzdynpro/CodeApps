@@ -31,20 +31,22 @@ export const mockFlowComparerService: FlowComparerService = {
     const seed: {
       id: string
       name: string
+      area: string
       def: boolean
       dev: boolean | undefined
       uat: boolean | undefined
       prod: boolean | undefined
     }[] = [
-      { id: 'f1', name: 'On Create — Enrich Account', def: true, dev: true, uat: true, prod: true },
-      { id: 'f2', name: 'Nightly — Sync UoM', def: true, dev: true, uat: true, prod: false },
-      { id: 'f3', name: 'On Update — Notify Owner', def: true, dev: true, uat: false, prod: false },
-      { id: 'f4', name: 'Approval — Discount', def: false, dev: false, uat: false, prod: undefined },
+      { id: 'f1', name: 'On Create — Enrich Account', area: 'Sales', def: true, dev: true, uat: true, prod: true },
+      { id: 'f2', name: 'Nightly — Sync UoM', area: 'Integration', def: true, dev: true, uat: true, prod: false },
+      { id: 'f3', name: 'On Update — Notify Owner', area: 'Sales', def: true, dev: true, uat: false, prod: false },
+      { id: 'f4', name: 'Approval — Discount', area: 'Finance', def: false, dev: false, uat: false, prod: undefined },
     ]
     const rows = seed.map((s) => {
       const row = {
         id: s.id,
         name: s.name,
+        subtitle: s.area,
         definition: s.def ? 'On' : 'Off',
         definitionActive: s.def,
         byEnv: {

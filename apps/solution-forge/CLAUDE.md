@@ -374,9 +374,18 @@ Quelle kommt aus `pro_workbenchsettings` (`config.ts → flowDefinitionConfig()`
 `RuntimeConfig.flowDefinition`, hydriert in `getRuntimeConfig`): Spalten
 `pro_flowdefinitiontable` (Tabelle), `pro_flowdefinitionstatus` (Boolean-Spalte),
 `pro_flowdefinitionname` (Name-Match-Spalte), `pro_flowdefinitionunique`
-(optional, `workflowidunique`-Match). Sind Tabelle/Status/Name nicht alle gesetzt
-→ Feature **komplett aus** (keine Spalte, Drift = vs Current), keine Abhängigkeit.
-Schulz-Werte: `hso_cloudflow`/`hso_flowstate`/`hso_name`/`hso_flowuniqueid`.
+(optional, `workflowidunique`-Match) und `pro_flowdefinitionarea` (optional, ein
+**OptionSet-Feld** auf der Definitionstabelle → Gruppierungsebene „Area"). Sind
+Tabelle/Status/Name nicht alle gesetzt → Feature **komplett aus** (keine Spalte,
+Drift = vs Current), keine Abhängigkeit. Schulz-Werte: `hso_cloudflow`/
+`hso_flowstate`/`hso_name`/`hso_flowuniqueid` (+ `pro_flowdefinitionarea` =
+`hso_flowdefinitionarea`). **Area-Gruppierung** (analog Plugin-Assembly): der
+Area-Wert wird als **Formatted-Value-Label** gelesen (`formattedValue`; der
+Konnektor liefert das für echte Picklists, anders als für die Boolean-Status-
+Spalte), landet als `row.subtitle` und treibt den **„Group by area"-Schalter**
+(erscheint nur, wenn Area-Daten da sind; Default an). `pro_flowdefinitionarea`
+wird in `getRuntimeConfig` in **eigenem try/catch** gelesen — fehlt die (neuere)
+Spalte, bleibt nur Area aus, das Definition-Feature NICHT.
 `loadDefinitions(orgUrl, cfg)` liest host-seitig die konfigurierte Tabelle,
 matcht **unique-first** (dann Name). ⚠ Die Status-Spalte ist ein **Zwei-Optionen-
 Feld** → der Konnektor liefert **JS-Boolean** (`true`/`false`), NICHT 1/0;

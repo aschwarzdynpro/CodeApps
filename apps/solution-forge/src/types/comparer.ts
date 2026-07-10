@@ -28,7 +28,7 @@ export interface ComparerRow {
   name: string
   /** Import-stable unique id (flow: workflowidunique) for definition matching. */
   uniqueId?: string
-  /** Secondary line (flow: none; step: assembly name). */
+  /** Secondary line / grouping dimension (flow: area; step: assembly name). */
   subtitle?: string
   /** Keyed by environment key; null = the environment could not be read. */
   byEnv: Record<string, ComparerEnvState | null>
