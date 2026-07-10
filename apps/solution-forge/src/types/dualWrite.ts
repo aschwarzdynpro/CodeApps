@@ -29,6 +29,10 @@ export interface DualWriteMapSummary {
   direction: number
   /** ISO modified timestamp of the current-version record. */
   modifiedOn: string
+  /** Distinct lower-cased source + destination field names of the mapping, so
+   *  the cockpit search matches a map by a mapped field (e.g. "accountnumber").
+   *  Populated from the current version's mapping when the list is built. */
+  fields?: string[]
 }
 
 /** One field mapping inside a leg. */

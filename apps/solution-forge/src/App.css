@@ -1796,6 +1796,11 @@
   flex-wrap: wrap;
   margin-bottom: 16px;
 }
+/* Comparer search box — bounded so it doesn't grow to swallow the toolbar. */
+.validate-toolbar .search {
+  flex: 0 1 240px;
+  min-width: 160px;
+}
 .compare-toolbar-actions {
   display: flex;
   gap: 8px;
@@ -4816,6 +4821,27 @@
 .dw-map-name {
   font-weight: 600;
 }
+/* Which mapped field(s) matched the search — shown only for field-only hits. */
+.dw-field-hits {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.dw-field-hit code {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: #fef9c3;
+  color: #854d0e;
+  border: 1px solid #fde68a;
+}
+.dw-field-more {
+  font-size: 11px;
+}
 .dw-badge {
   display: inline-block;
   padding: 1px 8px;
@@ -5568,4 +5594,425 @@
 }
 .wd-dot--bad {
   background: #ef4444;
+}
+
+/* ── Flow / Plugin Comparer ─────────────────────────────────────────────── */
+.cmp-card {
+  margin-top: 12px;
+}
+.cmp-hint {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+}
+.cmp-driftonly {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+/* Definition on/off switch — an indigo pill (matches the Definition column);
+   mutes when off. */
+.cmp-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #4338ca;
+  cursor: pointer;
+}
+.cmp-switch input {
+  accent-color: #4338ca;
+}
+.cmp-switch:has(input:not(:checked)) {
+  border-color: var(--border, #d5d9e0);
+  background: #f6f7fb;
+  color: var(--muted, #5b6172);
+}
+.cmp-table-wrap {
+  overflow-x: auto;
+}
+.cmp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.cmp-table th,
+.cmp-table td {
+  border: 1px solid var(--border, #e5e7eb);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.cmp-table thead th {
+  background: var(--bg, #f6f7fb);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted, #5b6172);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+/* Row hover — a soft cool tint on the <tr> shows through the transparent cells
+   so you can see which item row you're on. Cells with their own colour (drift
+   amber, missing, flash green) keep it, because the <td> background paints over
+   the row. Group-header rows have their own <td> background, so they're
+   naturally unaffected. */
+.cmp-table tbody tr:hover {
+  background: #eaf1fc;
+}
+.cmp-table tbody tr:hover .cmp-item {
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+.cmp-th--host {
+  color: #1d4ed8;
+}
+.cmp-th-tag {
+  font-weight: 700;
+}
+.cmp-th-err {
+  color: #b45309;
+}
+.cmp-th-item {
+  min-width: 240px;
+}
+.cmp-item-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.cmp-item-sub {
+  font-size: 11.5px;
+  margin-top: 2px;
+}
+/* Item-name markers — drift (vs current) / off-definition (vs defined state).
+   Highlighting is per-cell now, so the row itself is not tinted. */
+.cmp-mark {
+  margin-left: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+.cmp-mark--drift {
+  background: #fdefda;
+  color: #b45309;
+}
+.cmp-mark--def {
+  background: #fdecec;
+  color: #b42318;
+}
+/* Definition column — the defined desired state (indigo, distinct from the
+   green/gray actual-status pills and the outlined action buttons). */
+.cmp-th-def {
+  min-width: 92px;
+}
+.cmp-def {
+  white-space: nowrap;
+}
+.cmp-defpill {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 9px;
+  border-radius: 6px;
+  border: 1px solid;
+}
+.cmp-defpill--on {
+  border-color: #c7d2fe;
+  color: #4338ca;
+  background: #eef2ff;
+}
+.cmp-defpill--off {
+  border-color: #d5d9e0;
+  color: #5b6172;
+  background: #f6f7fb;
+}
+/* Per-cell defined state (below the actual status); amber ⚠ on mismatch. */
+.cmp-desired {
+  font-size: 11px;
+  font-weight: 600;
+}
+.cmp-desired--ok {
+  color: var(--muted, #9aa0ad);
+}
+.cmp-desired--bad {
+  color: #b42318;
+}
+/* Group header row (e.g. by plugin assembly) — collapsible. */
+.cmp-group-head > td {
+  background: #eef1f6;
+  padding: 0;
+}
+.cmp-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+.cmp-group-chevron {
+  display: inline-block;
+  transition: transform 0.12s ease;
+  color: var(--muted, #5b6172);
+}
+.cmp-group-chevron--open {
+  transform: rotate(90deg);
+}
+.cmp-group-name {
+  font-variant-numeric: tabular-nums;
+}
+.cmp-group-drift {
+  font-size: 11px;
+  font-weight: 700;
+  color: #b45309;
+  background: #fdefda;
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+.cmp-cell {
+  min-width: 132px;
+}
+.cmp-cell--unknown {
+  color: var(--muted, #9aa0ad);
+  text-align: center;
+}
+.cmp-cell--missing {
+  background: #fbfbfd;
+}
+.cmp-cell--drift {
+  background: #fdefda;
+  box-shadow: inset 3px 0 0 #d97706;
+}
+/* After a turn on/off: briefly flash the cell green, then fade to its resting
+   colour (transparent for OK, the drift amber for a drifting cell). Animating
+   background-color keeps the cell content readable. */
+.cmp-cell--flash {
+  animation: cmp-flash-ok 3s ease-out;
+}
+.cmp-cell--flash.cmp-cell--drift {
+  animation: cmp-flash-drift 3s ease-out;
+}
+@keyframes cmp-flash-ok {
+  0%,
+  66% {
+    background-color: rgba(22, 163, 74, 0.4);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+@keyframes cmp-flash-drift {
+  0%,
+  66% {
+    background-color: rgba(22, 163, 74, 0.4);
+  }
+  100% {
+    background-color: #fdefda;
+  }
+}
+.cmp-missing {
+  font-size: 11.5px;
+  color: #9aa0ad;
+}
+.cmp-cell-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+/* Information (status + date/version) — filled, rounded badges. */
+.cmp-cell-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+.cmp-pill {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.cmp-pill--on {
+  background: #e7f6ec;
+  color: #15803d;
+}
+.cmp-pill--off {
+  background: #eef0f4;
+  color: #5b6172;
+}
+.cmp-ver {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+.cmp-when {
+  font-size: 11.5px;
+}
+/* Action zone — visually split from the info above (dashed rule); the controls
+   are squared/outlined so they read as buttons, not status badges. */
+.cmp-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+  margin-top: 1px;
+  border-top: 1px dashed var(--border, #e5e7eb);
+}
+.cmp-jump {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 6px;
+  border: 1px solid var(--border, #d5d9e0);
+  background: #fff;
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 700;
+}
+.cmp-jump:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+.cmp-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid;
+  background: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cmp-toggle svg {
+  flex: none;
+}
+.cmp-toggle:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.cmp-toggle--on {
+  border-color: #a7dcb8;
+  color: #15803d;
+}
+.cmp-toggle--on:hover:not(:disabled) {
+  background: #eefaf1;
+}
+.cmp-toggle--off {
+  border-color: #f0b6b6;
+  color: #b42318;
+}
+.cmp-toggle--off:hover:not(:disabled) {
+  background: #fdecec;
+}
+
+/* ── Modern confirm dialog (comparer turn on/off) ───────────────────────── */
+.confirm-dialog {
+  width: min(440px, 92vw);
+  align-self: center;
+  background: var(--card-bg, #fff);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(20, 17, 58, 0.28);
+  padding: 22px 22px 18px;
+  animation: confirm-in 0.14s ease-out;
+}
+@keyframes confirm-in {
+  from {
+    transform: translateY(8px) scale(0.985);
+    opacity: 0.5;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.confirm-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.confirm-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 10px;
+  font-size: 18px;
+  background: #eef2ff;
+  color: #4338ca;
+}
+.confirm-dialog--danger .confirm-icon {
+  background: #fdecec;
+  color: #b42318;
+}
+.confirm-title {
+  margin: 0;
+  font-size: 17px;
+}
+.confirm-body {
+  margin: 12px 0 18px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.confirm-body p {
+  margin: 0 0 8px;
+}
+.confirm-body > *:last-child {
+  margin-bottom: 0;
+}
+.confirm-item {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.confirm-warn {
+  color: #b42318;
+  background: #fdecec;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.confirm-cancel {
+  background: #fff;
+}
+.confirm-go--danger {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+.confirm-go--danger:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #b91c1c;
 }

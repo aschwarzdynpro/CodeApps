@@ -11,6 +11,7 @@ import {
 } from './currentEnvQuery'
 import {
   compareMapVersions,
+  mappingFieldNames,
   overallDirection,
   parseDualWriteMapping,
 } from '../utils/dualWriteMapping'
@@ -94,6 +95,9 @@ class DataverseDualWriteService implements DualWriteService {
         c.destinationEnv = leg.destinationEnvironmentType
       }
       c.direction = overallDirection(detail)
+      // Index the mapped field names so the cockpit search can match a map by a
+      // field inside its mapping (e.g. "accountnumber").
+      c.fields = mappingFieldNames(detail)
     }
     return currents
   }

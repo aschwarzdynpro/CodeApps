@@ -343,6 +343,72 @@ Per-Env-Import-Fehler landen in einem Hinweis-Banner statt zu werfen. Der
 Import-History-Mock hat env-spezifische `deploy_sprint_12`-Jobs (UAT ok,
 PROD failed), damit die Timeline offline demobar ist.
 
+**Flow Comparer / Plugin Comparer** (Validate-Gruppe, gated, Menüpunkte „Flow
+Comparer"/„Plugin Comparer"): eine **schreibende** Cross-Env-Matrix. Release-
+Solution wählen → deren Flows (`workflow` category=5) bzw. Plugin-Steps
+(`sdkmessageprocessingstep`) im **Host** lesen (Solution-Membership via
+`solutioncomponent`-Link-Entity, Typ 29 bzw. 92) → dieselben Items **je Ziel-Env
+über die import-stabile objectId** (`workflowid`/`sdkmessageprocessingstepid`)
+nachschlagen → Matrix je Umgebung (Status + Version), Ziel-Zellen mit Status ≠
+Host **gehighlightet**. **Geteilte Bausteine:** `types/comparer.ts`
+(`ComparerResult`/`ComparerRow`/`ComparerEnvState` + `recomputeDrift`),
+`components/ComparerMatrix.tsx` + `ComparerWorkspace.tsx` (parametrisiert;
+`FlowComparerWorkspace`/`PluginComparerWorkspace` sind dünne Wrapper). Services:
+`flowComparerService`/`pluginComparerService` (+ `dataverse…`/`mock…`). **Reads**
+über `currentEnvQuery.fetchXmlQuery(entitySet, fetchXml, orgUrlForEnvKey(env))`.
+Flows: kein `version` → „modified"-Zeit; Absprung `flowDetailsUrl(envId,
+workflowidunique)`. Plugin-Steps: **Version = Assembly** (Step→plugintype→
+pluginassembly, aliased `pa.version`/`pa.name`). **⚠ Status-Semantik invertiert:**
+Flow an = `statecode 1/statuscode 2` (`statecode===1` aktiv); Plugin-Step an =
+`statecode 0/statuscode 1` (`statecode===0` aktiv). **Turn On/Off** =
+`MicrosoftDataverseService.UpdateRecordWithOrganization(…, orgUrlForEnvKey(env),
+'workflows'|'sdkmessageprocessingsteps', id, { statecode, statuscode })` — läuft
+als **Konnektor-SP** cross-env (die nativen Writes gehen nur Host!), **kein
+`isCurrentEnvKey`-Guard**; UI gated auf Deployment-Manager + `window.confirm`
+(PROD extra-stark), danach Zelle einzeln neu gelesen. **SP braucht Schreib-/
+Aktivierungsrecht auf `workflow`/`sdkmessageprocessingstep` im Ziel** (UAT/PROD).
+Mock-Parität: `mockFlowComparerService`/`mockPluginComparerService` seeden dev/
+uat/prod inkl. Drift + fehlendem Item → offline demobar. **Highlight je Zelle**
+(kein Row-Tint) + Item-`drift`-Marker. **Soll-Zustand (Flow Comparer) — voll konfigurierbar, KEINE `hso_`-Hartkodierung:**
+Quelle kommt aus `pro_workbenchsettings` (`config.ts → flowDefinitionConfig()`,
+`RuntimeConfig.flowDefinition`, hydriert in `getRuntimeConfig`): Spalten
+`pro_flowdefinitiontable` (Tabelle), `pro_flowdefinitionstatus` (Boolean-Spalte),
+`pro_flowdefinitionname` (Name-Match-Spalte), `pro_flowdefinitionunique`
+(optional, `workflowidunique`-Match) und `pro_flowdefinitionarea` (optional, ein
+**OptionSet-Feld** auf der Definitionstabelle → Gruppierungsebene „Area"). Sind
+Tabelle/Status/Name nicht alle gesetzt → Feature **komplett aus** (keine Spalte,
+Drift = vs Current), keine Abhängigkeit. Schulz-Werte: `hso_cloudflow`/
+`hso_flowstate`/`hso_name`/`hso_flowuniqueid` (+ `pro_flowdefinitionarea` =
+`hso_area`, ein OptionSet auf `hso_cloudflow` mit Labels wie „Project Quote
+Calculation"/„Vendor Catalog Management"/„Sales" — an INT-11 verifiziert).
+**Area-Gruppierung** (analog Plugin-Assembly): ⚠ der
+Konnektor liefert für `hso_area` **KEINEN Formatted-Value** (anders als
+vermutet — die Zelle kam als nackte Optionszahl `864640001`). Deshalb löst
+`loadAreaLabels` die Labels zur Laufzeit aus **`stringmap`** auf
+(`attributename eq <areaCol>` → `attributevalue`→`value`; `hso_area` liegt nur
+auf Cloud Flow, daher reicht der attributename-Filter), Sprachwahl **Base-
+Language des Orgs zuerst** (Schulz = 1031, „Sales" statt 1033 „General"), dann
+1033, dann beliebig. Der Label landet als `row.subtitle` und treibt den
+**„Group by area"-Schalter** (erscheint nur, wenn Area-Daten da sind; Default
+an). `pro_flowdefinitionarea`
+wird in `getRuntimeConfig` in **eigenem try/catch** gelesen — fehlt die (neuere)
+Spalte, bleibt nur Area aus, das Definition-Feature NICHT.
+`loadDefinitions(orgUrl, cfg)` liest host-seitig die konfigurierte Tabelle,
+matcht **unique-first** (dann Name). ⚠ Die Status-Spalte ist ein **Zwei-Optionen-
+Feld** → der Konnektor liefert **JS-Boolean** (`true`/`false`), NICHT 1/0;
+`rowNum(true)===0` → alles „Off". Daher `stateOf` robust gegen
+boolean/number/string/label (`Number`/Regex, NICHT `rowNum`). **Definition-
+Schalter** (neben Compare, `definitionMode`, Default an, nur bei Daten) steuert
+`driftMode`: **`definition`** = Ist ≠ Soll je Env inkl. Host (+ Spalte);
+**`current`** = Ist ≠ Host (Spalte aus). Drift zentral in `types/comparer.ts →
+cellHasDrift`/`rowHasDrift(row, hostKey, envKeys, mode)`. Read als Konnektor-SP
+(Schulz: **D365-CE-nonProd = System Administrator**); Entity-Set-Name via
+`EntityDefinitions`-Metadaten aufgelöst (nicht naiv pluralisiert). Die frühere
+`hso_cloudflowbyenvironment`-Lesung (per-Env-Soll) ist **entfernt** (war die
+nächste Hartkodierung; ggf. später als zweites konfigurierbares Set). Turn On/Off-
+Confirm = modernes `ConfirmDialog` (PROD-Danger). Getoggelte Zelle **flasht grün**
+(`cmp-cell--flash`) und fadet in die Ruhefarbe.
+
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT
@@ -519,16 +585,21 @@ PROD failed), damit die Timeline offline demobar ist.
     Solution"). **Connection Reference = componenttype `10064`** (NICHT 372 — das
     war der Bug); der Wert, den `RetrieveMissingDependencies`/`solutioncomponent`
     liefern (deckt sich mit Merge/Layer-Inspector). Custom Control = `66`.
-    Spalten (type 2) sind cross-env (noch) nicht verifizierbar → bleiben
-    bewusst `unknown` (ehrlich), kein Auto-Check. **Namen der `unknown`-Typen**
-    (die ohne Spec) werden trotzdem best-effort aufgelöst, damit die Liste nicht
-    nur GUIDs zeigt (`resolveRequiredMetadataNames`): Choice (9) via
-    `GlobalOptionSetDefinitions`, Table (1) via `EntityDefinitions`, Relationship
-    (3/10) via `RelationshipDefinitions`, Column (2) via `EntityDefinitions` mit
-    nach `MetadataId` gefiltertem `Attributes`-Expand (Entity der fehlenden Spalte
-    ist unbekannt → alle Entities, aber winzige Bodies). Die „required by"-Seite
+    **Metadaten-Typen ohne Spec werden jetzt per Namen echt geprüft**
+    (`resolveMetadataDeps`): die import-stabile Identität wird im Current-Env
+    aufgelöst (Column 2 → `entity.attribut`-LogicalName via `EntityDefinitions`
+    mit nach `MetadataId` gefiltertem `Attributes`-Expand; Choice 9 → OptionSet-
+    `Name`; Table 1 → `LogicalName`; Relationship 3/10 → `SchemaName`) und dann
+    **im Ziel nach diesem Namen** gesucht (überlebt Transport, auch wenn die
+    MetadataId je Env divergiert) → `present`/`missing` statt pauschal `unknown`.
+    **Safety (kein False-Green):** `present` nur bei positivem Fund, `false` nur
+    wenn das Ziel für genau diese Identität **erfolgreich** abgefragt wurde und
+    sie fehlt; bei JEDER Lookup-Panne bleibt die id aus `presence` → `unknown`
+    (per-Chunk `queried`-Set trackt, welche Entities/Namen das Ziel wirklich
+    beantwortet hat). Klassifikation ist entkoppelt vom Spec: `targetPresence.has`
+    entscheidet (nicht mehr `DEPENDENCY_SPECS[type] && …`). Die „required by"-Seite
     nutzt `listMergeComponents` (löst Sub-Komponenten-Namen wie Forms/Spalten).
-    Alles in eigenem try/catch — schlägt es fehl, bleibt die GUID.
+    Alles best-effort in eigenem try/catch.
 
 ## Offen / Nächstes
 

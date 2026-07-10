@@ -172,6 +172,30 @@ export function countFieldMappings(detail: DualWriteMapDetail): number {
 }
 
 /**
+ * Distinct, lower-cased source + destination field names across all legs — the
+ * searchable field list so the cockpit search matches a map by a mapped field
+ * (e.g. "accountnumber" finds the account map). Dotted lookup destinations
+ * (e.g. "msdyn_product.msdyn_productnumber") also contribute their bare last
+ * segment, so a search for the plain column name still hits.
+ */
+export function mappingFieldNames(detail: DualWriteMapDetail): string[] {
+  const out = new Set<string>()
+  const add = (v: string) => {
+    const s = v.trim().toLowerCase()
+    if (!s) return
+    out.add(s)
+    const dot = s.lastIndexOf('.')
+    if (dot >= 0 && dot < s.length - 1) out.add(s.slice(dot + 1))
+  }
+  for (const leg of detail.legs)
+    for (const f of leg.fieldMappings) {
+      add(f.sourceField)
+      add(f.destinationField)
+    }
+  return [...out]
+}
+
+/**
  * Overall sync direction of a whole map, summarised from its field directions:
  * bidirectional (3) when any field is bidirectional OR both one-way directions
  * occur; otherwise the single one-way direction (1 or 2); 0 when there are no
