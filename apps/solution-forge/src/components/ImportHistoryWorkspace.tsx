@@ -229,7 +229,7 @@ export function ImportHistoryWorkspace({
 
       {jobs && jobs.length > 0 && (
         <div className="card trace-list">
-          <table className="ops-table">
+          <table className="ops-table imp-list">
             <thead>
               <tr>
                 <th>Started</th>
@@ -245,11 +245,13 @@ export function ImportHistoryWorkspace({
               {jobs.map((job) => {
                 const isOpen = expanded === job.id
                 const detail = details.get(job.id)
+                // A succeeded import has nothing to drill into — don't expand it.
+                const clickable = job.status !== 'succeeded'
                 return (
                   <Fragment key={job.id}>
                     <tr
-                      className={`ops-row ${job.status === 'failed' ? 'ops-row--error' : ''} ${isOpen ? 'ops-row--open' : ''}`}
-                      onClick={() => toggle(job)}
+                      className={`ops-row ${clickable ? '' : 'ops-row--static'} ${job.status === 'failed' ? 'ops-row--error' : ''} ${isOpen ? 'ops-row--open' : ''}`}
+                      onClick={clickable ? () => toggle(job) : undefined}
                     >
                       <td className="nowrap">{fmtDateTime(job.startedOn)}</td>
                       <td className="trace-type">{job.solutionName}</td>

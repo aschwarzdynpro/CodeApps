@@ -4026,6 +4026,23 @@
   background: var(--bg);
   padding: 10px 14px;
 }
+/* Non-clickable row (e.g. a succeeded import with nothing to drill into): drop
+   the pointer + hover affordance so it doesn't look expandable. */
+.ops-row--static {
+  cursor: default;
+}
+.ops-row--static:hover {
+  background: transparent;
+}
+/* Airier list variants — more vertical breathing room than the dense ops-table
+   default (shared with Traces/Job Monitor). Scoped to the direct rows via the
+   child combinator so nested detail tables keep their compact spacing. */
+.imp-list > thead > tr > th,
+.imp-list > tbody > tr:not(.ops-detail-row) > td,
+.dw-list > thead > tr > th,
+.dw-list > tbody > tr > td {
+  padding: 12px 12px;
+}
 
 .trace-list {
   padding: 0;
