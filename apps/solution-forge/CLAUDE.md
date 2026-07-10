@@ -379,7 +379,9 @@ Quelle kommt aus `pro_workbenchsettings` (`config.ts → flowDefinitionConfig()`
 Tabelle/Status/Name nicht alle gesetzt → Feature **komplett aus** (keine Spalte,
 Drift = vs Current), keine Abhängigkeit. Schulz-Werte: `hso_cloudflow`/
 `hso_flowstate`/`hso_name`/`hso_flowuniqueid` (+ `pro_flowdefinitionarea` =
-`hso_flowdefinitionarea`). **Area-Gruppierung** (analog Plugin-Assembly): der
+`hso_area`, ein OptionSet auf `hso_cloudflow` mit Labels wie „Project Quote
+Calculation"/„Vendor Catalog Management"/„Sales" — an INT-11 verifiziert).
+**Area-Gruppierung** (analog Plugin-Assembly): der
 Area-Wert wird als **Formatted-Value-Label** gelesen (`formattedValue`; der
 Konnektor liefert das für echte Picklists, anders als für die Boolean-Status-
 Spalte), landet als `row.subtitle` und treibt den **„Group by area"-Schalter**
