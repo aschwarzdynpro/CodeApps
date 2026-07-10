@@ -221,15 +221,19 @@ class DataverseFlowComparerService implements FlowComparerService {
       return { label: active ? 'On' : 'Off', active }
     }
 
-    // Area is an OptionSet → prefer its formatted-value label (the connector
-    // returns these for picklists, unlike the boolean status column); fall back
-    // to the raw value so grouping still degrades gracefully.
+    // Area is an OptionSet. The connector's FetchXML passthrough does NOT return
+    // formatted values for it, so resolve the label from stringmap (value→label,
+    // in the environment's base language) and map the raw option value through
+    // it; fall back to a formatted value if one is present, else a "#code".
+    const areaLabels = cfg.areaCol
+      ? await this.loadAreaLabels(orgUrl, cfg.areaCol)
+      : new Map<number, string>()
     const areaOf = (r: Row): string | undefined => {
       if (!cfg.areaCol) return undefined
-      const fv = formattedValue(r, cfg.areaCol)
-      if (fv) return fv
       const raw = r[cfg.areaCol]
-      return raw == null || raw === '' ? undefined : String(raw)
+      if (raw == null || raw === '') return formattedValue(r, cfg.areaCol)
+      const num = rowNum(raw)
+      return areaLabels.get(num) ?? formattedValue(r, cfg.areaCol) ?? `#${num}`
     }
 
     const entitySet = await this.resolveEntitySet(orgUrl, cfg.table)
@@ -257,6 +261,61 @@ class DataverseFlowComparerService implements FlowComparerService {
     }
 
     return { byName, byUnique, rawRows, ...(error ? { error } : {}) }
+  }
+
+  /**
+   * Resolve an OptionSet column's value→label map from `stringmap` — the
+   * connector's FetchXML passthrough does NOT return formatted values for a
+   * custom picklist like the area column, so the raw option value comes back as
+   * a bare number. Labels are picked in the environment's base language first,
+   * then English (1033), then any. Best-effort: an empty map on any failure
+   * (grouping then falls back to the numeric code).
+   */
+  private async loadAreaLabels(
+    orgUrl: string,
+    areaCol: string,
+  ): Promise<Map<number, string>> {
+    const out = new Map<number, string>()
+    try {
+      // Base language of the environment — the labels shown in the maker.
+      let baseLang = 1033
+      try {
+        const org = await fetchXmlQuery(
+          'organizations',
+          `<fetch top="1"><entity name="organization"><attribute name="languagecode" /></entity></fetch>`,
+          orgUrl,
+        )
+        const lc = rowNum(org[0]?.languagecode)
+        if (lc) baseLang = lc
+      } catch {
+        /* keep the 1033 default */
+      }
+      // Lower rank wins: base language, then English, then any other language.
+      const rank = (lang: number): number =>
+        lang === baseLang ? 0 : lang === 1033 ? 1 : 2
+      const bestRank = new Map<number, number>()
+      const fetch =
+        `<fetch><entity name="stringmap">` +
+        `<attribute name="attributevalue" />` +
+        `<attribute name="value" />` +
+        `<attribute name="langid" />` +
+        `<filter><condition attribute="attributename" operator="eq" value="${fetchXmlEscape(areaCol)}" /></filter>` +
+        `</entity></fetch>`
+      for (const r of await fetchXmlAllPages('stringmaps', fetch, orgUrl)) {
+        const label = rowStr(r.value)
+        if (!label) continue
+        const val = rowNum(r.attributevalue)
+        const rk = rank(rowNum(r.langid))
+        const cur = bestRank.get(val)
+        if (cur === undefined || rk < cur) {
+          bestRank.set(val, rk)
+          out.set(val, label)
+        }
+      }
+    } catch (err) {
+      console.warn('[flowcmp] stringmap area labels read failed:', err)
+    }
+    return out
   }
 
   /**

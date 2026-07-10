@@ -381,11 +381,16 @@ Drift = vs Current), keine Abhängigkeit. Schulz-Werte: `hso_cloudflow`/
 `hso_flowstate`/`hso_name`/`hso_flowuniqueid` (+ `pro_flowdefinitionarea` =
 `hso_area`, ein OptionSet auf `hso_cloudflow` mit Labels wie „Project Quote
 Calculation"/„Vendor Catalog Management"/„Sales" — an INT-11 verifiziert).
-**Area-Gruppierung** (analog Plugin-Assembly): der
-Area-Wert wird als **Formatted-Value-Label** gelesen (`formattedValue`; der
-Konnektor liefert das für echte Picklists, anders als für die Boolean-Status-
-Spalte), landet als `row.subtitle` und treibt den **„Group by area"-Schalter**
-(erscheint nur, wenn Area-Daten da sind; Default an). `pro_flowdefinitionarea`
+**Area-Gruppierung** (analog Plugin-Assembly): ⚠ der
+Konnektor liefert für `hso_area` **KEINEN Formatted-Value** (anders als
+vermutet — die Zelle kam als nackte Optionszahl `864640001`). Deshalb löst
+`loadAreaLabels` die Labels zur Laufzeit aus **`stringmap`** auf
+(`attributename eq <areaCol>` → `attributevalue`→`value`; `hso_area` liegt nur
+auf Cloud Flow, daher reicht der attributename-Filter), Sprachwahl **Base-
+Language des Orgs zuerst** (Schulz = 1031, „Sales" statt 1033 „General"), dann
+1033, dann beliebig. Der Label landet als `row.subtitle` und treibt den
+**„Group by area"-Schalter** (erscheint nur, wenn Area-Daten da sind; Default
+an). `pro_flowdefinitionarea`
 wird in `getRuntimeConfig` in **eigenem try/catch** gelesen — fehlt die (neuere)
 Spalte, bleibt nur Area aus, das Definition-Feature NICHT.
 `loadDefinitions(orgUrl, cfg)` liest host-seitig die konfigurierte Tabelle,
