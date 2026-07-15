@@ -7,6 +7,8 @@ import type {
 } from '../types/userSettings'
 import { userSettingsService } from '../services/userSettingsService'
 import { ConfirmDialog } from './ConfirmDialog'
+import { UserSettingsCopyDialog } from './UserSettingsCopyDialog'
+import { EDITABLE_KEYS } from '../utils/usersettingsGroups'
 import { lcidName } from '../utils/lcid'
 import {
   CURRENCY_FORMAT,
@@ -27,9 +29,11 @@ interface Props {
   envKey: string
   envLabel: string
   row: UserSettingsRow
+  /** The environment's user list — target candidates for "Copy to users". */
+  users: UserSettingsRow[]
   canManage: boolean
   onClose: () => void
-  /** Called after a successful save so the list can refresh the row. */
+  /** Called after a successful save / copy so the list can refresh. */
   onSaved: () => void
 }
 
@@ -42,18 +46,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'languages', label: 'Languages' },
 ]
 
-/** Keys that participate in the change diff. */
-const EDITABLE_KEYS: (keyof EditableUserSettings)[] = [
-  'pagingLimit', 'timeZoneCode', 'currencyId', 'defaultCountryCode',
-  'decimalSymbol', 'numberSeparator', 'numberGroupFormat', 'negativeFormatCode',
-  'currencySymbol', 'currencyFormatCode', 'negativeCurrencyFormatCode',
-  'currencyDecimalPrecision', 'timeFormatString', 'timeSeparator', 'amDesignator',
-  'pmDesignator', 'showWeekNumber', 'dateFormatString', 'dateSeparator',
-  'longDateFormatCode', 'isSendAsAllowed', 'incomingEmailFilteringMethod',
-  'isEmailConversationViewEnabled', 'reportScriptErrors', 'uiLanguageId',
-  'helpLanguageId',
-]
-
 /**
  * Detail dialog for one user's personal `usersettings`, grouped by area, with
  * live format previews and — for deployment managers — inline editing + Save
@@ -63,6 +55,7 @@ export function UserSettingsDetailDialog({
   envKey,
   envLabel,
   row,
+  users,
   canManage,
   onClose,
   onSaved,
@@ -75,6 +68,7 @@ export function UserSettingsDetailDialog({
   const [tab, setTab] = useState<Tab>('general')
   const [confirming, setConfirming] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [copying, setCopying] = useState(false)
   const reloadRef = useRef(0)
 
   useEffect(() => {
@@ -369,6 +363,14 @@ export function UserSettingsDetailDialog({
 
             {canManage && (
               <div className="us-detail-actions">
+                <button
+                  className="btn btn--small"
+                  disabled={saving}
+                  onClick={() => setCopying(true)}
+                  title="Copy these settings onto other users in this environment"
+                >
+                  Copy to users…
+                </button>
                 <span className="muted">
                   {dirty
                     ? `${Object.keys(changes).length} change${Object.keys(changes).length === 1 ? '' : 's'}`
@@ -414,6 +416,18 @@ export function UserSettingsDetailDialog({
               )}
             </>
           }
+        />
+      )}
+
+      {copying && draft && (
+        <UserSettingsCopyDialog
+          envKey={envKey}
+          envLabel={envLabel}
+          source={row}
+          sourceValues={draft}
+          users={users}
+          onClose={() => setCopying(false)}
+          onDone={onSaved}
         />
       )}
     </div>

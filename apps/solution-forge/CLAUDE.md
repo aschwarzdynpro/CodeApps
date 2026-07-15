@@ -354,8 +354,13 @@ in `utils/usersettingsOptions.ts`; **Format-Previews** (number/currency/time/dat
 Referenz verifiziert. **⚠ Write verify-on-first-use:** Schreiben fremder `usersettings`
 braucht `prvWriteUserSettings` (SP=sysadmin bei Schulz); `dateformatstring` treibt die
 Anzeige — Sibling `*code` bleibt, beim ersten echten Save prüfen, dass es nicht
-zurückgesetzt wird. **Später:** Copy eines User-Sets auf mehrere User (Multi-Select +
-serieller Runner wie Flow Comparer, auf `updateUserSettings` aufsetzend).
+zurückgesetzt wird. **Copy to users** (`UserSettingsCopyDialog`, aus dem Detail-
+Dialog, Deployment-Manager): den angezeigten Quell-User als Vorlage → Setting-Gruppen
+wählen (`utils/usersettingsGroups.ts → SETTINGS_GROUPS`, `pickGroupValues`) + Ziel-User
+multi-select (aus der Env-Liste, ohne App-User/Quelle) → **seriell** je Ziel
+`updateUserSettings` (Progressbar „Copying to …" + per-User-Result), Confirm (PROD-
+Danger). Kopiert die on-screen-Werte (Draft) → innerhalb DERSELBEN Env (currencyId ist
+per-Env, nur gleiche Env valide).
 
 **Release Timeline** (Manage-Gruppe, Menüpunkt „Timeline", ungated):
 `ReleaseTimelineWorkspace` — reine Visualisierung vorhandener Daten, KEIN

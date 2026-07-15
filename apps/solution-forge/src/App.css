@@ -6150,6 +6150,64 @@
 .us-detail-actions .muted {
   margin-right: auto;
 }
+/* Copy-to-users dialog. */
+.us-copy-groups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin: 10px 0;
+}
+.us-copy-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.us-copy-targets-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0 6px;
+}
+.us-copy-targets-head .search {
+  flex: 1;
+  min-width: 140px;
+}
+.us-copy-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 32vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.us-copy-list li {
+  border-bottom: 1px solid var(--border);
+}
+.us-copy-list li:last-child {
+  border-bottom: none;
+}
+.us-copy-list li.muted {
+  padding: 10px 12px;
+}
+.us-copy-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.us-copy-list label:hover {
+  background: var(--bg);
+}
+.us-copy-list code {
+  color: var(--muted);
+  font-size: 11.5px;
+}
 .cmp-progress {
   width: 100%;
   height: 10px;

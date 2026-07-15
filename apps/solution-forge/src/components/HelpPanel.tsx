@@ -721,6 +721,13 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               (confirm first; <strong>PROD</strong> extra-strong). Reads/writes
               run through the connector (SP identity).
             </p>
+            <p>
+              <strong>Copy to users…</strong> (in the detail dialog) takes the
+              shown settings as a template: pick which groups to copy and the
+              target users, then apply to all of them serially with a progress
+              bar and per-user result — for rolling a proven configuration out to
+              a team.
+            </p>
           </section>
 
           <section className="help-section">

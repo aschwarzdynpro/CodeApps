@@ -199,6 +199,7 @@ export function UserSettingsWorkspace({
           envKey={envKey}
           envLabel={envLabel}
           row={selected}
+          users={rows ?? []}
           canManage={canManage}
           onClose={() => setSelected(null)}
           onSaved={() => setNonce((n) => n + 1)}
