@@ -105,19 +105,18 @@ class DataverseUserSettingsService implements UserSettingsService {
       `<attribute name="systemuserid" />` +
       `<attribute name="timezonecode" />` +
       `<attribute name="uilanguageid" />` +
-      `<attribute name="currencysymbol" />` +
       `<link-entity name="systemuser" from="systemuserid" to="systemuserid" alias="u" link-type="inner">` +
       `<attribute name="fullname" />` +
       `<attribute name="domainname" />` +
       `<attribute name="azureactivedirectoryobjectid" />` +
       `<attribute name="applicationid" />` +
       `<filter><condition attribute="isdisabled" operator="eq" value="false" /></filter>` +
+      `<link-entity name="businessunit" from="businessunitid" to="businessunitid" alias="bu" link-type="outer">` +
+      `<attribute name="name" />` +
+      `</link-entity>` +
       `</link-entity>` +
       `<link-entity name="timezonedefinition" from="timezonecode" to="timezonecode" alias="tz" link-type="outer">` +
       `<attribute name="userinterfacename" />` +
-      `</link-entity>` +
-      `<link-entity name="transactioncurrency" from="transactioncurrencyid" to="transactioncurrencyid" alias="cur" link-type="outer">` +
-      `<attribute name="isocurrencycode" />` +
       `</link-entity>` +
       `</entity></fetch>`
     try {
@@ -134,10 +133,7 @@ class DataverseUserSettingsService implements UserSettingsService {
             timeZone:
               rowStr(r['tz.userinterfacename']) ||
               (r.timezonecode != null ? `#${rowNum(r.timezonecode)}` : '—'),
-            currencyCode:
-              rowStr(r['cur.isocurrencycode']) ||
-              rowStr(r.currencysymbol) ||
-              '—',
+            businessUnit: rowStr(r['bu.name']) || '—',
             uiLanguage: lcidName(rowNum(r.uilanguageid)),
           }
         })

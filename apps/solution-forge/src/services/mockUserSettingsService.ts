@@ -42,6 +42,7 @@ const TZ_NAMES: Record<number, string> = {
   110: '(GMT+01:00) Amsterdam, Berlin, Bern, Rome, Stockholm, Vienna',
   4: '(GMT-08:00) Pacific Time (US & Canada)',
 }
+const BU: Record<string, string> = { u1: 'Sales EMEA', u2: 'Sales US' }
 
 function toRow(d: UserSettingsDetail): UserSettingsRow {
   return {
@@ -51,7 +52,7 @@ function toRow(d: UserSettingsDetail): UserSettingsRow {
     aadObjectId: `aad-${d.userId}`,
     isApp: false,
     timeZone: TZ_NAMES[d.timeZoneCode] ?? `#${d.timeZoneCode}`,
-    currencyCode: d.currencySymbol || '—',
+    businessUnit: BU[d.userId] ?? 'Root Business Unit',
     uiLanguage: lcidName(d.uiLanguageId),
   }
 }

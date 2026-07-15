@@ -18,8 +18,8 @@ export interface UserSettingsRow {
   isApp: boolean
   /** Resolved time-zone display name. */
   timeZone: string
-  /** Default-currency ISO code, or the format currency symbol as a fallback. */
-  currencyCode: string
+  /** The user's business unit name. */
+  businessUnit: string
   /** UI language, resolved from its LCID. */
   uiLanguage: string
 }

@@ -18,7 +18,7 @@ interface Props {
   canManage: boolean
 }
 
-type SortKey = 'fullName' | 'email' | 'timeZone' | 'currencyCode' | 'uiLanguage'
+type SortKey = 'fullName' | 'email' | 'timeZone' | 'businessUnit' | 'uiLanguage'
 interface Column {
   key: SortKey
   label: string
@@ -28,7 +28,7 @@ const COLUMNS: Column[] = [
   { key: 'fullName', label: 'User', get: (r) => r.fullName },
   { key: 'email', label: 'Login', get: (r) => r.email },
   { key: 'timeZone', label: 'Time zone', get: (r) => r.timeZone },
-  { key: 'currencyCode', label: 'Currency', get: (r) => r.currencyCode },
+  { key: 'businessUnit', label: 'Business unit', get: (r) => r.businessUnit },
   { key: 'uiLanguage', label: 'UI language', get: (r) => r.uiLanguage },
 ]
 
@@ -185,7 +185,7 @@ export function UserSettingsWorkspace({
                   </td>
                   <td className="trace-type">{r.email}</td>
                   <td>{r.timeZone}</td>
-                  <td className="nowrap">{r.currencyCode}</td>
+                  <td>{r.businessUnit}</td>
                   <td>{r.uiLanguage}</td>
                 </tr>
               ))}

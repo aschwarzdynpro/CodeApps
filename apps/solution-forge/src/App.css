@@ -4040,7 +4040,9 @@
 .imp-list > thead > tr > th,
 .imp-list > tbody > tr:not(.ops-detail-row) > td,
 .dw-list > thead > tr > th,
-.dw-list > tbody > tr > td {
+.dw-list > tbody > tr > td,
+.us-table > thead > tr > th,
+.us-table > tbody > tr > td {
   padding: 12px 12px;
 }
 
