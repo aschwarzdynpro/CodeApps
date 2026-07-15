@@ -331,24 +331,31 @@ parentSchemaName/parentDisplayName), generische
 `result[result="failure|warning"]`-Knoten dedupliziert. Parser wirft nie
 (Garbage ⇒ status 'unknown').
 
-**User Settings** (Validate-Gruppe, Menüpunkt „User Settings", gated, read-only):
-`UserSettingsWorkspace` + `userSettingsService` (`dataverse…`/`mock…`),
-Zielumgebung per `OperateEnvPicker` (eigener Lift `userSettingsEnvKey`, Remount
-per `key`). Inventar der persönlichen Einstellungen je Env: liest **`usersettings`**
-(1:1 zu `systemuser`) via Konnektor-**FetchXML** (`fetchXmlAllPages`), Entity-Set
-per `EntityDefinitions` aufgelöst (**`usersettingscollection`**, nicht +s).
-Link-Entities: `systemuser` (inner, `isdisabled eq false`) für `fullname`/
-`domainname`/**`azureactivedirectoryobjectid`** (= stabile Cross-Env-Identität für
-Menschen; App-User haben `applicationid` statt AAD-ID) + `timezonedefinition`
-(outer, `timezonecode`→`userinterfacename`). Options-Sets (`defaultcalendarview`,
-`advancedfindstartupmode`) kommen als **Formatted-Value**; Sprach-LCIDs
-(`uilanguageid`/`localeid`) via `utils/lcid.ts → lcidName` (Vitest); Format-Strings
-(`dateformatstring`/`timeformatstring`/`currencysymbol`/`decimalsymbol`/
-`numberseparator`) roh. UI: Suche (Name/Login), Toggle „Only real users" (blendet
-App-User aus, Default an), **klickbare Spalten-Header zum Sortieren**, „Number"-
-Spalte = Sample `1{sep}234{dec}56`, Refresh + Last-sync (`formatRelative`). Vergleich
-= Env-Picker umschalten (Option C, keine Matrix). Keine neuen Data Sources; SP
-braucht `usersettings`-Leserecht. Schreiben (Angleichen) bewusst später (Phase 2).
+**User Settings** (Validate-Gruppe, Menüpunkt „User Settings", gated):
+`UserSettingsWorkspace` + `UserSettingsDetailDialog` + `userSettingsService`
+(`dataverse…`/`mock…`), Zielumgebung per `OperateEnvPicker` (eigener Lift
+`userSettingsEnvKey`, Remount per `key`). **`usersettings`** (1:1 zu `systemuser`,
+**PK = `systemuserid`**) via Konnektor, Entity-Set per `EntityDefinitions`
+aufgelöst (**`usersettingscollection`**, nicht +s). Match cross-env über
+**`azureactivedirectoryobjectid`** (App-User haben `applicationid`).
+**Kompakte Liste** (`list`): User/Login/Time Zone/Currency/UI Language — Currency
+= `transactioncurrency.isocurrencycode` (join) sonst `currencysymbol`; Suche,
+„Only real users", Sortieren, Refresh+Last-sync. **Klick → `UserSettingsDetailDialog`**
+(wide modal, Sub-Tabs General/Formats/Email/Privacy/Languages) mit **Live-Preview**
+je Format-Gruppe. **Editierbar + Save** (Deployment-Manager): `getDetail` lädt alle
+Felder + Base-Language (`organization.languagecode`, read-only); `pickers` (cached)
+= `timezonedefinition`/`transactioncurrency`/`languageChoices()`; `updateUserSettings`
+schreibt **nur die geänderten Felder** (Diff) via `UpdateRecordWithOrganization(…,
+'usersettingscollection', systemuserid, item)` als Konnektor-SP (currency via
+`transactioncurrencyid@odata.bind`), Confirm (PROD-Danger). **Coded Fields** (negative
+number/currency, currency format, email tracking, error notification) → Value→Label
+in `utils/usersettingsOptions.ts`; **Format-Previews** (number/currency/time/date) in
+`utils/usersettingsFormat.ts` (beide Vitest). Feldnamen gegen die MS `usersettings`-
+Referenz verifiziert. **⚠ Write verify-on-first-use:** Schreiben fremder `usersettings`
+braucht `prvWriteUserSettings` (SP=sysadmin bei Schulz); `dateformatstring` treibt die
+Anzeige — Sibling `*code` bleibt, beim ersten echten Save prüfen, dass es nicht
+zurückgesetzt wird. **Später:** Copy eines User-Sets auf mehrere User (Multi-Select +
+serieller Runner wie Flow Comparer, auf `updateUserSettings` aufsetzend).
 
 **Release Timeline** (Manage-Gruppe, Menüpunkt „Timeline", ungated):
 `ReleaseTimelineWorkspace` — reine Visualisierung vorhandener Daten, KEIN

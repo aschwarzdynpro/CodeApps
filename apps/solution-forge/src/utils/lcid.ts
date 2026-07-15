@@ -50,3 +50,10 @@ export function lcidName(lcid: number): string {
   if (!lcid) return '—'
   return LCID_NAMES[lcid] ?? `#${lcid}`
 }
+
+/** All known languages (for the UI/Help language pickers), sorted by name. */
+export function languageChoices(): { lcid: number; name: string }[] {
+  return Object.entries(LCID_NAMES)
+    .map(([lcid, name]) => ({ lcid: Number(lcid), name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}

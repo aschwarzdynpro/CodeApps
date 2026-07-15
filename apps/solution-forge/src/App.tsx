@@ -1381,6 +1381,7 @@ function App() {
           key={userSettingsEnvKey}
           envKey={userSettingsEnvKey}
           onEnvChange={setUserSettingsEnvKey}
+          canManage={isDeploymentManager}
         />
       )}
 

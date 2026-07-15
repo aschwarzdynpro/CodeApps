@@ -703,17 +703,23 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           <section className="help-section">
             <h3>🧑‍💼 User Settings (Validate)</h3>
             <p>
-              A read-only inventory of every enabled user's{' '}
-              <strong>personal settings</strong> (<code>usersettings</code>) in
-              the chosen environment: <strong>time zone</strong>,{' '}
-              <strong>UI language</strong> / locale,{' '}
-              <strong>date / time / number formats</strong>, and{' '}
-              <strong>rows per page</strong>. Pick the{' '}
-              <strong>environment</strong> at the top; switch it to{' '}
-              <strong>compare a user across systems</strong> (e.g. why UAT
-              differs from PROD). Search by name or login, hide application /
-              service users, and click any column header to sort. Reads run
-              through the connector (SP identity).
+              A per-environment inventory of every enabled user's{' '}
+              <strong>personal settings</strong> (<code>usersettings</code>). The
+              list is compact — <strong>user, login, time zone, currency, UI
+              language</strong>; search by name/login, hide application/service
+              users, click a header to sort. Switch the{' '}
+              <strong>environment</strong> picker to compare a user across
+              systems (e.g. why UAT differs from PROD).
+            </p>
+            <p>
+              <strong>Click a user</strong> to open the detail dialog with all
+              settings grouped into <strong>General · Formats · Email · Privacy ·
+              Languages</strong>. The Formats tab shows a{' '}
+              <strong>live preview</strong> of the number, currency, time and
+              date formats as you edit them. Deployment managers can{' '}
+              <strong>edit and Save</strong> — only the changed fields are written
+              (confirm first; <strong>PROD</strong> extra-strong). Reads/writes
+              run through the connector (SP identity).
             </p>
           </section>
 

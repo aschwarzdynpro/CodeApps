@@ -1,10 +1,11 @@
 /**
  * Personal user settings (`usersettings`, 1:1 with `systemuser`) of one
- * environment — a read-only inventory for the User Settings view. Reads run
+ * environment. The list shows a compact summary; clicking a user loads the full
+ * {@link UserSettingsDetail} into a grouped, editable dialog. Reads/writes run
  * through the connector (SP identity) against the chosen environment.
  */
 
-/** One user's personal settings in a single environment. */
+/** Compact list row. */
 export interface UserSettingsRow {
   /** `systemuserid` in THIS environment (differs per env). */
   userId: string
@@ -15,29 +16,87 @@ export interface UserSettingsRow {
   aadObjectId: string
   /** Application (service) user rather than a human. */
   isApp: boolean
-  /** Resolved time-zone display name (from `timezonedefinition`). */
+  /** Resolved time-zone display name. */
   timeZone: string
-  /** UI language, resolved from its LCID (e.g. "German (de-DE)"). */
+  /** Default-currency ISO code, or the format currency symbol as a fallback. */
+  currencyCode: string
+  /** UI language, resolved from its LCID. */
   uiLanguage: string
-  /** Base locale, resolved from its LCID. */
-  locale: string
-  /** e.g. "dd/MM/yyyy". */
-  dateFormat: string
-  /** e.g. "HH:mm". */
-  timeFormat: string
-  currencySymbol: string
-  decimalSymbol: string
-  numberSeparator: string
-  /** Records per page (`paginglimit`). */
-  pagingLimit: number
-  /** Default calendar view (option-set label). */
-  calendarView: string
-  /** Advanced Find startup mode (option-set label). */
-  advancedFind: string
 }
 
 export interface UserSettingsResult {
   rows: UserSettingsRow[]
-  /** Non-fatal read error (e.g. the env couldn't be queried). */
+  /** Non-fatal read error. */
   error?: string
+}
+
+/** Full personal settings of one user (detail dialog). */
+export interface UserSettingsDetail {
+  userId: string
+  fullName: string
+  email: string
+  /** Environment base language LCID (read-only). */
+  baseLanguageLcid: number
+  // General
+  pagingLimit: number
+  timeZoneCode: number
+  /** `transactioncurrencyid` ('' when unset). */
+  currencyId: string
+  defaultCountryCode: string
+  // Formats · Number
+  decimalSymbol: string
+  numberSeparator: string
+  numberGroupFormat: string
+  negativeFormatCode: number
+  // Formats · Currency
+  currencySymbol: string
+  currencyFormatCode: number
+  negativeCurrencyFormatCode: number
+  currencyDecimalPrecision: number
+  // Formats · Time
+  timeFormatString: string
+  timeSeparator: string
+  amDesignator: string
+  pmDesignator: string
+  // Formats · Date
+  showWeekNumber: boolean
+  dateFormatString: string
+  dateSeparator: string
+  longDateFormatCode: number
+  // Email
+  isSendAsAllowed: boolean
+  incomingEmailFilteringMethod: number
+  isEmailConversationViewEnabled: boolean
+  // Privacy
+  reportScriptErrors: number
+  // Languages
+  uiLanguageId: number
+  helpLanguageId: number
+}
+
+/** The editable fields (everything except identity + read-only base language). */
+export type EditableUserSettings = Omit<
+  UserSettingsDetail,
+  'userId' | 'fullName' | 'email' | 'baseLanguageLcid'
+>
+
+/** Reference lists for the dialog's pickers, loaded once per environment. */
+export interface TimeZoneRef {
+  code: number
+  name: string
+}
+export interface CurrencyRef {
+  id: string
+  code: string
+  name: string
+  symbol: string
+}
+export interface LanguageRef {
+  lcid: number
+  name: string
+}
+export interface UserSettingsPickers {
+  timeZones: TimeZoneRef[]
+  currencies: CurrencyRef[]
+  languages: LanguageRef[]
 }

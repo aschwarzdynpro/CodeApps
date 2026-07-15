@@ -2,55 +2,41 @@ import { useEffect, useMemo, useState } from 'react'
 import type { UserSettingsRow } from '../types/userSettings'
 import { userSettingsService } from '../services/userSettingsService'
 import { OperateEnvPicker } from './OperateEnvPicker'
+import { UserSettingsDetailDialog } from './UserSettingsDetailDialog'
+import { ENVIRONMENTS } from '../config'
 import { formatRelative } from '../utils/format'
 
 /**
- * User Settings — a read-only inventory of every enabled user's personal
- * `usersettings` in the chosen environment (time zone, language/locale,
- * date/number formats, rows-per-page, …). Switch the environment picker to
- * compare a user across systems. Reads run through the connector (SP identity).
+ * User Settings — a compact inventory of every enabled user's personal
+ * settings in the chosen environment (time zone, currency, UI language).
+ * Clicking a user opens a grouped, editable detail dialog. Switch the
+ * environment picker to compare a user across systems.
  */
 interface Props {
   envKey: string
   onEnvChange: (envKey: string) => void
+  canManage: boolean
 }
 
-type SortKey =
-  | 'fullName'
-  | 'email'
-  | 'timeZone'
-  | 'uiLanguage'
-  | 'locale'
-  | 'dateFormat'
-  | 'timeFormat'
-  | 'number'
-  | 'pagingLimit'
-  | 'calendarView'
-
+type SortKey = 'fullName' | 'email' | 'timeZone' | 'currencyCode' | 'uiLanguage'
 interface Column {
   key: SortKey
   label: string
-  get: (r: UserSettingsRow) => string | number
-  num?: boolean
+  get: (r: UserSettingsRow) => string
 }
-
-const numberSample = (r: UserSettingsRow): string =>
-  `1${r.numberSeparator}234${r.decimalSymbol}56`
-
 const COLUMNS: Column[] = [
   { key: 'fullName', label: 'User', get: (r) => r.fullName },
   { key: 'email', label: 'Login', get: (r) => r.email },
   { key: 'timeZone', label: 'Time zone', get: (r) => r.timeZone },
+  { key: 'currencyCode', label: 'Currency', get: (r) => r.currencyCode },
   { key: 'uiLanguage', label: 'UI language', get: (r) => r.uiLanguage },
-  { key: 'locale', label: 'Locale', get: (r) => r.locale },
-  { key: 'dateFormat', label: 'Date', get: (r) => r.dateFormat },
-  { key: 'timeFormat', label: 'Time', get: (r) => r.timeFormat },
-  { key: 'number', label: 'Number', get: numberSample },
-  { key: 'pagingLimit', label: 'Rows/page', get: (r) => r.pagingLimit, num: true },
-  { key: 'calendarView', label: 'Calendar', get: (r) => r.calendarView },
 ]
 
-export function UserSettingsWorkspace({ envKey, onEnvChange }: Props) {
+export function UserSettingsWorkspace({
+  envKey,
+  onEnvChange,
+  canManage,
+}: Props) {
   const [rows, setRows] = useState<UserSettingsRow[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -63,6 +49,9 @@ export function UserSettingsWorkspace({ envKey, onEnvChange }: Props) {
     key: 'fullName',
     dir: 'asc',
   })
+  const [selected, setSelected] = useState<UserSettingsRow | null>(null)
+
+  const envLabel = ENVIRONMENTS.find((e) => e.key === envKey)?.label ?? envKey
 
   useEffect(() => {
     let cancelled = false
@@ -89,31 +78,22 @@ export function UserSettingsWorkspace({ envKey, onEnvChange }: Props) {
   }, [envKey, nonce])
 
   const q = search.trim().toLowerCase()
-  const filtered = useMemo(() => {
-    if (!rows) return []
-    return rows.filter(
-      (r) =>
-        (!realOnly || !r.isApp) &&
-        (!q ||
-          r.fullName.toLowerCase().includes(q) ||
-          r.email.toLowerCase().includes(q)),
-    )
-  }, [rows, q, realOnly])
-
   const sorted = useMemo(() => {
+    if (!rows) return []
     const col = COLUMNS.find((c) => c.key === sort.key) ?? COLUMNS[0]
-    const arr = [...filtered]
-    arr.sort((a, b) => {
-      const av = col.get(a)
-      const bv = col.get(b)
-      const cmp =
-        typeof av === 'number' && typeof bv === 'number'
-          ? av - bv
-          : String(av).localeCompare(String(bv))
-      return sort.dir === 'asc' ? cmp : -cmp
-    })
-    return arr
-  }, [filtered, sort])
+    return rows
+      .filter(
+        (r) =>
+          (!realOnly || !r.isApp) &&
+          (!q ||
+            r.fullName.toLowerCase().includes(q) ||
+            r.email.toLowerCase().includes(q)),
+      )
+      .sort((a, b) => {
+        const cmp = col.get(a).localeCompare(col.get(b))
+        return sort.dir === 'asc' ? cmp : -cmp
+      })
+  }, [rows, q, realOnly, sort])
 
   const onSort = (key: SortKey) =>
     setSort((s) =>
@@ -121,7 +101,6 @@ export function UserSettingsWorkspace({ envKey, onEnvChange }: Props) {
         ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
         : { key, dir: 'asc' },
     )
-
   const appCount = rows?.filter((r) => r.isApp).length ?? 0
 
   return (
@@ -162,9 +141,7 @@ export function UserSettingsWorkspace({ envKey, onEnvChange }: Props) {
       </div>
 
       {error && <div className="state state--error">{error}</div>}
-      {loading && !rows && (
-        <div className="state">Reading user settings…</div>
-      )}
+      {loading && !rows && <div className="state">Reading user settings…</div>}
       {rows && sorted.length === 0 && !loading && (
         <div className="state">
           {q || realOnly
@@ -181,9 +158,7 @@ export function UserSettingsWorkspace({ envKey, onEnvChange }: Props) {
                 {COLUMNS.map((c) => (
                   <th
                     key={c.key}
-                    className={`us-th ${c.num ? 'num' : ''} ${
-                      sort.key === c.key ? 'us-th--sorted' : ''
-                    }`}
+                    className={`us-th ${sort.key === c.key ? 'us-th--sorted' : ''}`}
                     onClick={() => onSort(c.key)}
                     title="Sort"
                   >
@@ -199,25 +174,35 @@ export function UserSettingsWorkspace({ envKey, onEnvChange }: Props) {
             </thead>
             <tbody>
               {sorted.map((r) => (
-                <tr key={r.userId}>
+                <tr
+                  key={r.userId}
+                  className="ops-row"
+                  onClick={() => setSelected(r)}
+                >
                   <td>
                     <span className="us-user">{r.fullName}</span>
                     {r.isApp && <span className="us-app">app</span>}
                   </td>
                   <td className="trace-type">{r.email}</td>
                   <td>{r.timeZone}</td>
+                  <td className="nowrap">{r.currencyCode}</td>
                   <td>{r.uiLanguage}</td>
-                  <td>{r.locale}</td>
-                  <td className="nowrap">{r.dateFormat}</td>
-                  <td className="nowrap">{r.timeFormat}</td>
-                  <td className="nowrap">{numberSample(r)}</td>
-                  <td className="num">{r.pagingLimit}</td>
-                  <td>{r.calendarView}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {selected && (
+        <UserSettingsDetailDialog
+          envKey={envKey}
+          envLabel={envLabel}
+          row={selected}
+          canManage={canManage}
+          onClose={() => setSelected(null)}
+          onSaved={() => setNonce((n) => n + 1)}
+        />
       )}
     </div>
   )
