@@ -701,6 +701,23 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🧑‍💼 User Settings (Validate)</h3>
+            <p>
+              A read-only inventory of every enabled user's{' '}
+              <strong>personal settings</strong> (<code>usersettings</code>) in
+              the chosen environment: <strong>time zone</strong>,{' '}
+              <strong>UI language</strong> / locale,{' '}
+              <strong>date / time / number formats</strong>, and{' '}
+              <strong>rows per page</strong>. Pick the{' '}
+              <strong>environment</strong> at the top; switch it to{' '}
+              <strong>compare a user across systems</strong> (e.g. why UAT
+              differs from PROD). Search by name or login, hide application /
+              service users, and click any column header to sort. Reads run
+              through the connector (SP identity).
+            </p>
+          </section>
+
+          <section className="help-section">
             <h3>🔁 Flow Comparer (Validate)</h3>
             <ul>
               <li>

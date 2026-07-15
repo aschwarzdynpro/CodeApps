@@ -6025,6 +6025,36 @@
 .cmp-sync-time {
   font-size: 12px;
 }
+
+/* ── User Settings inventory ────────────────────────────────────────────── */
+.us-table th.us-th {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.us-table th.us-th:hover {
+  color: var(--brand, #4f46e5);
+}
+.us-th--sorted {
+  color: var(--brand, #4f46e5);
+}
+.us-sort {
+  font-size: 10px;
+}
+.us-user {
+  font-weight: 600;
+}
+.us-app {
+  margin-left: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #eef0f4;
+  color: #5b6172;
+  vertical-align: 1px;
+}
 .cmp-progress {
   width: 100%;
   height: 10px;

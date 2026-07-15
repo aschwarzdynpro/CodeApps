@@ -331,6 +331,25 @@ parentSchemaName/parentDisplayName), generische
 `result[result="failure|warning"]`-Knoten dedupliziert. Parser wirft nie
 (Garbage ⇒ status 'unknown').
 
+**User Settings** (Validate-Gruppe, Menüpunkt „User Settings", gated, read-only):
+`UserSettingsWorkspace` + `userSettingsService` (`dataverse…`/`mock…`),
+Zielumgebung per `OperateEnvPicker` (eigener Lift `userSettingsEnvKey`, Remount
+per `key`). Inventar der persönlichen Einstellungen je Env: liest **`usersettings`**
+(1:1 zu `systemuser`) via Konnektor-**FetchXML** (`fetchXmlAllPages`), Entity-Set
+per `EntityDefinitions` aufgelöst (**`usersettingscollection`**, nicht +s).
+Link-Entities: `systemuser` (inner, `isdisabled eq false`) für `fullname`/
+`domainname`/**`azureactivedirectoryobjectid`** (= stabile Cross-Env-Identität für
+Menschen; App-User haben `applicationid` statt AAD-ID) + `timezonedefinition`
+(outer, `timezonecode`→`userinterfacename`). Options-Sets (`defaultcalendarview`,
+`advancedfindstartupmode`) kommen als **Formatted-Value**; Sprach-LCIDs
+(`uilanguageid`/`localeid`) via `utils/lcid.ts → lcidName` (Vitest); Format-Strings
+(`dateformatstring`/`timeformatstring`/`currencysymbol`/`decimalsymbol`/
+`numberseparator`) roh. UI: Suche (Name/Login), Toggle „Only real users" (blendet
+App-User aus, Default an), **klickbare Spalten-Header zum Sortieren**, „Number"-
+Spalte = Sample `1{sep}234{dec}56`, Refresh + Last-sync (`formatRelative`). Vergleich
+= Env-Picker umschalten (Option C, keine Matrix). Keine neuen Data Sources; SP
+braucht `usersettings`-Leserecht. Schreiben (Angleichen) bewusst später (Phase 2).
+
 **Release Timeline** (Manage-Gruppe, Menüpunkt „Timeline", ungated):
 `ReleaseTimelineWorkspace` — reine Visualisierung vorhandener Daten, KEIN
 eigener Datenpfad/Mock: aggregiert `solutionService.listMergeRuns` +
