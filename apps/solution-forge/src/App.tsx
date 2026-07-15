@@ -22,6 +22,7 @@ import { EnvConfigWorkspace } from './components/EnvConfigWorkspace'
 import { DualWriteWorkspace } from './components/DualWriteWorkspace'
 import { AuditConfigWorkspace } from './components/AuditConfigWorkspace'
 import { ImportHistoryWorkspace } from './components/ImportHistoryWorkspace'
+import { UserSettingsWorkspace } from './components/UserSettingsWorkspace'
 import { FlowComparerWorkspace } from './components/FlowComparerWorkspace'
 import { PluginComparerWorkspace } from './components/PluginComparerWorkspace'
 import { TraceExplorer } from './components/TraceExplorer'
@@ -65,6 +66,7 @@ type Tab =
   | 'auditConfig'
   | 'dualWrite'
   | 'importHistory'
+  | 'userSettings'
   | 'flowCompare'
   | 'pluginCompare'
   | 'traces'
@@ -110,6 +112,12 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: '📦',
         gated: true,
       },
+      {
+        key: 'userSettings',
+        label: 'User Settings',
+        icon: '🧑‍💼',
+        gated: true,
+      },
       { key: 'flowCompare', label: 'Flow Comparer', icon: '🔁', gated: true },
       {
         key: 'pluginCompare',
@@ -149,6 +157,7 @@ const TAB_TITLES: Record<Tab, string> = {
   auditConfig: 'Audit Configuration',
   dualWrite: 'Dual-Write Table Maps',
   importHistory: 'Solution Import History',
+  userSettings: 'User Settings',
   flowCompare: 'Flow Comparer',
   pluginCompare: 'Plugin Comparer',
   traces: 'Plugin Trace Explorer',
@@ -214,6 +223,10 @@ function App() {
   const [auditEnvKey, setAuditEnvKey] = useState<string>(() => currentEnvKey())
   // Import History too — deployments usually get checked in UAT/PROD.
   const [importEnvKey, setImportEnvKey] = useState<string>(() =>
+    currentEnvKey(),
+  )
+  // User Settings inventory — its own target-environment selection.
+  const [userSettingsEnvKey, setUserSettingsEnvKey] = useState<string>(() =>
     currentEnvKey(),
   )
   // Sidebar collapse (icon-only) — remembered across sessions.
@@ -1360,6 +1373,15 @@ function App() {
           envKey={importEnvKey}
           onEnvChange={setImportEnvKey}
           solutions={allSolutions}
+        />
+      )}
+
+      {!error && tab === 'userSettings' && isDeploymentManager && (
+        <UserSettingsWorkspace
+          key={userSettingsEnvKey}
+          envKey={userSettingsEnvKey}
+          onEnvChange={setUserSettingsEnvKey}
+          canManage={isDeploymentManager}
         />
       )}
 

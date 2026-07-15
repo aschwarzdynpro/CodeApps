@@ -701,6 +701,36 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🧑‍💼 User Settings (Validate)</h3>
+            <p>
+              A per-environment inventory of every enabled user's{' '}
+              <strong>personal settings</strong> (<code>usersettings</code>). The
+              list is compact — <strong>user, login, time zone, currency, UI
+              language</strong>; search by name/login, hide application/service
+              users, click a header to sort. Switch the{' '}
+              <strong>environment</strong> picker to compare a user across
+              systems (e.g. why UAT differs from PROD).
+            </p>
+            <p>
+              <strong>Click a user</strong> to open the detail dialog with all
+              settings grouped into <strong>General · Formats · Email · Privacy ·
+              Languages</strong>. The Formats tab shows a{' '}
+              <strong>live preview</strong> of the number, currency, time and
+              date formats as you edit them. Deployment managers can{' '}
+              <strong>edit and Save</strong> — only the changed fields are written
+              (confirm first; <strong>PROD</strong> extra-strong). Reads/writes
+              run through the connector (SP identity).
+            </p>
+            <p>
+              <strong>Copy to users…</strong> (in the detail dialog) takes the
+              shown settings as a template: pick which groups to copy and the
+              target users, then apply to all of them serially with a progress
+              bar and per-user result — for rolling a proven configuration out to
+              a team.
+            </p>
+          </section>
+
+          <section className="help-section">
             <h3>🔁 Flow Comparer (Validate)</h3>
             <ul>
               <li>

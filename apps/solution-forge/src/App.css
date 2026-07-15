@@ -4040,7 +4040,9 @@
 .imp-list > thead > tr > th,
 .imp-list > tbody > tr:not(.ops-detail-row) > td,
 .dw-list > thead > tr > th,
-.dw-list > tbody > tr > td {
+.dw-list > tbody > tr > td,
+.us-table > thead > tr > th,
+.us-table > tbody > tr > td {
   padding: 12px 12px;
 }
 
@@ -6024,6 +6026,189 @@
 }
 .cmp-sync-time {
   font-size: 12px;
+}
+
+/* ── User Settings inventory ────────────────────────────────────────────── */
+.us-table th.us-th {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.us-table th.us-th:hover {
+  color: var(--brand, #4f46e5);
+}
+.us-th--sorted {
+  color: var(--brand, #4f46e5);
+}
+.us-sort {
+  font-size: 10px;
+}
+.us-user {
+  font-weight: 600;
+}
+.us-app {
+  margin-left: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #eef0f4;
+  color: #5b6172;
+  vertical-align: 1px;
+}
+/* Rows open the detail dialog. */
+.us-table tbody tr {
+  cursor: pointer;
+}
+/* User Settings detail dialog. */
+.us-detail-env {
+  font-weight: 400;
+  font-size: 14px;
+}
+.us-detail-sub {
+  margin: -6px 0 8px;
+}
+.us-form {
+  padding: 4px 2px;
+  max-height: 58vh;
+  overflow-y: auto;
+}
+.us-form select,
+.us-input {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font: inherit;
+  background: var(--surface);
+}
+.us-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 7px 0;
+  font-size: 13px;
+}
+.us-field-label {
+  min-width: 230px;
+  color: var(--muted, #5b6172);
+}
+.us-readonly {
+  font-weight: 600;
+}
+.us-group {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 10px 0;
+  background: var(--bg, #f6f7fb);
+}
+.us-group h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.us-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 22px;
+}
+.us-fields .us-field {
+  margin: 4px 0;
+}
+.us-fields .us-field-label {
+  min-width: 0;
+}
+.us-preview {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.us-preview-tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.us-preview code {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 14px;
+}
+.us-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.us-detail-actions .muted {
+  margin-right: auto;
+}
+/* Copy-to-users dialog. */
+.us-copy-groups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin: 10px 0;
+}
+.us-copy-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.us-copy-targets-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0 6px;
+}
+.us-copy-targets-head .search {
+  flex: 1;
+  min-width: 140px;
+}
+.us-copy-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 32vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.us-copy-list li {
+  border-bottom: 1px solid var(--border);
+}
+.us-copy-list li:last-child {
+  border-bottom: none;
+}
+.us-copy-list li.muted {
+  padding: 10px 12px;
+}
+.us-copy-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.us-copy-list label:hover {
+  background: var(--bg);
+}
+.us-copy-list code {
+  color: var(--muted);
+  font-size: 11.5px;
 }
 .cmp-progress {
   width: 100%;
