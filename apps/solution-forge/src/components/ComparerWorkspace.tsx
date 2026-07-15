@@ -451,9 +451,31 @@ export function ComparerWorkspace({
         </div>
       )}
       {bulkProgress && (
-        <div className="state sharing-progress" aria-live="polite">
-          <span className="sharing-progress-spinner" />
-          Processing {noun} {bulkProgress[0]}/{bulkProgress[1]}…
+        <div className="state cmp-bulk-progress" aria-live="polite">
+          <div className="cmp-bulk-progress-head">
+            <span className="sharing-progress-spinner" />
+            Processing {noun}s… {bulkProgress[0]}/{bulkProgress[1]}
+            <span className="cmp-bulk-progress-pct">
+              {Math.round(
+                (bulkProgress[0] / Math.max(1, bulkProgress[1])) * 100,
+              )}
+              %
+            </span>
+          </div>
+          <div
+            className="cmp-progress"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={bulkProgress[1]}
+            aria-valuenow={bulkProgress[0]}
+          >
+            <div
+              className="cmp-progress-bar"
+              style={{
+                width: `${(bulkProgress[0] / Math.max(1, bulkProgress[1])) * 100}%`,
+              }}
+            />
+          </div>
         </div>
       )}
       {bulkResults && (
