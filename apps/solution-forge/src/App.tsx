@@ -4,6 +4,7 @@ import { usePower } from './PowerProvider'
 import { useSolutions } from './hooks/useSolutions'
 import { useAnalysisRun } from './hooks/useAnalysisRun'
 import { useReadinessRun } from './hooks/useReadinessRun'
+import { useFlowRun } from './hooks/useFlowRun'
 import { PHASE_LABELS, type DetectivePhaseKey } from './types/detective'
 import { solutionService } from './services/solutionService'
 import { SolutionFilterBar, type KindFilter } from './components/SolutionFilterBar'
@@ -292,6 +293,17 @@ function App() {
     setReadinessBarHidden(false)
     startReadiness(solution, env)
   }
+
+  // Flow Comparer run (module singleton) — read here too so the global activity
+  // bar can surface an in-flight compare / bulk run while on another tab.
+  const flowRun = useFlowRun()
+  const [flowBarHidden, setFlowBarHidden] = useState(false)
+  const flowActive = flowRun.comparing || !!flowRun.bulk?.running
+  useEffect(() => {
+    // A new compare / bulk run un-hides the bar (mirrors the *BarHidden resets).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (flowActive) setFlowBarHidden(false)
+  }, [flowActive])
 
   const [kindFilter, setKindFilter] = useState<KindFilter>('All')
   const [search, setSearch] = useState('')
@@ -1593,6 +1605,55 @@ function App() {
                       {' '}
                       — {missing} missing in {envLabel}
                     </span>
+                  </>
+                )}
+              </ActivityBar>,
+            )
+          }
+        }
+
+        if (!flowBarHidden) {
+          const bulk = flowRun.bulk
+          const hasOutcome =
+            flowRun.comparing || !!bulk?.running || !!bulk?.results || !!flowRun.error
+          if (hasOutcome && tab !== 'flowCompare') {
+            const title =
+              allSolutions.find((s) => s.id === flowRun.solutionId)?.title ??
+              'the release'
+            const running = flowRun.comparing || !!bulk?.running
+            const okCount = bulk?.results?.filter((r) => r.ok).length ?? 0
+            const failCount =
+              bulk?.results?.filter((r) => !r.ok && !r.skipped).length ?? 0
+            bars.push(
+              <ActivityBar
+                key="flow"
+                state={flowRun.error ? 'error' : running ? 'running' : 'done'}
+                onView={() => setTab('flowCompare')}
+                onClose={running ? undefined : () => setFlowBarHidden(true)}
+              >
+                {flowRun.comparing ? (
+                  <>
+                    Comparing <strong>{title}</strong>…
+                    {flowRun.compareProgress && (
+                      <span className="muted"> — {flowRun.compareProgress}</span>
+                    )}
+                  </>
+                ) : bulk?.running ? (
+                  <>
+                    {bulk.label || 'Bulk update…'}
+                    <span className="muted">
+                      {' '}
+                      ({bulk.done}/{bulk.total})
+                    </span>
+                  </>
+                ) : flowRun.error ? (
+                  <>
+                    Flow Comparer — <strong>{title}</strong> failed
+                  </>
+                ) : (
+                  <>
+                    Bulk update of <strong>{title}</strong> — {okCount} ok
+                    {failCount ? `, ${failCount} failed` : ''}
                   </>
                 )}
               </ActivityBar>,

@@ -763,8 +763,16 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 in the bar, then <strong>Activate</strong>, <strong>Deactivate</strong>{' '}
                 or <strong>Change owner…</strong> (search a user in that
                 environment). The action runs serially over the selection with a
-                progress + per-item result summary; flows not present in the target
-                are skipped. Works for one or many flows.
+                progress bar that names the current step, plus a per-item result
+                summary; flows not present in the target are skipped. Works for one
+                or many flows.
+              </li>
+              <li>
+                The compare <strong>result and solution stay put</strong> when you
+                switch tabs, and a compare or bulk run <strong>keeps going in the
+                background</strong> — a bar at the bottom shows its progress and
+                jumps you back. Top-right, a <strong>Refresh</strong> re-reads all
+                environments and shows the last sync time.
               </li>
             </ul>
           </section>

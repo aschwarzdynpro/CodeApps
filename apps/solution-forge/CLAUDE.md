@@ -429,6 +429,22 @@ Inline-Zell-Button. User-Picker = `UserPickerDialog` (debounced, `.link-result-l
 ⚠ Owner-Reassign eines **aktivierten** Cloud Flows kann fehlschlagen (Connections des
 Ziel-Users) — Fehler landen per Item im Bulk-Result.
 
+**Persistenz + globaler Progress (nur Flow Comparer):** Compare-Result + Bulk-Run
+leben im **Modul-Singleton** `hooks/useFlowRun.ts` (subscribe/emit +
+`useSyncExternalStore`, `ComparerRunApi` aus `types/comparer.ts`) — überleben so den
+Tab-Wechsel (Ergebnisliste + Solution-Auswahl bleiben) und die **async Compare/Bulk
+laufen im Store weiter**, wenn `ComparerWorkspace` unmountet. `ComparerWorkspace` ist
+jetzt **controlled** über `run: ComparerRunApi` (View-State — Filter/Selektion/
+Confirm/Flash — bleibt lokal); Flow injiziert `useFlowRun()`, Plugin ein
+komponentenlokales `useLocalComparerRun(compareFn)` (kein Persist/Bulk → shared
+Component bleibt einheitlich). `App.tsx` liest denselben Singleton und rendert einen
+`ActivityBar` (wie Analyze/Readiness, `bars[]`) bei laufendem/fertigem Compare/Bulk,
+außerhalb des flowCompare-Tabs, mit Jump-Back. **Bulk-Progressbar nennt den aktuellen
+Schritt** (`bulk.label`: „Activating …"/„Deactivating …"/„Assigning owner of …"),
+`done/total` = abgeschlossene Items. **Sync-Header** oben rechts (`.cmp-sync`): Last
+sync (`formatRelative(loadedAt)`) + Refresh (re-run compare). ⚠ `set`-in-effect für
+`flowBarHidden`-Reset via `// eslint-disable-next-line react-hooks/set-state-in-effect`.
+
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT
