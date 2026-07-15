@@ -1,15 +1,18 @@
 import { useMemo, useRef, useState } from 'react'
-import type { WorkingSolution } from '../types/solution'
+import type { UserRef, WorkingSolution } from '../types/solution'
 import type {
+  BulkAction,
   ComparerEnvState,
-  ComparerResult,
   ComparerRow,
+  ComparerRunApi,
 } from '../types/comparer'
-import { recomputeDrift, rowHasDrift } from '../types/comparer'
+import { rowHasDrift } from '../types/comparer'
 import { ENVIRONMENTS, currentEnvKey } from '../config'
+import { formatRelative } from '../utils/format'
 import { SolutionSelect } from './SolutionSelect'
 import { ComparerMatrix } from './ComparerMatrix'
 import { ConfirmDialog } from './ConfirmDialog'
+import { UserPickerDialog } from './UserPickerDialog'
 
 interface Props {
   solutions: WorkingSolution[]
@@ -21,22 +24,27 @@ interface Props {
   /** When set (e.g. "assembly"), offer a "Group by <label>" toggle that groups
    *  the rows by their subtitle. */
   groupByLabel?: string
-  compare: (
-    solution: WorkingSolution,
-    onProgress?: (message: string) => void,
-  ) => Promise<ComparerResult>
+  /** The run backing this workspace — persistent (Flow) or local (Plugin). */
+  run: ComparerRunApi
+  /** Single per-cell turn on/off (the bulk path lives inside `run`). */
   setState: (
     envKey: string,
     id: string,
     on: boolean,
   ) => Promise<ComparerEnvState>
+  /** Enable multi-select + a bulk action bar (Flow Comparer). */
+  enableBulk?: boolean
+  /** Search users in one env for the owner picker. Its presence also enables the
+   *  owner column + the bulk "Change owner" action. */
+  listUsers?: (envKey: string, query: string) => Promise<UserRef[]>
 }
 
 /**
  * Shared workspace for the Flow / Plugin comparers: pick a release solution →
  * build the per-environment status matrix → turn items on/off per environment
- * (with a confirm, PROD extra-strong). Parameterised by the two services so the
- * two features are one component.
+ * (with a confirm, PROD extra-strong). The compare result + any bulk run live in
+ * the injected `run` (persistent for the Flow Comparer); view state (filters,
+ * selection, confirms, cell flash) is local here.
  */
 export function ComparerWorkspace({
   solutions,
@@ -44,11 +52,15 @@ export function ComparerWorkspace({
   noun,
   showVersion,
   groupByLabel,
-  compare,
+  run,
   setState,
+  enableBulk,
+  listUsers,
 }: Props) {
   const hostKey = currentEnvKey()
   const envKeys = ENVIRONMENTS.map((e) => e.key)
+  // The owner column + owner reassignment need a user search.
+  const ownerSupport = !!listUsers
 
   const releases = useMemo(
     () =>
@@ -58,11 +70,9 @@ export function ComparerWorkspace({
     [solutions],
   )
 
-  const [solutionId, setSolutionId] = useState('')
-  const [result, setResult] = useState<ComparerResult | null>(null)
-  const [running, setRunning] = useState(false)
-  const [progress, setProgress] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const { result, comparing } = run
+
+  // Local view state (not persisted).
   const [actionError, setActionError] = useState<string | null>(null)
   const [busyCell, setBusyCell] = useState<string | null>(null)
   const [pending, setPending] = useState<{
@@ -81,47 +91,20 @@ export function ComparerWorkspace({
   const [grouped, setGrouped] = useState(true)
   const [search, setSearch] = useState('')
 
-  const solution = releases.find((s) => s.id === solutionId) ?? null
+  // Multi-select bulk state (selection is local; the run itself is in `run`).
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkEnv, setBulkEnv] = useState<string>(hostKey)
+  const [bulkPending, setBulkPending] = useState<BulkAction | null>(null)
+  const [pickingOwner, setPickingOwner] = useState(false)
 
-  const run = async () => {
+  const solution = releases.find((s) => s.id === run.solutionId) ?? null
+
+  const startCompare = () => {
     if (!solution) return
-    setRunning(true)
-    setError(null)
     setActionError(null)
-    setResult(null)
-    try {
-      const res = await compare(solution, setProgress)
-      setResult(res)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setRunning(false)
-      setProgress('')
-    }
+    setSelected(new Set())
+    run.startCompare(solution)
   }
-
-  /** Replace one env cell and recompute the row's drift. */
-  const applyCell = (rowId: string, envKey: string, cell: ComparerEnvState) =>
-    setResult((prev) => {
-      if (!prev) return prev
-      const rows = prev.rows.map((r) => {
-        if (r.id !== rowId) return r
-        const updated: ComparerRow = {
-          ...r,
-          byEnv: { ...r.byEnv, [envKey]: cell },
-        }
-        updated.statusDrift = recomputeDrift(updated, hostKey, envKeys)
-        return updated
-      })
-      return { ...prev, rows }
-    })
-
-  // A toggle opens the confirm dialog; the write runs on confirm.
-  const requestToggle = (
-    env: { key: string; label: string },
-    row: ComparerRow,
-    desiredOn: boolean,
-  ) => setPending({ env, row, desiredOn })
 
   const confirmToggle = async () => {
     if (!pending) return
@@ -131,7 +114,7 @@ export function ComparerWorkspace({
     setBusyCell(`${env.key}:${row.id}`)
     try {
       const cell = await setState(env.key, row.id, desiredOn)
-      applyCell(row.id, env.key, cell)
+      run.applyCell(row.id, env.key, cell)
       setPending(null)
       // Flash the changed cell green, hold it, then fade to its resting colour.
       // Keep this in sync with the `cmp-cell--flash` animation length (3s).
@@ -185,25 +168,53 @@ export function ComparerWorkspace({
   // "(no area)" group.
   const canGroup = !!groupByLabel && !!result?.rows.some((r) => r.subtitle)
 
+  // Multi-select works against the currently-shown rows, so selection always
+  // matches what's visible (hidden-but-selected rows are ignored).
+  const selectable = !!enableBulk && canManage
+  const selectedShown = useMemo(
+    () => (shown ? shown.rows.filter((r) => selected.has(r.id)) : []),
+    [shown, selected],
+  )
+  const bulk = run.bulk
+  const bulkBusy = !!bulk?.running
+  const bulkEnvLabel =
+    ENVIRONMENTS.find((e) => e.key === bulkEnv)?.label ?? bulkEnv
+
+  const toggleRow = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const toggleAll = (checked: boolean) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      for (const r of shown?.rows ?? [])
+        if (checked) next.add(r.id)
+        else next.delete(r.id)
+      return next
+    })
+
   return (
     <div>
       <div className="validate-toolbar">
         <SolutionSelect
           options={releases}
-          value={solutionId}
+          value={run.solutionId}
           onChange={(id) => {
-            setSolutionId(id)
-            setResult(null)
-            setError(null)
+            run.setSolutionId(id)
+            setSelected(new Set())
+            setActionError(null)
           }}
           placeholder="Select a release solution…"
         />
         <button
           className="btn btn--primary"
-          disabled={!solution || running}
-          onClick={() => void run()}
+          disabled={!solution || comparing}
+          onClick={startCompare}
         >
-          {running ? `Comparing… ${progress}` : 'Compare'}
+          {comparing ? `Comparing… ${run.compareProgress}` : 'Compare'}
         </button>
         {result && result.rows.length > 0 && (
           <input
@@ -268,9 +279,26 @@ export function ComparerWorkspace({
             Group by {groupByLabel}
           </label>
         )}
+        {/* Sync status — last refresh + a manual re-read, shown once loaded. */}
+        {result && (
+          <span className="cmp-sync">
+            <span className="cmp-sync-time muted">
+              Last sync:{' '}
+              {run.loadedAt ? formatRelative(run.loadedAt.toISOString()) : '—'}
+            </span>
+            <button
+              className="btn btn--small"
+              disabled={!solution || comparing}
+              onClick={startCompare}
+              title="Re-read all environments for this release"
+            >
+              {comparing ? 'Syncing…' : '⟳ Refresh'}
+            </button>
+          </span>
+        )}
       </div>
 
-      {error && <div className="state state--error">{error}</div>}
+      {run.error && <div className="state state--error">{run.error}</div>}
       {actionError && <div className="state state--error">{actionError}</div>}
       {result?.definitionNote && (
         <div className="state">ℹ {result.definitionNote}</div>
@@ -289,14 +317,138 @@ export function ComparerWorkspace({
         </div>
       )}
 
-      {!running && result && result.rows.length === 0 && (
+      {selectable && selectedShown.length > 0 && (
+        <div className="cmp-bulkbar">
+          <span className="cmp-bulkbar-count">
+            {selectedShown.length} selected
+          </span>
+          <label className="cmp-bulk-target">
+            Target
+            <select
+              value={bulkEnv}
+              onChange={(e) => setBulkEnv(e.target.value)}
+              disabled={bulkBusy}
+            >
+              {ENVIRONMENTS.map((e) => (
+                <option key={e.key} value={e.key}>
+                  {e.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="cmp-bulk-actions">
+            <button
+              className="btn btn--small"
+              disabled={bulkBusy}
+              onClick={() => setBulkPending({ kind: 'activate' })}
+            >
+              Activate
+            </button>
+            <button
+              className="btn btn--small"
+              disabled={bulkBusy}
+              onClick={() => setBulkPending({ kind: 'deactivate' })}
+            >
+              Deactivate
+            </button>
+            {ownerSupport && (
+              <button
+                className="btn btn--small"
+                disabled={bulkBusy}
+                onClick={() => setPickingOwner(true)}
+              >
+                Change owner…
+              </button>
+            )}
+            <button
+              className="cmp-bulk-clear"
+              disabled={bulkBusy}
+              onClick={() => setSelected(new Set())}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+      {bulk?.running && (
+        <div className="state cmp-bulk-progress" aria-live="polite">
+          <div className="cmp-bulk-progress-head">
+            <span className="sharing-progress-spinner" />
+            <span className="cmp-bulk-progress-label">
+              {bulk.label || `Processing ${noun}s…`}
+            </span>
+            <span className="cmp-bulk-progress-pct">
+              {bulk.done}/{bulk.total} ·{' '}
+              {Math.round((bulk.done / Math.max(1, bulk.total)) * 100)}%
+            </span>
+          </div>
+          <div
+            className="cmp-progress"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={bulk.total}
+            aria-valuenow={bulk.done}
+          >
+            <div
+              className="cmp-progress-bar"
+              style={{
+                width: `${(bulk.done / Math.max(1, bulk.total)) * 100}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+      {bulk && !bulk.running && bulk.results && (
+        <div
+          className={`state cmp-bulk-result ${
+            bulk.results.some((r) => !r.ok && !r.skipped)
+              ? 'state--error'
+              : 'state--success'
+          }`}
+        >
+          <button
+            className="cmp-bulk-result-close"
+            aria-label="Dismiss"
+            onClick={() => run.dismissBulk()}
+          >
+            ✕
+          </button>
+          {(() => {
+            const results = bulk.results
+            const ok = results.filter((r) => r.ok).length
+            const failed = results.filter((r) => !r.ok && !r.skipped)
+            const skipped = results.filter((r) => r.skipped).length
+            return (
+              <>
+                {ok} succeeded
+                {failed.length ? `, ${failed.length} failed` : ''}
+                {skipped
+                  ? `, ${skipped} skipped (not in ${bulk.targetEnvLabel})`
+                  : ''}
+                .
+                {failed.length > 0 && (
+                  <ul className="merge-errors">
+                    {failed.map((r) => (
+                      <li key={r.id}>
+                        {r.name}: {r.error}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )
+          })()}
+        </div>
+      )}
+
+      {!comparing && result && result.rows.length === 0 && (
         <div className="state">
           No {noun}s found in <strong>{solution?.title}</strong> — the release
           solution contains none, or they couldn’t be read.
         </div>
       )}
 
-      {!running &&
+      {!comparing &&
         result &&
         result.rows.length > 0 &&
         shown &&
@@ -314,7 +466,7 @@ export function ComparerWorkspace({
           </div>
         )}
 
-      {!running && shown && shown.rows.length > 0 && (
+      {shown && shown.rows.length > 0 && (
         <section className="card cmp-card">
           <p className="muted cmp-hint">
             {result?.rows.length} {noun}
@@ -342,12 +494,17 @@ export function ComparerWorkspace({
                 ? (r) => r.subtitle || `(no ${groupByLabel})`
                 : undefined
             }
-            onToggle={requestToggle}
+            onToggle={(env, row, desiredOn) => setPending({ env, row, desiredOn })}
+            showOwner={ownerSupport}
+            selectable={selectable}
+            selected={selected}
+            onToggleRow={toggleRow}
+            onToggleAll={toggleAll}
           />
         </section>
       )}
 
-      {!running && !result && !error && (
+      {!comparing && !result && !run.error && (
         <div className="state">
           Pick a <strong>release solution</strong> and hit{' '}
           <strong>Compare</strong> — its {noun}s are read from the current
@@ -375,6 +532,92 @@ export function ComparerWorkspace({
               {pending.env.key === 'prod' && (
                 <p className="confirm-warn">
                   This is <strong>production</strong> — the change takes effect
+                  immediately.
+                </p>
+              )}
+            </>
+          }
+        />
+      )}
+
+      {pickingOwner && listUsers && (
+        <UserPickerDialog
+          title="Change owner"
+          hint={
+            <>
+              New owner for {selectedShown.length} {noun}
+              {selectedShown.length === 1 ? '' : 's'} in{' '}
+              <strong>{bulkEnvLabel}</strong>
+            </>
+          }
+          search={(query) => listUsers(bulkEnv, query)}
+          onPick={(user) => {
+            setPickingOwner(false)
+            setBulkPending({ kind: 'owner', user })
+          }}
+          onClose={() => setPickingOwner(false)}
+        />
+      )}
+
+      {bulkPending && (
+        <ConfirmDialog
+          title={
+            bulkPending.kind === 'owner'
+              ? 'Change owner'
+              : bulkPending.kind === 'activate'
+                ? `Activate ${noun}s`
+                : `Deactivate ${noun}s`
+          }
+          confirmLabel={
+            bulkPending.kind === 'owner'
+              ? 'Change owner'
+              : bulkPending.kind === 'activate'
+                ? 'Activate'
+                : 'Deactivate'
+          }
+          danger={bulkEnv === 'prod'}
+          onConfirm={() => {
+            // Close the dialog immediately; the progress bar is the indicator.
+            const action = bulkPending
+            const rows = selectedShown
+            setBulkPending(null)
+            setSelected(new Set())
+            run.startBulk({
+              action,
+              rows,
+              targetEnvKey: bulkEnv,
+              targetEnvLabel: bulkEnvLabel,
+            })
+          }}
+          onCancel={() => setBulkPending(null)}
+          message={
+            <>
+              <p>
+                {bulkPending.kind === 'owner' ? (
+                  <>
+                    Reassign <strong>{selectedShown.length}</strong> {noun}
+                    {selectedShown.length === 1 ? '' : 's'} in{' '}
+                    <strong>{bulkEnvLabel}</strong> to{' '}
+                    <strong>{bulkPending.user.name}</strong>.
+                  </>
+                ) : (
+                  <>
+                    {bulkPending.kind === 'activate'
+                      ? 'Activate'
+                      : 'Deactivate'}{' '}
+                    <strong>{selectedShown.length}</strong> {noun}
+                    {selectedShown.length === 1 ? '' : 's'} in{' '}
+                    <strong>{bulkEnvLabel}</strong>.
+                  </>
+                )}
+              </p>
+              <p className="muted">
+                Runs one after another; {noun}s not present in {bulkEnvLabel}{' '}
+                are skipped.
+              </p>
+              {bulkEnv === 'prod' && (
+                <p className="confirm-warn">
+                  This is <strong>production</strong> — changes take effect
                   immediately.
                 </p>
               )}

@@ -5,6 +5,8 @@
  * a per-cell turn-on/off action.
  */
 
+import type { UserRef, WorkingSolution } from './solution'
+
 /** One environment's state for a compared item. */
 export interface ComparerEnvState {
   /** The item exists in this environment. */
@@ -19,6 +21,9 @@ export interface ComparerEnvState {
   isManaged?: boolean
   /** Portal deep link into this environment (flows: Power Automate). */
   link?: string
+  /** Owner in THIS environment (flows only) — owners can differ per env. */
+  ownerId?: string
+  ownerName?: string
 }
 
 /** One compared item across the environments. */
@@ -104,4 +109,57 @@ export function recomputeDrift(
     const cell = row.byEnv[key]
     return !!cell && cell.present && cell.active !== host.active
   })
+}
+
+/** One item's result inside a serial bulk run. */
+export interface BulkResult {
+  id: string
+  name: string
+  ok: boolean
+  error?: string
+  /** Skipped because the item isn't present in the target environment. */
+  skipped?: boolean
+}
+
+/** A confirmed bulk action. */
+export type BulkAction =
+  | { kind: 'activate' | 'deactivate' }
+  | { kind: 'owner'; user: UserRef }
+
+/** Live state of a serial bulk run — persisted so it survives navigation. */
+export interface ComparerBulkRun {
+  running: boolean
+  done: number
+  total: number
+  /** Description of the current step, e.g. 'Activating "Flow B"…'. */
+  label: string
+  /** Label of the target environment (for the result summary). */
+  targetEnvLabel: string
+  results: BulkResult[] | null
+}
+
+/**
+ * The run backing a comparer workspace — the compare result plus any bulk run.
+ * The Flow Comparer's implementation ({@link file://./../hooks/useFlowRun}) is a
+ * module singleton so the result + bulk run survive navigating to other tabs;
+ * the Plugin Comparer uses a component-local implementation.
+ */
+export interface ComparerRunApi {
+  solutionId: string
+  result: ComparerResult | null
+  comparing: boolean
+  compareProgress: string
+  loadedAt: Date | null
+  error: string | null
+  bulk: ComparerBulkRun | null
+  setSolutionId: (id: string) => void
+  startCompare: (solution: WorkingSolution) => void
+  applyCell: (rowId: string, envKey: string, cell: ComparerEnvState) => void
+  startBulk: (opts: {
+    action: BulkAction
+    rows: ComparerRow[]
+    targetEnvKey: string
+    targetEnvLabel: string
+  }) => void
+  dismissBulk: () => void
 }

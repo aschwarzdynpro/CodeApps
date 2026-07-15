@@ -1,4 +1,4 @@
-import type { WorkingSolution } from '../types/solution'
+import type { UserRef, WorkingSolution } from '../types/solution'
 import type { ComparerEnvState, ComparerResult } from '../types/comparer'
 import { dataverseFlowComparerService } from './dataverseFlowComparerService'
 
@@ -23,6 +23,20 @@ export interface FlowComparerService {
     workflowId: string,
     on: boolean,
   ): Promise<ComparerEnvState>
+  /**
+   * Reassign a flow's owner in one environment (connector SP write, cross-env)
+   * and return the re-read state of that cell. `userId` is a `systemuserid`.
+   */
+  setFlowOwner(
+    envKey: string,
+    workflowId: string,
+    userId: string,
+  ): Promise<ComparerEnvState>
+  /**
+   * Search enabled users in one environment for the owner picker. Empty query
+   * returns the first users by name. Runs as the connector SP against the org.
+   */
+  listUsers(envKey: string, query: string): Promise<UserRef[]>
 }
 
 export const flowComparerService: FlowComparerService = dataverseFlowComparerService

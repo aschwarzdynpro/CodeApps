@@ -753,6 +753,27 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 role, runs as the connection identity and writes to the selected
                 environment.
               </li>
+              <li>
+                Each cell shows the flow's <strong>owner</strong> in that
+                environment (owners can differ per system).
+              </li>
+              <li>
+                <strong>Bulk actions</strong> (deployment-manager): tick the row
+                checkboxes to select flows, pick a <strong>target environment</strong>{' '}
+                in the bar, then <strong>Activate</strong>, <strong>Deactivate</strong>{' '}
+                or <strong>Change owner…</strong> (search a user in that
+                environment). The action runs serially over the selection with a
+                progress bar that names the current step, plus a per-item result
+                summary; flows not present in the target are skipped. Works for one
+                or many flows.
+              </li>
+              <li>
+                The compare <strong>result and solution stay put</strong> when you
+                switch tabs, and a compare or bulk run <strong>keeps going in the
+                background</strong> — a bar at the bottom shows its progress and
+                jumps you back. Top-right, a <strong>Refresh</strong> re-reads all
+                environments and shows the last sync time.
+              </li>
             </ul>
           </section>
 

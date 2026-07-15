@@ -48,6 +48,15 @@ interface Props {
     row: ComparerRow,
     desiredOn: boolean,
   ) => void
+  /** Show each cell's owner (flows only). */
+  showOwner?: boolean
+  /** Show a leading checkbox column for multi-select bulk actions. */
+  selectable?: boolean
+  /** Selected row ids (when `selectable`). */
+  selected?: Set<string>
+  onToggleRow?: (rowId: string) => void
+  /** Toggle all currently-shown rows on/off. */
+  onToggleAll?: (checked: boolean) => void
 }
 
 /**
@@ -69,6 +78,11 @@ export function ComparerMatrix({
   showDefinition,
   groupKey,
   onToggle,
+  showOwner,
+  selectable,
+  selected,
+  onToggleRow,
+  onToggleAll,
 }: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const toggleGroup = (key: string) =>
@@ -77,7 +91,15 @@ export function ComparerMatrix({
   const envKeys = ENVIRONMENTS.map((e) => e.key)
   const hasDefinition =
     showDefinition && result.rows.some((r) => r.definition !== undefined)
-  const colSpan = 1 + (hasDefinition ? 1 : 0) + ENVIRONMENTS.length
+  const colSpan =
+    1 + (selectable ? 1 : 0) + (hasDefinition ? 1 : 0) + ENVIRONMENTS.length
+  const allSelected =
+    !!selectable &&
+    !!selected &&
+    result.rows.length > 0 &&
+    result.rows.every((r) => selected.has(r.id))
+  const someSelected =
+    !!selectable && !!selected && result.rows.some((r) => selected.has(r.id))
   const driftTitle =
     driftMode === 'definition'
       ? 'Not in its defined state in some environment'
@@ -86,7 +108,17 @@ export function ComparerMatrix({
   const renderRow = (row: ComparerRow) => {
     const drift = rowHasDrift(row, hostKey, envKeys, driftMode)
     return (
-      <tr key={row.id}>
+      <tr key={row.id} className={selected?.has(row.id) ? 'cmp-row--sel' : ''}>
+        {selectable && (
+          <td className="cmp-sel">
+            <input
+              type="checkbox"
+              checked={selected?.has(row.id) ?? false}
+              onChange={() => onToggleRow?.(row.id)}
+              aria-label={`Select ${row.name}`}
+            />
+          </td>
+        )}
         <td className="cmp-item">
           <div className="cmp-item-name" title={row.name}>
             {row.name}
@@ -167,6 +199,14 @@ export function ComparerMatrix({
                     )
                   )}
                 </div>
+                {showOwner && state.ownerName && (
+                  <div
+                    className="cmp-owner"
+                    title={`Owner in ${env.label}: ${state.ownerName}`}
+                  >
+                    <span aria-hidden="true">👤</span> {state.ownerName}
+                  </div>
+                )}
                 {(state.link || canManage) && (
                   <div className="cmp-actions">
                     {state.link && (
@@ -232,6 +272,20 @@ export function ComparerMatrix({
       <table className="cmp-table">
         <thead>
           <tr>
+            {selectable && (
+              <th className="cmp-sel">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someSelected && !allSelected
+                  }}
+                  onChange={(e) => onToggleAll?.(e.target.checked)}
+                  aria-label="Select all shown flows"
+                  disabled={result.rows.length === 0}
+                />
+              </th>
+            )}
             <th className="cmp-th-item">Item</th>
             {hasDefinition && (
               <th className="cmp-th-def" title="Defined desired state">

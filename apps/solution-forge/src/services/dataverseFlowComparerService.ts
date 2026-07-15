@@ -1,4 +1,4 @@
-import type { WorkingSolution } from '../types/solution'
+import type { UserRef, WorkingSolution } from '../types/solution'
 import type {
   ComparerEnvState,
   ComparerResult,
@@ -45,12 +45,27 @@ const FLOW_ATTRS =
   `<attribute name="name" />` +
   `<attribute name="statecode" />` +
   `<attribute name="modifiedon" />` +
-  `<attribute name="ismanaged" />`
+  `<attribute name="ismanaged" />` +
+  `<attribute name="ownerid" />`
+
+// Outer join to the owner user so the cell can show a name (the connector's
+// formatted value for ownerid isn't reliable). Aliased attributes arrive keyed
+// as `ow.fullname` etc. Appended INSIDE the <entity> of every workflow read.
+const OWNER_LINK =
+  `<link-entity name="systemuser" from="systemuserid" to="ownerid" link-type="outer" alias="ow">` +
+  `<attribute name="fullname" />` +
+  `<attribute name="domainname" />` +
+  `</link-entity>`
 
 /** Map one workflow row → the environment cell (statecode 1 = Activated). */
 function flowState(row: Row, envKey: string): ComparerEnvState {
   const active = rowNum(row.statecode) === 1
   const unique = rowStr(row.workflowidunique)
+  const ownerName =
+    rowStr(row['ow.fullname']) ||
+    rowStr(row['ow.domainname']) ||
+    formattedValue(row, 'ownerid') ||
+    ''
   return {
     present: true,
     active,
@@ -60,6 +75,8 @@ function flowState(row: Row, envKey: string): ComparerEnvState {
     link: unique
       ? flowDetailsUrl(environmentIdForEnvKey(envKey), unique)
       : undefined,
+    ownerId: rowStr(row._ownerid_value),
+    ownerName: ownerName || undefined,
   }
 }
 
@@ -95,7 +112,7 @@ class DataverseFlowComparerService implements FlowComparerService {
       `<filter type="and">` +
       `<condition attribute="category" operator="eq" value="5" />` +
       `<condition attribute="type" operator="eq" value="1" />` +
-      `</filter>${solutionLink}<order attribute="name" /></entity></fetch>`
+      `</filter>${solutionLink}${OWNER_LINK}<order attribute="name" /></entity></fetch>`
     const hostRows = await fetchXmlQuery(
       'workflows',
       hostFetch,
@@ -366,7 +383,7 @@ class DataverseFlowComparerService implements FlowComparerService {
         .join('')
       const fetch =
         `<fetch><entity name="workflow">${FLOW_ATTRS}` +
-        `<filter type="or">${conds}</filter></entity></fetch>`
+        `<filter type="or">${conds}</filter>${OWNER_LINK}</entity></fetch>`
       for (const r of await fetchXmlQuery(
         'workflows',
         fetch,
@@ -408,6 +425,68 @@ class DataverseFlowComparerService implements FlowComparerService {
     // Re-read the single flow so the cell shows the actual persisted state.
     const hit = (await this.readByIds(envKey, [workflowId])).get(workflowId)
     return hit ? flowState(hit, envKey) : MISSING
+  }
+
+  async setFlowOwner(
+    envKey: string,
+    workflowId: string,
+    userId: string,
+  ): Promise<ComparerEnvState> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockFlowComparerService.setFlowOwner(envKey, workflowId, userId)
+    // Reassign ownership via the standard lookup bind (needs the Assign
+    // privilege on workflow in the target; the connector SP is sysadmin).
+    const res = await MicrosoftDataverseService.UpdateRecordWithOrganization(
+      'return=representation',
+      'application/json',
+      orgUrlForEnvKey(envKey),
+      'workflows',
+      workflowId,
+      { 'ownerid@odata.bind': `/systemusers(${userId})` },
+    )
+    if (res && res.success === false) {
+      const detail = (res as { error?: { message?: string } }).error?.message
+      throw new Error(
+        `Changing the flow owner failed${detail ? ` — ${detail}` : ''}`,
+      )
+    }
+    // Re-read the single flow so the cell shows the persisted owner.
+    const hit = (await this.readByIds(envKey, [workflowId])).get(workflowId)
+    return hit ? flowState(hit, envKey) : MISSING
+  }
+
+  async listUsers(envKey: string, query: string): Promise<UserRef[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockFlowComparerService.listUsers(envKey, query)
+    const q = query.trim()
+    const search = q
+      ? `<filter type="or">` +
+        `<condition attribute="fullname" operator="like" value="%${fetchXmlEscape(q)}%" />` +
+        `<condition attribute="domainname" operator="like" value="%${fetchXmlEscape(q)}%" />` +
+        `</filter>`
+      : ''
+    const fetch =
+      `<fetch count="30"><entity name="systemuser">` +
+      `<attribute name="systemuserid" />` +
+      `<attribute name="fullname" />` +
+      `<attribute name="domainname" />` +
+      `<filter type="and">` +
+      `<condition attribute="isdisabled" operator="eq" value="false" />` +
+      `${search}</filter>` +
+      `<order attribute="fullname" />` +
+      `</entity></fetch>`
+    const rows = await fetchXmlQuery(
+      'systemusers',
+      fetch,
+      orgUrlForEnvKey(envKey),
+    )
+    return rows.map((r) => ({
+      id: rowStr(r.systemuserid),
+      name: rowStr(r.fullname) || rowStr(r.domainname) || rowStr(r.systemuserid),
+      username: rowStr(r.domainname),
+    }))
   }
 }
 
