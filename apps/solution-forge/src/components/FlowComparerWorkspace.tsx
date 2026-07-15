@@ -21,8 +21,13 @@ export function FlowComparerWorkspace({
       noun="flow"
       showVersion={false}
       groupByLabel="area"
+      enableBulk
       compare={(s, p) => flowComparerService.compareFlows(s, p)}
       setState={(env, id, on) => flowComparerService.setFlowState(env, id, on)}
+      setOwner={(env, id, userId) =>
+        flowComparerService.setFlowOwner(env, id, userId)
+      }
+      listUsers={(env, query) => flowComparerService.listUsers(env, query)}
     />
   )
 }

@@ -753,6 +753,19 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 role, runs as the connection identity and writes to the selected
                 environment.
               </li>
+              <li>
+                Each cell shows the flow's <strong>owner</strong> in that
+                environment (owners can differ per system).
+              </li>
+              <li>
+                <strong>Bulk actions</strong> (deployment-manager): tick the row
+                checkboxes to select flows, pick a <strong>target environment</strong>{' '}
+                in the bar, then <strong>Activate</strong>, <strong>Deactivate</strong>{' '}
+                or <strong>Change owner…</strong> (search a user in that
+                environment). The action runs serially over the selection with a
+                progress + per-item result summary; flows not present in the target
+                are skipped. Works for one or many flows.
+              </li>
             </ul>
           </section>
 

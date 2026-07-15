@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import type { WorkingSolution } from '../types/solution'
+import type { UserRef, WorkingSolution } from '../types/solution'
 import type {
   ComparerEnvState,
   ComparerResult,
@@ -10,6 +10,21 @@ import { ENVIRONMENTS, currentEnvKey } from '../config'
 import { SolutionSelect } from './SolutionSelect'
 import { ComparerMatrix } from './ComparerMatrix'
 import { ConfirmDialog } from './ConfirmDialog'
+import { UserPickerDialog } from './UserPickerDialog'
+
+/** One flow's result inside a serial bulk run. */
+interface BulkResult {
+  id: string
+  name: string
+  ok: boolean
+  error?: string
+  /** Skipped because the flow isn't present in the target environment. */
+  skipped?: boolean
+}
+/** A pending bulk action awaiting confirmation. */
+type BulkAction =
+  | { kind: 'activate' | 'deactivate' }
+  | { kind: 'owner'; user: UserRef }
 
 interface Props {
   solutions: WorkingSolution[]
@@ -30,6 +45,17 @@ interface Props {
     id: string,
     on: boolean,
   ) => Promise<ComparerEnvState>
+  /** Enable multi-select + a bulk action bar (Flow Comparer). */
+  enableBulk?: boolean
+  /** Reassign a flow's owner in one env (enables the owner column + bulk owner
+   *  change). Requires `listUsers`. */
+  setOwner?: (
+    envKey: string,
+    id: string,
+    userId: string,
+  ) => Promise<ComparerEnvState>
+  /** Search users in one env for the owner picker. */
+  listUsers?: (envKey: string, query: string) => Promise<UserRef[]>
 }
 
 /**
@@ -46,9 +72,14 @@ export function ComparerWorkspace({
   groupByLabel,
   compare,
   setState,
+  enableBulk,
+  setOwner,
+  listUsers,
 }: Props) {
   const hostKey = currentEnvKey()
   const envKeys = ENVIRONMENTS.map((e) => e.key)
+  // Owner column + owner reassignment require both hooks.
+  const ownerSupport = !!setOwner && !!listUsers
 
   const releases = useMemo(
     () =>
@@ -81,6 +112,14 @@ export function ComparerWorkspace({
   const [grouped, setGrouped] = useState(true)
   const [search, setSearch] = useState('')
 
+  // Multi-select bulk state.
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkEnv, setBulkEnv] = useState<string>(hostKey)
+  const [bulkPending, setBulkPending] = useState<BulkAction | null>(null)
+  const [pickingOwner, setPickingOwner] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<[number, number] | null>(null)
+  const [bulkResults, setBulkResults] = useState<BulkResult[] | null>(null)
+
   const solution = releases.find((s) => s.id === solutionId) ?? null
 
   const run = async () => {
@@ -89,6 +128,8 @@ export function ComparerWorkspace({
     setError(null)
     setActionError(null)
     setResult(null)
+    setSelected(new Set())
+    setBulkResults(null)
     try {
       const res = await compare(solution, setProgress)
       setResult(res)
@@ -185,6 +226,71 @@ export function ComparerWorkspace({
   // "(no area)" group.
   const canGroup = !!groupByLabel && !!result?.rows.some((r) => r.subtitle)
 
+  // Multi-select works against the currently-shown rows, so selection always
+  // matches what's visible (hidden-but-selected rows are ignored).
+  const selectable = !!enableBulk && canManage
+  const selectedShown = useMemo(
+    () => (shown ? shown.rows.filter((r) => selected.has(r.id)) : []),
+    [shown, selected],
+  )
+  const bulkBusy = bulkProgress !== null
+  const bulkEnvLabel =
+    ENVIRONMENTS.find((e) => e.key === bulkEnv)?.label ?? bulkEnv
+
+  const toggleRow = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const toggleAll = (checked: boolean) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      for (const r of shown?.rows ?? [])
+        if (checked) next.add(r.id)
+        else next.delete(r.id)
+      return next
+    })
+
+  // Run the confirmed bulk action serially over the selected shown flows,
+  // against the chosen target environment; skip flows not present there.
+  const runBulk = async (action: BulkAction) => {
+    const rows = selectedShown
+    setActionError(null)
+    setBulkResults(null)
+    setBulkProgress([0, rows.length])
+    const results: BulkResult[] = []
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      const cell = row.byEnv[bulkEnv]
+      if (!cell || !cell.present) {
+        results.push({ id: row.id, name: row.name, ok: false, skipped: true })
+      } else {
+        try {
+          const nc =
+            action.kind === 'owner'
+              ? await setOwner!(bulkEnv, row.id, action.user.id)
+              : await setState(bulkEnv, row.id, action.kind === 'activate')
+          applyCell(row.id, bulkEnv, nc)
+          results.push({ id: row.id, name: row.name, ok: true })
+        } catch (err) {
+          results.push({
+            id: row.id,
+            name: row.name,
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+          })
+        }
+      }
+      setBulkProgress([i + 1, rows.length])
+    }
+    setBulkResults(results)
+    setBulkProgress(null)
+    setBulkPending(null)
+    setSelected(new Set())
+  }
+
   return (
     <div>
       <div className="validate-toolbar">
@@ -195,6 +301,8 @@ export function ComparerWorkspace({
             setSolutionId(id)
             setResult(null)
             setError(null)
+            setSelected(new Set())
+            setBulkResults(null)
           }}
           placeholder="Select a release solution…"
         />
@@ -289,6 +397,100 @@ export function ComparerWorkspace({
         </div>
       )}
 
+      {selectable && selectedShown.length > 0 && (
+        <div className="cmp-bulkbar">
+          <span className="cmp-bulkbar-count">
+            {selectedShown.length} selected
+          </span>
+          <label className="cmp-bulk-target">
+            Target
+            <select
+              value={bulkEnv}
+              onChange={(e) => setBulkEnv(e.target.value)}
+              disabled={bulkBusy}
+            >
+              {ENVIRONMENTS.map((e) => (
+                <option key={e.key} value={e.key}>
+                  {e.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="cmp-bulk-actions">
+            <button
+              className="btn btn--small"
+              disabled={bulkBusy}
+              onClick={() => setBulkPending({ kind: 'activate' })}
+            >
+              Activate
+            </button>
+            <button
+              className="btn btn--small"
+              disabled={bulkBusy}
+              onClick={() => setBulkPending({ kind: 'deactivate' })}
+            >
+              Deactivate
+            </button>
+            {ownerSupport && (
+              <button
+                className="btn btn--small"
+                disabled={bulkBusy}
+                onClick={() => setPickingOwner(true)}
+              >
+                Change owner…
+              </button>
+            )}
+            <button
+              className="cmp-bulk-clear"
+              disabled={bulkBusy}
+              onClick={() => setSelected(new Set())}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+      {bulkProgress && (
+        <div className="state sharing-progress" aria-live="polite">
+          <span className="sharing-progress-spinner" />
+          Processing {noun} {bulkProgress[0]}/{bulkProgress[1]}…
+        </div>
+      )}
+      {bulkResults && (
+        <div
+          className={`state ${
+            bulkResults.some((r) => !r.ok && !r.skipped)
+              ? 'state--error'
+              : 'state--success'
+          }`}
+        >
+          {(() => {
+            const ok = bulkResults.filter((r) => r.ok).length
+            const failed = bulkResults.filter((r) => !r.ok && !r.skipped)
+            const skipped = bulkResults.filter((r) => r.skipped).length
+            return (
+              <>
+                {ok} succeeded
+                {failed.length ? `, ${failed.length} failed` : ''}
+                {skipped
+                  ? `, ${skipped} skipped (not in ${bulkEnvLabel})`
+                  : ''}
+                .
+                {failed.length > 0 && (
+                  <ul className="merge-errors">
+                    {failed.map((r) => (
+                      <li key={r.id}>
+                        {r.name}: {r.error}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )
+          })()}
+        </div>
+      )}
+
       {!running && result && result.rows.length === 0 && (
         <div className="state">
           No {noun}s found in <strong>{solution?.title}</strong> — the release
@@ -343,6 +545,11 @@ export function ComparerWorkspace({
                 : undefined
             }
             onToggle={requestToggle}
+            showOwner={ownerSupport}
+            selectable={selectable}
+            selected={selected}
+            onToggleRow={toggleRow}
+            onToggleAll={toggleAll}
           />
         </section>
       )}
@@ -375,6 +582,81 @@ export function ComparerWorkspace({
               {pending.env.key === 'prod' && (
                 <p className="confirm-warn">
                   This is <strong>production</strong> — the change takes effect
+                  immediately.
+                </p>
+              )}
+            </>
+          }
+        />
+      )}
+
+      {pickingOwner && listUsers && (
+        <UserPickerDialog
+          title="Change owner"
+          hint={
+            <>
+              New owner for {selectedShown.length} {noun}
+              {selectedShown.length === 1 ? '' : 's'} in{' '}
+              <strong>{bulkEnvLabel}</strong>
+            </>
+          }
+          search={(query) => listUsers(bulkEnv, query)}
+          onPick={(user) => {
+            setPickingOwner(false)
+            setBulkPending({ kind: 'owner', user })
+          }}
+          onClose={() => setPickingOwner(false)}
+        />
+      )}
+
+      {bulkPending && (
+        <ConfirmDialog
+          title={
+            bulkPending.kind === 'owner'
+              ? 'Change owner'
+              : bulkPending.kind === 'activate'
+                ? `Activate ${noun}s`
+                : `Deactivate ${noun}s`
+          }
+          confirmLabel={
+            bulkPending.kind === 'owner'
+              ? 'Change owner'
+              : bulkPending.kind === 'activate'
+                ? 'Activate'
+                : 'Deactivate'
+          }
+          danger={bulkEnv === 'prod'}
+          busy={bulkBusy}
+          onConfirm={() => void runBulk(bulkPending)}
+          onCancel={() => setBulkPending(null)}
+          message={
+            <>
+              <p>
+                {bulkPending.kind === 'owner' ? (
+                  <>
+                    Reassign <strong>{selectedShown.length}</strong> {noun}
+                    {selectedShown.length === 1 ? '' : 's'} in{' '}
+                    <strong>{bulkEnvLabel}</strong> to{' '}
+                    <strong>{bulkPending.user.name}</strong>.
+                  </>
+                ) : (
+                  <>
+                    {bulkPending.kind === 'activate'
+                      ? 'Activate'
+                      : 'Deactivate'}{' '}
+                    <strong>{selectedShown.length}</strong> {noun}
+                    {selectedShown.length === 1 ? '' : 's'} in{' '}
+                    <strong>{bulkEnvLabel}</strong>.
+                  </>
+                )}
+              </p>
+              <p className="muted">
+                Runs one after another; {noun}s not present in {bulkEnvLabel}{' '}
+                are skipped.
+              </p>
+              {bulkEnv === 'prod' && (
+                <p className="confirm-warn">
+                  This is <strong>production</strong> — changes take effect
                   immediately.
                 </p>
               )}

@@ -19,6 +19,9 @@ export interface ComparerEnvState {
   isManaged?: boolean
   /** Portal deep link into this environment (flows: Power Automate). */
   link?: string
+  /** Owner in THIS environment (flows only) — owners can differ per env. */
+  ownerId?: string
+  ownerName?: string
 }
 
 /** One compared item across the environments. */

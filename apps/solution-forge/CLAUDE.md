@@ -409,6 +409,26 @@ nächste Hartkodierung; ggf. später als zweites konfigurierbares Set). Turn On/
 Confirm = modernes `ConfirmDialog` (PROD-Danger). Getoggelte Zelle **flasht grün**
 (`cmp-cell--flash`) und fadet in die Ruhefarbe.
 
+**Owner je System + Bulk (nur Flow Comparer, prop-gated):** Jede Flow-Zelle zeigt
+den **Owner in dem Env** (`ComparerEnvState.ownerId/ownerName`). Read via
+**`systemuser`-Outer-Link-Entity** (`alias="ow"` → `ow.fullname`/`ow.domainname`)
+an jeder workflow-Query (`OWNER_LINK` in `FLOW_ATTRS`-Reads) — der Konnektor liefert
+für `ownerid` **keinen** verlässlichen Formatted-Value, daher der Join.
+**`setFlowOwner(env, id, userId)`** = `UpdateRecordWithOrganization(..., 'workflows',
+id, { 'ownerid@odata.bind': '/systemusers(userId)' })` als Konnektor-SP cross-env
+(braucht **Assign**-Recht auf `workflow` im Ziel; SP=sysadmin bei Schulz).
+**`listUsers(env, query)`** = `systemuser`-FetchXML (`isdisabled eq false`,
+`like`-Filter auf fullname/domainname, count 30) → `UserRef[]`. Owner + Bulk sind in
+`ComparerWorkspace` über Props gated (`enableBulk`, `setOwner`, `listUsers`) → Plugin
+Comparer unverändert. **Bulk:** Zeilen-Checkboxen (Matrix `selectable`/`selected`),
+Bulk-Balken (`.cmp-bulkbar`) mit **Ziel-Env-Wahl** + Activate/Deactivate/Change
+owner…; **seriell** über `selectedShown` (`runBulk`), pro Item Ergebnis
+(`BulkResult`, skipped wenn im Ziel-Env nicht present), Fortschritt via
+`sharing-progress`. Owner-Wechsel läuft über dieselbe Selektion (auch 1 Flow) — kein
+Inline-Zell-Button. User-Picker = `UserPickerDialog` (debounced, `.link-result-list`).
+⚠ Owner-Reassign eines **aktivierten** Cloud Flows kann fehlschlagen (Connections des
+Ziel-Users) — Fehler landen per Item im Bulk-Result.
+
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT

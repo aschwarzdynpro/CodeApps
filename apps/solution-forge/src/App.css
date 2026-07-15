@@ -5555,7 +5555,8 @@
 .subtabs select,
 .compare-controls select,
 .operate-env select,
-.validate-toolbar select {
+.validate-toolbar select,
+.cmp-bulkbar select {
   appearance: none;
   -webkit-appearance: none;
   padding: 7px 30px 7px 12px;
@@ -5573,19 +5574,22 @@
 .subtabs select:hover,
 .compare-controls select:hover,
 .operate-env select:hover,
-.validate-toolbar select:hover {
+.validate-toolbar select:hover,
+.cmp-bulkbar select:hover {
   border-color: #c7cbd8;
 }
 .trace-toolbar select:focus,
 .subtabs select:focus,
 .compare-controls select:focus,
 .operate-env select:focus,
-.validate-toolbar select:focus {
+.validate-toolbar select:focus,
+.cmp-bulkbar select:focus {
   outline: 2px solid var(--brand);
   border-color: var(--brand);
 }
 .trace-toolbar select:disabled,
-.subtabs select:disabled {
+.subtabs select:disabled,
+.cmp-bulkbar select:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -5894,6 +5898,74 @@
 }
 .cmp-when {
   font-size: 11.5px;
+}
+/* Owner line inside a cell (flows) — muted, below the status/date. */
+.cmp-owner {
+  font-size: 11.5px;
+  color: var(--muted, #5b6172);
+  overflow-wrap: anywhere;
+}
+/* Multi-select column + selected-row highlight. */
+.cmp-table th.cmp-sel,
+.cmp-table td.cmp-sel {
+  width: 34px;
+  text-align: center;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+.cmp-sel input {
+  accent-color: var(--brand, #4f46e5);
+  cursor: pointer;
+}
+.cmp-row--sel > td {
+  background: #eef4ff;
+}
+/* Bulk action bar — appears above the matrix when rows are selected. */
+.cmp-bulkbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 4px 0 12px;
+  padding: 8px 12px;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  border-radius: 8px;
+}
+.cmp-bulkbar-count {
+  font-weight: 700;
+  color: #3730a3;
+}
+.cmp-bulk-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.cmp-bulk-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.cmp-bulk-clear {
+  border: 0;
+  background: none;
+  color: var(--muted, #5b6172);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+.cmp-bulk-clear:hover:not(:disabled) {
+  color: var(--text, #1f2430);
+  text-decoration: underline;
+}
+.cmp-bulk-clear:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 /* Action zone — visually split from the info above (dashed rule); the controls
    are squared/outlined so they read as buttons, not status badges. */
