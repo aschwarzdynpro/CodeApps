@@ -648,8 +648,12 @@ export function ComparerWorkspace({
                 : 'Deactivate'
           }
           danger={bulkEnv === 'prod'}
-          busy={bulkBusy}
-          onConfirm={() => void runBulk(bulkPending)}
+          onConfirm={() => {
+            // Close the dialog immediately; the progress bar is the indicator.
+            const action = bulkPending
+            setBulkPending(null)
+            void runBulk(action)
+          }}
           onCancel={() => setBulkPending(null)}
           message={
             <>
