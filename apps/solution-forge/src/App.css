@@ -6370,3 +6370,171 @@
   background: #b91c1c;
   border-color: #b91c1c;
 }
+
+/* --- Reference › Links ---------------------------------------------------- */
+.links-intro {
+  font-size: 13px;
+  margin: 0 0 16px;
+  max-width: 72ch;
+}
+.links-card {
+  padding-bottom: 8px;
+}
+.links-badge {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.links-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.links-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+}
+.links-row:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+.links-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.links-a {
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f6cbd;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.links-a:hover {
+  text-decoration: underline;
+}
+.links-hint {
+  font-size: 12px;
+}
+.links-copy {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.links-copy:hover {
+  color: inherit;
+  border-color: var(--muted);
+}
+/* Per-environment link matrix: one row per link kind, one column per env. */
+.links-table-wrap {
+  overflow-x: auto;
+}
+.links-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+.links-table th,
+.links-table td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.links-th-label {
+  width: 34%;
+  min-width: 220px;
+}
+.links-th-env {
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+.links-th-name {
+  font-weight: 700;
+  margin-right: 6px;
+}
+.links-group-row .links-group-cell {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.02);
+  padding-top: 12px;
+}
+.links-cell-label {
+  font-weight: 500;
+}
+.links-label-text {
+  display: block;
+}
+.links-cell-label .links-hint {
+  display: block;
+  margin-top: 2px;
+}
+.links-th-env,
+.links-cell {
+  min-width: 150px;
+}
+.links-cell-inner {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  width: 100%;
+}
+.links-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: #0f6cbd;
+  font-weight: 500;
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 1;
+}
+.links-open:hover {
+  border-color: #0f6cbd;
+  background: rgba(15, 108, 189, 0.08);
+}
+.links-open-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.links-cell-inner .links-copy {
+  height: 34px;
+  width: 34px;
+}
+.links-empty {
+  color: var(--muted);
+}
+.links-row-tr:hover td,
+.links-row-tr:hover .links-cell-label {
+  background: rgba(0, 0, 0, 0.02);
+}

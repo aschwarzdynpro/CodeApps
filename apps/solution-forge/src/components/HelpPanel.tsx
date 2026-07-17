@@ -992,6 +992,31 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🔗 Links (Reference)</h3>
+            <ul>
+              <li>
+                A static collection of the URLs you reach for constantly. The{' '}
+                <strong>per-environment</strong> links are laid out as a{' '}
+                <strong>matrix</strong> — one row per link kind (system app,
+                OData / Web API, diagnostics, classic Advanced Settings / roles /
+                system jobs, Maker &amp; Power Automate, and the Power Platform
+                admin center hub / settings / backup pages),{' '}
+                <strong>one column per environment</strong> — plus a{' '}
+                <strong>Global</strong> block (admin center, capacity, release
+                planner, service health).
+              </li>
+              <li>
+                Everything is derived from the configured environments — there
+                is <strong>no data load, no connector and no gating</strong>.
+                Links open in a new tab; the <strong>⧉</strong> button copies a
+                URL. A couple of admin-center deep links are best-effort (the
+                portal is a single-page app whose slugs can shift) and are
+                labelled as such.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
             <h3>Chips at a glance</h3>
             <ul className="help-legend">
               <li>
