@@ -6380,11 +6380,6 @@
 .links-card {
   padding-bottom: 8px;
 }
-.links-env-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 .links-badge {
   font-size: 11px;
   font-weight: 600;
@@ -6394,17 +6389,6 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 1px 8px;
-}
-.links-group {
-  margin-bottom: 10px;
-}
-.links-group-title {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-  margin: 6px 0;
 }
 .links-list {
   list-style: none;
@@ -6459,4 +6443,83 @@
 .links-copy:hover {
   color: inherit;
   border-color: var(--muted);
+}
+/* Per-environment link matrix: one row per link kind, one column per env. */
+.links-table-wrap {
+  overflow-x: auto;
+}
+.links-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+.links-table th,
+.links-table td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.links-th-label {
+  width: 34%;
+  min-width: 220px;
+}
+.links-th-env {
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+.links-th-name {
+  font-weight: 700;
+  margin-right: 6px;
+}
+.links-group-row .links-group-cell {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.02);
+  padding-top: 12px;
+}
+.links-cell-label {
+  font-weight: 500;
+}
+.links-label-text {
+  display: block;
+}
+.links-cell-label .links-hint {
+  display: block;
+  margin-top: 2px;
+}
+.links-cell {
+  text-align: center;
+}
+.links-cell-inner {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.links-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: #0f6cbd;
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 1;
+}
+.links-open:hover {
+  border-color: var(--muted);
+  background: rgba(15, 108, 189, 0.06);
+}
+.links-empty {
+  color: var(--muted);
+}
+.links-row-tr:hover td,
+.links-row-tr:hover .links-cell-label {
+  background: rgba(0, 0, 0, 0.02);
 }

@@ -134,10 +134,11 @@ nach Typ.
   Visualisierung vorhandener Daten (Builder `buildReleaseTimeline` als pure
   function mit Tests) — kein neuer Datenpfad.
 - **Links** (Reference) — statische **Linksammlung** der ständig gebrauchten
-  URLs: **je Umgebung** die System-App, OData/Web API, Diagnostics, classic
-  Advanced Settings / Rollen / Systemaufträge, Maker & Power Automate und die
-  Power-Platform-Admin-Seiten (Hub/Settings/Backup) — plus ein **globaler**
-  Block (Admin Center, Capacity, Release Planner, Service Health). Alles rein
+  URLs als **Matrix** (eine Zeile je Link-Art, **je Umgebung eine Spalte**):
+  System-App, OData/Web API, Diagnostics, classic Advanced Settings / Rollen /
+  Systemaufträge, Maker & Power Automate und die Power-Platform-Admin-Seiten
+  (Hub/Settings/Backup) — plus ein **globaler** Block (Admin Center, Capacity,
+  Release Planner, Service Health). Alles rein
   aus der Env-Konfiguration abgeleitet: **kein Datenpfad, kein Connector, kein
   Gating**; Links öffnen in neuem Tab, Copy-Button je Zeile. Ein paar
   Admin-Center-Deeplinks sind best-effort (SPA-Slugs) und so gekennzeichnet.

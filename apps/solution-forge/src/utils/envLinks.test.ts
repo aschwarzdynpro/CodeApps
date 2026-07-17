@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildEnvLinkGroups, buildGlobalLinks } from './envLinks'
+import { buildEnvLinkRows, buildGlobalLinks, ENV_LINK_GROUPS } from './envLinks'
 import type { EnvironmentDef } from '../types/comparison'
 
 const env = (over: Partial<EnvironmentDef> = {}): EnvironmentDef => ({
@@ -11,57 +11,69 @@ const env = (over: Partial<EnvironmentDef> = {}): EnvironmentDef => ({
   ...over,
 })
 
-/** Flatten all links of an environment for easy lookup by label. */
-const linksOf = (e: EnvironmentDef): Record<string, string> =>
-  Object.fromEntries(
-    buildEnvLinkGroups(e).flatMap((g) => g.links.map((l) => [l.label, l.url])),
-  )
+/** Find one matrix row by its label. */
+const row = (envs: EnvironmentDef[], label: string) =>
+  buildEnvLinkRows(envs).find((r) => r.label === label)!
 
-describe('buildEnvLinkGroups', () => {
-  it('builds System, Maker/Automate and Admin groups', () => {
-    const titles = buildEnvLinkGroups(env()).map((g) => g.title)
-    expect(titles).toEqual(['System', 'Maker / Automate', 'Admin (Power Platform)'])
+describe('buildEnvLinkRows', () => {
+  it('groups rows into System / Maker / Admin in that order', () => {
+    const groups = [...new Set(buildEnvLinkRows([env()]).map((r) => r.group))]
+    expect(groups).toEqual([...ENV_LINK_GROUPS])
+  })
+
+  it('returns one url per environment, aligned to the input order', () => {
+    const a = env()
+    const b = env({
+      key: 'uat',
+      label: 'UAT',
+      url: 'https://uat.crm4.dynamics.com',
+      environmentId: 'uat-id',
+      isCurrent: false,
+    })
+    expect(row([a, b], 'OData / Web API v9.2').urls).toEqual([
+      'https://operations-d365-schulz-int-11.crm4.dynamics.com/api/data/v9.2/',
+      'https://uat.crm4.dynamics.com/api/data/v9.2/',
+    ])
   })
 
   it('derives org-relative links from the environment url', () => {
-    const l = linksOf(env())
     const base = 'https://operations-d365-schulz-int-11.crm4.dynamics.com'
-    expect(l['System (Unified Interface)']).toBe(base)
-    expect(l['OData / Web API v9.2']).toBe(`${base}/api/data/v9.2/`)
-    expect(l['Diagnostics']).toBe(`${base}/tools/diagnostics/diag.aspx`)
-    expect(l['Advanced Settings (classic)']).toBe(`${base}/main.aspx?settingsonly=true`)
-  })
-
-  it('trims a trailing slash on the org url before appending paths', () => {
-    const l = linksOf(env({ url: 'https://org.crm4.dynamics.com/' }))
-    expect(l['OData / Web API v9.2']).toBe('https://org.crm4.dynamics.com/api/data/v9.2/')
-  })
-
-  it('builds maker and admin deep links from the environment id', () => {
-    const l = linksOf(env())
-    const id = '431783f6-367c-eb49-984b-4e70e4c0424d'
-    expect(l['Maker — Solutions']).toBe(`https://make.powerapps.com/environments/${id}/solutions`)
-    expect(l['Power Automate — Flows']).toBe(`https://make.powerautomate.com/environments/${id}/flows`)
-    expect(l['Environment Hub']).toBe(
-      `https://admin.powerplatform.microsoft.com/manage/environments/environment/${id}/hub`,
+    expect(row([env()], 'System (Unified Interface)').urls[0]).toBe(base)
+    expect(row([env()], 'Diagnostics').urls[0]).toBe(`${base}/tools/diagnostics/diag.aspx`)
+    expect(row([env()], 'Advanced Settings (classic)').urls[0]).toBe(
+      `${base}/main.aspx?settingsonly=true`,
     )
   })
 
-  it('omits maker/admin groups when the environment id is missing', () => {
-    const titles = buildEnvLinkGroups(env({ environmentId: '' })).map((g) => g.title)
-    expect(titles).toEqual(['System'])
+  it('trims a trailing slash before appending org paths', () => {
+    expect(row([env({ url: 'https://org.crm4.dynamics.com/' })], 'OData / Web API v9.2').urls[0]).toBe(
+      'https://org.crm4.dynamics.com/api/data/v9.2/',
+    )
   })
 
-  it('omits the System group when the url is missing', () => {
-    const titles = buildEnvLinkGroups(env({ url: '' })).map((g) => g.title)
-    expect(titles).not.toContain('System')
+  it('builds maker and admin deep links from the environment id (no /environment/ segment)', () => {
+    const id = '431783f6-367c-eb49-984b-4e70e4c0424d'
+    expect(row([env()], 'Maker — Solutions').urls[0]).toBe(
+      `https://make.powerapps.com/environments/${id}/solutions`,
+    )
+    expect(row([env()], 'Environment Hub').urls[0]).toBe(
+      `https://admin.powerplatform.microsoft.com/manage/environments/${id}/hub`,
+    )
+    expect(row([env()], 'Backup & Restore').urls[0]).toBe(
+      `https://admin.powerplatform.microsoft.com/manage/environments/${id}/backupandrestore`,
+    )
+  })
+
+  it('yields null cells when the url / id are missing', () => {
+    const rows = buildEnvLinkRows([env({ url: '', environmentId: '' })])
+    expect(rows.find((r) => r.label === 'OData / Web API v9.2')!.urls[0]).toBeNull()
+    expect(rows.find((r) => r.label === 'Environment Hub')!.urls[0]).toBeNull()
   })
 })
 
 describe('buildGlobalLinks', () => {
   it('returns the admin center plus the governance links', () => {
-    const labels = buildGlobalLinks().map((l) => l.label)
-    expect(labels).toEqual([
+    expect(buildGlobalLinks().map((l) => l.label)).toEqual([
       'Power Platform Admin Center',
       'Capacity',
       'Release Planner',
