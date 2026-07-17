@@ -45,14 +45,15 @@ function trimUrl(url: string): string {
 
 /**
  * Deep link into one environment's page in the Power Platform admin center.
- * Path shape: `/manage/environments/{envId}/{sub}` (no `/environment/` segment).
+ * Path shape: `/manage/environments/{orgId}/{sub}` — the admin center keys on
+ * the Dataverse **organization id** (not the Power Platform environment id).
  * `hub` and `settings` are stable SPA routes; `backupandrestore` is best-effort
  * — the admin center is a single-page app and its route slugs occasionally
  * change, but an unknown slug redirects to the environment page rather than
  * hard-failing.
  */
-function ppacEnv(envId: string, sub: string): string {
-  return `${PPAC}/manage/environments/${envId}/${sub}`
+function ppacEnv(orgId: string, sub: string): string {
+  return `${PPAC}/manage/environments/${orgId}/${sub}`
 }
 
 /** Ordered group labels for the matrix — also the render order. */
@@ -62,12 +63,22 @@ export const ENV_LINK_GROUPS = [
   'Admin (Power Platform)',
 ] as const
 
+/** Inputs available to a link builder for one environment. */
+interface EnvLinkContext {
+  /** Dataverse org URL, trailing slash trimmed. */
+  url: string
+  /** Power Platform environment id (maker links). */
+  envId: string
+  /** Dataverse organization id (Power Platform admin-center links); '' if unknown. */
+  orgId: string
+}
+
 interface EnvLinkSpec {
   group: (typeof ENV_LINK_GROUPS)[number]
   label: string
   hint?: string
-  /** Build the URL from the (trimmed) org url and environment id; null to omit. */
-  build: (url: string, envId: string) => string | null
+  /** Build the URL for one environment; null to omit that cell. */
+  build: (ctx: EnvLinkContext) => string | null
 }
 
 /**
@@ -80,69 +91,70 @@ const ENV_LINK_SPECS: EnvLinkSpec[] = [
     group: 'System',
     label: 'System (Unified Interface)',
     hint: 'Open the environment app',
-    build: (url) => url || null,
+    build: ({ url }) => url || null,
   },
   {
     group: 'System',
     label: `OData / Web API ${WEB_API_VERSION}`,
     hint: 'Dataverse Web API root',
-    build: (url) => (url ? `${url}/api/data/${WEB_API_VERSION}/` : null),
+    build: ({ url }) => (url ? `${url}/api/data/${WEB_API_VERSION}/` : null),
   },
   {
     group: 'System',
     label: 'Diagnostics',
     hint: 'Client & connectivity diagnostics',
-    build: (url) => (url ? `${url}/tools/diagnostics/diag.aspx` : null),
+    build: ({ url }) => (url ? `${url}/tools/diagnostics/diag.aspx` : null),
   },
   {
     group: 'System',
     label: 'Advanced Settings (classic)',
     hint: 'Classic settings area',
-    build: (url) => (url ? `${url}/main.aspx?settingsonly=true` : null),
+    build: ({ url }) => (url ? `${url}/main.aspx?settingsonly=true` : null),
   },
   {
     group: 'System',
     label: 'Security Roles (classic)',
     hint: 'Role list',
-    build: (url) => (url ? `${url}/main.aspx?pagetype=entitylist&etn=role` : null),
+    build: ({ url }) => (url ? `${url}/main.aspx?pagetype=entitylist&etn=role` : null),
   },
   {
     group: 'System',
     label: 'System Jobs (classic)',
     hint: 'Async operations',
-    build: (url) =>
+    build: ({ url }) =>
       url ? `${url}/main.aspx?pagetype=entitylist&etn=asyncoperation` : null,
   },
   {
     group: 'Maker / Automate',
     label: 'Maker — Home',
-    build: (_url, id) => (id ? `${MAKER}/environments/${id}/home` : null),
+    build: ({ envId }) => (envId ? `${MAKER}/environments/${envId}/home` : null),
   },
   {
     group: 'Maker / Automate',
     label: 'Maker — Solutions',
-    build: (_url, id) => (id ? `${MAKER}/environments/${id}/solutions` : null),
+    build: ({ envId }) => (envId ? `${MAKER}/environments/${envId}/solutions` : null),
   },
   {
     group: 'Maker / Automate',
     label: 'Power Automate — Flows',
-    build: (_url, id) => (id ? `${FLOW}/environments/${id}/flows` : null),
+    build: ({ envId }) => (envId ? `${FLOW}/environments/${envId}/flows` : null),
   },
+  // Admin-center links key on the Dataverse organization id, not the env id.
   {
     group: 'Admin (Power Platform)',
     label: 'Environment Hub',
-    build: (_url, id) => (id ? ppacEnv(id, 'hub') : null),
+    build: ({ orgId }) => (orgId ? ppacEnv(orgId, 'hub') : null),
   },
   {
     group: 'Admin (Power Platform)',
     label: 'Environment Settings',
-    build: (_url, id) => (id ? ppacEnv(id, 'settings') : null),
+    build: ({ orgId }) => (orgId ? ppacEnv(orgId, 'settings') : null),
   },
   {
     group: 'Admin (Power Platform)',
     label: 'Backup & Restore',
     hint: 'Admin-center slug is best-effort',
-    build: (_url, id) => (id ? ppacEnv(id, 'backupandrestore') : null),
+    build: ({ orgId }) => (orgId ? ppacEnv(orgId, 'backupandrestore') : null),
   },
 ]
 
@@ -150,13 +162,25 @@ const ENV_LINK_SPECS: EnvLinkSpec[] = [
  * Build the per-environment link matrix: one row per link kind, each carrying
  * the URL for every input environment (aligned to `envs`). Pure — the Links
  * workspace renders `envs` as columns and these rows as the table body.
+ * `orgIdByEnvId` maps a Power Platform environment id to its Dataverse
+ * organization id (for the admin-center links); environments without an entry
+ * simply get no admin links.
  */
-export function buildEnvLinkRows(envs: EnvironmentDef[]): EnvLinkRow[] {
+export function buildEnvLinkRows(
+  envs: EnvironmentDef[],
+  orgIdByEnvId: Record<string, string> = {},
+): EnvLinkRow[] {
   return ENV_LINK_SPECS.map((spec) => ({
     group: spec.group,
     label: spec.label,
     hint: spec.hint,
-    urls: envs.map((e) => spec.build(trimUrl(e.url), e.environmentId)),
+    urls: envs.map((e) =>
+      spec.build({
+        url: trimUrl(e.url),
+        envId: e.environmentId,
+        orgId: orgIdByEnvId[e.environmentId] ?? '',
+      }),
+    ),
   }))
 }
 

@@ -109,6 +109,23 @@ export function isCurrentEnvKey(envKey: string): boolean {
   return envByKey(envKey)?.isCurrent === true
 }
 
+/**
+ * Dataverse **organization id** per Power Platform **environment id**. The
+ * Power Platform admin-center deep links key on the org id (not the environment
+ * id), and the org id is not part of the environment config (`pro_environment-
+ * config` only carries url + environment id), so it lives here as a small
+ * static lookup. Keyed by `environmentId` so it survives the runtime config
+ * hydration (which provides the environment id but no org id). Unknown ids just
+ * omit the admin links. Extend when a new environment is onboarded — or, later,
+ * promote to a `pro_organizationid` column on `pro_environmentconfig`.
+ */
+export const ORGANIZATION_ID_BY_ENVIRONMENT_ID: Record<string, string> = {
+  '431783f6-367c-eb49-984b-4e70e4c0424d': 'b0e2d4f1-4883-ee11-8172-00224888964f', // Schulz INT-11
+  '2eaa34de-dcf1-e949-86d9-82d9fd748045': 'edd958f0-8139-ed11-9463-000d3a4c5102', // Schulz UAT
+  '0cb8d3e7-faf3-eb34-a648-e3e309c3164d': '463c3dce-9b58-ef11-bfdf-000d3a486a7f', // Schulz PROD
+  'a5b19a39-a9ec-ec82-98b9-74f5cf513c52': 'f0b8b62c-8a08-4531-84b7-6c8c24ac75cc', // ASC SFA CS Playground
+}
+
 export const FALLBACK_ENVIRONMENT_ID: string =
   import.meta.env.VITE_ENVIRONMENT_ID ?? DEFAULT_ENVIRONMENT_ID
 

@@ -11,9 +11,16 @@ const env = (over: Partial<EnvironmentDef> = {}): EnvironmentDef => ({
   ...over,
 })
 
-/** Find one matrix row by its label. */
-const row = (envs: EnvironmentDef[], label: string) =>
-  buildEnvLinkRows(envs).find((r) => r.label === label)!
+const ENV_ID = '431783f6-367c-eb49-984b-4e70e4c0424d'
+const ORG_ID = 'b0e2d4f1-4883-ee11-8172-00224888964f'
+const ORG_MAP = { [ENV_ID]: ORG_ID }
+
+/** Find one matrix row by its label (org-id map optional). */
+const row = (
+  envs: EnvironmentDef[],
+  label: string,
+  orgMap: Record<string, string> = ORG_MAP,
+) => buildEnvLinkRows(envs, orgMap).find((r) => r.label === label)!
 
 describe('buildEnvLinkRows', () => {
   it('groups rows into System / Maker / Admin in that order', () => {
@@ -51,21 +58,32 @@ describe('buildEnvLinkRows', () => {
     )
   })
 
-  it('builds maker and admin deep links from the environment id (no /environment/ segment)', () => {
-    const id = '431783f6-367c-eb49-984b-4e70e4c0424d'
+  it('builds maker deep links from the environment id', () => {
     expect(row([env()], 'Maker — Solutions').urls[0]).toBe(
-      `https://make.powerapps.com/environments/${id}/solutions`,
+      `https://make.powerapps.com/environments/${ENV_ID}/solutions`,
     )
+  })
+
+  it('builds admin-center links from the ORG id (no /environment/ segment)', () => {
     expect(row([env()], 'Environment Hub').urls[0]).toBe(
-      `https://admin.powerplatform.microsoft.com/manage/environments/${id}/hub`,
+      `https://admin.powerplatform.microsoft.com/manage/environments/${ORG_ID}/hub`,
     )
     expect(row([env()], 'Backup & Restore').urls[0]).toBe(
-      `https://admin.powerplatform.microsoft.com/manage/environments/${id}/backupandrestore`,
+      `https://admin.powerplatform.microsoft.com/manage/environments/${ORG_ID}/backupandrestore`,
+    )
+  })
+
+  it('omits admin-center links when the environment has no org-id mapping', () => {
+    // env id present, but not in the org-id map → admin cells are null
+    expect(row([env()], 'Environment Hub', {}).urls[0]).toBeNull()
+    // maker link still resolves from the env id
+    expect(row([env()], 'Maker — Home', {}).urls[0]).toBe(
+      `https://make.powerapps.com/environments/${ENV_ID}/home`,
     )
   })
 
   it('yields null cells when the url / id are missing', () => {
-    const rows = buildEnvLinkRows([env({ url: '', environmentId: '' })])
+    const rows = buildEnvLinkRows([env({ url: '', environmentId: '' })], ORG_MAP)
     expect(rows.find((r) => r.label === 'OData / Web API v9.2')!.urls[0]).toBeNull()
     expect(rows.find((r) => r.label === 'Environment Hub')!.urls[0]).toBeNull()
   })

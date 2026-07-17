@@ -6491,30 +6491,45 @@
   display: block;
   margin-top: 2px;
 }
+.links-th-env,
 .links-cell {
-  text-align: center;
+  min-width: 150px;
 }
 .links-cell-inner {
-  display: inline-flex;
+  display: flex;
   gap: 6px;
-  align-items: center;
+  align-items: stretch;
+  width: 100%;
 }
 .links-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 34px;
+  padding: 0 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: #0f6cbd;
+  font-weight: 500;
   text-decoration: none;
   font-size: 14px;
   line-height: 1;
 }
 .links-open:hover {
-  border-color: var(--muted);
-  background: rgba(15, 108, 189, 0.06);
+  border-color: #0f6cbd;
+  background: rgba(15, 108, 189, 0.08);
+}
+.links-open-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.links-cell-inner .links-copy {
+  height: 34px;
+  width: 34px;
 }
 .links-empty {
   color: var(--muted);

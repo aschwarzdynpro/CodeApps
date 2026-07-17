@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { ENVIRONMENTS } from '../config'
+import { ENVIRONMENTS, ORGANIZATION_ID_BY_ENVIRONMENT_ID } from '../config'
 import {
   buildEnvLinkRows,
   buildGlobalLinks,
@@ -52,7 +52,7 @@ function GlobalLinkRow({ item }: { item: LinkItem }) {
   )
 }
 
-/** One matrix cell: an open-in-new-tab affordance plus a copy button. */
+/** One matrix cell: a wide open-in-new-tab button plus a copy button. */
 function LinkCell({ url, label }: { url: string; label: string }) {
   return (
     <span className="links-cell-inner">
@@ -64,7 +64,8 @@ function LinkCell({ url, label }: { url: string; label: string }) {
         title={url}
         aria-label={`Open ${label}`}
       >
-        ↗
+        <span className="links-open-text">Open</span>
+        <span aria-hidden="true">↗</span>
       </a>
       <CopyButton url={url} />
     </span>
@@ -80,7 +81,7 @@ function LinkCell({ url, label }: { url: string; label: string }) {
  */
 export function LinksWorkspace() {
   const envs = ENVIRONMENTS
-  const rows = buildEnvLinkRows(envs)
+  const rows = buildEnvLinkRows(envs, ORGANIZATION_ID_BY_ENVIRONMENT_ID)
   const globals = buildGlobalLinks()
 
   return (
