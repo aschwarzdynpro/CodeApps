@@ -2,25 +2,22 @@ import { describe, expect, it } from 'vitest'
 import { buildEnvLinkRows, buildGlobalLinks, ENV_LINK_GROUPS } from './envLinks'
 import type { EnvironmentDef } from '../types/comparison'
 
+const ENV_ID = '431783f6-367c-eb49-984b-4e70e4c0424d'
+const ORG_ID = 'b0e2d4f1-4883-ee11-8172-00224888964f'
+
 const env = (over: Partial<EnvironmentDef> = {}): EnvironmentDef => ({
   key: 'dev',
   label: 'INT-11 · current',
   url: 'https://operations-d365-schulz-int-11.crm4.dynamics.com',
-  environmentId: '431783f6-367c-eb49-984b-4e70e4c0424d',
+  environmentId: ENV_ID,
+  organizationId: ORG_ID,
   isCurrent: true,
   ...over,
 })
 
-const ENV_ID = '431783f6-367c-eb49-984b-4e70e4c0424d'
-const ORG_ID = 'b0e2d4f1-4883-ee11-8172-00224888964f'
-const ORG_MAP = { [ENV_ID]: ORG_ID }
-
-/** Find one matrix row by its label (org-id map optional). */
-const row = (
-  envs: EnvironmentDef[],
-  label: string,
-  orgMap: Record<string, string> = ORG_MAP,
-) => buildEnvLinkRows(envs, orgMap).find((r) => r.label === label)!
+/** Find one matrix row by its label. */
+const row = (envs: EnvironmentDef[], label: string) =>
+  buildEnvLinkRows(envs).find((r) => r.label === label)!
 
 describe('buildEnvLinkRows', () => {
   it('groups rows into System / Maker / Admin in that order', () => {
@@ -73,17 +70,19 @@ describe('buildEnvLinkRows', () => {
     )
   })
 
-  it('omits admin-center links when the environment has no org-id mapping', () => {
-    // env id present, but not in the org-id map → admin cells are null
-    expect(row([env()], 'Environment Hub', {}).urls[0]).toBeNull()
+  it('omits admin-center links when the environment has no organizationId', () => {
+    // env id present but org id missing → admin cells are null
+    expect(row([env({ organizationId: '' })], 'Environment Hub').urls[0]).toBeNull()
     // maker link still resolves from the env id
-    expect(row([env()], 'Maker — Home', {}).urls[0]).toBe(
+    expect(row([env({ organizationId: '' })], 'Maker — Home').urls[0]).toBe(
       `https://make.powerapps.com/environments/${ENV_ID}/home`,
     )
   })
 
-  it('yields null cells when the url / id are missing', () => {
-    const rows = buildEnvLinkRows([env({ url: '', environmentId: '' })], ORG_MAP)
+  it('yields null cells when url / id / org id are missing', () => {
+    const rows = buildEnvLinkRows([
+      env({ url: '', environmentId: '', organizationId: '' }),
+    ])
     expect(rows.find((r) => r.label === 'OData / Web API v9.2')!.urls[0]).toBeNull()
     expect(rows.find((r) => r.label === 'Environment Hub')!.urls[0]).toBeNull()
   })

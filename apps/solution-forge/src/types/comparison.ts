@@ -12,6 +12,12 @@ export interface EnvironmentDef {
   /** Dataverse org URL, e.g. https://org.crm4.dynamics.com (no trailing /). */
   url: string
   environmentId: string
+  /**
+   * Dataverse organization id — the id the Power Platform admin center keys on
+   * (distinct from the environment id). Read from `pro_environmentconfig`
+   * (`pro_organizationid`); optional because older config rows may not have it.
+   */
+  organizationId?: string
   /** True for the environment hosting this app. */
   isCurrent?: boolean
 }

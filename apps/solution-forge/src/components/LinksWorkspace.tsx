@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { ENVIRONMENTS, ORGANIZATION_ID_BY_ENVIRONMENT_ID } from '../config'
+import { ENVIRONMENTS } from '../config'
 import {
   buildEnvLinkRows,
   buildGlobalLinks,
@@ -81,7 +81,7 @@ function LinkCell({ url, label }: { url: string; label: string }) {
  */
 export function LinksWorkspace() {
   const envs = ENVIRONMENTS
-  const rows = buildEnvLinkRows(envs, ORGANIZATION_ID_BY_ENVIRONMENT_ID)
+  const rows = buildEnvLinkRows(envs)
   const globals = buildGlobalLinks()
 
   return (

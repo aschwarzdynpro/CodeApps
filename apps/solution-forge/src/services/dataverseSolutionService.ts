@@ -821,6 +821,7 @@ export class DataverseSolutionService implements SolutionService {
           'pro_name',
           'pro_url',
           'pro_environmentid',
+          'pro_organizationid',
           'pro_iscurrent',
           'pro_order_int',
         ],
@@ -830,6 +831,7 @@ export class DataverseSolutionService implements SolutionService {
         pro_name?: string
         pro_url?: string
         pro_environmentid?: string
+        pro_organizationid?: string
         pro_iscurrent?: boolean
         pro_order_int?: number
       }>
@@ -847,6 +849,7 @@ export class DataverseSolutionService implements SolutionService {
           label: r.pro_name ?? r.pro_key ?? 'Environment',
           url: (r.pro_url ?? '').replace(/\/+$/, ''),
           environmentId: r.pro_environmentid ?? '',
+          organizationId: r.pro_organizationid ?? '',
           isCurrent: !!r.pro_iscurrent,
         }))
       if (envs.length > 0) cfg.environments = envs

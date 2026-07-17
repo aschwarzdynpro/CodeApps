@@ -161,15 +161,11 @@ const ENV_LINK_SPECS: EnvLinkSpec[] = [
 /**
  * Build the per-environment link matrix: one row per link kind, each carrying
  * the URL for every input environment (aligned to `envs`). Pure — the Links
- * workspace renders `envs` as columns and these rows as the table body.
- * `orgIdByEnvId` maps a Power Platform environment id to its Dataverse
- * organization id (for the admin-center links); environments without an entry
- * simply get no admin links.
+ * workspace renders `envs` as columns and these rows as the table body. The
+ * admin-center links use each environment's `organizationId` (read from
+ * `pro_environmentconfig`); environments without one simply get no admin links.
  */
-export function buildEnvLinkRows(
-  envs: EnvironmentDef[],
-  orgIdByEnvId: Record<string, string> = {},
-): EnvLinkRow[] {
+export function buildEnvLinkRows(envs: EnvironmentDef[]): EnvLinkRow[] {
   return ENV_LINK_SPECS.map((spec) => ({
     group: spec.group,
     label: spec.label,
@@ -178,7 +174,7 @@ export function buildEnvLinkRows(
       spec.build({
         url: trimUrl(e.url),
         envId: e.environmentId,
-        orgId: orgIdByEnvId[e.environmentId] ?? '',
+        orgId: e.organizationId ?? '',
       }),
     ),
   }))
