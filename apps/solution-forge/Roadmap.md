@@ -92,6 +92,14 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
 
 ## Team & Komfort
 
+- [x] **Environment-Links (Referenz)**: eigener Menüpunkt mit den ständig
+      gebrauchten URLs — **je Umgebung** (System-App, OData/Web API,
+      Diagnostics, classic Advanced Settings/Rollen/Systemaufträge, Maker &
+      Power Automate, PPAC Hub/Settings/Backup) plus **globalem** Block (Admin
+      Center, Capacity, Release Planner, Service Health). Rein aus der
+      Env-Konfiguration abgeleitet — kein Datenpfad, kein Connector, kein
+      Gating; „open in new tab" + Copy-Button. *(Menüpunkt „Links",
+      Reference-Gruppe; Builder `utils/envLinks.ts`, Vitest-getestet)*
 - [x] **Merge-Historie als Tabelle** (statt nur „letzter Merge") — Grundlage
       für die Release Notes. *(Tabelle `pro_mergerun`, Detail-Panel der
       Release-Solution)*

@@ -28,6 +28,7 @@ import { PluginComparerWorkspace } from './components/PluginComparerWorkspace'
 import { TraceExplorer } from './components/TraceExplorer'
 import { JobMonitor } from './components/JobMonitor'
 import { RoleAnalyzer } from './components/RoleAnalyzer'
+import { LinksWorkspace } from './components/LinksWorkspace'
 // ALM Detective is temporarily hidden from the UI — component + service
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
 import { HelpPanel } from './components/HelpPanel'
@@ -72,6 +73,7 @@ type Tab =
   | 'traces'
   | 'jobs'
   | 'roles'
+  | 'links'
 
 interface NavItem {
   key: Tab
@@ -142,6 +144,12 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       // { key: 'roles', label: '[PREVIEW] Role Analyzer', icon: '🛡', gated: true },
     ],
   },
+  {
+    // Static reference links (portals + per-environment deep links); no data
+    // load, no gating — derived from the environment configuration.
+    label: 'Reference',
+    items: [{ key: 'links', label: 'Links', icon: '🔗', gated: false }],
+  },
 ]
 
 /** Heading shown in the content header per section. */
@@ -163,6 +171,7 @@ const TAB_TITLES: Record<Tab, string> = {
   traces: 'Plugin Trace Explorer',
   jobs: '[PREVIEW] Async Job / Flow Monitor',
   roles: '[PREVIEW] Security Role Analyzer',
+  links: 'Environment Links',
 }
 
 /**
@@ -1432,6 +1441,9 @@ function App() {
           canManage={isDeploymentManager}
         />
       )}
+
+      {/* Reference links — independent of the solutions list. */}
+      {!error && tab === 'links' && <LinksWorkspace />}
         </main>
       </div>
 
