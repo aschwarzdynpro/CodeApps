@@ -34,6 +34,7 @@ import type { RuntimeConfig } from '../config'
 import type { EnvKey } from '../types/comparison'
 import { RetrieveMissingDependenciesService } from './retrieveMissingDependenciesService'
 import { LAYER_IGNORED_TYPES, layerComponentNames } from './componentLayerNames'
+import { connectionReferenceTypeCode } from './componentTypeCodes'
 import type {
   DependencyCheckResult,
   DependencyItem,
@@ -158,11 +159,14 @@ const COMPONENT_TYPE_LABELS: Record<number, string> = {
   381: 'Environment Variable Value',
   // Connection reference is a newer component NOT in the classic componenttype
   // optionset; solutioncomponent.componenttype (and RetrieveMissingDependencies)
-  // store it as 10064 (372 is wrong — see DEPENDENCY_SPECS).
+  // store it under the connectionreference table's per-ENVIRONMENT entity-type
+  // code (10064 at Schulz, 10093 at Waldmann — 372 is wrong, see DEPENDENCY_SPECS
+  // + gotcha #13). This 10064 label is only the Schulz value; checkDependencies
+  // adds the live-resolved code (connectionReferenceTypeCode) at runtime.
   10064: 'Connection Reference',
-  // Solution Component Framework types (codes > 10000) are NOT hard-listed
-  // here — they're resolved generically from solutioncomponentdefinition
-  // (see resolveScfTypeNames / layerComponentNames).
+  // Solution Component Framework types (codes > 10000) are per-environment and
+  // NOT hard-listed here — resolved live from solutioncomponentdefinition
+  // (see componentTypeCodes / layerComponentNames).
 }
 
 /**
@@ -339,11 +343,13 @@ const DEPENDENCY_SPECS: Record<number, DependencySpec> = {
     displayField: 'name',
     matchField: 'name',
   },
-  // Connection reference — the platform stores componenttype 10064 (the value
-  // RetrieveMissingDependencies returns and the merge/layer code uses). 372 is
-  // kept defensively but is not what real rows carry. Both map to the same
-  // table, matched cross-env by the connection reference's logical name (the
-  // flows that depend on it fail the import when it's absent).
+  // Connection reference — componenttype is per-ENVIRONMENT (10064 at Schulz,
+  // 10093 at Waldmann where 10064 is `appsetting`; see gotcha #13). This 10064
+  // entry is the spec template; checkDependencies re-keys it under the code
+  // resolved live via connectionReferenceTypeCode() for the host env. 372 is
+  // kept defensively but is not what real rows carry. All map to the same table,
+  // matched cross-env by the connection reference's logical name (the flows that
+  // depend on it fail the import when it's absent).
   372: {
     entitySet: 'connectionreferences',
     idField: 'connectionreferenceid',
@@ -1426,6 +1432,23 @@ export class DataverseSolutionService implements SolutionService {
     if (!env) throw new Error(`Unknown environment ${envKey}`)
     const orgUrl = env.url.replace(/\/+$/, '')
 
+    // Connection references (and other Solution-Component-Framework types) have
+    // NO fixed componenttype — the code is the per-environment entity-type code
+    // of the underlying table (10064 at Schulz, 10093 at Waldmann, where 10064 is
+    // `appsetting`; see gotcha #13). Resolve it live so those dependencies get a
+    // real label AND are verified against the target instead of landing in the
+    // "could not verify" bucket. Local copies of the spec/label maps augmented
+    // with the resolved code; the classic 10064 entry stays for orgs where that
+    // genuinely is the connection-reference code, and a failed lookup simply
+    // leaves connection references "unknown" (never a false verdict).
+    const connRefCode = await connectionReferenceTypeCode()
+    const specs: Record<number, DependencySpec> = { ...DEPENDENCY_SPECS }
+    const labels: Record<number, string> = { ...COMPONENT_TYPE_LABELS }
+    if (connRefCode && !specs[connRefCode]) {
+      specs[connRefCode] = DEPENDENCY_SPECS[10064]
+      labels[connRefCode] = 'Connection Reference'
+    }
+
     onProgress?.('Retrieving missing dependencies…')
     const result =
       await RetrieveMissingDependenciesService.RetrieveMissingDependencies(
@@ -1465,11 +1488,11 @@ export class DataverseSolutionService implements SolutionService {
     const lookupWarnings: string[] = []
     let targetUnreachable = false
     for (const [type, idSet] of idsByType) {
-      const spec = DEPENDENCY_SPECS[type]
+      const spec = specs[type]
       if (!spec) continue // metadata type — stays "unknown"
       const ids = [...idSet]
       const label =
-        COMPONENT_TYPE_LABELS[type] ?? `type ${type}`
+        labels[type] ?? `type ${type}`
       onProgress?.(`Checking ${label} (${ids.length})…`)
       let current = new Map<string, { name: string; matchKey?: string }>()
       try {
@@ -1553,7 +1576,7 @@ export class DataverseSolutionService implements SolutionService {
     const typeNameOf = (row: Row, column: string, code: number): string =>
       prettifyTypeName(
         formatted(row, column) ??
-          COMPONENT_TYPE_LABELS[code] ??
+          labels[code] ??
           `Type ${code}`,
       )
 
@@ -1943,15 +1966,21 @@ export class DataverseSolutionService implements SolutionService {
     if (!env) throw new Error(`Unknown environment ${envKey}`)
     const orgUrl = env.url.replace(/\/+$/, '')
 
-    const [allComponents, typeNames] = await Promise.all([
+    const [allComponents, typeNames, connRefCode] = await Promise.all([
       this.listComponents(solution.id),
       layerComponentNames(),
+      // Host env codes — listComponents reads the solution in the host.
+      connectionReferenceTypeCode(),
     ])
     // Environment variables and connection references carry an unmanaged
     // (Active) layer by design, so they'd only be false positives — skip them.
-    const components = allComponents.filter(
-      (c) => !LAYER_IGNORED_TYPES.has(c.typeCode),
-    )
+    // The connection-reference componenttype is per-environment (10064/10093);
+    // add the resolved code so it's skipped wherever it differs from 10064.
+    const ignored =
+      connRefCode && !LAYER_IGNORED_TYPES.has(connRefCode)
+        ? new Set<number>([...LAYER_IGNORED_TYPES, connRefCode])
+        : LAYER_IGNORED_TYPES
+    const components = allComponents.filter((c) => !ignored.has(c.typeCode))
 
     // Maker-portal "solution layers" deep-link path per component (needs a
     // couple of sub-type lookups for canvas apps / processes).

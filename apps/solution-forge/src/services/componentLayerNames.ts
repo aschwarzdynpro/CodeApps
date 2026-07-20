@@ -42,8 +42,11 @@ const LAYER_COMPONENT_NAMES: Record<number, string> = {
  * Component types the Layer Inspector skips outright: their unmanaged
  * "Active" layer is by design, not drift, so inspecting them only yields
  * false positives. Environment variable definition (380) / value (381) keep
- * their current value in the unmanaged layer; connection references (10064)
- * bind unmanaged the same way. (Values verified from solutioncomponentdefinition.)
+ * their current value in the unmanaged layer; connection references bind
+ * unmanaged the same way. NOTE: the connection-reference componenttype is
+ * per-environment (10064 at Schulz, 10093 at Waldmann — see gotcha #13), so
+ * 10064 here is only the Schulz value; callers additionally skip the code
+ * resolved live via `connectionReferenceTypeCode()`.
  */
 export const LAYER_IGNORED_TYPES = new Set<number>([380, 381, 10064])
 

@@ -14,6 +14,7 @@ import { powerModeReady } from '../PowerProvider'
 import { ENVIRONMENTS } from '../config'
 import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
 import { currentOrgUrl, fetchXmlAllPages } from './currentEnvQuery'
+import { connectionReferenceTypeCode } from './componentTypeCodes'
 
 type Row = Record<string, unknown>
 const str = (v: unknown): string => (typeof v === 'string' ? v : '')
@@ -62,10 +63,16 @@ interface EnvSnapshot {
   connIdToLogical: Map<string, string> // connectionreferenceid → logical
 }
 
-/** Component-type codes as they appear in `solutioncomponent`. */
+/**
+ * Component-type codes as they appear in `solutioncomponent`. Env-var
+ * definition/value (380/381) are stable across environments; the connection
+ * reference code is NOT (10064 at one customer, 10093 at another — see
+ * gotcha #13), so it's resolved live per host env and this stays only as the
+ * fallback when the definition table can't be read.
+ */
 const CT_ENV_VAR_DEFINITION = 380
 const CT_ENV_VAR_VALUE = 381
-const CT_CONNECTION_REFERENCE = 10064
+const CT_CONNECTION_REFERENCE_FALLBACK = 10064
 
 /**
  * Real implementation of {@link EnvConfigService}. Queries every configured
@@ -180,6 +187,12 @@ class DataverseEnvConfigService implements EnvConfigService {
       throw new Error(
         `solution "${uniqueName}" was not found in the host environment`,
       )
+    // Per-environment connection-reference componenttype (see gotcha #13):
+    // hardcoding 10064 returned an empty list at Waldmann, where the code is
+    // 10093 (10064 is `appsetting` there). Resolve it for the host env.
+    const connRefType =
+      (await connectionReferenceTypeCode(hostUrl)) ??
+      CT_CONNECTION_REFERENCE_FALLBACK
     const comps = await this.query(
       hostUrl,
       'solutioncomponents',
@@ -197,7 +210,7 @@ class DataverseEnvConfigService implements EnvConfigService {
       } else if (type === CT_ENV_VAR_VALUE) {
         const s = host.valueIdToSchema.get(oid)
         if (s) schemas.add(s)
-      } else if (type === CT_CONNECTION_REFERENCE) {
+      } else if (type === connRefType) {
         const l = host.connIdToLogical.get(oid)
         if (l) logicals.add(l)
       }

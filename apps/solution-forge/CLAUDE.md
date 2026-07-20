@@ -649,9 +649,18 @@ sync (`formatRelative(loadedAt)`) + Refresh (re-run compare). ⚠ `set`-in-effec
     Import trotz „grün" nicht (fehlend: Spalte type **2**, PCF-Control type
     **66**, Connection Reference). Grün nur bei **0 missing UND 0 unknown**;
     `unknown` kommt in einen eigenen „could not verify"-Abschnitt (mit „Add to
-    Solution"). **Connection Reference = componenttype `10064`** (NICHT 372 — das
-    war der Bug); der Wert, den `RetrieveMissingDependencies`/`solutioncomponent`
-    liefern (deckt sich mit Merge/Layer-Inspector). Custom Control = `66`.
+    Solution"). Custom Control = `66`.
+    **⚠ Connection Reference hat KEINEN festen componenttype — er ist der
+    per-Environment vergebene Entity-Type-Code (ETC) der `connectionreference`-
+    Tabelle.** Bei Schulz zufällig `10064`, bei Waldmann `10093` (dort ist
+    `10064` = `appsetting`!). Live verifiziert via `solutioncomponentdefinition`
+    (`primaryentityname` → `solutioncomponenttype`). Deshalb NIE hartkodieren:
+    `connectionReferenceTypeCode()` (`services/componentTypeCodes.ts`) löst den
+    Code je Host-Env auf und cacht ihn; `checkDependencies`, der Env-Config-
+    Solution-Filter (`dataverseEnvConfigService`) und der Layer-Inspector-Ignore-
+    Set nutzen ihn (statt `10064`). 372 war schon immer falsch. Symptom des alten
+    Bugs bei Waldmann: 71 Connection References als „Type 10093" im „could not
+    verify"-Topf; Env Config zeigte bei Solution-Filter 0 Connection References.
     **Metadaten-Typen ohne Spec werden jetzt per Namen echt geprüft**
     (`resolveMetadataDeps`): die import-stabile Identität wird im Current-Env
     aufgelöst (Column 2 → `entity.attribut`-LogicalName via `EntityDefinitions`
