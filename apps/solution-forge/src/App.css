@@ -6538,3 +6538,61 @@
 .links-row-tr:hover .links-cell-label {
   background: rgba(0, 0, 0, 0.02);
 }
+
+/* Penalty-game overlay — shown over a running Flow Comparer bulk update
+   (GameOverlay.tsx). Uses the shared `.modal-backdrop`; the card centres a
+   progress header above the self-contained mini-game. */
+.game-overlay-backdrop {
+  align-items: center;
+  z-index: 60;
+}
+.game-overlay-card {
+  width: 100%;
+  max-width: 900px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 24px 70px -20px rgba(16, 24, 40, 0.5);
+}
+.game-overlay-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+.game-overlay-progress {
+  flex: 1;
+  min-width: 0;
+}
+.game-overlay-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.game-overlay-title {
+  font-size: 15px;
+}
+.game-overlay-pct {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 13px;
+}
+.game-overlay-label {
+  margin-top: 6px;
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.game-overlay-minimize {
+  flex: none;
+  white-space: nowrap;
+}
+.game-overlay-hint {
+  margin: 2px 0 14px;
+  font-size: 12.5px;
+}

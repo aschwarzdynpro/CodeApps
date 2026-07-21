@@ -13,6 +13,7 @@ import { SolutionSelect } from './SolutionSelect'
 import { ComparerMatrix } from './ComparerMatrix'
 import { ConfirmDialog } from './ConfirmDialog'
 import { UserPickerDialog } from './UserPickerDialog'
+import { GameOverlay } from './GameOverlay'
 
 interface Props {
   solutions: WorkingSolution[]
@@ -96,6 +97,9 @@ export function ComparerWorkspace({
   const [bulkEnv, setBulkEnv] = useState<string>(hostKey)
   const [bulkPending, setBulkPending] = useState<BulkAction | null>(null)
   const [pickingOwner, setPickingOwner] = useState(false)
+  // The penalty-game overlay shown over a running bulk update — opened when a
+  // bulk run starts, dismissible ("continue in background") while it runs on.
+  const [showGame, setShowGame] = useState(false)
 
   const solution = releases.find((s) => s.id === run.solutionId) ?? null
 
@@ -582,6 +586,7 @@ export function ComparerWorkspace({
             const rows = selectedShown
             setBulkPending(null)
             setSelected(new Set())
+            setShowGame(true)
             run.startBulk({
               action,
               rows,
@@ -623,6 +628,16 @@ export function ComparerWorkspace({
               )}
             </>
           }
+        />
+      )}
+
+      {enableBulk && bulk?.running && showGame && (
+        <GameOverlay
+          title={`Bulk update in ${bulk.targetEnvLabel}`}
+          label={bulk.label}
+          done={bulk.done}
+          total={bulk.total}
+          onMinimize={() => setShowGame(false)}
         />
       )}
     </div>
