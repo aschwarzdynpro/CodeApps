@@ -14,27 +14,36 @@ export interface ProcessType {
   category: number
   /** Plural group-header label (also shown in the "Group by" dropdown). */
   label: string
+  /** Emoji marker shown per row (and in the group header) for this kind. */
+  icon: string
 }
 
 /** Ordered most-common first — this is also the group order in the matrix. */
 export const PROCESS_TYPES: ProcessType[] = [
-  { category: 5, label: 'Cloud flows' },
-  { category: 0, label: 'Workflows' },
-  { category: 2, label: 'Business rules' },
-  { category: 3, label: 'Actions' },
-  { category: 4, label: 'Business process flows' },
-  { category: 6, label: 'Desktop flows' },
-  { category: 1, label: 'Dialogs' },
+  { category: 5, label: 'Cloud flows', icon: '☁️' },
+  { category: 0, label: 'Workflows', icon: '⚙️' },
+  { category: 2, label: 'Business rules', icon: '📏' },
+  { category: 3, label: 'Actions', icon: '⚡' },
+  { category: 4, label: 'Business process flows', icon: '🧭' },
+  { category: 6, label: 'Desktop flows', icon: '🖥️' },
+  { category: 1, label: 'Dialogs', icon: '💬' },
 ]
 
 /** Label used for any category not in {@link PROCESS_TYPES}. */
 export const OTHER_PROCESSES = 'Other processes'
+/** Icon used for any category not in {@link PROCESS_TYPES}. */
+export const OTHER_PROCESSES_ICON = '🔧'
 
-const BY_CATEGORY = new Map(PROCESS_TYPES.map((p) => [p.category, p.label]))
+const BY_CATEGORY = new Map(PROCESS_TYPES.map((p) => [p.category, p]))
 
 /** Group-header label for a workflow category; unknown → "Other processes". */
 export function processTypeLabel(category: number): string {
-  return BY_CATEGORY.get(category) ?? OTHER_PROCESSES
+  return BY_CATEGORY.get(category)?.label ?? OTHER_PROCESSES
+}
+
+/** Emoji marker for a workflow category; unknown → the wrench fallback. */
+export function processTypeIcon(category: number): string {
+  return BY_CATEGORY.get(category)?.icon ?? OTHER_PROCESSES_ICON
 }
 
 /** Preferred group order for the "process type" grouping (label values). */

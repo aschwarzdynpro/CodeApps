@@ -761,6 +761,12 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 drift.
               </li>
               <li>
+                Every row is <strong>marked with a process-type icon</strong> —
+                ☁️ cloud flow, ⚙️ workflow, 📏 business rule, ⚡ action, 🧭
+                business process flow — so the kind is obvious even in a flat or
+                area-grouped list.
+              </li>
+              <li>
                 A <strong>Definition</strong> switch (next to Compare) chooses
                 what drift is measured against. The definition source is{' '}
                 <strong>configurable in the Workbench Settings</strong> (a table

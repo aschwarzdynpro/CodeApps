@@ -7,6 +7,7 @@ import type {
 import { cellHasDrift, rowHasDrift } from '../types/comparer'
 import { ENVIRONMENTS } from '../config'
 import { formatRelative } from '../utils/format'
+import { processTypeIcon } from '../utils/processType'
 
 /** A power (on/off) glyph so the action button reads as a control, not a badge. */
 const PowerIcon = () => (
@@ -124,6 +125,16 @@ export function ComparerMatrix({
         )}
         <td className="cmp-item">
           <div className="cmp-item-name" title={row.name}>
+            {row.processCategory !== undefined && (
+              <span
+                className="cmp-type-icon"
+                role="img"
+                aria-label={row.processType}
+                title={`Process type: ${row.processType}`}
+              >
+                {processTypeIcon(row.processCategory)}
+              </span>
+            )}
             {row.name}
             {drift && (
               <span className="cmp-mark cmp-mark--drift" title={driftTitle}>
@@ -330,6 +341,15 @@ export function ComparerMatrix({
             groups.map((g) => {
               const open = !collapsed[g.key]
               const driftInGroup = g.rows.filter((r) => r.statusDrift).length
+              // Show the type icon in the header only when this is a process-type
+              // group (the group key equals the rows' process-type label) — not
+              // for area / assembly grouping.
+              const head = g.rows[0]
+              const headIcon =
+                head?.processCategory !== undefined &&
+                head.processType === g.key
+                  ? processTypeIcon(head.processCategory)
+                  : undefined
               return (
                 <Fragment key={`g:${g.key}`}>
                   <tr className="cmp-group-head">
@@ -346,6 +366,11 @@ export function ComparerMatrix({
                         >
                           ▸
                         </span>
+                        {headIcon && (
+                          <span className="cmp-group-icon" aria-hidden="true">
+                            {headIcon}
+                          </span>
+                        )}
                         <span className="cmp-group-name">{g.key}</span>
                         <span className="muted">({g.rows.length})</span>
                         {driftInGroup > 0 && (

@@ -387,7 +387,10 @@ EIN Turn-On/Off alle ab) → dieselben Items **je Ziel-Env über die import-stab
 objectId** (`workflowid`/`sdkmessageprocessingstepid`) nachschlagen → Matrix je
 Umgebung (Status + Version), Ziel-Zellen mit Status ≠ Host **gehighlightet**.
 Die `category` wird je Zeile gelesen → `processType`/`processCategory` auf
-`ComparerRow` (`utils/processType.ts`, `processTypeLabel`/`PROCESS_TYPE_ORDER`);
+`ComparerRow` (`utils/processType.ts`, `processTypeLabel`/`processTypeIcon`/
+`PROCESS_TYPE_ORDER`); jede Zeile trägt ein **Typ-Icon** (`.cmp-type-icon`, ☁️/⚙️/
+📏/⚡/🧭), das der Prozessart-Gruppenheader spiegelt (`.cmp-group-icon`, nur wenn
+`g.key === row.processType`);
 **Deep-Link (`flowDetailsUrl`) nur für Cloud Flows** (category 5) — die anderen
 Prozessarten haben keine Einzelsatz-Portal-URL, ihre Zellen tragen keinen ↗. **Geteilte Bausteine:** `types/comparer.ts`
 (`ComparerResult`/`ComparerRow`/`ComparerEnvState` + `recomputeDrift`),
