@@ -35,6 +35,11 @@ export interface ComparerRow {
   uniqueId?: string
   /** Secondary line / grouping dimension (flow: area; step: assembly name). */
   subtitle?: string
+  /** Raw `workflow.category` (flows only) — the process kind, for grouping/sort. */
+  processCategory?: number
+  /** Human process-type label (flows only), e.g. "Cloud flows" / "Business
+   *  rules" — the default grouping dimension for the Flow Comparer. */
+  processType?: string
   /** Keyed by environment key; null = the environment could not be read. */
   byEnv: Record<string, ComparerEnvState | null>
   /** A target environment's on/off differs from the host. */

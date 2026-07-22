@@ -374,14 +374,22 @@ Per-Env-Import-Fehler landen in einem Hinweis-Banner statt zu werfen. Der
 Import-History-Mock hat env-spezifische `deploy_sprint_12`-Jobs (UAT ok,
 PROD failed), damit die Timeline offline demobar ist.
 
-**Flow Comparer / Plugin Comparer** (Validate-Gruppe, gated, Menüpunkte „Flow
-Comparer"/„Plugin Comparer"): eine **schreibende** Cross-Env-Matrix. Release-
-Solution wählen → deren Flows (`workflow` category=5) bzw. Plugin-Steps
-(`sdkmessageprocessingstep`) im **Host** lesen (Solution-Membership via
-`solutioncomponent`-Link-Entity, Typ 29 bzw. 92) → dieselben Items **je Ziel-Env
-über die import-stabile objectId** (`workflowid`/`sdkmessageprocessingstepid`)
-nachschlagen → Matrix je Umgebung (Status + Version), Ziel-Zellen mit Status ≠
-Host **gehighlightet**. **Geteilte Bausteine:** `types/comparer.ts`
+**Process Comparer / Plugin Comparer** (Validate-Gruppe, gated, Menüpunkte
+„Process Comparer"/„Plugin Comparer"; Code-Namen bleiben `flow*`/`flowCompare`):
+eine **schreibende** Cross-Env-Matrix. Release-
+Solution wählen → deren **Prozesse** (`workflow`, **ALLE Kategorien** — Cloud
+Flows 5, klassische Workflows 0, Business Rules 2, Actions 3, Business Process
+Flows 4; nur `type=1`-Definitionen, **kein `category`-Filter** mehr) bzw.
+Plugin-Steps (`sdkmessageprocessingstep`) im **Host** lesen (Solution-Membership
+via `solutioncomponent`-Link-Entity, Typ 29 bzw. 92 — **alle Prozessarten teilen
+componenttype 29** und dieselbe statecode-Aktivierung, daher deckt EIN Read +
+EIN Turn-On/Off alle ab) → dieselben Items **je Ziel-Env über die import-stabile
+objectId** (`workflowid`/`sdkmessageprocessingstepid`) nachschlagen → Matrix je
+Umgebung (Status + Version), Ziel-Zellen mit Status ≠ Host **gehighlightet**.
+Die `category` wird je Zeile gelesen → `processType`/`processCategory` auf
+`ComparerRow` (`utils/processType.ts`, `processTypeLabel`/`PROCESS_TYPE_ORDER`);
+**Deep-Link (`flowDetailsUrl`) nur für Cloud Flows** (category 5) — die anderen
+Prozessarten haben keine Einzelsatz-Portal-URL, ihre Zellen tragen keinen ↗. **Geteilte Bausteine:** `types/comparer.ts`
 (`ComparerResult`/`ComparerRow`/`ComparerEnvState` + `recomputeDrift`),
 `components/ComparerMatrix.tsx` + `ComparerWorkspace.tsx` (parametrisiert;
 `FlowComparerWorkspace`/`PluginComparerWorkspace` sind dünne Wrapper). Services:
@@ -419,9 +427,17 @@ vermutet — die Zelle kam als nackte Optionszahl `864640001`). Deshalb löst
 (`attributename eq <areaCol>` → `attributevalue`→`value`; `hso_area` liegt nur
 auf Cloud Flow, daher reicht der attributename-Filter), Sprachwahl **Base-
 Language des Orgs zuerst** (Schulz = 1031, „Sales" statt 1033 „General"), dann
-1033, dann beliebig. Der Label landet als `row.subtitle` und treibt den
-**„Group by area"-Schalter** (erscheint nur, wenn Area-Daten da sind; Default
-an). `pro_flowdefinitionarea`
+1033, dann beliebig. Der Label landet als `row.subtitle`. **Gruppierung ist jetzt
+mehrdimensional** (`ComparerWorkspace` nimmt `groupBys: ComparerGroupBy[]` statt
+des alten `groupByLabel`-Strings): ein **„Group by"-Dropdown** bietet je
+Dimension mit Daten eine Option + „None". Flow Comparer: **`process type`
+(Default, `row.processType`, Reihenfolge `PROCESS_TYPE_ORDER`)** und **`area`
+(`row.subtitle`, nur wenn Area-Daten da)**; Plugin Comparer: `assembly`
+(`row.subtitle`). `ComparerMatrix` bekommt `groupOrder` (Gruppen mit Drift zuerst,
+dann diese Reihenfolge, dann alpha) und zeigt `subtitle` als Zweitzeile **außer**
+wenn subtitle = aktive Gruppendimension (bei Area-/Assembly-Gruppierung ist es
+schon der Header; bei Typ-Gruppierung erscheint die Area weiter als Zeile).
+`pro_flowdefinitionarea`
 wird in `getRuntimeConfig` in **eigenem try/catch** gelesen — fehlt die (neuere)
 Spalte, bleibt nur Area aus, das Definition-Feature NICHT.
 `loadDefinitions(orgUrl, cfg)` liest host-seitig die konfigurierte Tabelle,

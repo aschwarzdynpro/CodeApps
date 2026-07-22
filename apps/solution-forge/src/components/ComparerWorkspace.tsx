@@ -15,16 +15,30 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { UserPickerDialog } from './UserPickerDialog'
 import { GameOverlay } from './GameOverlay'
 
+/** One dimension the rows can be grouped by in the collapsible matrix. */
+export interface ComparerGroupBy {
+  /** Stable key for the <select> option. */
+  key: string
+  /** Human label shown in the "Group by" dropdown (e.g. "process type"). */
+  label: string
+  /** The row's value in this dimension; undefined = not applicable to that row. */
+  get: (row: ComparerRow) => string | undefined
+  /** Preferred order of the group headers (values); groups outside it sort
+   *  after, alphabetically. */
+  order?: string[]
+}
+
 interface Props {
   solutions: WorkingSolution[]
   canManage: boolean
-  /** Singular noun for messages, e.g. "flow" / "plugin step". */
+  /** Singular noun for messages, e.g. "flow" / "process" / "plugin step". */
   noun: string
   /** Plugin steps show a version; flows show the modified time. */
   showVersion: boolean
-  /** When set (e.g. "assembly"), offer a "Group by <label>" toggle that groups
-   *  the rows by their subtitle. */
-  groupByLabel?: string
+  /** Dimensions the rows can be grouped by (collapsible). When more than one has
+   *  data a dropdown lets the user switch; the first with data is the default,
+   *  and "None" turns grouping off. */
+  groupBys?: ComparerGroupBy[]
   /** The run backing this workspace — persistent (Flow) or local (Plugin). */
   run: ComparerRunApi
   /** Single per-cell turn on/off (the bulk path lives inside `run`). */
@@ -52,7 +66,7 @@ export function ComparerWorkspace({
   canManage,
   noun,
   showVersion,
-  groupByLabel,
+  groupBys,
   run,
   setState,
   enableBulk,
@@ -89,7 +103,9 @@ export function ComparerWorkspace({
   const [definitionMode, setDefinitionMode] = useState(true)
   // Filter by the flow's DEFINED status (only used in definition mode).
   const [defStatus, setDefStatus] = useState<'all' | 'on' | 'off'>('all')
-  const [grouped, setGrouped] = useState(true)
+  // Group-by choice: null = use the default (first available dimension),
+  // '' = explicitly no grouping, otherwise a dimension key.
+  const [groupChoice, setGroupChoice] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
   // Multi-select bulk state (selection is local; the run itself is in `run`).
@@ -166,11 +182,25 @@ export function ComparerWorkspace({
     return rows === result.rows ? result : { ...result, rows }
   }, [result, driftOnly, defStatus, driftMode, hostKey, envKeys, q])
 
-  // Grouping is offered only when there's a dimension to group by AND at least
-  // one row carries it (plugin: assembly is always there; flow: only when the
-  // area column is configured and matched), so the toggle never shows an empty
-  // "(no area)" group.
-  const canGroup = !!groupByLabel && !!result?.rows.some((r) => r.subtitle)
+  // Grouping is offered per dimension only when at least one row carries it
+  // (flow: process type is always present; area only when configured + matched;
+  // plugin: assembly is always there), so the dropdown never offers a dimension
+  // that would yield a single empty "(no …)" group.
+  const availableGroupBys = useMemo(
+    () => (groupBys ?? []).filter((g) => result?.rows.some((r) => g.get(r))),
+    [groupBys, result],
+  )
+  // Effective grouping dimension: the user's explicit choice when still
+  // available, an explicit "None" ('') stays off, otherwise the first available.
+  const activeGroup = useMemo(() => {
+    if (availableGroupBys.length === 0) return null
+    if (groupChoice === '') return null
+    if (groupChoice) {
+      const chosen = availableGroupBys.find((g) => g.key === groupChoice)
+      if (chosen) return chosen
+    }
+    return availableGroupBys[0]
+  }, [availableGroupBys, groupChoice])
 
   // Multi-select works against the currently-shown rows, so selection always
   // matches what's visible (hidden-but-selected rows are ignored).
@@ -273,14 +303,20 @@ export function ComparerWorkspace({
               : `Only status drift (${driftCount})`}
           </label>
         )}
-        {canGroup && (
-          <label className="cmp-driftonly">
-            <input
-              type="checkbox"
-              checked={grouped}
-              onChange={(e) => setGrouped(e.target.checked)}
-            />
-            Group by {groupByLabel}
+        {availableGroupBys.length > 0 && (
+          <label className="cmp-groupby">
+            Group by
+            <select
+              value={activeGroup ? activeGroup.key : ''}
+              onChange={(e) => setGroupChoice(e.target.value)}
+            >
+              {availableGroupBys.map((g) => (
+                <option key={g.key} value={g.key}>
+                  {g.label}
+                </option>
+              ))}
+              <option value="">None</option>
+            </select>
           </label>
         )}
         {/* Sync status — last refresh + a manual re-read, shown once loaded. */}
@@ -494,10 +530,11 @@ export function ComparerWorkspace({
             driftMode={driftMode}
             showDefinition={definitionMode}
             groupKey={
-              canGroup && grouped
-                ? (r) => r.subtitle || `(no ${groupByLabel})`
+              activeGroup
+                ? (r) => activeGroup.get(r) || `(no ${activeGroup.label})`
                 : undefined
             }
+            groupOrder={activeGroup?.order}
             onToggle={(env, row, desiredOn) => setPending({ env, row, desiredOn })}
             showOwner={ownerSupport}
             selectable={selectable}

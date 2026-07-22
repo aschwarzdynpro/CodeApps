@@ -43,6 +43,8 @@ interface Props {
   showDefinition: boolean
   /** When set, rows are grouped by this key into collapsible sections. */
   groupKey?: (row: ComparerRow) => string
+  /** Preferred order of group headers; groups outside it sort after, alpha. */
+  groupOrder?: string[]
   onToggle: (
     env: { key: string; label: string },
     row: ComparerRow,
@@ -77,6 +79,7 @@ export function ComparerMatrix({
   driftMode,
   showDefinition,
   groupKey,
+  groupOrder,
   onToggle,
   showOwner,
   selectable,
@@ -128,7 +131,10 @@ export function ComparerMatrix({
               </span>
             )}
           </div>
-          {row.subtitle && !groupKey && (
+          {/* Show the subtitle as a secondary line unless it IS the grouping
+              dimension (then it's already the section header — e.g. area/assembly
+              grouping); when grouping by process type it still shows the area. */}
+          {row.subtitle && (!groupKey || groupKey(row) !== row.subtitle) && (
             <div className="cmp-item-sub muted">{row.subtitle}</div>
           )}
         </td>
@@ -260,10 +266,16 @@ export function ComparerMatrix({
       else byKey.set(k, [row])
     }
     groups.push(...[...byKey.entries()].map(([key, rows]) => ({ key, rows })))
+    // Groups with any drift first, then the caller's preferred order (process
+    // types), then alphabetically for anything unranked.
+    const rank = (key: string): number => {
+      const i = groupOrder ? groupOrder.indexOf(key) : -1
+      return i < 0 ? Number.MAX_SAFE_INTEGER : i
+    }
     groups.sort((a, b) => {
       const da = a.rows.some((r) => r.statusDrift) ? 0 : 1
       const db = b.rows.some((r) => r.statusDrift) ? 0 : 1
-      return da - db || a.key.localeCompare(b.key)
+      return da - db || rank(a.key) - rank(b.key) || a.key.localeCompare(b.key)
     })
   }
 

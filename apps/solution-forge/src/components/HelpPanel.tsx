@@ -731,30 +731,34 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
-            <h3>🔁 Flow Comparer (Validate)</h3>
+            <h3>🔁 Process Comparer (Validate)</h3>
             <ul>
               <li>
                 Pick a <strong>release solution</strong> → <strong>Compare</strong>.
-                Its <strong>cloud flows</strong> are read from the current
-                environment and looked up — by their import-stable id — in every
-                configured environment.
+                Its <strong>processes</strong> — cloud flows, classic workflows,
+                business rules, actions and business process flows — are read from
+                the current environment and looked up, by their import-stable id,
+                in every configured environment.
               </li>
               <li>
-                A <strong>matrix</strong> shows each flow's{' '}
+                A <strong>matrix</strong> shows each process's{' '}
                 <strong>status</strong> (Activated / Draft / Missing) and last
                 change per environment. Only the <strong>cells</strong> that
                 drift are highlighted; the item name carries a{' '}
-                <strong>drift</strong> marker. A filter shows only the flows that
-                break with the reference (off-definition in definition mode,
+                <strong>drift</strong> marker. A filter shows only the processes
+                that break with the reference (off-definition in definition mode,
                 drifting from current otherwise).
               </li>
               <li>
-                A <strong>search box</strong> filters flows by name. When an{' '}
-                <strong>Area</strong> column is configured in the Workbench
-                Settings (an OptionSet on the definition table), its value is
-                shown per flow and a <strong>Group by area</strong> switch groups
-                the matrix into collapsible areas — analogous to the Plugin
-                Comparer's assembly grouping.
+                A <strong>search box</strong> filters by name. A{' '}
+                <strong>Group by</strong> dropdown organises the matrix into{' '}
+                <strong>collapsible sections</strong>: by <strong>process type</strong>{' '}
+                (the default — Cloud flows, Workflows, Business rules, Actions,
+                Business process flows), or — when an <strong>Area</strong> column
+                is configured in the Workbench Settings (an OptionSet on the
+                definition table) — by <strong>area</strong>, or <strong>None</strong>{' '}
+                for a flat list. Each section header shows its item count and any
+                drift.
               </li>
               <li>
                 A <strong>Definition</strong> switch (next to Compare) chooses
@@ -774,7 +778,8 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               </li>
               <li>
                 <strong>↗</strong> per cell jumps to that flow in the
-                environment's Power Automate portal.
+                environment's Power Automate portal (cloud flows only — the other
+                process kinds have no single-record portal link).
               </li>
               <li>
                 <strong>Turn on / Turn off</strong> per cell activates/deactivates

@@ -27,6 +27,7 @@ import {
   orgUrlForEnvKey,
   type FlowDefinitionConfig,
 } from '../config'
+import { processTypeLabel, processTypeRank } from '../utils/processType'
 
 /** Ids per OData `or` chunk (URL-length safe). */
 const ID_CHUNK = 20
@@ -43,10 +44,14 @@ const FLOW_ATTRS =
   `<attribute name="workflowid" />` +
   `<attribute name="workflowidunique" />` +
   `<attribute name="name" />` +
+  `<attribute name="category" />` +
   `<attribute name="statecode" />` +
   `<attribute name="modifiedon" />` +
   `<attribute name="ismanaged" />` +
   `<attribute name="ownerid" />`
+
+/** Cloud-flow category — the only process kind with a Power Automate deep link. */
+const CAT_CLOUD_FLOW = 5
 
 // Outer join to the owner user so the cell can show a name (the connector's
 // formatted value for ownerid isn't reliable). Aliased attributes arrive keyed
@@ -57,10 +62,14 @@ const OWNER_LINK =
   `<attribute name="domainname" />` +
   `</link-entity>`
 
-/** Map one workflow row → the environment cell (statecode 1 = Activated). */
+/** Map one workflow row → the environment cell (statecode 1 = Activated).
+ *  A deep link is only meaningful for cloud flows (Power Automate portal); the
+ *  other process kinds (classic workflows, business rules, actions, BPFs) have
+ *  no equivalent single-record portal URL, so their cells carry no jump link. */
 function flowState(row: Row, envKey: string): ComparerEnvState {
   const active = rowNum(row.statecode) === 1
   const unique = rowStr(row.workflowidunique)
+  const isCloudFlow = rowNum(row.category) === CAT_CLOUD_FLOW
   const ownerName =
     rowStr(row['ow.fullname']) ||
     rowStr(row['ow.domainname']) ||
@@ -72,9 +81,10 @@ function flowState(row: Row, envKey: string): ComparerEnvState {
     statusLabel: active ? 'Activated' : 'Draft',
     modifiedOn: rowStr(row.modifiedon),
     isManaged: row.ismanaged === true,
-    link: unique
-      ? flowDetailsUrl(environmentIdForEnvKey(envKey), unique)
-      : undefined,
+    link:
+      isCloudFlow && unique
+        ? flowDetailsUrl(environmentIdForEnvKey(envKey), unique)
+        : undefined,
     ownerId: rowStr(row._ownerid_value),
     ownerName: ownerName || undefined,
   }
@@ -98,9 +108,14 @@ class DataverseFlowComparerService implements FlowComparerService {
     const envKeys = ENVIRONMENTS.map((e) => e.key)
     const hostKey = currentEnvKey()
 
-    // 1) Host = source of truth: the release solution's cloud flows via the
-    //    solutioncomponent (type 29) → solution (unique name) link-entity.
-    onProgress?.('Reading flows from the current environment…')
+    // 1) Host = source of truth: the release solution's processes via the
+    //    solutioncomponent (type 29) → solution (unique name) link-entity. ALL
+    //    process kinds share component type 29 — cloud flows, classic workflows,
+    //    business rules, actions, business process flows — so there is no
+    //    `category` filter here; `type eq 1` keeps just the definitions (not the
+    //    internal activation copies). The category is read per row and drives the
+    //    process-type grouping.
+    onProgress?.('Reading processes from the current environment…')
     const solutionLink =
       `<link-entity name="solutioncomponent" from="objectid" to="workflowid" link-type="inner">` +
       `<filter><condition attribute="componenttype" operator="eq" value="29" /></filter>` +
@@ -110,7 +125,6 @@ class DataverseFlowComparerService implements FlowComparerService {
     const hostFetch =
       `<fetch><entity name="workflow">${FLOW_ATTRS}` +
       `<filter type="and">` +
-      `<condition attribute="category" operator="eq" value="5" />` +
       `<condition attribute="type" operator="eq" value="1" />` +
       `</filter>${solutionLink}${OWNER_LINK}<order attribute="name" /></entity></fetch>`
     const hostRows = await fetchXmlQuery(
@@ -123,10 +137,13 @@ class DataverseFlowComparerService implements FlowComparerService {
     for (const r of hostRows) {
       const id = rowStr(r.workflowid)
       if (!id || rowsById.has(id)) continue
+      const category = rowNum(r.category)
       rowsById.set(id, {
         id,
         name: rowStr(r.name) || id,
         uniqueId: rowStr(r.workflowidunique) || undefined,
+        processCategory: category,
+        processType: processTypeLabel(category),
         byEnv: { [hostKey]: flowState(r, hostKey) },
         statusDrift: false,
       })
@@ -137,7 +154,7 @@ class DataverseFlowComparerService implements FlowComparerService {
     const envErrors: ComparerResult['envErrors'] = {}
     for (const env of ENVIRONMENTS) {
       if (env.key === hostKey || ids.length === 0) continue
-      onProgress?.(`Looking up flows in ${env.label}…`)
+      onProgress?.(`Looking up processes in ${env.label}…`)
       try {
         const byId = await this.readByIds(env.key, ids)
         for (const id of ids) {
@@ -196,6 +213,7 @@ class DataverseFlowComparerService implements FlowComparerService {
     rows.sort(
       (a, b) =>
         Number(b.statusDrift) - Number(a.statusDrift) ||
+        processTypeRank(a.processType) - processTypeRank(b.processType) ||
         a.name.localeCompare(b.name),
     )
 

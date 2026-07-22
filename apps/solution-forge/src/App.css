@@ -5643,6 +5643,16 @@
   font-size: 12.5px;
   white-space: nowrap;
 }
+/* Group-by dimension picker (process type / area / assembly / None) — same
+   layout as the definition-status filter; the <select> inherits the shared
+   .validate-toolbar select styling. */
+.cmp-groupby {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
 /* Definition on/off switch — an indigo pill (matches the Definition column);
    mutes when off. */
 .cmp-switch {

@@ -3,11 +3,14 @@ import type { ComparerEnvState, ComparerResult } from '../types/comparer'
 import { dataverseFlowComparerService } from './dataverseFlowComparerService'
 
 /**
- * Flow Comparer: reads a release solution's cloud flows from the host env and
- * looks each one up — by its import-stable `workflowid` — in every configured
- * environment, into a per-environment status matrix. Also turns a flow on/off
- * in a chosen environment (connector SP write, cross-env). Falls back to the
- * mock outside the Power Platform host.
+ * Flow Comparer: reads a release solution's PROCESSES from the host env — all
+ * `workflow` categories (cloud flows, classic workflows, business rules,
+ * actions, business process flows) — and looks each one up, by its import-stable
+ * `workflowid`, in every configured environment, into a per-environment status
+ * matrix grouped by process type. Also turns one on/off in a chosen environment
+ * (connector SP write, cross-env). Falls back to the mock outside the Power
+ * Platform host. (The menu item is "Process Comparer"; the `flow*` code names
+ * are kept — cloud flows are the common case and the churn isn't worth it.)
  */
 export interface FlowComparerService {
   compareFlows(

@@ -177,6 +177,14 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       ausklappbare Tabelle (pro Lauf die Komponenten nach Typ gruppiert)
 - [x] Compare über INT-11 / UAT / PROD (Missing + Status drift; Gruppen
       collapsible; Picker release-gefiltert)
+- [x] **Flow Comparer deckt alle wesentlichen Prozessarten ab**: nicht mehr nur
+      Cloud Flows, sondern alle `workflow`-Kategorien (Cloud Flows, klassische
+      Workflows, Business Rules, Actions, Business Process Flows) — gelesen über
+      dieselbe `solutioncomponent`-Typ-29-Mitgliedschaft, per `category`
+      unterschieden. Ergebnisliste **nach Prozessart gruppiert und zuklappbar**
+      (Umschalter „Group by": Prozessart | Area | None); Turn-On/Off + Bulk +
+      Definition/Area gelten weiter. *(Menüpunkt „Flow Comparer",
+      `utils/processType.ts`)*
 - [x] Layer Inspector: alle Komponenten-Typen, progressive Sektionen,
       DEV-vs-Ziel-Diff, Existenz/Missing für alle Typen (vom Compare hierher);
       Missing/Unmanaged-Filter-Chips; „↗ layers"-Absprung ins Maker-Portal des

@@ -120,7 +120,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: '🧑‍💼',
         gated: true,
       },
-      { key: 'flowCompare', label: 'Flow Comparer', icon: '🔁', gated: true },
+      { key: 'flowCompare', label: 'Process Comparer', icon: '🔁', gated: true },
       {
         key: 'pluginCompare',
         label: 'Plugin Comparer',
@@ -166,7 +166,7 @@ const TAB_TITLES: Record<Tab, string> = {
   dualWrite: 'Dual-Write Table Maps',
   importHistory: 'Solution Import History',
   userSettings: 'User Settings',
-  flowCompare: 'Flow Comparer',
+  flowCompare: 'Process Comparer',
   pluginCompare: 'Plugin Comparer',
   traces: 'Plugin Trace Explorer',
   jobs: '[PREVIEW] Async Job / Flow Monitor',
@@ -1682,7 +1682,7 @@ function App() {
                   </>
                 ) : flowRun.error ? (
                   <>
-                    Flow Comparer — <strong>{title}</strong> failed
+                    Process Comparer — <strong>{title}</strong> failed
                   </>
                 ) : (
                   <>

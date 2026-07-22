@@ -29,7 +29,7 @@ export function PluginComparerWorkspace({
       canManage={canManage}
       noun="plugin step"
       showVersion={true}
-      groupByLabel="assembly"
+      groupBys={[{ key: 'assembly', label: 'assembly', get: (r) => r.subtitle }]}
       run={run}
       setState={(env, id, on) => pluginComparerService.setStepState(env, id, on)}
     />
