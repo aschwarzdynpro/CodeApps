@@ -1,13 +1,11 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import type {
-  PreviewResult,
   TransferEntry,
   TransferPackage,
   TransferRun,
   TransferRunStatus,
 } from '../types/transferHub'
 import { transferHubService } from '../services/transferHubService'
-import { formattedValue } from '../services/currentEnvQuery'
 import { ENVIRONMENTS } from '../config'
 import { formatDateTime, formatRelative } from '../utils/format'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -42,8 +40,6 @@ const ORPHAN_LABELS: Record<TransferEntry['orphanHandling'], string> = {
 
 /** Per-entry row-count cell: loading spinner, a number, or "not countable". */
 type CountState = 'loading' | 'na' | number
-/** Per-entry preview cache: loading, an error, or the result. */
-type PreviewState = 'loading' | { error: string } | PreviewResult
 
 const ENTRY_COLUMNS = 9
 const RUN_COLUMNS = 7
@@ -79,26 +75,17 @@ export function TransferHubWorkspace() {
   const [runConfirm, setRunConfirm] = useState<TransferPackage | null>(null)
   const [expandedRunId, setExpandedRunId] = useState('')
 
-  // On-demand data insights per entry id — kept across reloads (reorder,
+  // On-demand row counts per entry id — kept across reloads (reorder,
   // toggles); invalidated when the entry's query may have changed (edit) or
-  // via the toolbar Refresh.
+  // via the toolbar Refresh. Data preview lives in the entry dialog.
   const [counts, setCounts] = useState<Record<string, CountState>>({})
-  const [previews, setPreviews] = useState<Record<string, PreviewState>>({})
-  const [expandedId, setExpandedId] = useState('')
 
   const clearInsights = (entryId?: string) => {
     if (entryId === undefined) {
       setCounts({})
-      setPreviews({})
-      setExpandedId('')
       return
     }
     setCounts((prev) => {
-      const next = { ...prev }
-      delete next[entryId]
-      return next
-    })
-    setPreviews((prev) => {
       const next = { ...prev }
       delete next[entryId]
       return next
@@ -117,34 +104,6 @@ export function TransferHubWorkspace() {
     if (!entries) return
     // Serial — a handful of aggregate queries, keeps the source env polite.
     for (const entry of entries) await refreshCount(entry)
-  }
-
-  const loadPreview = async (entry: TransferEntry) => {
-    setPreviews((prev) => ({ ...prev, [entry.id]: 'loading' }))
-    try {
-      const result = await transferHubService.preview(
-        entry.sourceEnvKey,
-        entry.tableLogicalName,
-        entry.fetchXml,
-      )
-      setPreviews((prev) => ({ ...prev, [entry.id]: result }))
-      if (result.totalCount !== undefined)
-        setCounts((prev) => ({ ...prev, [entry.id]: result.totalCount as number }))
-    } catch (err) {
-      setPreviews((prev) => ({
-        ...prev,
-        [entry.id]: { error: err instanceof Error ? err.message : String(err) },
-      }))
-    }
-  }
-
-  const togglePreview = (entry: TransferEntry) => {
-    if (expandedId === entry.id) {
-      setExpandedId('')
-      return
-    }
-    setExpandedId(entry.id)
-    if (!previews[entry.id]) void loadPreview(entry)
   }
 
   // No synchronous setState here — resets happen in the event handlers
@@ -186,11 +145,13 @@ export function TransferHubWorkspace() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch; all setState happens after await
     void loadPackages()
   }, [loadPackages])
 
   useEffect(() => {
     if (selectedId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch; all setState happens after await
       void loadEntries(selectedId)
       void loadRuns(selectedId)
     }
@@ -443,8 +404,6 @@ export function TransferHubWorkspace() {
                       )}
                       {entries.map((entry, idx) => {
                         const count = counts[entry.id]
-                        const preview = previews[entry.id]
-                        const expanded = expandedId === entry.id
                         return (
                         <Fragment key={entry.id}>
                         <tr className={entry.active ? '' : 'thub-row--inactive'}>
@@ -502,13 +461,6 @@ export function TransferHubWorkspace() {
                             </button>
                           </td>
                           <td className="nowrap thub-entry-actions">
-                            <button
-                              className="btn btn--small"
-                              title={expanded ? 'Hide the data preview' : 'Preview the source data'}
-                              onClick={() => togglePreview(entry)}
-                            >
-                              {expanded ? '▾' : '▸'} Preview
-                            </button>
                             <button
                               className="btn btn--small"
                               title="Move up"
@@ -570,67 +522,6 @@ export function TransferHubWorkspace() {
                             </button>
                           </td>
                         </tr>
-                        {expanded && (
-                          <tr className="thub-preview-tr">
-                            <td colSpan={ENTRY_COLUMNS}>
-                              {preview === 'loading' || preview === undefined ? (
-                                <div className="muted">Loading preview…</div>
-                              ) : 'error' in preview ? (
-                                <div className="state state--error">{preview.error}</div>
-                              ) : (
-                                <>
-                                  <div className="thub-preview-meta">
-                                    <span className="muted">
-                                      {preview.rows.length} row
-                                      {preview.rows.length === 1 ? '' : 's'} shown
-                                      {preview.totalCount !== undefined &&
-                                        ` of ≈ ${preview.totalCount.toLocaleString()} total`}
-                                      {' · '}limit {preview.limit}
-                                    </span>
-                                    <button
-                                      className="btn btn--small"
-                                      onClick={() => void loadPreview(entry)}
-                                    >
-                                      ⟳ Reload
-                                    </button>
-                                  </div>
-                                  <div className="thub-preview">
-                                    <table className="ops-table">
-                                      <thead>
-                                        <tr>
-                                          {preview.columns.map((c) => (
-                                            <th key={c}>{c}</th>
-                                          ))}
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {preview.rows.length === 0 && (
-                                          <tr>
-                                            <td
-                                              colSpan={Math.max(1, preview.columns.length)}
-                                              className="muted"
-                                            >
-                                              The query returned no rows.
-                                            </td>
-                                          </tr>
-                                        )}
-                                        {preview.rows.map((row, i) => (
-                                          <tr key={i}>
-                                            {preview.columns.map((c) => (
-                                              <td key={c}>
-                                                {formattedValue(row, c) ?? String(row[c] ?? '')}
-                                              </td>
-                                            ))}
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </>
-                              )}
-                            </td>
-                          </tr>
-                        )}
                         </Fragment>
                         )
                       })}
