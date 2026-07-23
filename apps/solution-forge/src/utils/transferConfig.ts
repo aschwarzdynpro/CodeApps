@@ -207,6 +207,23 @@ export function formatFetchXml(xml: string): string {
   return render(doc.documentElement, 0)
 }
 
+/**
+ * Human-readable duration for the runs list: "50s", "3m 15s", "1h 20m 10s".
+ * Sub-second and negative inputs clamp to "0s"; zero units are omitted
+ * (except a lone "0s").
+ */
+export function formatDuration(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = total % 60
+  const parts: string[] = []
+  if (h > 0) parts.push(`${h}h`)
+  if (m > 0) parts.push(`${m}m`)
+  if (s > 0 || parts.length === 0) parts.push(`${s}s`)
+  return parts.join(' ')
+}
+
 /** Split a comma string (record storage format) — trimmed, de-duplicated. */
 export function parseCsvList(value: string | null | undefined): string[] {
   if (!value) return []

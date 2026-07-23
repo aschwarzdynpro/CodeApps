@@ -7,6 +7,7 @@ import {
   describeEntryValidation,
   fetchTop,
   fetchXmlAttributes,
+  formatDuration,
   formatFetchXml,
   joinCsvList,
   parseCsvList,
@@ -290,6 +291,24 @@ describe('parseRunLog', () => {
     expect(parseRunLog('')).toBeNull()
     expect(parseRunLog('not json')).toBeNull()
     expect(parseRunLog('{"a":1}')).toBeNull()
+  })
+})
+
+describe('formatDuration', () => {
+  it('formats seconds, minutes and hours', () => {
+    expect(formatDuration(50_000)).toBe('50s')
+    expect(formatDuration(195_000)).toBe('3m 15s')
+    expect(formatDuration(4_810_000)).toBe('1h 20m 10s')
+  })
+  it('omits zero units but keeps a lone 0s', () => {
+    expect(formatDuration(3_600_000)).toBe('1h')
+    expect(formatDuration(3_615_000)).toBe('1h 15s')
+    expect(formatDuration(120_000)).toBe('2m')
+    expect(formatDuration(0)).toBe('0s')
+  })
+  it('clamps negative and sub-second values', () => {
+    expect(formatDuration(-5_000)).toBe('0s')
+    expect(formatDuration(400)).toBe('0s')
   })
 })
 

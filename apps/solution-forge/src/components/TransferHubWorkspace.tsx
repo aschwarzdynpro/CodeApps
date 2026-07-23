@@ -6,7 +6,7 @@ import type {
   TransferRunStatus,
 } from '../types/transferHub'
 import { transferHubService } from '../services/transferHubService'
-import { formatFetchXml, parseRunLog } from '../utils/transferConfig'
+import { formatDuration, formatFetchXml, parseRunLog } from '../utils/transferConfig'
 import { ENVIRONMENTS } from '../config'
 import { formatDateTime, formatRelative } from '../utils/format'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -43,7 +43,7 @@ const ORPHAN_LABELS: Record<TransferEntry['orphanHandling'], string> = {
 type CountState = 'loading' | 'na' | number
 
 const ENTRY_COLUMNS = 8
-const RUN_COLUMNS = 7
+const RUN_COLUMNS = 8
 
 const RUN_STATUS_LABELS: Record<TransferRunStatus, string> = {
   queued: 'Queued',
@@ -167,6 +167,27 @@ export function TransferHubWorkspace() {
     }, 10000)
     return () => clearInterval(timer)
   }, [runs, selectedId, loadRuns])
+
+  // 1s ticker drives the live Duration column while a run is executing.
+  const [nowTick, setNowTick] = useState(() => Date.now())
+  useEffect(() => {
+    if (!runs?.some((r) => r.status === 'running')) return
+    const timer = setInterval(() => setNowTick(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [runs])
+
+  /** Elapsed (running, vs. now) or final (finished) duration — null when n/a. */
+  const runDuration = (run: TransferRun): string | null => {
+    if (!run.startedOn) return null
+    const start = new Date(run.startedOn).getTime()
+    if (Number.isNaN(start)) return null
+    if (run.finishedOn) {
+      const end = new Date(run.finishedOn).getTime()
+      return Number.isNaN(end) ? null : formatDuration(end - start)
+    }
+    if (run.status === 'running') return formatDuration(nowTick - start)
+    return null
+  }
 
   /** Change selection + clear the stale entry table (event-driven reset). */
   const selectPackage = (id: string) => {
@@ -594,6 +615,7 @@ export function TransferHubWorkspace() {
                           <th>Scheduled for</th>
                           <th>Targets</th>
                           <th>Finished</th>
+                          <th>Duration</th>
                           <th>Summary</th>
                           <th></th>
                         </tr>
@@ -642,6 +664,12 @@ export function TransferHubWorkspace() {
                               </td>
                               <td className="nowrap" title={run.finishedOn ? formatDateTime(run.finishedOn) : undefined}>
                                 {run.finishedOn ? formatRelative(run.finishedOn) : '–'}
+                              </td>
+                              <td
+                                className="nowrap"
+                                title={run.startedOn ? `Started ${formatDateTime(run.startedOn)}` : undefined}
+                              >
+                                {runDuration(run) ?? <span className="muted">–</span>}
                               </td>
                               <td>{run.summary || <span className="muted">–</span>}</td>
                               <td className="nowrap">
