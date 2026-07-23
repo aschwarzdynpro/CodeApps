@@ -2,10 +2,14 @@
 
 Power Apps **Code App** zum Verwalten von Dataverse-Solutions während der
 Feature- und Bug-Entwicklung: Working Solutions anlegen, Komponenten
-einsehen, Feature-/Bug-Solutions in eine Deployment Solution mergen und
-Releases vor dem Deployment prüfen (Dependency Check, Layer Inspector,
-App Sharing) — gebündelt im **ALM Detective**, der die Checks phasenweise
-durchläuft und einen nach Kritikalität sortierten Bericht erstellt.
+einsehen, Feature-/Bug-Solutions in eine Deployment Solution mergen,
+Release Notes und Timeline pflegen, Releases prüfen (**Deployment
+Readiness** vor dem Import, **Analyze** mit Compare / Layer Inspector /
+App Sharing danach), Konfigurations-Cockpits (Env Config, Audit Config,
+Dual-Write Maps, Import History, User Settings, Process- &
+Plugin-Comparer, Plugin Traces) — plus der **Configuration Data Transfer
+Hub**, der Konfigurationsdaten über mitinstallierte Executor-Cloud-Flows
+zwischen Umgebungen transportiert.
 
 ## Konzept
 
@@ -39,14 +43,17 @@ nach Typ.
 
 ## Features
 
-- **Navigation**: linke Sidebar, gruppiert in **Manage** (Workbench, Merge)
-  und **Validate** (Analyze, Compare, Dependencies, Layers, App Sharing); nur die
-  **Validate-Gruppe** ist rollen-gated (Deployment Manager) — Workbench und
-  Merge stehen allen offen. Im Validate-Bereich
-  wird die **Release-Solution einmal oben gewählt** und über alle Checks
-  geteilt (`ValidateWorkspace`); jeder Check hat darunter eine eigene Reihe
-  (Ziel-Env-Toggle bei Analyze/Dependencies/Layers — geteilter `envKey` —, Env-Status
-  bei Compare/App Sharing) plus Run-Button und behält seine Ergebnisse.
+- **Navigation**: linke Sidebar, gruppiert in **Manage** (Workbench, Merge,
+  Merge Rules, Release Notes, Timeline, Data Transfer), **Validate**
+  (Deployment Readiness, Analyze, Env Config, Audit Config, Dual-Write Maps,
+  Import History, User Settings, Process Comparer, Plugin Comparer),
+  **Operate** (Plugin Traces) und **Reference** (Links). Gated-Einträge
+  (Schloss) brauchen die Rolle **„INT | Deployment Manager"**; Workbench,
+  Merge, Release Notes, Timeline, Plugin Traces und Links stehen allen
+  offen. Compare, Layer Inspector und App Sharing sind Tabs **innerhalb von
+  Analyze**; die Release-Solution wird dort einmal oben gewählt und über die
+  Checks geteilt. (**Dual-Write Maps** erscheint nur, wenn Dual-Write in der
+  Umgebung installiert ist — Metadaten-Probe beim Start.)
 - **Analyze (Solution Analysis)**: Dashboard-Überblick für eine Release-Solution.
   Ein Klick auf **Run Analysis** lässt Dependencies, Compare (inkl. Content
   Drift), Layers und App Sharing in einem Durchlauf gegen das Ziel-Env (UAT/PROD)
@@ -104,8 +111,12 @@ nach Typ.
   Sync-Richtung (↔ bidirektional / → to destination / ← to source),
   Value-Map-Transforms, Lookup-aufgelösten Zielen und einem Tag auf
   system-generierten (Integration-Key-)Feldern; Toggles „Hide system-generated"
-  und „Show raw JSON". Parser = pure function mit Vitest. Read-only über den
-  Konnektor (FetchXML, SP); Session-Cache; Mock-Fallback.
+  und „Show raw JSON", **Feld-Suchfeld** (filtert Quell-/Ziel-Feld und
+  Lookup-Entity über alle Legs), Overlay auf **80vh** gedeckelt (Body
+  scrollt). Der **Menüpunkt erscheint nur**, wenn
+  `msdyn_dualwriteentitymap` in der Umgebung existiert (EntityDefinitions-
+  Probe, Session-Cache, fail-open). Parser = pure function mit Vitest.
+  Read-only über den Konnektor (FetchXML, SP); Session-Cache; Mock-Fallback.
 - **Import History** (Validate, gated) — **Solution-Import-Historie** einer
   wählbaren Umgebung aus der `importjob`-Tabelle: Start, Solution, Status
   (Succeeded/Failed/Running), Fortschritts-Balken, Dauer, **Publisher** (aus
@@ -123,6 +134,30 @@ nach Typ.
   die neuesten 100 begrenzt ⇒ **serverseitige Suche** (FetchXML): **Status-Chip**
   (z. B. Failed → die 100 neuesten fehlgeschlagenen Importe), **Solution-Namen-
   Suche** und ein **Picker über die Release-Solutions**.
+- **User Settings** (Validate, gated) — per-Env-Inventar der **persönlichen
+  Einstellungen** aller aktivierten User (`usersettings`): kompakte Liste
+  (User, Login, Zeitzone, Währung, UI-Sprache; Suche/Sortierung, App-User
+  ausblendbar), Env-Picker zum Quervergleich. **Klick auf einen User** öffnet
+  den Detail-Dialog (General · Formats · Email · Privacy · Languages) mit
+  **Live-Preview** der Formatfelder; Deployment Manager können **editieren +
+  speichern** (Diff-Write, Confirm, PROD extra-stark) und per **„Copy to
+  users…"** die angezeigten Einstellungen gruppenweise auf mehrere Ziel-User
+  ausrollen (seriell, Progress + per-User-Ergebnis). Reads/Writes über den
+  Konnektor (SP).
+- **Process Comparer** (Validate, gated) — **alle Prozessarten** einer
+  Release-Solution (Cloud Flows, klassische Workflows, Business Rules,
+  Actions, Business Process Flows) als **Status-Matrix über die
+  Umgebungen** (import-stabile ID-Matches, Drift-Highlight je Zelle,
+  Prozessart-Icons, Gruppierung nach Typ oder konfigurierbarer **Area**).
+  **Definition-Modus**: Soll-Zustand aus einer konfigurierbaren
+  Definitionstabelle (Workbench Settings) → Drift = Ist ≠ Soll inkl. Host.
+  Je Zelle **Owner-Anzeige**, **Turn on/off** (Confirm, PROD extra-stark)
+  und ↗-Deeplink (Cloud Flows); **Bulk-Aktionen** über Zeilen-Checkboxen
+  (Activate/Deactivate/Change owner, seriell mit Progress). Ergebnis und
+  Lauf überleben Tab-Wechsel (Hintergrund-Balken).
+- **Plugin Comparer** (Validate, gated) — dasselbe für die **Plugin-Steps**
+  der Release-Solution, je mit **Assembly-Version** pro Umgebung;
+  Enable/Disable je Zelle (Confirm, PROD extra-stark).
 - **Timeline** (Manage) — **Release-Timeline**: „was ging wann wohin" für
   eine gewählte Release-Solution als vertikaler Zeitstrahl (neueste zuerst):
   **Merge-Runs** (`pro_mergerun`, mit Counts + Quell-Solutions),
@@ -134,22 +169,30 @@ nach Typ.
   Visualisierung vorhandener Daten (Builder `buildReleaseTimeline` als pure
   function mit Tests) — kein neuer Datenpfad.
 - **Data Transfer** (Manage, gated) — **Configuration Data Transfer Hub**:
-  deklarative **Transfer-Pakete** für Konfigurationsdaten, die eine **externe
-  Pipeline** (nicht Teil der App) von einer Quell- in Ziel-Umgebungen
-  transportiert. Paket = Name + Ziel-Umgebungen (Multi-Select aus der
-  Env-Registry) + Reihenfolge; Eintrag = Quell-Umgebung → Quell-Tabelle
-  (durchsuchbarer Metadaten-Picker) → Filter & Spalten per **System-View**
-  oder **FetchXML** (Validierung, Spalten-Picker, **Daten-Preview** mit
-  ~Gesamtzahl), dazu **Record-Matching** (GUID-Upsert oder fachliche
-  Match-Spalten) und **Orphan-Handling** (Ignore/Deactivate/Delete). Views
-  werden als **FetchXML-Snapshot** gespeichert (self-contained für die
-  Pipeline, „⟳ View" re-snapshottet). **▶ Run** stellt einen **Transfer Run**
-  in die Queue (`pro_transferrun`: Status Queued + Ziel-Env-Snapshot); der
-  externe Executor arbeitet ihn ab und schreibt Status/Summary/Log zurück —
-  die Runs-Liste pollt bei aktivem Lauf und zeigt das Log per Klick.
-  Persistenz in `pro_transferpackage`/`pro_transferentry`/`pro_transferrun`
-  (Host, native Writes als User); Quell-Env-Reads über den Konnektor.
-  Pipeline-Contract: `docs/transfer-hub-contract.md`.
+  deklarative **Transfer-Pakete** für Konfigurationsdaten, ausgeführt von
+  **mitinstallierten Cloud Flows** (Executor Parent+Child + Scheduler,
+  `installer/deploy-executor-flow.ps1`) — nie in der App-Session selbst.
+  Paket = Name + Ziel-Umgebungen (Multi-Select aus der Env-Registry) +
+  Reihenfolge; Eintrag = Quell-Umgebung → Quell-Tabelle (durchsuchbarer
+  Metadaten-Picker) → Filter & Spalten per **System-View** oder **FetchXML**
+  (pretty-printed im Editor, Validierung, durchsuchbarer Spalten-Picker,
+  **Daten-Preview** + aktualisierbare Row-Count-Spalte; Zeilen-Klick öffnet
+  den Editor, der Query-Zellen-Tooltip zeigt das ausführbare Fetch), dazu
+  **Record-Matching** (GUID-Upsert oder fachliche Match-Spalten, max. 5)
+  und **Orphan-Handling** (Ignore/Deactivate/Delete — Scope ist beidseitig
+  die Query des Eintrags: nur Zielzeilen, die die Query zurückgibt, können
+  Orphans werden). Views werden als **FetchXML-Snapshot** gespeichert
+  (self-contained, „⟳" re-snapshottet). **▶ Run** = **Run now** (Queued,
+  Webhook-Executor startet in Sekunden) oder **Run later** über den
+  eingebauten Datums-Picker (Scheduled; Scheduler-Flow promotet fällige
+  Runs). Während ein Run Queued/Running ist, ist die Paket-Konfiguration
+  **gesperrt**. Die Runs-Karte zeigt Status, Zeiten, eine live tickende
+  **Duration**-Spalte und die Summary; das Ergebnis-Log füllt sich **live
+  während der Ausführung** (Klick → strukturiertes Subgrid je
+  Entry × Target). Persistenz in
+  `pro_transferpackage`/`pro_transferentry`/`pro_transferrun` (Host, native
+  Writes als User); Quell-Env-Reads über den Konnektor. Contract + Executor-
+  Interna: `docs/transfer-hub-contract.md`.
 - **Links** (Reference) — statische **Linksammlung** der ständig gebrauchten
   URLs als **Matrix** (eine Zeile je Link-Art, **je Umgebung eine Spalte**):
   System-App, OData/Web API, Diagnostics, classic Advanced Settings / Rollen /
@@ -246,7 +289,7 @@ nach Typ.
   `createdon` der letzten Note; nichts Neues ⇒ Publish deaktiviert).
   **History**-Tab listet alle veröffentlichten Stände (Datum · Autor · Summary)
   zum Wiederabruf.
-- **Compare (ALM)**: Release-Solution wählen → Cloud Flows, Workflows,
+- **Compare** (Tab in Analyze): Release-Solution wählen → Cloud Flows, Workflows,
   Business Rules, Plugin Steps und Scripts werden über **DEV / UAT / PROD**
   verglichen, gruppiert nach Typ in aufklappbaren Sektionen. Abweichungen
   sind markiert und filterbar: *Missing* (nicht im Ziel) und *Status drift*
@@ -258,13 +301,13 @@ nach Typ.
   (Solution-Import überschreibt es). **Unmanaged Layer, die Existenz aller
   übrigen Komponenten-Typen und der Definitions-Diff** sind in den
   **Layer Inspector** gewandert.
-- **Dependency Check**: Release-Solution gegen UAT/PROD prüfen
+- **Deployment Readiness (Dependency Check)**: Release-Solution gegen UAT/PROD prüfen
   (`RetrieveMissingDependencies`) — listet benötigte Komponenten, die weder
   in der Solution noch im Ziel vorhanden sind (Import würde scheitern),
   inkl. **Add to Solution** je fehlender Komponente. Name-gematchte Typen
   (EnvVars, Connection References, Web Resources, Canvas Apps) zählen als
   vorhanden, wenn das Ziel sie unter gleichem Namen kennt.
-- **Layer Inspector**: **alle** Komponenten einer Release-Solution gegen die
+- **Layer Inspector** (Tab in Analyze): **alle** Komponenten einer Release-Solution gegen die
   Layer-Stacks im Ziel-Env (UAT/PROD) prüfen (virtuelle Tabelle
   `msdyn_componentlayer`, eine Abfrage pro Komponente). Verdict je Komponente:
   **unmanaged „Active"-Layer über managed** (direkte Customization, maskiert
@@ -299,7 +342,7 @@ nach Typ.
   technisch möglich, liefert aber keinen Erfolgs-Payload und ist destruktiv
   cross-env (`RemoveActiveCustomizations` ist im Web API gar nicht erreichbar —
   nur SOAP); Details in CLAUDE.md gotcha #8.
-- **App Sharing**: Canvas Apps und Custom Pages einer Solution daraufhin
+- **App Sharing** (Tab in Analyze): Canvas Apps und Custom Pages einer Solution daraufhin
   prüfen, mit wem sie in DEV/UAT/PROD geteilt sind. Solution-Import
   überträgt **kein** User-Sharing — eine deployte Canvas App erreicht
   niemanden, bis sie im Ziel geteilt wird; genau diese Lücke wird oben
@@ -312,7 +355,8 @@ nach Typ.
   keine GET-Functions.) Custom Pages (`canvasapptype 2`) erhalten Zugriff
   über die Rollen der modellgetriebenen App, nicht über direktes Sharing —
   „nicht geteilt" ist dort normal.
-- **ALM Detective**: Pre-Deployment-Audit, das die ausgewählten ALM-Checks
+- **ALM Detective** *(derzeit aus dem Menü ausgeblendet — Code/Service bleiben
+  für die Reaktivierung erhalten)*: Pre-Deployment-Audit, das die ausgewählten ALM-Checks
   (Dependency Check, Compare inkl. Content Drift, Layer Inspector, App
   Sharing) phasenweise gegen eine Release-Solution laufen lässt und die
   Ergebnisse zu **einem nach Kritikalität sortierten Bericht** bündelt.
@@ -323,14 +367,15 @@ nach Typ.
   Lookup-Fehler). Kompakter als die Einzelseiten — für die volle Tiefe den
   jeweiligen Feature-Tab öffnen. Der Detective orchestriert nur die
   vorhandenen Services (kein eigener Datenpfad).
-- **Operate-Gruppe** (Betriebssicht, eigene Menüpunkte). **Zielumgebung
-  wählbar:** oben in jedem der drei Features sitzt ein **Target-Environment-
+- **Operate-Gruppe** (Betriebssicht; im Menü aktuell nur **Plugin Traces** —
+  Job Monitor und Role Analyzer sind als Preview ausgeblendet, Code bleibt
+  erhalten). **Zielumgebung wählbar:** oben sitzt ein **Target-Environment-
   Picker**, der aus dem konfigurierten `ENVIRONMENTS`-Set wählt (dev/uat/prod
   bzw. was der Installer nach `pro_environmentconfig` schreibt) — Default ist
   die Host-Umgebung. **Reads laufen cross-env** über den Konnektor; **native
   Writes** (Trace-Level-Switch, Job-Cancel/Retry) treffen technisch nur die
   Host-Umgebung, daher sind sie bei ausgewählter Fremdumgebung deaktiviert
-  (mit „read-only here"-Hinweis). Die Auswahl ist über die drei Tabs geteilt.
+  (mit „read-only here"-Hinweis).
   - **🧵 Plugin Traces** — Explorer über `plugintracelog`: Polling-**Stream**
     (15 s, pausiert bei verstecktem Browser-Tab) mit Server-Filtern
     (Zeitfenster, TypeName, Message, Entity, sync/async, nur Exceptions,
@@ -343,7 +388,7 @@ nach Typ.
     (`organization.plugintracelogsetting`, 0/1/2) mit Confirm-Warnung bei
     „All" — Umschalten nur für Deployment Manager, läuft als angemeldeter
     User (natives `organization`-Update).
-  - **📡 Job Monitor** — „Ist die Async-Verarbeitung gesund?" in < 10 s:
+  - **📡 Job Monitor** *(Preview, ausgeblendet)* — „Ist die Async-Verarbeitung gesund?" in < 10 s:
     **Health**-Kacheln (Failed 24 h, Waiting-Backlog + älteste wartende Op,
     Flow-Fehlerquote als gekennzeichnetes Sample, Watchdog-Ampeln; jede
     Kachel klickt in ihren Detail-Tab), **System jobs**
@@ -357,7 +402,7 @@ nach Typ.
     (Heartbeat-Soll/Ist je Definition, pure function `evaluateHeartbeat`,
     Tabellen konfigurierbar via `config.ts → WATCHDOG_TABLES`) und
     **Trends** (Failed-Jobs/Tag 7/30 d, serverseitige Aggregate).
-  - **🛡 Role Analyzer** (gated) — arbeitet auf einem ~15 min gecachten
+  - **🛡 Role Analyzer** *(Preview, ausgeblendet; gated)* — arbeitet auf einem ~15 min gecachten
     Snapshot des Security-Modells, Rollen aggregiert auf `parentrootroleid`
     (BU-Kopien kollabieren): **Matrix** (Rolle × Tabelle × Privileg mit
     Depth-Badges U/BU/P/O), **Diff** (zwei Rollen, nur Deltas, Export
