@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   COUNT_ALIAS,
+  MAX_MATCH_COLUMNS,
   buildColumnPlan,
   buildCountFetchXml,
   describeEntryValidation,
@@ -373,6 +374,28 @@ describe('describeEntryValidation', () => {
     expect(missing.some((e) => e.includes('cust_missing'))).toBe(true)
     expect(
       describeEntryValidation({ ...base, matchMode: 'columns', matchColumns: ['cust_code'] }),
+    ).toEqual([])
+  })
+
+  it('caps match columns at the executor limit', () => {
+    const six = ['a', 'b', 'c', 'd', 'e', 'f']
+    const errors = describeEntryValidation({
+      ...base,
+      queryMode: 'view',
+      viewId: 'v1',
+      matchMode: 'columns',
+      matchColumns: six,
+    })
+    expect(errors.some((e) => e.includes(`At most ${MAX_MATCH_COLUMNS}`))).toBe(true)
+    // Exactly the limit still passes.
+    expect(
+      describeEntryValidation({
+        ...base,
+        queryMode: 'view',
+        viewId: 'v1',
+        matchMode: 'columns',
+        matchColumns: six.slice(0, MAX_MATCH_COLUMNS),
+      }),
     ).toEqual([])
   })
 })

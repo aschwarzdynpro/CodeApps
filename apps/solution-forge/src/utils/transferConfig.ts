@@ -408,6 +408,13 @@ export function parseRunLog(log: string): RunLogRow[] | null {
   }
 }
 
+/**
+ * Composite match keys are built from a fixed 5-slot concat in the executor
+ * flow — more columns cannot be expressed there, so the save gate rejects
+ * them instead of letting the run fail per entry.
+ */
+export const MAX_MATCH_COLUMNS = 5
+
 /** The dialog's draft shape — everything the save gate needs. */
 export interface TransferEntryDraft {
   sourceEnvKey: string
@@ -445,6 +452,10 @@ export function describeEntryValidation(draft: TransferEntryDraft): string[] {
   if (draft.matchMode === 'columns') {
     if (draft.matchColumns.length === 0) {
       errors.push('Match by columns needs at least one column.')
+    } else if (draft.matchColumns.length > MAX_MATCH_COLUMNS) {
+      errors.push(
+        `At most ${MAX_MATCH_COLUMNS} match columns are supported (picked ${draft.matchColumns.length}).`,
+      )
     } else if (draft.queryMode === 'fetchxml') {
       const missing = validateMatchColumns(draft.matchColumns, parseFetchXml(draft.fetchXml))
       if (missing.length > 0)

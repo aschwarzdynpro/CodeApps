@@ -6967,6 +6967,10 @@
 .thub-col-option:hover {
   background: var(--bg);
 }
+.thub-col-option--off {
+  opacity: 0.45;
+  cursor: default;
+}
 .thub-col-name {
   white-space: nowrap;
   overflow: hidden;

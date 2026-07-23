@@ -13,6 +13,7 @@ import type {
 import { transferHubService } from '../services/transferHubService'
 import { ENVIRONMENTS } from '../config'
 import {
+  MAX_MATCH_COLUMNS,
   describeEntryValidation,
   fetchXmlAttributes,
   formatFetchXml,
@@ -582,19 +583,38 @@ export function TransferEntryDialog({
 
             {matchMode === 'columns' && (
               <div className="form-row">
-                <span className="form-label">Match columns</span>
-                <div className="thub-col-grid">
-                  {matchColumnOptions.map((col) => (
-                    <label key={col} className="thub-col-option">
-                      <input
-                        type="checkbox"
-                        checked={matchColumns.has(col)}
-                        onChange={() => toggleMatchColumn(col)}
-                      />
-                      <span>{columnLabel(col)}</span>
-                      <code>{col}</code>
-                    </label>
-                  ))}
+                <span className="form-label">
+                  Match columns{' '}
+                  <span className="muted">
+                    ({matchColumns.size}/{MAX_MATCH_COLUMNS})
+                  </span>
+                </span>
+                <div className="thub-col-list">
+                  {matchColumnOptions.map((col) => {
+                    const picked = matchColumns.has(col)
+                    // The executor builds composite keys from a fixed 5 slots.
+                    const capped = !picked && matchColumns.size >= MAX_MATCH_COLUMNS
+                    return (
+                      <label
+                        key={col}
+                        className={`thub-col-option ${capped ? 'thub-col-option--off' : ''}`}
+                        title={
+                          capped
+                            ? `At most ${MAX_MATCH_COLUMNS} match columns are supported.`
+                            : undefined
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={picked}
+                          disabled={capped}
+                          onChange={() => toggleMatchColumn(col)}
+                        />
+                        <span className="thub-col-name">{columnLabel(col)}</span>
+                        <code>{col}</code>
+                      </label>
+                    )
+                  })}
                 </div>
               </div>
             )}
