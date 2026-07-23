@@ -7,6 +7,7 @@ import {
   describeEntryValidation,
   fetchTop,
   fetchXmlAttributes,
+  formatFetchXml,
   joinCsvList,
   parseCsvList,
   parseFetchXml,
@@ -183,6 +184,42 @@ describe('setAttributes', () => {
   })
   it('passes garbage through unchanged', () => {
     expect(setAttributes('garbage', ['x'])).toBe('garbage')
+  })
+})
+
+describe('formatFetchXml', () => {
+  it('pretty-prints a one-liner with one child per line', () => {
+    const out = formatFetchXml(
+      '<fetch version="1.0"><entity name="agenttask"><attribute name="agenttaskid" /><filter><condition attribute="statecode" operator="eq" value="0"/></filter></entity></fetch>',
+    )
+    expect(out.split('\n')).toEqual([
+      '<fetch version="1.0">',
+      '  <entity name="agenttask">',
+      '    <attribute name="agenttaskid"/>',
+      '    <filter>',
+      '      <condition attribute="statecode" operator="eq" value="0"/>',
+      '    </filter>',
+      '  </entity>',
+      '</fetch>',
+    ])
+  })
+  it('keeps value text inline (no whitespace leaks into <value>)', () => {
+    const out = formatFetchXml(
+      '<fetch><entity name="a"><filter><condition attribute="x" operator="in"><value>1</value><value>2</value></condition></filter></entity></fetch>',
+    )
+    expect(out).toContain('<value>1</value>')
+    expect(out).toContain('<value>2</value>')
+    expect(out).not.toMatch(/<value>\s/)
+  })
+  it('is semantically stable (reparse yields the same attributes)', () => {
+    const out = formatFetchXml(SIMPLE)
+    const p = parseFetchXml(out)
+    expect(p.ok).toBe(true)
+    if (!p.ok) return
+    expect(p.attributes).toEqual(['cust_name', 'cust_code'])
+  })
+  it('passes garbage through unchanged', () => {
+    expect(formatFetchXml('garbage')).toBe('garbage')
   })
 })
 

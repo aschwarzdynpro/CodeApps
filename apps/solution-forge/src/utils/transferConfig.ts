@@ -176,6 +176,37 @@ export function setAttributes(xml: string, columns: string[]): string {
   return serialize(doc)
 }
 
+/**
+ * Pretty-print FetchXML for the editor textarea (view snapshots arrive as one
+ * line). Elements whose children are all elements get one line per child with
+ * two-space indent; elements with text content (e.g. <value>1</value> inside
+ * an `in` condition) are kept inline so no whitespace leaks into values.
+ * Returns the input unchanged when it does not parse.
+ */
+export function formatFetchXml(xml: string): string {
+  const doc = parseXmlDocument(xml)
+  if (!doc) return xml
+  const serializer = new XMLSerializer()
+  const render = (el: Element, depth: number): string => {
+    const pad = '  '.repeat(depth)
+    const hasText = [...el.childNodes].some(
+      (n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim() !== ''
+    )
+    if (hasText || el.children.length === 0)
+      return pad + serializer.serializeToString(el)
+    const shallow = serializer.serializeToString(el.cloneNode(false) as Element)
+    const open = shallow.endsWith('/>')
+      ? shallow.slice(0, -2).trimEnd() + '>'
+      : shallow.slice(0, shallow.lastIndexOf('</'))
+    return [
+      pad + open,
+      ...[...el.children].map((c) => render(c, depth + 1)),
+      pad + `</${el.tagName}>`,
+    ].join('\n')
+  }
+  return render(doc.documentElement, 0)
+}
+
 /** Split a comma string (record storage format) — trimmed, de-duplicated. */
 export function parseCsvList(value: string | null | undefined): string[] {
   if (!value) return []

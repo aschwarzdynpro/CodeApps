@@ -15,6 +15,7 @@ import { ENVIRONMENTS } from '../config'
 import {
   describeEntryValidation,
   fetchXmlAttributes,
+  formatFetchXml,
   parseFetchXml,
   setAttributes,
 } from '../utils/transferConfig'
@@ -57,7 +58,10 @@ export function TransferEntryDialog({
   const [table, setTable] = useState(entry?.tableLogicalName ?? '')
   const [queryMode, setQueryMode] = useState<TransferQueryMode>(entry?.queryMode ?? 'view')
   const [viewId, setViewId] = useState(entry?.viewId ?? '')
-  const [fetchXml, setFetchXml] = useState(entry?.fetchXml ?? '')
+  // Stored snapshots are one-liners — pretty-print for the editing surface.
+  const [fetchXml, setFetchXml] = useState(() =>
+    entry?.fetchXml ? formatFetchXml(entry.fetchXml) : '',
+  )
   const [matchMode, setMatchMode] = useState<TransferMatchMode>(entry?.matchMode ?? 'guid')
   const [matchColumns, setMatchColumns] = useState<Set<string>>(
     () => new Set(entry?.matchColumns ?? []),
@@ -174,7 +178,9 @@ export function TransferEntryDialog({
     if (mode === 'fetchxml' && viewId && !fetchXml.trim()) {
       transferHubService
         .getViewFetchXml(envKey, viewId)
-        .then((view) => setFetchXml((prev) => (prev.trim() ? prev : view.fetchXml)))
+        .then((view) =>
+          setFetchXml((prev) => (prev.trim() ? prev : formatFetchXml(view.fetchXml))),
+        )
         .catch((err) => setLoadError(err instanceof Error ? err.message : String(err)))
     }
   }
@@ -209,7 +215,7 @@ export function TransferEntryDialog({
     setShowColumnPicker(true)
   }
   const applyColumnPicker = () => {
-    setFetchXml(setAttributes(fetchXml, [...pickedColumns]))
+    setFetchXml(formatFetchXml(setAttributes(fetchXml, [...pickedColumns])))
     setShowColumnPicker(false)
   }
 
