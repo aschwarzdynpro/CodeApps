@@ -532,9 +532,18 @@ Connection-Reference, alle Loops sequenziell, Match über zusammengesetzte
 Key-Strings (`Select`+`join` — KEINE setVariable-Self-Reference, ist in
 Logic Apps verboten), Payload JSON-sicher über den
 `string(createArray(x))`-Encoding-Trick, dynamisches `item` als ganzes
-Objekt an `Create/UpdateRecordWithOrganization`. v1-Limits: 5000-Zeilen-
-Page-Cap (Warnung im Log), Flow NICHT im Designer editieren (Quelle ist die
-JSON-Datei).
+Objekt an `Create/UpdateRecordWithOrganization`. Zwei hart erarbeitete
+Aktivierungs-Gotchas: (a) **max. 8 Action-Nesting-Ebenen** — deshalb
+runAfter-Ketten statt Try/Catch-Scopes (`Fail_run` fängt `For_entry`
+Failed/TimedOut/**Skipped**) und Decision-`Compose` + `Switch` statt
+If-Kaskaden; (b) bei **Expression-basiertem `entityName`** kann der
+Validator kein Schema auflösen ⇒ geflattete `item/<col>`-Keys werden
+abgelehnt („missing required property 'item'") — `item` IMMER als ganzes
+Objekt übergeben (statisches entityName wie `pro_transferruns` darf
+weiter flatten). v1-Limits: 5000-Zeilen-Page-Cap (Warnung im Log), Flow
+NICHT im Designer editieren (Quelle ist die JSON-Datei). **Selbsttest
+2026-07-23 (dev→dev Self-Upsert pro_mergerun): Succeeded, 30 updated,
+0 errors, ~86 s — Namen/Emojis/Lookups unversehrt.**
 Service-Trio `transferHubService`/`dataverse…`/`mock…`: **Config-CRUD nativ als
 User** (generierte `Pro_transferpackages`-/`Pro_transferentriesService`);
 **Quell-Env-Reads über den Konnektor** (`currentEnvQuery` + `orgUrlForEnvKey`):
