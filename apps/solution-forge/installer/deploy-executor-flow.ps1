@@ -26,6 +26,7 @@ param(
   [string]$TenantId,
   [string]$SolutionUniqueName = 'DynamicsProSolutionAdminConsole',
   [string]$FlowName = 'PA | AUTO | Transfer Run | Execute Package',
+  [string]$ChildFlowName = 'PA | AUTO | Transfer Run | Execute Cell',
   [string]$SchedulerFlowName = 'PA | AUTO | Transfer Run | Scheduler',
   # Dataverse connection reference the flows bind to — differs per install
   # (Schulz: pro_CRDataverse, Playground: pro_CR_SAC_Dataverse).
@@ -43,9 +44,11 @@ if (-not $cr) { throw "Connection reference '$ConnectionReference' not found —
 if (-not $cr[0].connectionid) { Write-Warning "$ConnectionReference is UNBOUND — bind a connection before the flows can run." }
 
 # Create-or-update + activate one flow from a clientdata template file.
-function Deploy-Flow($name, $templateFile, $description) {
+# Returns the workflowid (needed to wire the parent's child-flow reference).
+function Deploy-Flow($name, $templateFile, $description, $extraReplace = @{}) {
   $clientData = Get-Content (Join-Path $PSScriptRoot $templateFile) -Raw
   $clientData = $clientData.Replace('__HOST_URL__', $hostUrl).Replace('__CONNREF__', $ConnectionReference)
+  foreach ($k in $extraReplace.Keys) { $clientData = $clientData.Replace($k, $extraReplace[$k]) }
   $existing = (Invoke-Dv -Method GET -Path "workflows?`$select=workflowid,statecode&`$filter=name eq '$($name.Replace("'","''"))' and category eq 5").value
   if ($existing) {
     $id = $existing[0].workflowid
@@ -70,10 +73,14 @@ function Deploy-Flow($name, $templateFile, $description) {
   }
   Invoke-Dv -Method PATCH -Path "workflows($id)" -Body @{ statecode = 1; statuscode = 2 } | Out-Null
   Write-Host "  activated." -ForegroundColor Green
+  return $id
 }
 
-Deploy-Flow $FlowName 'executor-flow.clientdata.json' 'Executes queued Transfer Runs of the Configuration Data Transfer Hub (see docs/transfer-hub-contract.md). Deployed by installer/deploy-executor-flow.ps1 — do not edit in the designer; changes belong in executor-flow.clientdata.json.'
-Deploy-Flow $SchedulerFlowName 'scheduler-flow.clientdata.json' 'Promotes due Scheduled Transfer Runs (pro_scheduledfor_dat <= now) to Queued every 5 minutes so the executor picks them up. Deployed by installer/deploy-executor-flow.ps1 — do not edit in the designer; changes belong in scheduler-flow.clientdata.json.'
+# The child (per-cell worker with top-level parallel loops) must exist and be
+# active BEFORE the parent that references it via the Workflow action.
+$childId = Deploy-Flow $ChildFlowName 'executor-child-flow.clientdata.json' 'Executes ONE entry x target cell of a Transfer Run with parallel row loops - called by the Execute Package flow (see docs/transfer-hub-contract.md). Deployed by installer/deploy-executor-flow.ps1 - do not edit in the designer; changes belong in executor-child-flow.clientdata.json.'
+Deploy-Flow $FlowName 'executor-flow.clientdata.json' 'Executes queued Transfer Runs of the Configuration Data Transfer Hub (see docs/transfer-hub-contract.md). Deployed by installer/deploy-executor-flow.ps1 - do not edit in the designer; changes belong in executor-flow.clientdata.json.' @{ '__CHILD_ID__' = $childId } | Out-Null
+Deploy-Flow $SchedulerFlowName 'scheduler-flow.clientdata.json' 'Promotes due Scheduled Transfer Runs (pro_scheduledfor_dat <= now) to Queued every 5 minutes so the executor picks them up. Deployed by installer/deploy-executor-flow.ps1 - do not edit in the designer; changes belong in scheduler-flow.clientdata.json.' | Out-Null
 
 Write-Host ""
 Write-Host "Executor + scheduler flows ready — queued runs execute immediately, scheduled runs once due." -ForegroundColor Green

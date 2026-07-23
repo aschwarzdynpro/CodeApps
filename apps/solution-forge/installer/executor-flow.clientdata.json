@@ -105,7 +105,7 @@
             "parameters": {
               "organization": "__HOST_URL__",
               "entityName": "pro_transferentries",
-              "$select": "pro_name,pro_sourceenv_str,pro_sourceentityset_str,pro_primaryidattr_str,pro_fetchxml_txt,pro_matchmode_opt,pro_matchcolumns_str,pro_orphanhandling_opt,pro_order_int,pro_columnplan_txt",
+              "$select": "pro_transferentryid,pro_name,pro_sourceenv_str,pro_matchmode_opt,pro_matchcolumns_str,pro_primaryidattr_str,pro_order_int,pro_columnplan_txt",
               "$filter": "_pro_package_ref_value eq @{triggerOutputs()?['body/_pro_package_ref_value']} and statecode eq 0",
               "$orderby": "pro_order_int asc"
             }
@@ -134,18 +134,8 @@
               "type": "Compose",
               "inputs": "@if(equals(items('For_entry')?['pro_matchmode_opt'],867520001), split(coalesce(items('For_entry')?['pro_matchcolumns_str'],''),','), createArray(items('For_entry')?['pro_primaryidattr_str']))"
             },
-            "PlanCs": {
-              "runAfter": { "Keycols": ["Succeeded"] },
-              "type": "Select",
-              "inputs": { "from": "@outputs('Plan')?['s']", "select": { "t": "s", "c": "@{item()}" } }
-            },
-            "PlanCl": {
-              "runAfter": { "PlanCs": ["Succeeded"] },
-              "type": "Select",
-              "inputs": { "from": "@outputs('Plan')?['l']", "select": { "t": "l", "c": "@{item()?['c']}", "s": "@{item()?['s']}" } }
-            },
             "Find_src": {
-              "runAfter": { "PlanCl": ["Succeeded"] },
+              "runAfter": { "Keycols": ["Succeeded"] },
               "type": "Query",
               "inputs": { "from": "@body('Get_envs')?['value']", "where": "@equals(item()?['pro_key'], items('For_entry')?['pro_sourceenv_str'])" }
             },
@@ -183,28 +173,8 @@
               },
               "else": {
                 "actions": {
-                  "Get_src_rows": {
-                    "runAfter": {},
-                    "type": "OpenApiConnection",
-                    "inputs": {
-                      "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                      "parameters": {
-                        "organization": "@first(body('Find_src'))?['pro_url']",
-                        "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
-                        "fetchXml": "@items('For_entry')?['pro_fetchxml_txt']"
-                      }
-                    }
-                  },
-                  "SKeys": {
-                    "runAfter": { "Get_src_rows": ["Succeeded"] },
-                    "type": "Select",
-                    "inputs": {
-                      "from": "@body('Get_src_rows')?['value']",
-                      "select": "@concat(string(coalesce(item()?[coalesce(outputs('Keycols')?[0],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[0],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[1],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[1],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[2],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[2],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[3],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[3],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[4],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[4],'zz_none'),'_value')],'')))"
-                    }
-                  },
                   "For_target": {
-                    "runAfter": { "SKeys": ["Succeeded"] },
+                    "runAfter": {},
                     "type": "Foreach",
                     "foreach": "@outputs('Targets')",
                     "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
@@ -248,244 +218,28 @@
                         },
                         "else": {
                           "actions": {
-                            "Get_tgt_rows": {
+                            "Call_child": {
                               "runAfter": {},
-                              "type": "OpenApiConnection",
+                              "type": "Workflow",
                               "inputs": {
-                                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                                "parameters": {
-                                  "organization": "@first(body('Find_tgt'))?['pro_url']",
-                                  "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
-                                  "fetchXml": "@items('For_entry')?['pro_fetchxml_txt']"
+                                "host": { "workflowReferenceName": "__CHILD_ID__" },
+                                "body": {
+                                  "entryId": "@{items('For_entry')?['pro_transferentryid']}",
+                                  "srcUrl": "@{first(body('Find_src'))?['pro_url']}",
+                                  "tgtUrl": "@{first(body('Find_tgt'))?['pro_url']}",
+                                  "targetKey": "@{items('For_target')}"
                                 }
                               }
                             },
-                            "TIdx": {
-                              "runAfter": { "Get_tgt_rows": ["Succeeded"] },
-                              "type": "Select",
-                              "inputs": {
-                                "from": "@body('Get_tgt_rows')?['value']",
-                                "select": {
-                                  "k": "@{concat(string(coalesce(item()?[coalesce(outputs('Keycols')?[0],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[0],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[1],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[1],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[2],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[2],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[3],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[3],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[4],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[4],'zz_none'),'_value')],'')))}",
-                                  "i": "@{item()?[items('For_entry')?['pro_primaryidattr_str']]}"
-                                }
-                              }
-                            },
-                            "TKeys": {
-                              "runAfter": { "TIdx": ["Succeeded"] },
-                              "type": "Select",
-                              "inputs": { "from": "@body('TIdx')", "select": "@item()?['k']" }
-                            },
-                            "TKeyStr": {
-                              "runAfter": { "TKeys": ["Succeeded"] },
+                            "Call_ok": { "runAfter": { "Call_child": ["Succeeded"] }, "type": "Compose", "inputs": 1 },
+                            "Call_fail": { "runAfter": { "Call_child": ["Failed", "TimedOut"] }, "type": "Compose", "inputs": 1 },
+                            "Cell_from_child": {
+                              "runAfter": { "Call_ok": ["Succeeded", "Skipped"], "Call_fail": ["Succeeded", "Skipped"] },
                               "type": "Compose",
-                              "inputs": "@concat('§§', join(body('TKeys'),'§§'), '§§')"
-                            },
-                            "Upd_all": {
-                              "runAfter": { "TKeyStr": ["Succeeded"] },
-                              "type": "Query",
-                              "inputs": {
-                                "from": "@body('Get_src_rows')?['value']",
-                                "where": "@contains(body('TKeys'), concat(string(coalesce(item()?[coalesce(outputs('Keycols')?[0],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[0],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[1],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[1],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[2],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[2],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[3],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[3],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[4],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[4],'zz_none'),'_value')],''))))"
-                              }
-                            },
-                            "Amb_rows": {
-                              "runAfter": { "Upd_all": ["Succeeded"] },
-                              "type": "Query",
-                              "inputs": {
-                                "from": "@if(equals(items('For_entry')?['pro_matchmode_opt'],867520001), body('Upd_all'), json('[]'))",
-                                "where": "@and(equals(items('For_entry')?['pro_matchmode_opt'],867520001), not(equals(indexOf(outputs('TKeyStr'), concat('§§', concat(string(coalesce(item()?[coalesce(outputs('Keycols')?[0],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[0],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[1],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[1],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[2],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[2],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[3],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[3],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[4],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[4],'zz_none'),'_value')],''))), '§§')), lastIndexOf(outputs('TKeyStr'), concat('§§', concat(string(coalesce(item()?[coalesce(outputs('Keycols')?[0],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[0],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[1],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[1],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[2],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[2],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[3],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[3],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[4],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[4],'zz_none'),'_value')],''))), '§§')))))"
-                              }
-                            },
-                            "Amb_keys": {
-                              "runAfter": { "Amb_rows": ["Succeeded"] },
-                              "type": "Select",
-                              "inputs": {
-                                "from": "@body('Amb_rows')",
-                                "select": "@concat(string(coalesce(item()?[coalesce(outputs('Keycols')?[0],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[0],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[1],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[1],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[2],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[2],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[3],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[3],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[4],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[4],'zz_none'),'_value')],'')))"
-                              }
-                            },
-                            "Upd_rows": {
-                              "runAfter": { "Amb_keys": ["Succeeded"] },
-                              "type": "Query",
-                              "inputs": {
-                                "from": "@if(equals(items('For_entry')?['pro_matchmode_opt'],867520001), body('Upd_all'), json('[]'))",
-                                "where": "@or(not(equals(items('For_entry')?['pro_matchmode_opt'],867520001)), equals(indexOf(outputs('TKeyStr'), concat('§§', concat(string(coalesce(item()?[coalesce(outputs('Keycols')?[0],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[0],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[1],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[1],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[2],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[2],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[3],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[3],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[4],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[4],'zz_none'),'_value')],''))), '§§')), lastIndexOf(outputs('TKeyStr'), concat('§§', concat(string(coalesce(item()?[coalesce(outputs('Keycols')?[0],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[0],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[1],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[1],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[2],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[2],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[3],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[3],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[4],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[4],'zz_none'),'_value')],''))), '§§'))))"
-                              }
-                            },
-                            "Cre_rows": {
-                              "runAfter": { "Upd_rows": ["Succeeded"] },
-                              "type": "Query",
-                              "inputs": {
-                                "from": "@body('Get_src_rows')?['value']",
-                                "where": "@not(contains(body('TKeys'), concat(string(coalesce(item()?[coalesce(outputs('Keycols')?[0],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[0],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[1],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[1],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[2],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[2],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[3],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[3],'zz_none'),'_value')],'')),'|',string(coalesce(item()?[coalesce(outputs('Keycols')?[4],'zz_none')], item()?[concat('_',coalesce(outputs('Keycols')?[4],'zz_none'),'_value')],'')))))"
-                              }
-                            },
-                            "UpdSet": {
-                              "runAfter": { "Cre_rows": ["Succeeded"] },
-                              "type": "Compose",
-                              "inputs": "@if(equals(items('For_entry')?['pro_matchmode_opt'],867520001), body('Upd_rows'), body('Upd_all'))"
-                            },
-                            "For_upd": {
-                              "runAfter": { "UpdSet": ["Succeeded"] },
-                              "type": "Foreach",
-                              "foreach": "@outputs('UpdSet')",
-                              "runtimeConfiguration": { "concurrency": { "repetitions": 20 } },
-                              "actions": {
-                                "Pairs_u": {
-                                  "runAfter": {},
-                                  "type": "Select",
-                                  "inputs": {
-                                    "from": "@union(body('PlanCs'), body('PlanCl'))",
-                                    "select": "@if(equals(item()?['t'],'s'), concat('\"',item()?['c'],'\":',if(equals(items('For_upd')?[item()?['c']],null),'null',substring(string(createArray(items('For_upd')?[item()?['c']])),1,sub(length(string(createArray(items('For_upd')?[item()?['c']]))),2)))), if(equals(items('For_upd')?[concat('_',item()?['c'],'_value')],null),'',concat('\"',item()?['c'],'@odata.bind\":\"/',item()?['s'],'(',items('For_upd')?[concat('_',item()?['c'],'_value')],')\"')))"
-                                  }
-                                },
-                                "Clean_u": {
-                                  "runAfter": { "Pairs_u": ["Succeeded"] },
-                                  "type": "Query",
-                                  "inputs": { "from": "@body('Pairs_u')", "where": "@not(equals(item(),''))" }
-                                },
-                                "Match_u": {
-                                  "runAfter": { "Clean_u": ["Succeeded"] },
-                                  "type": "Query",
-                                  "inputs": {
-                                    "from": "@body('TIdx')",
-                                    "where": "@equals(item()?['k'], concat(string(coalesce(items('For_upd')?[coalesce(outputs('Keycols')?[0],'zz_none')], items('For_upd')?[concat('_',coalesce(outputs('Keycols')?[0],'zz_none'),'_value')],'')),'|',string(coalesce(items('For_upd')?[coalesce(outputs('Keycols')?[1],'zz_none')], items('For_upd')?[concat('_',coalesce(outputs('Keycols')?[1],'zz_none'),'_value')],'')),'|',string(coalesce(items('For_upd')?[coalesce(outputs('Keycols')?[2],'zz_none')], items('For_upd')?[concat('_',coalesce(outputs('Keycols')?[2],'zz_none'),'_value')],'')),'|',string(coalesce(items('For_upd')?[coalesce(outputs('Keycols')?[3],'zz_none')], items('For_upd')?[concat('_',coalesce(outputs('Keycols')?[3],'zz_none'),'_value')],'')),'|',string(coalesce(items('For_upd')?[coalesce(outputs('Keycols')?[4],'zz_none')], items('For_upd')?[concat('_',coalesce(outputs('Keycols')?[4],'zz_none'),'_value')],''))))"
-                                  }
-                                },
-                                "Update_row": {
-                                  "runAfter": { "Match_u": ["Succeeded"] },
-                                  "type": "OpenApiConnection",
-                                  "inputs": {
-                                    "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                                    "parameters": {
-                                      "organization": "@first(body('Find_tgt'))?['pro_url']",
-                                      "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
-                                      "recordId": "@{first(body('Match_u'))?['i']}",
-                                      "item": "@json(concat('{', join(body('Clean_u'), ','), '}'))"
-                                    }
-                                  }
-                                }
-                              }
-                            },
-                            "For_cre": {
-                              "runAfter": { "UpdSet": ["Succeeded"] },
-                              "type": "Foreach",
-                              "foreach": "@body('Cre_rows')",
-                              "runtimeConfiguration": { "concurrency": { "repetitions": 20 } },
-                              "actions": {
-                                "Pairs_c": {
-                                  "runAfter": {},
-                                  "type": "Select",
-                                  "inputs": {
-                                    "from": "@union(body('PlanCs'), body('PlanCl'))",
-                                    "select": "@if(equals(item()?['t'],'s'), concat('\"',item()?['c'],'\":',if(equals(items('For_cre')?[item()?['c']],null),'null',substring(string(createArray(items('For_cre')?[item()?['c']])),1,sub(length(string(createArray(items('For_cre')?[item()?['c']]))),2)))), if(equals(items('For_cre')?[concat('_',item()?['c'],'_value')],null),'',concat('\"',item()?['c'],'@odata.bind\":\"/',item()?['s'],'(',items('For_cre')?[concat('_',item()?['c'],'_value')],')\"')))"
-                                  }
-                                },
-                                "Clean_c": {
-                                  "runAfter": { "Pairs_c": ["Succeeded"] },
-                                  "type": "Query",
-                                  "inputs": { "from": "@body('Pairs_c')", "where": "@not(equals(item(),''))" }
-                                },
-                                "Create_row": {
-                                  "runAfter": { "Clean_c": ["Succeeded"] },
-                                  "type": "OpenApiConnection",
-                                  "inputs": {
-                                    "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                                    "parameters": {
-                                      "organization": "@first(body('Find_tgt'))?['pro_url']",
-                                      "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
-                                      "item": "@if(equals(items('For_entry')?['pro_matchmode_opt'],867520001), json(concat('{', join(body('Clean_c'), ','), '}')), addProperty(json(concat('{', join(body('Clean_c'), ','), '}')), items('For_entry')?['pro_primaryidattr_str'], items('For_cre')?[items('For_entry')?['pro_primaryidattr_str']]))"
-                                    }
-                                  }
-                                }
-                              }
-                            },
-                            "U_ok": { "runAfter": { "For_upd": ["Succeeded"] }, "type": "Compose", "inputs": 1 },
-                            "U_fail": { "runAfter": { "For_upd": ["Failed", "TimedOut"] }, "type": "Compose", "inputs": 1 },
-                            "C_ok": { "runAfter": { "For_cre": ["Succeeded"] }, "type": "Compose", "inputs": 1 },
-                            "C_fail": { "runAfter": { "For_cre": ["Failed", "TimedOut"] }, "type": "Compose", "inputs": 1 },
-                            "If_orphan_mode": {
-                              "runAfter": { "U_ok": ["Succeeded", "Skipped"], "U_fail": ["Succeeded", "Skipped"], "C_ok": ["Succeeded", "Skipped"], "C_fail": ["Succeeded", "Skipped"] },
-                              "type": "If",
-                              "expression": "@and(not(equals(coalesce(items('For_entry')?['pro_orphanhandling_opt'],867520000),867520000)), greater(length(body('TIdx')),0))",
-                              "actions": {
-                                "Orphs": {
-                                  "runAfter": {},
-                                  "type": "Query",
-                                  "inputs": { "from": "@body('TIdx')", "where": "@not(contains(body('SKeys'), item()?['k']))" }
-                                },
-                                "If_orphan_delete": {
-                                  "runAfter": { "Orphs": ["Succeeded"] },
-                                  "type": "If",
-                                  "expression": "@equals(items('For_entry')?['pro_orphanhandling_opt'],867520002)",
-                                  "actions": {
-                                    "For_del": {
-                                      "runAfter": {},
-                                      "type": "Foreach",
-                                      "foreach": "@body('Orphs')",
-                                      "runtimeConfiguration": { "concurrency": { "repetitions": 20 } },
-                                      "actions": {
-                                        "Delete_row": {
-                                          "runAfter": {},
-                                          "type": "OpenApiConnection",
-                                          "inputs": {
-                                            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "DeleteRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                                            "parameters": {
-                                              "organization": "@first(body('Find_tgt'))?['pro_url']",
-                                              "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
-                                              "recordId": "@{items('For_del')?['i']}"
-                                            }
-                                          }
-                                        }
-                                      }
-                                    }
-                                  },
-                                  "else": {
-                                    "actions": {
-                                      "For_deact": {
-                                        "runAfter": {},
-                                        "type": "Foreach",
-                                        "foreach": "@body('Orphs')",
-                                        "runtimeConfiguration": { "concurrency": { "repetitions": 20 } },
-                                        "actions": {
-                                          "Deact_row": {
-                                            "runAfter": {},
-                                            "type": "OpenApiConnection",
-                                            "inputs": {
-                                              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                                              "parameters": {
-                                                "organization": "@first(body('Find_tgt'))?['pro_url']",
-                                                "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
-                                                "recordId": "@{items('For_deact')?['i']}",
-                                                "item": { "statecode": 1 }
-                                              }
-                                            }
-                                          }
-                                        }
-                                      }
-                                    }
-                                  }
-                                }
-                              }
-                            },
-                            "O_ok": { "runAfter": { "If_orphan_mode": ["Succeeded"] }, "type": "Compose", "inputs": 1 },
-                            "O_fail": { "runAfter": { "If_orphan_mode": ["Failed", "TimedOut"] }, "type": "Compose", "inputs": 1 },
-                            "Cell_errs": {
-                              "runAfter": { "O_ok": ["Succeeded", "Skipped"], "O_fail": ["Succeeded", "Skipped"] },
-                              "type": "Query",
-                              "inputs": {
-                                "from": "@createArray(if(greater(length(body('Amb_rows')),0), concat('ambiguous match for keys: ', join(body('Amb_keys'), ', '), ' — skipped'), ''), if(or(greaterOrEquals(length(body('Get_src_rows')?['value']),5000),greaterOrEquals(length(body('Get_tgt_rows')?['value']),5000)), 'warning: 5000-row page cap reached — result may be truncated', ''), if(equals(coalesce(outputs('U_fail'),0),1), 'update loop reported row failures — see the flow run history', ''), if(equals(coalesce(outputs('C_fail'),0),1), 'create loop reported row failures — see the flow run history', ''), if(equals(coalesce(outputs('O_fail'),0),1), 'orphan handling reported failures — see the flow run history', ''))",
-                                "where": "@not(equals(item(),''))"
-                              }
-                            },
-                            "Cell_json": {
-                              "runAfter": { "Cell_errs": ["Succeeded"] },
-                              "type": "Compose",
-                              "inputs": "@concat('{\"entry\":', substring(string(createArray(items('For_entry')?['pro_name'])),1,sub(length(string(createArray(items('For_entry')?['pro_name']))),2)), ',\"target\":', substring(string(createArray(items('For_target'))),1,sub(length(string(createArray(items('For_target')))),2)), ',\"created\":', string(length(body('Cre_rows'))), ',\"updated\":', string(length(outputs('UpdSet'))), ',\"deactivated\":', if(equals(coalesce(items('For_entry')?['pro_orphanhandling_opt'],867520000),867520001), string(length(coalesce(body('Orphs'), json('[]')))), '0'), ',\"deleted\":', if(equals(coalesce(items('For_entry')?['pro_orphanhandling_opt'],867520000),867520002), string(length(coalesce(body('Orphs'), json('[]')))), '0'), ',\"errs\":', string(length(body('Cell_errs'))), ',\"errors\":', string(body('Cell_errs')), '}')"
+                              "inputs": "@{if(equals(coalesce(outputs('Call_fail'),0),1), concat('{\"entry\":', substring(string(createArray(items('For_entry')?['pro_name'])),1,sub(length(string(createArray(items('For_entry')?['pro_name']))),2)), ',\"target\":', substring(string(createArray(items('For_target'))),1,sub(length(string(createArray(items('For_target')))),2)), ',\"error\":\"cell execution failed — see the child flow run history\",\"errs\":1}'), coalesce(body('Call_child')?['cell'], '{\"error\":\"child returned no cell\",\"errs\":1}'))}"
                             },
                             "Get_runlog_c": {
-                              "runAfter": { "Cell_json": ["Succeeded"] },
+                              "runAfter": { "Cell_from_child": ["Succeeded"] },
                               "type": "OpenApiConnection",
                               "inputs": {
                                 "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
@@ -506,7 +260,7 @@
                                   "organization": "__HOST_URL__",
                                   "entityName": "pro_transferruns",
                                   "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
-                                  "item/pro_log_txt": "@{if(equals(coalesce(first(body('Get_runlog_c')?['value'])?['pro_log_txt'],''),''), concat('[', outputs('Cell_json'), ']'), concat(substring(first(body('Get_runlog_c')?['value'])?['pro_log_txt'], 0, sub(length(first(body('Get_runlog_c')?['value'])?['pro_log_txt']),1)), ',', outputs('Cell_json'), ']'))}"
+                                  "item/pro_log_txt": "@{if(equals(coalesce(first(body('Get_runlog_c')?['value'])?['pro_log_txt'],''),''), concat('[', outputs('Cell_from_child'), ']'), concat(substring(first(body('Get_runlog_c')?['value'])?['pro_log_txt'], 0, sub(length(first(body('Get_runlog_c')?['value'])?['pro_log_txt']),1)), ',', outputs('Cell_from_child'), ']'))}"
                                 }
                               }
                             }

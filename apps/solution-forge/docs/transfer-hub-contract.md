@@ -180,38 +180,50 @@ Delete).
 
 ## Reference executor: `installer/deploy-executor-flow.ps1`
 
-The repo ships a working executor implementation of this contract as a cloud
-flow: template `installer/executor-flow.clientdata.json` (placeholders
-`__HOST_URL__` + `__CONNREF__`), plus the companion **scheduler flow**
-(`installer/scheduler-flow.clientdata.json`, recurrence every 5 min,
-promotes due Scheduled runs to Queued) — both deployed create-or-update +
-activate by `installer/deploy-executor-flow.ps1`. It implements the full protocol —
-claim (Running + startedon), per entry × target: source/target read via the
-entry's FetchXML snapshot, GUID- or column-matching (composite keys), create/
-update with a payload built from the entry's **column plan**
-(`pro_columnplan_txt`: writable scalars + single-target lookups as
-`@odata.bind`; computed by the hub at entry save), orphan deactivate/delete,
-per-cell log, final status/summary/log write-back.
+The repo ships a working executor implementation of this contract as a
+**pair of cloud flows** plus the scheduler:
 
-**v3 design (2026-07-23, performance rework — entirely variable-free):**
-row sets are partitioned up front with Filter-array queries (updates = source
-keys present in the target index, creates = the rest, ambiguous = composite
-key occurs more than once among the target keys, checked case-insensitively
-via an `indexOf`/`lastIndexOf` string probe), composite keys support **at most
-5 match columns** (a fixed 5-slot concat; more → entry error), the per-cell
-log entry is **appended live into `pro_transferrun.pro_log_txt`**
-(read-modify-write in the sequential part of the flow — the column is a valid
-JSON array at every moment of the run, so the hub UI can show progress), and
-the final totals/status are computed from that log with XPath `sum()` over
-`xml(json(...))`. Semantics that changed vs v1/v2: `created`/`updated`/
-`deactivated`/`deleted` count **attempted** rows (the partition sizes); when a
-write fails, the row loop reports the failure as a cell-level error string
-("… loop reported row failures — see the flow run history") and the cell's
-`errs` count drives Partial/Failed status. Per-row error texts are no longer
-produced — row-level diagnostics live in the Power Automate run history.
-Limits: 5000-row page cap per query (warned in the cell errors), lookups only
-single-target (polymorphic/owner skipped per plan), entries without a column
-plan error with "re-save the entry in the hub".
+- **Parent** `PA | AUTO | Transfer Run | Execute Package`
+  (`installer/executor-flow.clientdata.json`, placeholders `__HOST_URL__`,
+  `__CONNREF__`, `__CHILD_ID__`): Dataverse-webhook trigger on
+  `pro_transferrun` status changes, claims the run, resolves environments,
+  validates entries, then dispatches **one child-flow call per entry × target
+  cell** (`Workflow` action, sequential) and appends each returned cell log
+  into `pro_transferrun.pro_log_txt` (read-modify-write — the column is a
+  valid JSON array at every moment, so the hub UI shows live progress).
+  Final totals/status come from that log via XPath `sum()` over
+  `xml(json(...))`.
+- **Child** `PA | AUTO | Transfer Run | Execute Cell`
+  (`installer/executor-child-flow.clientdata.json`): Request/Button trigger
+  with inputs `{entryId, srcUrl, tgtUrl, targetKey}`; reads the entry +
+  source/target rows itself, partitions rows with Filter arrays (updates =
+  source keys in the target index, creates = the rest, ambiguous = composite
+  key occurs >1× among target keys, case-insensitive `indexOf`/`lastIndexOf`
+  probe; composite keys = fixed 5-slot concat, **max 5 match columns**), then
+  runs update/create/orphan loops **at the top level of its own run — the
+  only place Logic Apps honors foreach concurrency** (20 parallel) — and
+  returns the cell-log JSON in its Response.
+- **Scheduler** (`installer/scheduler-flow.clientdata.json`, every 5 min,
+  promotes due Scheduled runs to Queued).
+
+All three are deployed create-or-update + activate by
+`installer/deploy-executor-flow.ps1` (child first — the parent's `Workflow`
+action references the child's **workflowid**, injected as `__CHILD_ID__`).
+
+Semantics: `created`/`updated`/`deactivated`/`deleted` count **attempted**
+rows (partition sizes); a failing write surfaces as a cell-level error string
+("… loop reported row failures — see the flow run history"), the cell's
+`errs` count drives Partial/Failed status, and a crashed child yields an
+error cell ("cell execution failed…"). Per-row error texts are not produced —
+row-level diagnostics live in the child flow's run history. Both flows are
+**variable-free** (see engine findings below). Limits: 5000-row page cap per
+query (warned in the cell errors), lookups only single-target
+(polymorphic/owner skipped per plan), entries without a column plan error
+with "re-save the entry in the hub".
+
+**Measured (INT-11, 30-row dev→dev GUID upsert):** v1 sequential ~86 s →
+v3 variable-free single flow 37 s → **v4 parent+child 10 s**
+(startedon→finishedon). The child's top-level loop does 30 writes in ~2.4 s.
 
 ## Verified executor approach: in-solution cloud flow (probe 2026-07-23)
 
@@ -254,10 +266,15 @@ verified on INT-11, do not re-learn these):**
   top-level loops; any foreach nested inside another foreach (even one level,
   even inside If branches) executes its iterations serially at roughly
   0.5–0.9 s per iteration (scheduling overhead), regardless of the setting.
-  This bounds the current executor at ~0.6 s per row. True row parallelism
-  requires hoisting the row loop to the top level of its own run — i.e. a
-  **child flow per entry × target cell** ("Run a Child Flow" / `Workflow`
-  action) whose Request-triggered run owns the row loop.
+  True row parallelism requires hoisting the row loop to the top level of its
+  own run — the v4 executor does exactly that with a **child flow per
+  entry × target cell**: a `Workflow` action whose
+  `host.workflowReferenceName` is the child's **`workflowid`** (NOT
+  `workflowidunique` — the dependency check does a PrimaryKeyLookup and
+  rejects the unique id), calling a child with a Request/`Button` trigger +
+  `Response` action. Verified headless (Web-API-authored, SP connection
+  references, no maker-portal setup): call round-trip ~3.4 s, child loop
+  parallel.
 - **Variable actions serialize.** `AppendToArrayVariable` / `IncrementVariable`
   take ~0.25–0.3 s each under a run-state lock (measured: 30 appends = 7.4 s,
   30 increments = 9.2 s, the same loop with pure Compose/Select actions =
