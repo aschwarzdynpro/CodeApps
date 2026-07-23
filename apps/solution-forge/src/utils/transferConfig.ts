@@ -95,18 +95,32 @@ function serialize(doc: Document): string {
   return new XMLSerializer().serializeToString(doc.documentElement)
 }
 
+/** The query's own `top` bound on <fetch>, when present and valid. */
+export function fetchTop(xml: string): number | null {
+  const doc = parseXmlDocument(xml)
+  if (!doc || doc.documentElement.tagName !== 'fetch') return null
+  const raw = doc.documentElement.getAttribute('top')
+  if (raw === null) return null
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null
+}
+
 /**
- * Rewrite the <fetch> for a bounded preview: strip any pre-existing paging
- * (`count`/`page`/`top`/`returntotalrecordcount`) and set `count`. Returns the
- * input unchanged when it does not parse (the server then reports the error).
+ * Rewrite the <fetch> for a bounded preview: strip paging attributes
+ * (`count`/`page`/`top`/`returntotalrecordcount`) and set `count`. A `top`
+ * the author wrote themselves is honored — the effective limit is
+ * min(top, count), so a `top="10"` previews exactly those 10 rows. Returns
+ * the input unchanged when it does not parse (the server then reports the
+ * error).
  */
 export function withRowLimit(xml: string, count: number): string {
   const doc = parseXmlDocument(xml)
   if (!doc || doc.documentElement.tagName !== 'fetch') return xml
   const fetch = doc.documentElement
+  const top = fetchTop(xml)
   for (const attr of ['count', 'page', 'top', 'returntotalrecordcount'])
     fetch.removeAttribute(attr)
-  fetch.setAttribute('count', String(count))
+  fetch.setAttribute('count', String(top !== null ? Math.min(top, count) : count))
   return serialize(doc)
 }
 

@@ -10,7 +10,7 @@ import type {
   TransferRun,
 } from '../types/transferHub'
 import type { TransferHubService } from './transferHubService'
-import { fetchXmlAttributes } from '../utils/transferConfig'
+import { fetchTop, fetchXmlAttributes } from '../utils/transferConfig'
 
 /**
  * Offline mock of {@link TransferHubService} — the full hub is demoable
@@ -405,7 +405,8 @@ class MockTransferHubService implements TransferHubService {
         ? columns
         : (COLUMNS[tableLogicalName] ?? []).map((c) => c.logicalName)
     if (cols.length === 0) throw new Error('Nothing to preview — the query selects no columns.')
-    const total = 42
+    const top = fetchTop(fetchXml)
+    const total = top !== null ? Math.min(42, top) : 42
     const rows = Array.from({ length: Math.min(total, maxRows, 8) }, (_, i) => {
       const row: Record<string, unknown> = {}
       for (const col of cols) {
@@ -421,17 +422,18 @@ class MockTransferHubService implements TransferHubService {
   async countRows(
     _envKey: string,
     tableLogicalName: string,
-    _fetchXml: string,
+    fetchXml: string,
   ): Promise<number | undefined> {
     void _envKey
-    void _fetchXml
     await delay(300)
     const seeded: Record<string, number> = {
       cust_paymentterm: 42,
       cust_pricelist: 7,
       cust_pricelistitem: 356,
     }
-    return seeded[tableLogicalName] ?? 12
+    const count = seeded[tableLogicalName] ?? 12
+    const top = fetchTop(fetchXml)
+    return top !== null ? Math.min(count, top) : count
   }
 }
 

@@ -28,6 +28,7 @@ import {
   COUNT_ALIAS,
   buildColumnPlan,
   buildCountFetchXml,
+  fetchTop,
   joinCsvList,
   parseCsvList,
   parseFetchXml,
@@ -675,7 +676,8 @@ class DataverseTransferHubService implements TransferHubService {
 
     // Best-effort total (same filter, aggregate count) — null for aggregate
     // queries; >50k rows throws and simply leaves the badge off (same
-    // degradation as the Job Monitor).
+    // degradation as the Job Monitor). An author-written `top` caps the
+    // number (aggregates ignore top, but the transfer honors it).
     let totalCount: number | undefined
     const countXml = buildCountFetchXml(fetchXml, info.idAttr)
     if (countXml) {
@@ -683,6 +685,8 @@ class DataverseTransferHubService implements TransferHubService {
         const countRows = await fetchXmlQuery(info.set, countXml, orgUrl)
         const value = countRows[0]?.[COUNT_ALIAS]
         totalCount = value === undefined || value === null ? undefined : rowNum(value)
+        const top = fetchTop(fetchXml)
+        if (totalCount !== undefined && top !== null) totalCount = Math.min(totalCount, top)
       } catch (err) {
         console.warn('[transfer] preview count failed (ignored):', err)
       }
@@ -705,7 +709,12 @@ class DataverseTransferHubService implements TransferHubService {
     try {
       const rows = await fetchXmlQuery(info.set, countXml, orgUrl)
       const value = rows[0]?.[COUNT_ALIAS]
-      return value === undefined || value === null ? undefined : rowNum(value)
+      if (value === undefined || value === null) return undefined
+      // Aggregates ignore `top` — cap manually so the column matches what
+      // the executor would actually transfer.
+      const count = rowNum(value)
+      const top = fetchTop(fetchXml)
+      return top !== null ? Math.min(count, top) : count
     } catch (err) {
       console.warn('[transfer] countRows failed:', err)
       return undefined

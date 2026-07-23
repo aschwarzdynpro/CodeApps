@@ -5,6 +5,7 @@ import {
   buildColumnPlan,
   buildCountFetchXml,
   describeEntryValidation,
+  fetchTop,
   fetchXmlAttributes,
   joinCsvList,
   parseCsvList,
@@ -95,16 +96,30 @@ describe('validateMatchColumns', () => {
   })
 })
 
+describe('fetchTop', () => {
+  it('reads a valid top and rejects garbage', () => {
+    expect(fetchTop('<fetch top="10"><entity name="a"/></fetch>')).toBe(10)
+    expect(fetchTop('<fetch><entity name="a"/></fetch>')).toBeNull()
+    expect(fetchTop('<fetch top="abc"><entity name="a"/></fetch>')).toBeNull()
+    expect(fetchTop('<fetch top="0"><entity name="a"/></fetch>')).toBeNull()
+    expect(fetchTop('garbage')).toBeNull()
+  })
+})
+
 describe('withRowLimit', () => {
   it('injects count and strips pre-existing paging', () => {
     const limited = withRowLimit(
-      '<fetch count="5000" page="3" top="10" returntotalrecordcount="true"><entity name="a"/></fetch>',
+      '<fetch count="5000" page="3" returntotalrecordcount="true"><entity name="a"/></fetch>',
       25,
     )
     expect(limited).toContain('count="25"')
     expect(limited).not.toContain('page=')
-    expect(limited).not.toContain('top=')
     expect(limited).not.toContain('returntotalrecordcount=')
+  })
+  it("honors the author's top as the effective limit", () => {
+    expect(withRowLimit('<fetch top="10"><entity name="a"/></fetch>', 25)).toContain('count="10"')
+    expect(withRowLimit('<fetch top="1000"><entity name="a"/></fetch>', 25)).toContain('count="25"')
+    expect(withRowLimit('<fetch top="10"><entity name="a"/></fetch>', 25)).not.toContain('top=')
   })
   it('preserves the query body', () => {
     const limited = withRowLimit(SIMPLE, 25)
