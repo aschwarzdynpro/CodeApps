@@ -6737,6 +6737,9 @@
 .thub-row--inactive td {
   opacity: 0.55;
 }
+.thub-row--click {
+  cursor: pointer;
+}
 .thub-entry-name {
   font-weight: 600;
   margin-right: 6px;

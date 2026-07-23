@@ -378,7 +378,15 @@ export function TransferHubWorkspace() {
                         const count = counts[entry.id]
                         return (
                         <Fragment key={entry.id}>
-                        <tr className={entry.active ? '' : 'thub-row--inactive'}>
+                        <tr
+                          className={`thub-row--click ${entry.active ? '' : 'thub-row--inactive'}`}
+                          onClick={(e) => {
+                            // Row opens the editor — except when the click hit
+                            // one of the inline buttons (count refresh, actions).
+                            if ((e.target as HTMLElement).closest('button')) return
+                            setEntryDialog({ entry })
+                          }}
+                        >
                           <td className="num">{entry.order}</td>
                           <td className="nowrap">{envLabel(entry.sourceEnvKey)}</td>
                           <td>
@@ -448,13 +456,6 @@ export function TransferHubWorkspace() {
                               onClick={() => moveEntry(entry, 1)}
                             >
                               ↓
-                            </button>
-                            <button
-                              className="thub-icon-btn"
-                              title="Edit entry (incl. data preview)"
-                              onClick={() => setEntryDialog({ entry })}
-                            >
-                              ✎
                             </button>
                             {entry.queryMode === 'view' && (
                               <button
