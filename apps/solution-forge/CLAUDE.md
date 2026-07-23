@@ -518,7 +518,23 @@ Request, `pro_startedon_dat`/`pro_finishedon_dat`/`pro_summary_str`/
 `pro_log_txt` schreibt der Executor). „▶ Run" erzeugt nur den Queued-Record
 (`createRun`, Confirm mit PROD-Danger); die Runs-Liste im Paket-Detail pollt
 alle 10 s, solange ein Run Queued/Running ist, Log-JSON per Zeilen-Klick.
-Executor-Protokoll im Contract-Doc.
+Executor-Protokoll im Contract-Doc. **Column Plan:** beim Entry-Save (und
+View-Refresh) berechnet `computeColumnPlan` aus den Quell-Metadaten
+(`EntityDefinitions` + `Attributes`-Expand + **`ManyToOneRelationships`**-
+Expand für Lookup-Ziele, kein Metadata-Cast nötig) das Write-Rezept
+`pro_columnplan_txt` (`{"s":[Skalare],"l":[{c,s}=Lookup→Entity-Set],"x":
+[{c,r}=übersprungen]}`, pure function `utils/transferConfig.buildColumnPlan`,
+Vitest) — Owner/polymorphe Lookups werden übersprungen. **Executor-Flow**
+(implementiert + shipbar): Template `installer/executor-flow.clientdata.json`
+(`__HOST_URL__`-Platzhalter), Deploy create-or-update+activate via
+`installer/deploy-executor-flow.ps1`; nutzt `pro_CRDataverse` per
+Connection-Reference, alle Loops sequenziell, Match über zusammengesetzte
+Key-Strings (`Select`+`join` — KEINE setVariable-Self-Reference, ist in
+Logic Apps verboten), Payload JSON-sicher über den
+`string(createArray(x))`-Encoding-Trick, dynamisches `item` als ganzes
+Objekt an `Create/UpdateRecordWithOrganization`. v1-Limits: 5000-Zeilen-
+Page-Cap (Warnung im Log), Flow NICHT im Designer editieren (Quelle ist die
+JSON-Datei).
 Service-Trio `transferHubService`/`dataverse…`/`mock…`: **Config-CRUD nativ als
 User** (generierte `Pro_transferpackages`-/`Pro_transferentriesService`);
 **Quell-Env-Reads über den Konnektor** (`currentEnvQuery` + `orgUrlForEnvKey`):

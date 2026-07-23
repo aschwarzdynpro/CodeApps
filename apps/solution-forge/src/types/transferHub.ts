@@ -115,6 +115,11 @@ export interface TransferEntry {
   notes: string
   /** statecode 0 = active; the pipeline skips inactive entries. */
   active: boolean
+  /**
+   * Executor write recipe (ColumnPlan JSON) — computed by the hub at save
+   * time from source metadata; '' on legacy entries (re-save to fill).
+   */
+  columnPlan: string
 }
 
 /** Create/update shape for a package (id-less). */

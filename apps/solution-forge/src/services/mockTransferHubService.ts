@@ -78,6 +78,27 @@ const COLUMNS: Record<string, ColumnRef[]> = {
 let seq = 100
 const nextId = (prefix: string) => `mock-${prefix}-${seq++}`
 
+/** Simplified column-plan computation mirroring the dataverse service. */
+const MOCK_LOOKUP_SETS: Record<string, string> = { cust_pricelistid: 'cust_pricelists' }
+function mockColumnPlan(table: string, fetchXml: string): string {
+  const attrs = fetchXmlAttributes(fetchXml)
+  const meta = COLUMNS[table] ?? []
+  const plan = { s: [] as string[], l: [] as { c: string; s: string }[], x: [] as { c: string; r: string }[] }
+  for (const col of attrs) {
+    const m = meta.find((c) => c.logicalName === col)
+    if (!m) plan.x.push({ c: col, r: 'not in metadata' })
+    else if (m.attributeType === 'Uniqueidentifier')
+      plan.x.push({ c: col, r: 'primary id (written on create)' })
+    else if (m.attributeType === 'State') plan.x.push({ c: col, r: 'platform' })
+    else if (m.attributeType === 'Lookup') {
+      const set = MOCK_LOOKUP_SETS[col]
+      if (set) plan.l.push({ c: col, s: set })
+      else plan.x.push({ c: col, r: 'lookup target unknown' })
+    } else plan.s.push(col)
+  }
+  return JSON.stringify(plan)
+}
+
 const packages: TransferPackage[] = [
   {
     id: 'mock-pkg-1',
@@ -120,6 +141,7 @@ const entries: TransferEntry[] = [
     order: 1,
     notes: '',
     active: true,
+    columnPlan: '{"s":["cust_name","cust_code","cust_days"],"l":[],"x":[]}',
   },
   {
     id: 'mock-entry-2',
@@ -141,6 +163,7 @@ const entries: TransferEntry[] = [
     order: 2,
     notes: 'Matched by code — target ids differ historically.',
     active: true,
+    columnPlan: '{"s":["cust_name","cust_code","cust_currency"],"l":[],"x":[]}',
   },
   {
     id: 'mock-entry-3',
@@ -162,6 +185,8 @@ const entries: TransferEntry[] = [
     order: 3,
     notes: 'After price lists — the lookup needs its parent first.',
     active: true,
+    columnPlan:
+      '{"s":["cust_name","cust_amount"],"l":[{"c":"cust_pricelistid","s":"cust_pricelists"}],"x":[]}',
   },
 ]
 
@@ -257,7 +282,12 @@ class MockTransferHubService implements TransferHubService {
 
   async createEntry(input: TransferEntryInput): Promise<TransferEntry> {
     await delay(150)
-    const entry: TransferEntry = { ...input, id: nextId('entry'), active: true }
+    const entry: TransferEntry = {
+      ...input,
+      id: nextId('entry'),
+      active: true,
+      columnPlan: mockColumnPlan(input.tableLogicalName, input.fetchXml),
+    }
     entries.push(entry)
     return { ...entry }
   }
@@ -266,7 +296,9 @@ class MockTransferHubService implements TransferHubService {
     await delay(150)
     const entry = entries.find((e) => e.id === id)
     if (!entry) throw new Error('Entry not found.')
-    Object.assign(entry, input)
+    Object.assign(entry, input, {
+      columnPlan: mockColumnPlan(input.tableLogicalName, input.fetchXml),
+    })
   }
 
   async deleteEntry(id: string): Promise<void> {
@@ -298,6 +330,7 @@ class MockTransferHubService implements TransferHubService {
     entry.fetchXml = view.fetchXml
     entry.viewName = view.name
     entry.viewSnapshotAt = new Date().toISOString()
+    entry.columnPlan = mockColumnPlan(entry.tableLogicalName, view.fetchXml)
     return { ...entry }
   }
 

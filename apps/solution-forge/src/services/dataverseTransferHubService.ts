@@ -26,11 +26,13 @@ import { fetchXmlQuery, odataQuery, rowNum, rowStr, type Row } from './currentEn
 import { orgUrlForEnvKey } from '../config'
 import {
   COUNT_ALIAS,
+  buildColumnPlan,
   buildCountFetchXml,
   joinCsvList,
   parseCsvList,
   parseFetchXml,
   withRowLimit,
+  type PlanAttributeMeta,
 } from '../utils/transferConfig'
 import { Pro_transferpackagesService } from '../generated/services/Pro_transferpackagesService'
 import { Pro_transferentriesService } from '../generated/services/Pro_transferentriesService'
@@ -104,6 +106,7 @@ const ENTRY_SELECT: (keyof Pro_transferentries)[] = [
   'pro_orphanhandling_opt',
   'pro_order_int',
   'pro_notes_txt',
+  'pro_columnplan_txt',
   'statecode',
   '_pro_package_ref_value',
 ]
@@ -179,6 +182,7 @@ function toEntry(row: Pro_transferentries): TransferEntry {
     order: row.pro_order_int ?? 0,
     notes: row.pro_notes_txt ?? '',
     active: Number(row.statecode ?? 0) === 0,
+    columnPlan: row.pro_columnplan_txt ?? '',
   }
 }
 
@@ -305,8 +309,12 @@ class DataverseTransferHubService implements TransferHubService {
   async createEntry(input: TransferEntryInput): Promise<TransferEntry> {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockTransferHubService.createEntry(input)
+    const record = {
+      ...entryRecord(input),
+      pro_columnplan_txt: await this.columnPlanSafe(input),
+    }
     const result = await Pro_transferentriesService.create(
-      entryRecord(input) as unknown as Omit<Pro_transferentriesBase, 'pro_transferentryid'>,
+      record as unknown as Omit<Pro_transferentriesBase, 'pro_transferentryid'>,
     )
     if (!result.success || !result.data) {
       console.warn('[transfer] entry create failed — result:', result)
@@ -318,9 +326,13 @@ class DataverseTransferHubService implements TransferHubService {
   async updateEntry(id: string, input: TransferEntryInput): Promise<void> {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockTransferHubService.updateEntry(id, input)
+    const record = {
+      ...entryRecord(input),
+      pro_columnplan_txt: await this.columnPlanSafe(input),
+    }
     const result = await Pro_transferentriesService.update(
       id,
-      entryRecord(input) as unknown as Partial<Omit<Pro_transferentriesBase, 'pro_transferentryid'>>,
+      record as unknown as Partial<Omit<Pro_transferentriesBase, 'pro_transferentryid'>>,
     )
     if (!result.success) {
       console.warn('[transfer] entry update failed — result:', result)
@@ -374,17 +386,30 @@ class DataverseTransferHubService implements TransferHubService {
     if (!entry.viewId) throw new Error('This entry has no saved-view reference.')
     const view = await this.getViewFetchXml(entry.sourceEnvKey, entry.viewId)
     const snapshotAt = new Date().toISOString()
+    // The view's columns may have changed — recompute the write recipe too.
+    const columnPlan = await this.columnPlanSafe({
+      sourceEnvKey: entry.sourceEnvKey,
+      tableLogicalName: entry.tableLogicalName,
+      fetchXml: view.fetchXml,
+    })
     const changed = {
       pro_fetchxml_txt: view.fetchXml,
       pro_viewname_str: view.name,
       pro_viewsnapshotat_dat: snapshotAt,
+      pro_columnplan_txt: columnPlan,
     } as unknown as Partial<Omit<Pro_transferentriesBase, 'pro_transferentryid'>>
     const result = await Pro_transferentriesService.update(entryId, changed)
     if (!result.success) {
       console.warn('[transfer] snapshot update failed — result:', result)
       throw new Error('Saving the refreshed snapshot failed.')
     }
-    return { ...entry, fetchXml: view.fetchXml, viewName: view.name, viewSnapshotAt: snapshotAt }
+    return {
+      ...entry,
+      fetchXml: view.fetchXml,
+      viewName: view.name,
+      viewSnapshotAt: snapshotAt,
+      columnPlan,
+    }
   }
 
   // ---- runs ---------------------------------------------------------------
@@ -510,6 +535,91 @@ class DataverseTransferHubService implements TransferHubService {
       }))
       .filter((c) => c.logicalName)
       .sort((a, b) => a.displayName.localeCompare(b.displayName))
+  }
+
+  /**
+   * Compute the executor's write recipe (ColumnPlan JSON) from the source
+   * table's metadata: writable scalars, single-target lookups with their
+   * entity sets, and skipped columns with reasons. Best-effort wrapper —
+   * '' on failure (the executor then errors the entry with a clear message).
+   */
+  private async columnPlanSafe(input: {
+    sourceEnvKey: string
+    tableLogicalName: string
+    fetchXml: string
+  }): Promise<string> {
+    try {
+      return await this.computeColumnPlan(
+        input.sourceEnvKey,
+        input.tableLogicalName,
+        input.fetchXml,
+      )
+    } catch (err) {
+      console.warn('[transfer] column-plan computation failed:', err)
+      return ''
+    }
+  }
+
+  private async computeColumnPlan(
+    envKey: string,
+    table: string,
+    fetchXml: string,
+  ): Promise<string> {
+    const orgUrl = orgUrlForEnvKey(envKey)
+    const parsed = parseFetchXml(fetchXml)
+    const fetchAttrs =
+      parsed.ok && !parsed.allAttributes && parsed.attributes.length > 0
+        ? parsed.attributes
+        : null
+    const safe = table.replace(/'/g, "''")
+    const rows = await odataQuery('EntityDefinitions', 'LogicalName,PrimaryIdAttribute', {
+      orgUrl,
+      filter: `LogicalName eq '${safe}'`,
+      expand:
+        'Attributes($select=LogicalName,AttributeType,AttributeTypeName,IsValidForCreate,IsValidForUpdate,AttributeOf),' +
+        'ManyToOneRelationships($select=ReferencingAttribute,ReferencedEntity)',
+    })
+    const row = rows[0]
+    if (!row) throw new Error(`Metadata for ${table} not found.`)
+    const attrs: PlanAttributeMeta[] = (
+      (row.Attributes as Array<Record<string, unknown>> | undefined) ?? []
+    ).map((a) => ({
+      logicalName: rowStr(a.LogicalName),
+      attributeType: rowStr(a.AttributeType),
+      attributeTypeName: (a.AttributeTypeName as { Value?: string } | undefined)?.Value ?? '',
+      isValidForCreate: a.IsValidForCreate === true,
+      isValidForUpdate: a.IsValidForUpdate === true,
+      attributeOf: a.AttributeOf ? rowStr(a.AttributeOf) : null,
+    }))
+    const lookupTargets: Record<string, string[]> = {}
+    for (const rel of (row.ManyToOneRelationships as Array<Record<string, unknown>> | undefined) ??
+      []) {
+      const attr = rowStr(rel.ReferencingAttribute)
+      const target = rowStr(rel.ReferencedEntity)
+      if (!attr || !target) continue
+      ;(lookupTargets[attr] ??= []).push(target)
+    }
+    // Resolve entity sets only for single-target lookups in scope.
+    const entitySetByTable: Record<string, string> = {}
+    const wanted = new Set(fetchAttrs ?? attrs.map((a) => a.logicalName))
+    for (const [attr, targets] of Object.entries(lookupTargets)) {
+      const unique = [...new Set(targets)]
+      if (unique.length !== 1 || !wanted.has(attr) || entitySetByTable[unique[0]]) continue
+      try {
+        entitySetByTable[unique[0]] = (await this.resolveEntityInfo(orgUrl, unique[0])).set
+      } catch (err) {
+        console.warn('[transfer] lookup target set resolution failed:', unique[0], err)
+      }
+    }
+    return JSON.stringify(
+      buildColumnPlan(
+        fetchAttrs,
+        attrs,
+        rowStr(row.PrimaryIdAttribute),
+        lookupTargets,
+        entitySetByTable,
+      ),
+    )
   }
 
   /** table → { entitySet, primaryIdAttribute } cache per orgUrl. */

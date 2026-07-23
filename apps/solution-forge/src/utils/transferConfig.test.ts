@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   COUNT_ALIAS,
+  buildColumnPlan,
   buildCountFetchXml,
   describeEntryValidation,
   fetchXmlAttributes,
@@ -166,6 +167,60 @@ describe('setAttributes', () => {
   })
   it('passes garbage through unchanged', () => {
     expect(setAttributes('garbage', ['x'])).toBe('garbage')
+  })
+})
+
+describe('buildColumnPlan', () => {
+  const attrs = [
+    { logicalName: 'cust_name', attributeType: 'String', attributeTypeName: 'StringType', isValidForCreate: true, isValidForUpdate: true, attributeOf: null },
+    { logicalName: 'cust_code', attributeType: 'String', attributeTypeName: 'StringType', isValidForCreate: true, isValidForUpdate: true, attributeOf: null },
+    { logicalName: 'cust_pricelistid', attributeType: 'Lookup', attributeTypeName: 'LookupType', isValidForCreate: true, isValidForUpdate: true, attributeOf: null },
+    { logicalName: 'cust_pricelistidname', attributeType: 'String', attributeTypeName: 'StringType', isValidForCreate: false, isValidForUpdate: false, attributeOf: 'cust_pricelistid' },
+    { logicalName: 'cust_itemid', attributeType: 'Uniqueidentifier', attributeTypeName: 'UniqueidentifierType', isValidForCreate: false, isValidForUpdate: false, attributeOf: null },
+    { logicalName: 'cust_tags', attributeType: 'Virtual', attributeTypeName: 'MultiSelectPicklistType', isValidForCreate: true, isValidForUpdate: true, attributeOf: null },
+    { logicalName: 'customerid', attributeType: 'Customer', attributeTypeName: 'CustomerType', isValidForCreate: true, isValidForUpdate: true, attributeOf: null },
+    { logicalName: 'ownerid', attributeType: 'Owner', attributeTypeName: 'OwnerType', isValidForCreate: true, isValidForUpdate: true, attributeOf: null },
+    { logicalName: 'statecode', attributeType: 'State', attributeTypeName: 'StateType', isValidForCreate: false, isValidForUpdate: true, attributeOf: null },
+    { logicalName: 'createdon', attributeType: 'DateTime', attributeTypeName: 'DateTimeType', isValidForCreate: false, isValidForUpdate: false, attributeOf: null },
+    { logicalName: 'cust_readonly', attributeType: 'String', attributeTypeName: 'StringType', isValidForCreate: false, isValidForUpdate: false, attributeOf: null },
+  ]
+  const lookupTargets = {
+    cust_pricelistid: ['cust_pricelist'],
+    customerid: ['account', 'contact'],
+  }
+  const sets = { cust_pricelist: 'cust_pricelists' }
+
+  it('classifies scalars, lookups and skips (all-attributes mode)', () => {
+    const plan = buildColumnPlan(null, attrs, 'cust_itemid', lookupTargets, sets)
+    expect(plan.s).toEqual(['cust_code', 'cust_name', 'cust_tags'])
+    expect(plan.l).toEqual([{ c: 'cust_pricelistid', s: 'cust_pricelists' }])
+    const reasons = Object.fromEntries(plan.x.map((e) => [e.c, e.r]))
+    expect(reasons.cust_itemid).toContain('primary id')
+    expect(reasons.cust_pricelistidname).toBe('virtual')
+    expect(reasons.customerid).toBe('polymorphic lookup')
+    expect(reasons.ownerid).toBe('owner')
+    expect(reasons.statecode).toBe('platform')
+    expect(reasons.createdon).toBe('platform')
+    expect(reasons.cust_readonly).toBe('read-only')
+  })
+
+  it('restricts to the fetch attributes and flags unknown ones', () => {
+    const plan = buildColumnPlan(
+      ['cust_name', 'cust_pricelistid', 'cust_ghost'],
+      attrs,
+      'cust_itemid',
+      lookupTargets,
+      sets,
+    )
+    expect(plan.s).toEqual(['cust_name'])
+    expect(plan.l).toEqual([{ c: 'cust_pricelistid', s: 'cust_pricelists' }])
+    expect(plan.x).toEqual([{ c: 'cust_ghost', r: 'not in metadata' }])
+  })
+
+  it('skips lookups whose target set is unresolved', () => {
+    const plan = buildColumnPlan(['cust_pricelistid'], attrs, 'cust_itemid', lookupTargets, {})
+    expect(plan.l).toEqual([])
+    expect(plan.x[0].r).toBe('lookup target set unknown')
   })
 })
 

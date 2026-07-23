@@ -182,6 +182,126 @@ export function joinCsvList(values: string[]): string {
   return values.map((v) => v.trim()).filter((v) => v !== '').join(',')
 }
 
+/**
+ * The executor's per-entry write recipe, computed by the hub at save time and
+ * stored as JSON in `pro_transferentry.pro_columnplan_txt`. The flow executor
+ * stays metadata-free: it copies `s` columns 1:1 and binds `l` lookups via
+ * `<c>@odata.bind = /<s>(<guid>)`. Compact keys — the JSON travels in a memo.
+ */
+export interface ColumnPlan {
+  /** Writable scalar columns (incl. multi-select choices as comma strings). */
+  s: string[]
+  /** Writable single-target lookups: column c → target entity set s. */
+  l: { c: string; s: string }[]
+  /** Skipped columns with reason — documentation, the executor ignores it. */
+  x: { c: string; r: string }[]
+}
+
+/** Attribute metadata slice the plan builder needs (from EntityDefinitions). */
+export interface PlanAttributeMeta {
+  logicalName: string
+  attributeType: string
+  attributeTypeName: string
+  isValidForCreate: boolean
+  isValidForUpdate: boolean
+  /** Set on virtual child attributes (e.g. `…_name` of a lookup). */
+  attributeOf: string | null
+}
+
+/** Platform columns never transported (state is orphan-handling only). */
+const PLAN_PLATFORM_SKIP = new Set([
+  'statecode',
+  'statuscode',
+  'createdon',
+  'modifiedon',
+  'overriddencreatedon',
+  'importsequencenumber',
+  'timezoneruleversionnumber',
+  'utcconversiontimezonecode',
+  'versionnumber',
+])
+
+/**
+ * Classify the entry's columns into the executor's write recipe.
+ *
+ * @param fetchAttrs  Attribute names selected by the query; null = all
+ *                    (`all-attributes` mode).
+ * @param attrs       Attribute metadata of the source table.
+ * @param primaryIdAttribute  The table's primary id (written only on create).
+ * @param lookupTargets  ReferencingAttribute → referenced entity logical
+ *                    names (from ManyToOneRelationships; >1 = polymorphic).
+ * @param entitySetByTable  Logical name → entity set for the lookup targets.
+ */
+export function buildColumnPlan(
+  fetchAttrs: string[] | null,
+  attrs: PlanAttributeMeta[],
+  primaryIdAttribute: string,
+  lookupTargets: Record<string, string[]>,
+  entitySetByTable: Record<string, string>,
+): ColumnPlan {
+  const plan: ColumnPlan = { s: [], l: [], x: [] }
+  const byName = new Map(attrs.map((a) => [a.logicalName, a]))
+  const wanted =
+    fetchAttrs === null
+      ? attrs.map((a) => a.logicalName)
+      : [...fetchAttrs]
+  const skip = (c: string, r: string) => plan.x.push({ c, r })
+
+  for (const col of [...new Set(wanted)].sort()) {
+    const meta = byName.get(col)
+    if (!meta) {
+      skip(col, 'not in metadata')
+      continue
+    }
+    if (col === primaryIdAttribute) {
+      skip(col, 'primary id (written on create)')
+      continue
+    }
+    if (meta.attributeOf) {
+      skip(col, 'virtual')
+      continue
+    }
+    if (PLAN_PLATFORM_SKIP.has(col)) {
+      skip(col, 'platform')
+      continue
+    }
+    if (!meta.isValidForCreate && !meta.isValidForUpdate) {
+      skip(col, 'read-only')
+      continue
+    }
+    const type = meta.attributeType
+    if (type === 'Owner' || col === 'ownerid') {
+      skip(col, 'owner')
+      continue
+    }
+    if (type === 'Lookup' || type === 'Customer') {
+      const targets = [...new Set(lookupTargets[col] ?? [])]
+      if (targets.length !== 1) {
+        skip(col, targets.length === 0 ? 'lookup target unknown' : 'polymorphic lookup')
+        continue
+      }
+      const set = entitySetByTable[targets[0]]
+      if (!set) {
+        skip(col, 'lookup target set unknown')
+        continue
+      }
+      plan.l.push({ c: col, s: set })
+      continue
+    }
+    if (type === 'Virtual') {
+      if (meta.attributeTypeName === 'MultiSelectPicklistType') plan.s.push(col)
+      else skip(col, 'virtual')
+      continue
+    }
+    if (type === 'PartyList' || type === 'ManagedProperty' || type === 'EntityName' || type === 'File' || type === 'Image') {
+      skip(col, 'unsupported type')
+      continue
+    }
+    plan.s.push(col)
+  }
+  return plan
+}
+
 /** The dialog's draft shape — everything the save gate needs. */
 export interface TransferEntryDraft {
   name: string

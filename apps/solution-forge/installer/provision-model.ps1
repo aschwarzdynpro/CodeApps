@@ -247,7 +247,8 @@ $columns = @{
     (StrAttr  "${p}_matchcolumns_str" 1000 'None' 'Match columns'),
     (PickAttr "${p}_orphanhandling_opt" 'None' 'Orphan handling' $orphanOpts),
     (IntAttr  "${p}_order_int" 0 10000 'None' 'Order'),
-    (MemoAttr "${p}_notes_txt" 4000 'None' 'Notes')
+    (MemoAttr "${p}_notes_txt" 4000 'None' 'Notes'),
+    (MemoAttr "${p}_columnplan_txt" 100000 'None' 'Column plan')
   )
   "${p}_transferrun" = @(
     (PickAttr "${p}_status_opt" 'ApplicationRequired' 'Status' $runStatusOpts),

@@ -109,6 +109,7 @@ Failed with a note. Runs in status Cancelled are never picked up.
 | `pro_orphanhandling_opt` | Choice | What to do with orphaned target records. `null` ⇒ Ignore. |
 | `pro_order_int` | Int | In-package execution order, ascending. |
 | `pro_notes_txt` | Memo | Operator notes, informational. |
+| `pro_columnplan_txt` | Memo | **Write recipe JSON** computed by the hub at save time: `{"s":[scalar cols],"l":[{"c":col,"s":target entity set}],"x":[{"c":col,"r":reason}]}` — the executor copies `s` 1:1 and binds `l` as `<c>@odata.bind = /<s>(<guid>)`; `x` documents skipped columns. Empty ⇒ executor errors the entry (author must re-save it). |
 | `statecode` | State | 0 = execute, 1 = skip. |
 
 ## Choice values
@@ -171,6 +172,22 @@ Delete).
   are display-only.
 - The FetchXML snapshot may select `all-attributes` — the executor should
   then subtract the platform-managed columns above.
+
+## Reference executor: `installer/deploy-executor-flow.ps1`
+
+The repo ships a working executor implementation of this contract as a cloud
+flow: template `installer/executor-flow.clientdata.json` (host URL is a
+`__HOST_URL__` placeholder), deployed create-or-update + activate by
+`installer/deploy-executor-flow.ps1`. It implements the full protocol —
+claim (Running + startedon), per entry × target: source/target read via the
+entry's FetchXML snapshot, GUID- or column-matching (composite keys), create/
+update with a payload built from the entry's **column plan**
+(`pro_columnplan_txt`: writable scalars + single-target lookups as
+`@odata.bind`; computed by the hub at entry save), orphan deactivate/delete,
+per-cell log, final status/summary/log write-back. Limits (v1, logged as
+warnings): 5000-row page cap per query (no paging), lookups only single-target
+(polymorphic/owner skipped per plan), entries without a column plan error with
+"re-save the entry in the hub".
 
 ## Verified executor approach: in-solution cloud flow (probe 2026-07-23)
 
