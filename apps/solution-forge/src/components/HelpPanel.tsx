@@ -373,6 +373,14 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 matters — lookup parents first.
               </li>
               <li>
+                <strong>5000 rows per query.</strong> A read returns at most
+                5000 rows. If the source or the target hits that limit, the
+                executor <strong>writes nothing for that entry</strong> and
+                reports the cap as an error — a truncated result would invent
+                orphans (and delete real target rows). Narrow the entry query
+                with a filter and split it across entries.
+              </li>
+              <li>
                 While a run is <strong>queued or running</strong>, the
                 package's configuration is locked (add / edit / reorder /
                 delete) so the executor reads a consistent state; the lock

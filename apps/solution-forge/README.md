@@ -196,9 +196,11 @@ nach Typ.
   **gesperrt**. Die Runs-Karte zeigt Status (inkl. 🧪-Marker für
   Simulationen), Zeiten, eine live tickende **Duration**-Spalte und die
   Summary; das Ergebnis-Log füllt sich **live während der Ausführung**
-  (Klick → strukturiertes Subgrid je Entry × Target). Reads sind dank
-  Konnektor-Pagination nicht mehr auf 5000 Zeilen begrenzt (Cap 100 000 mit
-  Warnung im Log). Persistenz in
+  (Klick → strukturiertes Subgrid je Entry × Target). **Zeilen-Limit:** ein
+  FetchXML-Read über den Konnektor liefert max. 5000 Zeilen; erreicht Quelle
+  oder Ziel diese Grenze, schreibt der Executor **gar nichts** und meldet den
+  Cap als Fehler (ein abgeschnittenes Set würde sonst Orphans erfinden und
+  im Delete-Modus Zielzeilen löschen). Persistenz in
   `pro_transferpackage`/`pro_transferentry`/`pro_transferrun` (Host, native
   Writes als User); Quell-Env-Reads über den Konnektor. Contract + Executor-
   Interna: `docs/transfer-hub-contract.md`.

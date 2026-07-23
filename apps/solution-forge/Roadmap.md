@@ -39,6 +39,14 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
 
 ### Transfer Hub — offene Ausbaustufen
 
+- [ ] **Mehr als 5000 Zeilen je Entry**: aktuell hart begrenzt (Konnektor
+      liefert je FetchXML-Read genau eine 5000er-Seite; die `paginationPolicy`
+      wirkt dort **nicht** — empirisch widerlegt, und ein Akkumulator-Loop
+      scheitert am Self-Reference-Verbot von `setVariable`). Der Executor
+      bricht deshalb bei erreichtem Cap sicherheitshalber ab, statt
+      abgeschnitten zu schreiben. Wege für später: OData-Read-Pfad (dort wirkt
+      die Policy) statt FetchXML, oder ein Grandchild-Flow je Seite.
+
 - [ ] **Delta-Transfers**: nur Zeilen mit `modifiedon` seit dem letzten
       erfolgreichen Run übertragen (Zeitstempel je Entry snapshotten, in den
       Fetch injizieren). Schließt sich mit Orphan-Handling gegenseitig aus

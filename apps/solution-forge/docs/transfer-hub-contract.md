@@ -243,13 +243,24 @@ rows (partition sizes); a failing write surfaces as a cell-level error string
 `errs` count drives Partial/Failed status, and a crashed child yields an
 error cell ("cell execution failed…"). Per-row error texts are not produced —
 row-level diagnostics live in the child flow's run history. Both flows are
-**variable-free** (see engine findings below). Limits: reads use the
-connector's **pagination policy** (`runtimeConfiguration.paginationPolicy.
-minimumItemCount: 100000`) so a query is no longer capped at one 5000-row
-page — beyond 100 000 rows the cell logs a truncation warning; lookups only
-single-target (polymorphic/owner skipped per plan); entries without a column
-plan error with "re-save the entry in the hub"; composite keys are limited to
-**5 match columns** (fixed slot count, enforced by the hub's save gate).
+**variable-free** (see engine findings below).
+
+**Row limit — hard 5000 per query, guarded.** A connector FetchXML read
+returns at most one 5000-row page (see the engine findings: the pagination
+policy does *not* apply to `fetchXml`, and an accumulator loop is impossible
+because `setVariable` cannot self-reference). A truncated read makes every
+transfer decision unreliable — missing source rows look like orphans (→ mass
+delete!), missing target rows look like new records (→ duplicates). The child
+therefore computes `Capped` (source **or** target returned ≥ 5000 rows) and,
+when set, **skips all four write loops**, reports all counters as 0 and logs
+`ERROR: the query hit the 5000-row page cap (source N, target M) — NOTHING
+was written; narrow the entry query with a filter`. Verified on INT-11 with a
+34 662-row source and orphan handling *Delete*: no row was touched.
+
+Further limits: lookups only single-target (polymorphic/owner skipped per
+plan); entries without a column plan error with "re-save the entry in the
+hub"; composite keys are limited to **5 match columns** (fixed slot count,
+enforced by the hub's save gate).
 
 **Measured (INT-11, 30-row dev→dev GUID upsert):** v1 sequential ~86 s →
 v3 variable-free single flow 37 s → **v4 parent+child 10 s**
@@ -322,9 +333,17 @@ verified on INT-11, do not re-learn these):**
 - **`setVariable` may never reference its own variable — not even inside a
   sequential `Until`.** The activation fails with
   `WorkflowRunActionInputsInvalidProperty: Self reference is not supported`.
-  That rules out the classic accumulator loop for FetchXML paging; use the
-  connector's `paginationPolicy.minimumItemCount` instead (it merges the
-  pages server-side and keeps the action variable-free).
+  That rules out the classic accumulator loop for FetchXML paging.
+- **The connector's `paginationPolicy` does NOT apply to `fetchXml` reads.**
+  Measured on INT-11 against `principalobjectaccess` (34 662 rows): with
+  `runtimeConfiguration.paginationPolicy.minimumItemCount: 100000` the action
+  returned **5000** rows — exactly the same as without it. FetchXML paging
+  through the connector therefore has no working mechanism today (policy
+  ineffective, accumulator loop forbidden, `AppendToArrayVariable` only
+  appends a nested page array with no flatten primitive). Hence the hard cap
+  plus the `Capped` guard described above; a real fix needs either an
+  OData-based read path (where the policy does work) or per-page child-flow
+  invocations.
 - **`result('<foreach>')` does not aggregate repetitions** — it returns only
   the current/last repetition's actions (length 2 for a 2-action loop), so it
   cannot collect per-row outcomes across iterations.

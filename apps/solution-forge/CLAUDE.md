@@ -560,12 +560,18 @@ Variablen-Aktionen kosten ~0,25–0,3 s (Run-State-Lock); `UpsertMultiple`&Co
 sind über den Konnektor NICHT aufrufbar; `result('<foreach>')` liefert nur
 die letzte Repetition; bei Expression-basiertem `entityName` kein flaches
 `item/<col>`; **`setVariable` darf sich NIE selbst referenzieren — auch
-nicht in einem sequenziellen `Until`** („Self reference is not supported"),
-deshalb läuft das FetchXML-Paging über die
-**`paginationPolicy.minimumItemCount: 100000`** des Konnektors (Reads sind
-damit nicht mehr auf eine 5000er-Seite begrenzt) statt über eine
-Akkumulator-Schleife. Limits: 100 000 Zeilen je Query (Warnung im Zell-Log),
-Flows NICHT im Designer editieren (Quelle sind die JSON-Dateien).
+nicht in einem sequenziellen `Until`** („Self reference is not supported");
+**die `paginationPolicy` des Konnektors wirkt NICHT auf `fetchXml`-Reads**
+(empirisch an `principalobjectaccess`/34 662 Zeilen: mit
+`minimumItemCount: 100000` kamen exakt 5000 zurück — identisch zu ohne).
+⇒ **FetchXML-Reads bleiben hart bei 5000 Zeilen**; da ein abgeschnittenes
+Set jede Transferentscheidung unzuverlässig macht (fehlende Quellzeilen
+sehen aus wie Orphans → Massenlöschung!), berechnet der Child `Capped`
+(Quelle ODER Ziel ≥ 5000) und **überspringt dann ALLE Schreib-Loops**,
+meldet alle Zähler als 0 und loggt „ERROR: … NOTHING was written; narrow
+the entry query with a filter" (verifiziert mit 34k-Quelle + Orphan-Delete:
+keine Zeile angefasst). Flows NICHT im Designer editieren (Quelle sind die
+JSON-Dateien).
 **Selbsttest 2026-07-23 (dev→dev Self-Upsert pro_mergerun, 30 Zeilen):
 v1 ~86 s → v3 37 s → v4 10 s; Dry-Run 7 s mit 0 tatsächlich geänderten
 Zeilen bei „30 updated" im Log, echter Run danach 30 Zeilen angefasst.**
