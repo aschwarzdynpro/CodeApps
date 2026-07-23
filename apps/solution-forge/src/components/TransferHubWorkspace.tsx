@@ -170,6 +170,10 @@ export function TransferHubWorkspace() {
 
   /** Change selection + clear the stale entry table (event-driven reset). */
   const selectPackage = (id: string) => {
+    // Re-clicking the selected package must be a no-op: the load effect keys
+    // on selectedId and would not re-fire, leaving the cleared lists stuck
+    // on "Loading…" forever.
+    if (id === selectedId) return
     setSelectedId(id)
     setEntries(null)
     setEntriesError(null)
