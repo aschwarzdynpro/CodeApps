@@ -438,7 +438,7 @@
                                                   "organization": "@variables('vTgtUrl')",
                                                   "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
                                                   "recordId": "@{items('For_orphan')?['i']}",
-                                                  "item/statecode": 1
+                                                  "item": { "statecode": 1 }
                                                 }
                                               }
                                             },
