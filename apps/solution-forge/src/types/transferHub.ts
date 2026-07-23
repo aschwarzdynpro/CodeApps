@@ -126,6 +126,8 @@ export interface TransferEntryInput {
 export interface TableRef {
   logicalName: string
   displayName: string
+  /** Plural display name (DisplayCollectionName) — entry-name suggestion. */
+  displayCollectionName: string
   entitySet: string
   primaryIdAttribute: string
 }

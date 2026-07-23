@@ -354,13 +354,15 @@ class DataverseTransferHubService implements TransferHubService {
     if (cached) return cached
     const rows = await odataQuery(
       'EntityDefinitions',
-      'LogicalName,EntitySetName,PrimaryIdAttribute,DisplayName',
+      'LogicalName,EntitySetName,PrimaryIdAttribute,DisplayName,DisplayCollectionName',
       { orgUrl },
     )
     const tables: TableRef[] = rows
       .map((row: Row) => ({
         logicalName: rowStr(row.LogicalName),
         displayName: label(row.DisplayName) || rowStr(row.LogicalName),
+        displayCollectionName:
+          label(row.DisplayCollectionName) || label(row.DisplayName) || rowStr(row.LogicalName),
         entitySet: rowStr(row.EntitySetName),
         primaryIdAttribute: rowStr(row.PrimaryIdAttribute),
       }))

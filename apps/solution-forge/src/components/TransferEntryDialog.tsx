@@ -52,6 +52,9 @@ export function TransferEntryDialog({
   onClose,
 }: Props) {
   const [name, setName] = useState(entry?.name ?? '')
+  // True once the user typed a name themselves (or the entry came with one) —
+  // then picking a table no longer overwrites it with the suggestion.
+  const [nameTouched, setNameTouched] = useState(() => !!entry?.name)
   const [order, setOrder] = useState(String(entry?.order ?? defaultOrder))
   const [notes, setNotes] = useState(entry?.notes ?? '')
   const [envKey, setEnvKey] = useState(entry?.sourceEnvKey ?? '')
@@ -162,6 +165,16 @@ export function TransferEntryDialog({
     setPreview(null)
     setPreviewError(null)
     setLoadError(null)
+    // Suggest the table's plural display name as the entry name — unless the
+    // user already typed one (an emptied field counts as untyped again).
+    if (!nameTouched || name.trim() === '') {
+      const picked = tables?.find((t) => t.logicalName === logicalName)
+      const suggestion = picked?.displayCollectionName || picked?.displayName
+      if (suggestion) {
+        setName(suggestion)
+        setNameTouched(false)
+      }
+    }
   }
 
   const parsed = useMemo(() => parseFetchXml(fetchXml), [fetchXml])
@@ -295,7 +308,10 @@ export function TransferEntryDialog({
             <span className="form-label">Name</span>
             <input
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value)
+                setNameTouched(true)
+              }}
               placeholder="Payment terms"
               autoFocus
             />

@@ -26,11 +26,11 @@ const PRICELIST_XML = `<fetch><entity name="cust_pricelist"><attribute name="cus
 const PRICELISTITEM_XML = `<fetch><entity name="cust_pricelistitem"><attribute name="cust_name"/><attribute name="cust_pricelistid"/><attribute name="cust_amount"/><filter><condition attribute="statecode" operator="eq" value="0"/></filter></entity></fetch>`
 
 const TABLES: TableRef[] = [
-  { logicalName: 'account', displayName: 'Account', entitySet: 'accounts', primaryIdAttribute: 'accountid' },
-  { logicalName: 'contact', displayName: 'Contact', entitySet: 'contacts', primaryIdAttribute: 'contactid' },
-  { logicalName: 'cust_paymentterm', displayName: 'Payment Term', entitySet: 'cust_paymentterms', primaryIdAttribute: 'cust_paymenttermid' },
-  { logicalName: 'cust_pricelist', displayName: 'Price List', entitySet: 'cust_pricelists', primaryIdAttribute: 'cust_pricelistid' },
-  { logicalName: 'cust_pricelistitem', displayName: 'Price List Item', entitySet: 'cust_pricelistitems', primaryIdAttribute: 'cust_pricelistitemid' },
+  { logicalName: 'account', displayName: 'Account', displayCollectionName: 'Accounts', entitySet: 'accounts', primaryIdAttribute: 'accountid' },
+  { logicalName: 'contact', displayName: 'Contact', displayCollectionName: 'Contacts', entitySet: 'contacts', primaryIdAttribute: 'contactid' },
+  { logicalName: 'cust_paymentterm', displayName: 'Payment Term', displayCollectionName: 'Payment Terms', entitySet: 'cust_paymentterms', primaryIdAttribute: 'cust_paymenttermid' },
+  { logicalName: 'cust_pricelist', displayName: 'Price List', displayCollectionName: 'Price Lists', entitySet: 'cust_pricelists', primaryIdAttribute: 'cust_pricelistid' },
+  { logicalName: 'cust_pricelistitem', displayName: 'Price List Item', displayCollectionName: 'Price List Items', entitySet: 'cust_pricelistitems', primaryIdAttribute: 'cust_pricelistitemid' },
 ]
 
 const VIEWS: Record<string, SavedViewRef[]> = {
