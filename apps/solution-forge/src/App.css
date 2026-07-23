@@ -6740,6 +6740,111 @@
 .thub-row--click {
   cursor: pointer;
 }
+
+/* Run scheduler picker (SchedulePicker) */
+.sched {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  background: var(--bg);
+}
+.sched-body {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.sched-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.sched-nav {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 14px;
+}
+.sched-nav:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.sched-nav:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.sched-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 32px);
+  gap: 2px;
+}
+.sched-dow {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+  padding: 2px 0;
+}
+.sched-day {
+  height: 28px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.sched-day:hover:not(:disabled) {
+  background: #eef0fb;
+}
+.sched-day:disabled {
+  color: var(--muted);
+  opacity: 0.4;
+  cursor: default;
+}
+.sched-day--out {
+  color: var(--muted);
+}
+.sched-day--today {
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+.sched-day--sel,
+.sched-day--sel:hover:not(:disabled) {
+  background: var(--brand);
+  color: #fff;
+  font-weight: 700;
+}
+.sched-time {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sched-time-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.sched-time-row select {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+}
+.sched-selected {
+  font-size: 12.5px;
+}
 .thub-entry-name {
   font-weight: 600;
   margin-right: 6px;

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { TransferPackage } from '../types/transferHub'
 import { ENVIRONMENTS } from '../config'
+import { SchedulePicker } from './SchedulePicker'
 
 interface Props {
   pkg: TransferPackage
@@ -104,13 +105,12 @@ export function TransferRunDialog({ pkg, onQueue, onClose }: Props) {
         </div>
 
         {mode === 'later' && (
-          <label className="form-row">
+          <div className="form-row">
             <span className="form-label">Scheduled for (your local time)</span>
-            <input
-              type="datetime-local"
+            <SchedulePicker
               value={when}
-              onChange={(e) => {
-                setWhen(e.target.value)
+              onChange={(v) => {
+                setWhen(v)
                 setError(null)
               }}
             />
@@ -119,7 +119,7 @@ export function TransferRunDialog({ pkg, onQueue, onClose }: Props) {
               The scheduler picks due runs up every few minutes — the actual
               start can lag the chosen time slightly.
             </span>
-          </label>
+          </div>
         )}
 
         {error && <div className="state state--error">{error}</div>}
