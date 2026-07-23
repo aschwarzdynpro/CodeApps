@@ -10,6 +10,7 @@ import {
   joinCsvList,
   parseCsvList,
   parseFetchXml,
+  parseRunLog,
   setAttributes,
   validateMatchColumns,
   withRowLimit,
@@ -236,6 +237,22 @@ describe('buildColumnPlan', () => {
     const plan = buildColumnPlan(['cust_pricelistid'], attrs, 'cust_itemid', lookupTargets, {})
     expect(plan.l).toEqual([])
     expect(plan.x[0].r).toBe('lookup target set unknown')
+  })
+})
+
+describe('parseRunLog', () => {
+  it('parses executor cell rows and entry-level errors', () => {
+    const rows = parseRunLog(
+      '[{"entry":"NACE Codes","target":"uat","created":1,"updated":9,"deactivated":0,"deleted":0,"errors":["x failed"]},{"entry":"Broken","error":"no column plan"}]',
+    )
+    expect(rows).toHaveLength(2)
+    expect(rows![0]).toMatchObject({ entry: 'NACE Codes', target: 'uat', created: 1, updated: 9, errors: ['x failed'] })
+    expect(rows![1]).toMatchObject({ entry: 'Broken', error: 'no column plan', created: 0 })
+  })
+  it('returns null for empty or non-array input', () => {
+    expect(parseRunLog('')).toBeNull()
+    expect(parseRunLog('not json')).toBeNull()
+    expect(parseRunLog('{"a":1}')).toBeNull()
   })
 })
 

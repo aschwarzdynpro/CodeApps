@@ -7041,15 +7041,33 @@
   justify-content: center;
   gap: 6px;
   border-style: dashed;
-  color: var(--muted);
+  border-color: rgba(91, 91, 214, 0.45);
+  background: rgba(91, 91, 214, 0.07);
+  color: var(--brand);
   font-weight: 600;
   min-height: 86px;
 }
 .thub-pkg--new:hover {
-  color: var(--brand);
+  border-style: solid;
   border-color: var(--brand);
+  background: rgba(91, 91, 214, 0.14);
 }
 .thub-pkg-new-plus {
   font-size: 22px;
   line-height: 1;
+}
+
+/* Transfer hub — structured run-log subgrid */
+.thub-run-details {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.thub-log-error {
+  color: #b91c1c;
+  font-size: 12px;
+}
+.thub-log-errlist {
+  margin: 0;
+  padding-left: 16px;
 }

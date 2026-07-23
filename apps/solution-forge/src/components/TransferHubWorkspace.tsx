@@ -6,6 +6,7 @@ import type {
   TransferRunStatus,
 } from '../types/transferHub'
 import { transferHubService } from '../services/transferHubService'
+import { parseRunLog } from '../utils/transferConfig'
 import { ENVIRONMENTS } from '../config'
 import { formatDateTime, formatRelative } from '../utils/format'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -255,6 +256,14 @@ export function TransferHubWorkspace() {
       {packages === null && <div className="card muted">Loading packages…</div>}
       {packages !== null && (
         <div className="thub-pkg-strip">
+          <button
+            className="card thub-pkg thub-pkg--new"
+            title="Create a new transfer package"
+            onClick={() => setPackageDialog({ pkg: null })}
+          >
+            <span className="thub-pkg-new-plus">+</span>
+            <span>New package</span>
+          </button>
           {packages.map((pkg) => (
             <button
               key={pkg.id}
@@ -282,14 +291,6 @@ export function TransferHubWorkspace() {
               </span>
             </button>
           ))}
-          <button
-            className="card thub-pkg thub-pkg--new"
-            title="Create a new transfer package"
-            onClick={() => setPackageDialog({ pkg: null })}
-          >
-            <span className="thub-pkg-new-plus">+</span>
-            <span>New package</span>
-          </button>
         </div>
       )}
 
@@ -628,7 +629,63 @@ export function TransferHubWorkspace() {
                             {expandedRunId === run.id && run.log && (
                               <tr className="thub-preview-tr">
                                 <td colSpan={RUN_COLUMNS}>
-                                  <pre className="thub-run-log">{run.log}</pre>
+                                  {(() => {
+                                    const logRows = parseRunLog(run.log)
+                                    if (!logRows)
+                                      return <pre className="thub-run-log">{run.log}</pre>
+                                    return (
+                                      <div className="thub-table-wrap">
+                                        <table className="ops-table thub-run-details">
+                                          <thead>
+                                            <tr>
+                                              <th>Entry</th>
+                                              <th>Target</th>
+                                              <th className="num">Created</th>
+                                              <th className="num">Updated</th>
+                                              <th className="num">Deactivated</th>
+                                              <th className="num">Deleted</th>
+                                              <th>Errors</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {logRows.map((row, i) => (
+                                              <tr key={i}>
+                                                <td>{row.entry || '–'}</td>
+                                                <td className="nowrap">
+                                                  {row.target ? envLabel(row.target) : '–'}
+                                                </td>
+                                                {row.error ? (
+                                                  <td colSpan={5}>
+                                                    <span className="thub-log-error">{row.error}</span>
+                                                  </td>
+                                                ) : (
+                                                  <>
+                                                    <td className="num">{row.created}</td>
+                                                    <td className="num">{row.updated}</td>
+                                                    <td className="num">{row.deactivated}</td>
+                                                    <td className="num">{row.deleted}</td>
+                                                    <td>
+                                                      {row.errors.length === 0 ? (
+                                                        <span className="muted">–</span>
+                                                      ) : (
+                                                        <ul className="thub-log-errlist">
+                                                          {row.errors.map((e, j) => (
+                                                            <li key={j} className="thub-log-error">
+                                                              {e}
+                                                            </li>
+                                                          ))}
+                                                        </ul>
+                                                      )}
+                                                    </td>
+                                                  </>
+                                                )}
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    )
+                                  })()}
                                 </td>
                               </tr>
                             )}

@@ -316,6 +316,50 @@ export function buildColumnPlan(
   return plan
 }
 
+/** One parsed line of the executor's pro_log_txt (entry × target cell). */
+export interface RunLogRow {
+  entry: string
+  target: string
+  created: number
+  updated: number
+  deactivated: number
+  deleted: number
+  /** Row-level errors/warnings collected by the executor. */
+  errors: string[]
+  /** Entry-level failure message (no counters were produced). */
+  error: string
+}
+
+/**
+ * Parse the executor's log JSON into rows for the run-details subgrid.
+ * Returns null when the log is empty or not the expected array shape —
+ * the UI then falls back to showing the raw text.
+ */
+export function parseRunLog(log: string): RunLogRow[] | null {
+  if (!log.trim()) return null
+  try {
+    const data: unknown = JSON.parse(log)
+    if (!Array.isArray(data)) return null
+    const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+    const str = (v: unknown) => (typeof v === 'string' ? v : '')
+    return data.map((raw) => {
+      const r = (raw ?? {}) as Record<string, unknown>
+      return {
+        entry: str(r.entry),
+        target: str(r.target),
+        created: num(r.created),
+        updated: num(r.updated),
+        deactivated: num(r.deactivated),
+        deleted: num(r.deleted),
+        errors: Array.isArray(r.errors) ? r.errors.map((e) => String(e)) : [],
+        error: str(r.error),
+      }
+    })
+  } catch {
+    return null
+  }
+}
+
 /** The dialog's draft shape — everything the save gate needs. */
 export interface TransferEntryDraft {
   sourceEnvKey: string
