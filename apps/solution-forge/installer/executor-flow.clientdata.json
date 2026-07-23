@@ -75,473 +75,25 @@
           }
         },
 
-        "Try": {
+        "Get_envs": {
           "runAfter": { "Claim_running": ["Succeeded"] },
-          "type": "Scope",
-          "actions": {
-            "Get_envs": {
-              "runAfter": {},
-              "type": "OpenApiConnection",
-              "inputs": {
-                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                "parameters": {
-                  "organization": "__HOST_URL__",
-                  "entityName": "pro_environmentconfigs",
-                  "$select": "pro_key,pro_url"
-                }
-              }
-            },
-            "If_no_package": {
-              "runAfter": { "Get_envs": ["Succeeded"] },
-              "type": "If",
-              "expression": "@equals(coalesce(triggerOutputs()?['body/_pro_package_ref_value'],''),'')",
-              "actions": {
-                "Fail_no_package": {
-                  "runAfter": {},
-                  "type": "OpenApiConnection",
-                  "inputs": {
-                    "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                    "parameters": {
-                      "organization": "__HOST_URL__",
-                      "entityName": "pro_transferruns",
-                      "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
-                      "item/pro_status_opt": 867520003,
-                      "item/pro_finishedon_dat": "@{utcNow()}",
-                      "item/pro_summary_str": "Run has no package."
-                    }
-                  }
-                },
-                "Stop_no_package": { "runAfter": { "Fail_no_package": ["Succeeded"] }, "type": "Terminate", "inputs": { "runStatus": "Succeeded" } }
-              }
-            },
-            "Get_entries": {
-              "runAfter": { "If_no_package": ["Succeeded"] },
-              "type": "OpenApiConnection",
-              "inputs": {
-                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                "parameters": {
-                  "organization": "__HOST_URL__",
-                  "entityName": "pro_transferentries",
-                  "$select": "pro_name,pro_sourceenv_str,pro_sourceentityset_str,pro_primaryidattr_str,pro_fetchxml_txt,pro_matchmode_opt,pro_matchcolumns_str,pro_orphanhandling_opt,pro_order_int,pro_columnplan_txt",
-                  "$filter": "_pro_package_ref_value eq @{triggerOutputs()?['body/_pro_package_ref_value']} and statecode eq 0",
-                  "$orderby": "pro_order_int asc"
-                }
-              }
-            },
-            "Targets": {
-              "runAfter": { "Get_entries": ["Succeeded"] },
-              "type": "Compose",
-              "inputs": "@if(equals(coalesce(triggerOutputs()?['body/pro_targetenvs_str'],''),''), json('[]'), split(triggerOutputs()?['body/pro_targetenvs_str'],','))"
-            },
-            "For_entry": {
-              "runAfter": { "Targets": ["Succeeded"] },
-              "type": "Foreach",
-              "foreach": "@body('Get_entries')?['value']",
-              "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
-              "actions": {
-                "Plan": {
-                  "runAfter": {},
-                  "type": "Compose",
-                  "inputs": "@json(if(equals(coalesce(items('For_entry')?['pro_columnplan_txt'],''),''),'{\"s\":[],\"l\":[],\"x\":[]}',items('For_entry')?['pro_columnplan_txt']))"
-                },
-                "If_no_plan": {
-                  "runAfter": { "Plan": ["Succeeded"] },
-                  "type": "If",
-                  "expression": "@and(equals(length(outputs('Plan')?['s']),0),equals(length(outputs('Plan')?['l']),0))",
-                  "actions": {
-                    "Log_no_plan": { "runAfter": {}, "type": "AppendToArrayVariable", "inputs": { "name": "vLog", "value": { "entry": "@{items('For_entry')?['pro_name']}", "error": "no column plan — re-save the entry in the hub" } } },
-                    "Err_no_plan": { "runAfter": { "Log_no_plan": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
-                  },
-                  "else": {
-                    "actions": {
-                      "Keycols": {
-                        "runAfter": {},
-                        "type": "Compose",
-                        "inputs": "@if(equals(items('For_entry')?['pro_matchmode_opt'],867520001), split(coalesce(items('For_entry')?['pro_matchcolumns_str'],''),','), createArray(items('For_entry')?['pro_primaryidattr_str']))"
-                      },
-                      "Find_src": {
-                        "runAfter": { "Keycols": ["Succeeded"] },
-                        "type": "Query",
-                        "inputs": { "from": "@body('Get_envs')?['value']", "where": "@equals(item()?['pro_key'], items('For_entry')?['pro_sourceenv_str'])" }
-                      },
-                      "If_src_unknown": {
-                        "runAfter": { "Find_src": ["Succeeded"] },
-                        "type": "If",
-                        "expression": "@equals(length(body('Find_src')),0)",
-                        "actions": {
-                          "Log_src_unknown": { "runAfter": {}, "type": "AppendToArrayVariable", "inputs": { "name": "vLog", "value": { "entry": "@{items('For_entry')?['pro_name']}", "error": "source environment key not found in pro_environmentconfig" } } },
-                          "Err_src": { "runAfter": { "Log_src_unknown": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
-                        },
-                        "else": {
-                          "actions": {
-                            "Set_src_url": { "runAfter": {}, "type": "SetVariable", "inputs": { "name": "vSrcUrl", "value": "@{first(body('Find_src'))?['pro_url']}" } },
-                            "Get_src_rows": {
-                              "runAfter": { "Set_src_url": ["Succeeded"] },
-                              "type": "OpenApiConnection",
-                              "inputs": {
-                                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                                "parameters": {
-                                  "organization": "@variables('vSrcUrl')",
-                                  "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
-                                  "fetchXml": "@items('For_entry')?['pro_fetchxml_txt']"
-                                }
-                              }
-                            },
-                            "For_target": {
-                              "runAfter": { "Get_src_rows": ["Succeeded"] },
-                              "type": "Foreach",
-                              "foreach": "@outputs('Targets')",
-                              "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
-                              "actions": {
-                                "Find_tgt": {
-                                  "runAfter": {},
-                                  "type": "Query",
-                                  "inputs": { "from": "@body('Get_envs')?['value']", "where": "@equals(item()?['pro_key'], items('For_target'))" }
-                                },
-                                "If_tgt_unknown": {
-                                  "runAfter": { "Find_tgt": ["Succeeded"] },
-                                  "type": "If",
-                                  "expression": "@equals(length(body('Find_tgt')),0)",
-                                  "actions": {
-                                    "Log_tgt_unknown": { "runAfter": {}, "type": "AppendToArrayVariable", "inputs": { "name": "vLog", "value": { "entry": "@{items('For_entry')?['pro_name']}", "target": "@{items('For_target')}", "error": "target environment key not found in pro_environmentconfig" } } },
-                                    "Err_tgt": { "runAfter": { "Log_tgt_unknown": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
-                                  },
-                                  "else": {
-                                    "actions": {
-                                      "Set_tgt_url": { "runAfter": {}, "type": "SetVariable", "inputs": { "name": "vTgtUrl", "value": "@{first(body('Find_tgt'))?['pro_url']}" } },
-                                      "Reset_created": { "runAfter": { "Set_tgt_url": ["Succeeded"] }, "type": "SetVariable", "inputs": { "name": "vCellCreated", "value": 0 } },
-                                      "Reset_updated": { "runAfter": { "Reset_created": ["Succeeded"] }, "type": "SetVariable", "inputs": { "name": "vCellUpdated", "value": 0 } },
-                                      "Reset_deact": { "runAfter": { "Reset_updated": ["Succeeded"] }, "type": "SetVariable", "inputs": { "name": "vCellDeact", "value": 0 } },
-                                      "Reset_deleted": { "runAfter": { "Reset_deact": ["Succeeded"] }, "type": "SetVariable", "inputs": { "name": "vCellDeleted", "value": 0 } },
-                                      "Reset_rowerrs": { "runAfter": { "Reset_deleted": ["Succeeded"] }, "type": "SetVariable", "inputs": { "name": "vRowErrs", "value": [] } },
-                                      "Reset_tgtidx": { "runAfter": { "Reset_rowerrs": ["Succeeded"] }, "type": "SetVariable", "inputs": { "name": "vTgtIdx", "value": [] } },
-                                      "Reset_srckeys": { "runAfter": { "Reset_tgtidx": ["Succeeded"] }, "type": "SetVariable", "inputs": { "name": "vSrcKeys", "value": [] } },
-                                      "Get_tgt_rows": {
-                                        "runAfter": { "Reset_srckeys": ["Succeeded"] },
-                                        "type": "OpenApiConnection",
-                                        "inputs": {
-                                          "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                                          "parameters": {
-                                            "organization": "@variables('vTgtUrl')",
-                                            "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
-                                            "fetchXml": "@items('For_entry')?['pro_fetchxml_txt']"
-                                          }
-                                        }
-                                      },
-                                      "If_page_cap": {
-                                        "runAfter": { "Get_tgt_rows": ["Succeeded"] },
-                                        "type": "If",
-                                        "expression": "@or(greaterOrEquals(length(body('Get_src_rows')?['value']),5000),greaterOrEquals(length(body('Get_tgt_rows')?['value']),5000))",
-                                        "actions": {
-                                          "Warn_page_cap": { "runAfter": {}, "type": "AppendToArrayVariable", "inputs": { "name": "vRowErrs", "value": "warning: 5000-row page cap reached — result may be truncated" } }
-                                        }
-                                      },
-                                      "For_trow": {
-                                        "runAfter": { "If_page_cap": ["Succeeded"] },
-                                        "type": "Foreach",
-                                        "foreach": "@body('Get_tgt_rows')?['value']",
-                                        "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
-                                        "actions": {
-                                          "TKey_parts": {
-                                            "runAfter": {},
-                                            "type": "Select",
-                                            "inputs": { "from": "@outputs('Keycols')", "select": "@string(coalesce(items('For_trow')?[item()], items('For_trow')?[concat('_',item(),'_value')],''))" }
-                                          },
-                                          "App_tgtidx": {
-                                            "runAfter": { "TKey_parts": ["Succeeded"] },
-                                            "type": "AppendToArrayVariable",
-                                            "inputs": { "name": "vTgtIdx", "value": { "k": "@{join(body('TKey_parts'),'|')}", "i": "@{items('For_trow')?[items('For_entry')?['pro_primaryidattr_str']]}" } }
-                                          }
-                                        }
-                                      },
-                                      "For_srow": {
-                                        "runAfter": { "For_trow": ["Succeeded"] },
-                                        "type": "Foreach",
-                                        "foreach": "@body('Get_src_rows')?['value']",
-                                        "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
-                                        "actions": {
-                                          "SKey_parts": {
-                                            "runAfter": {},
-                                            "type": "Select",
-                                            "inputs": { "from": "@outputs('Keycols')", "select": "@string(coalesce(items('For_srow')?[item()], items('For_srow')?[concat('_',item(),'_value')],''))" }
-                                          },
-                                          "SKey": { "runAfter": { "SKey_parts": ["Succeeded"] }, "type": "Compose", "inputs": "@join(body('SKey_parts'),'|')" },
-                                          "App_srckey": { "runAfter": { "SKey": ["Succeeded"] }, "type": "AppendToArrayVariable", "inputs": { "name": "vSrcKeys", "value": "@outputs('SKey')" } },
-                                          "Scalar_pairs": {
-                                            "runAfter": { "App_srckey": ["Succeeded"] },
-                                            "type": "Select",
-                                            "inputs": { "from": "@outputs('Plan')?['s']", "select": "@concat('\"',item(),'\":',if(equals(items('For_srow')?[item()],null),'null',substring(string(createArray(items('For_srow')?[item()])),1,sub(length(string(createArray(items('For_srow')?[item()]))),2))))" }
-                                          },
-                                          "Lookup_pairs": {
-                                            "runAfter": { "Scalar_pairs": ["Succeeded"] },
-                                            "type": "Select",
-                                            "inputs": { "from": "@outputs('Plan')?['l']", "select": "@if(equals(items('For_srow')?[concat('_',item()?['c'],'_value')],null),'',concat('\"',item()?['c'],'@odata.bind\":\"/',item()?['s'],'(',items('For_srow')?[concat('_',item()?['c'],'_value')],')\"'))" }
-                                          },
-                                          "Lookup_clean": {
-                                            "runAfter": { "Lookup_pairs": ["Succeeded"] },
-                                            "type": "Query",
-                                            "inputs": { "from": "@body('Lookup_pairs')", "where": "@not(equals(item(),''))" }
-                                          },
-                                          "Payload": {
-                                            "runAfter": { "Lookup_clean": ["Succeeded"] },
-                                            "type": "Compose",
-                                            "inputs": "@json(concat('{', join(union(body('Scalar_pairs'), body('Lookup_clean')), ','), '}'))"
-                                          },
-                                          "Match": {
-                                            "runAfter": { "Payload": ["Succeeded"] },
-                                            "type": "Query",
-                                            "inputs": { "from": "@variables('vTgtIdx')", "where": "@equals(item()?['k'], outputs('SKey'))" }
-                                          },
-                                          "If_matched": {
-                                            "runAfter": { "Match": ["Succeeded"] },
-                                            "type": "If",
-                                            "expression": "@greater(length(body('Match')),0)",
-                                            "actions": {
-                                              "If_ambiguous": {
-                                                "runAfter": {},
-                                                "type": "If",
-                                                "expression": "@and(greater(length(body('Match')),1),equals(items('For_entry')?['pro_matchmode_opt'],867520001))",
-                                                "actions": {
-                                                  "Err_ambiguous": { "runAfter": {}, "type": "AppendToArrayVariable", "inputs": { "name": "vRowErrs", "value": "@{concat('ambiguous match for key ', outputs('SKey'), ' — skipped')}" } },
-                                                  "Inc_err_ambiguous": { "runAfter": { "Err_ambiguous": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
-                                                },
-                                                "else": {
-                                                  "actions": {
-                                                    "Update_scope": {
-                                                      "runAfter": {},
-                                                      "type": "Scope",
-                                                      "actions": {
-                                                        "Update_row": {
-                                                          "runAfter": {},
-                                                          "type": "OpenApiConnection",
-                                                          "inputs": {
-                                                            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                                                            "parameters": {
-                                                              "organization": "@variables('vTgtUrl')",
-                                                              "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
-                                                              "recordId": "@{first(body('Match'))?['i']}",
-                                                              "item": "@outputs('Payload')"
-                                                            }
-                                                          }
-                                                        },
-                                                        "Inc_updated": { "runAfter": { "Update_row": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vCellUpdated", "value": 1 } }
-                                                      }
-                                                    },
-                                                    "Update_fail": { "runAfter": { "Update_scope": ["Failed", "TimedOut"] }, "type": "AppendToArrayVariable", "inputs": { "name": "vRowErrs", "value": "@{concat('update failed for key ', outputs('SKey'))}" } },
-                                                    "Inc_err_update": { "runAfter": { "Update_fail": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
-                                                  }
-                                                }
-                                              }
-                                            },
-                                            "else": {
-                                              "actions": {
-                                                "If_guid_create": {
-                                                  "runAfter": {},
-                                                  "type": "If",
-                                                  "expression": "@not(equals(items('For_entry')?['pro_matchmode_opt'],867520001))",
-                                                  "actions": {
-                                                    "Payload_with_id": {
-                                                      "runAfter": {},
-                                                      "type": "Compose",
-                                                      "inputs": "@addProperty(outputs('Payload'), items('For_entry')?['pro_primaryidattr_str'], items('For_srow')?[items('For_entry')?['pro_primaryidattr_str']])"
-                                                    },
-                                                    "Create_scope_guid": {
-                                                      "runAfter": { "Payload_with_id": ["Succeeded"] },
-                                                      "type": "Scope",
-                                                      "actions": {
-                                                        "Create_row_guid": {
-                                                          "runAfter": {},
-                                                          "type": "OpenApiConnection",
-                                                          "inputs": {
-                                                            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                                                            "parameters": {
-                                                              "organization": "@variables('vTgtUrl')",
-                                                              "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
-                                                              "item": "@outputs('Payload_with_id')"
-                                                            }
-                                                          }
-                                                        },
-                                                        "Inc_created_guid": { "runAfter": { "Create_row_guid": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vCellCreated", "value": 1 } }
-                                                      }
-                                                    },
-                                                    "Create_fail_guid": { "runAfter": { "Create_scope_guid": ["Failed", "TimedOut"] }, "type": "AppendToArrayVariable", "inputs": { "name": "vRowErrs", "value": "@{concat('create failed for key ', outputs('SKey'))}" } },
-                                                    "Inc_err_create_guid": { "runAfter": { "Create_fail_guid": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
-                                                  },
-                                                  "else": {
-                                                    "actions": {
-                                                      "Create_scope_cols": {
-                                                        "runAfter": {},
-                                                        "type": "Scope",
-                                                        "actions": {
-                                                          "Create_row_cols": {
-                                                            "runAfter": {},
-                                                            "type": "OpenApiConnection",
-                                                            "inputs": {
-                                                              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                                                              "parameters": {
-                                                                "organization": "@variables('vTgtUrl')",
-                                                                "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
-                                                                "item": "@outputs('Payload')"
-                                                              }
-                                                            }
-                                                          },
-                                                          "Inc_created_cols": { "runAfter": { "Create_row_cols": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vCellCreated", "value": 1 } }
-                                                        }
-                                                      },
-                                                      "Create_fail_cols": { "runAfter": { "Create_scope_cols": ["Failed", "TimedOut"] }, "type": "AppendToArrayVariable", "inputs": { "name": "vRowErrs", "value": "@{concat('create failed for key ', outputs('SKey'))}" } },
-                                                      "Inc_err_create_cols": { "runAfter": { "Create_fail_cols": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
-                                                    }
-                                                  }
-                                                }
-                                              }
-                                            }
-                                          }
-                                        }
-                                      },
-                                      "If_orphan_mode": {
-                                        "runAfter": { "For_srow": ["Succeeded"] },
-                                        "type": "If",
-                                        "expression": "@and(not(equals(coalesce(items('For_entry')?['pro_orphanhandling_opt'],867520000),867520000)), greater(length(variables('vTgtIdx')),0))",
-                                        "actions": {
-                                          "For_orphan": {
-                                            "runAfter": {},
-                                            "type": "Foreach",
-                                            "foreach": "@variables('vTgtIdx')",
-                                            "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
-                                            "actions": {
-                                              "Orphan_match": {
-                                                "runAfter": {},
-                                                "type": "Query",
-                                                "inputs": { "from": "@variables('vSrcKeys')", "where": "@equals(item(), items('For_orphan')?['k'])" }
-                                              },
-                                              "If_orphaned": {
-                                                "runAfter": { "Orphan_match": ["Succeeded"] },
-                                                "type": "If",
-                                                "expression": "@equals(length(body('Orphan_match')),0)",
-                                                "actions": {
-                                                  "If_delete_mode": {
-                                                    "runAfter": {},
-                                                    "type": "If",
-                                                    "expression": "@equals(items('For_entry')?['pro_orphanhandling_opt'],867520002)",
-                                                    "actions": {
-                                                      "Delete_scope": {
-                                                        "runAfter": {},
-                                                        "type": "Scope",
-                                                        "actions": {
-                                                          "Delete_row": {
-                                                            "runAfter": {},
-                                                            "type": "OpenApiConnection",
-                                                            "inputs": {
-                                                              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "DeleteRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                                                              "parameters": {
-                                                                "organization": "@variables('vTgtUrl')",
-                                                                "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
-                                                                "recordId": "@{items('For_orphan')?['i']}"
-                                                              }
-                                                            }
-                                                          },
-                                                          "Inc_deleted": { "runAfter": { "Delete_row": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vCellDeleted", "value": 1 } }
-                                                        }
-                                                      },
-                                                      "Delete_fail": { "runAfter": { "Delete_scope": ["Failed", "TimedOut"] }, "type": "AppendToArrayVariable", "inputs": { "name": "vRowErrs", "value": "@{concat('delete failed for orphan ', items('For_orphan')?['i'])}" } },
-                                                      "Inc_err_delete": { "runAfter": { "Delete_fail": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
-                                                    },
-                                                    "else": {
-                                                      "actions": {
-                                                        "Deact_scope": {
-                                                          "runAfter": {},
-                                                          "type": "Scope",
-                                                          "actions": {
-                                                            "Deact_row": {
-                                                              "runAfter": {},
-                                                              "type": "OpenApiConnection",
-                                                              "inputs": {
-                                                                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                                                                "parameters": {
-                                                                  "organization": "@variables('vTgtUrl')",
-                                                                  "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
-                                                                  "recordId": "@{items('For_orphan')?['i']}",
-                                                                  "item/statecode": 1
-                                                                }
-                                                              }
-                                                            },
-                                                            "Inc_deact": { "runAfter": { "Deact_row": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vCellDeact", "value": 1 } }
-                                                          }
-                                                        },
-                                                        "Deact_fail": { "runAfter": { "Deact_scope": ["Failed", "TimedOut"] }, "type": "AppendToArrayVariable", "inputs": { "name": "vRowErrs", "value": "@{concat('deactivate failed for orphan ', items('For_orphan')?['i'])}" } },
-                                                        "Inc_err_deact": { "runAfter": { "Deact_fail": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
-                                                      }
-                                                    }
-                                                  }
-                                                }
-                                              }
-                                            }
-                                          }
-                                        }
-                                      },
-                                      "Cell_log": {
-                                        "runAfter": { "If_orphan_mode": ["Succeeded"] },
-                                        "type": "AppendToArrayVariable",
-                                        "inputs": {
-                                          "name": "vLog",
-                                          "value": {
-                                            "entry": "@{items('For_entry')?['pro_name']}",
-                                            "target": "@{items('For_target')}",
-                                            "created": "@variables('vCellCreated')",
-                                            "updated": "@variables('vCellUpdated')",
-                                            "deactivated": "@variables('vCellDeact')",
-                                            "deleted": "@variables('vCellDeleted')",
-                                            "errors": "@variables('vRowErrs')"
-                                          }
-                                        }
-                                      },
-                                      "Add_ok": { "runAfter": { "Cell_log": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vOk", "value": "@add(add(variables('vCellCreated'),variables('vCellUpdated')),add(variables('vCellDeact'),variables('vCellDeleted')))" } },
-                                      "Add_tot_created": { "runAfter": { "Add_ok": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vTotCreated", "value": "@variables('vCellCreated')" } },
-                                      "Add_tot_updated": { "runAfter": { "Add_tot_created": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vTotUpdated", "value": "@variables('vCellUpdated')" } },
-                                      "Add_tot_deact": { "runAfter": { "Add_tot_updated": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vTotDeact", "value": "@variables('vCellDeact')" } },
-                                      "Add_tot_deleted": { "runAfter": { "Add_tot_deact": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vTotDeleted", "value": "@variables('vCellDeleted')" } }
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            },
-            "Final_status": {
-              "runAfter": { "For_entry": ["Succeeded"] },
-              "type": "Compose",
-              "inputs": "@if(equals(variables('vErr'),0),867520002,if(greater(variables('vOk'),0),867520004,867520003))"
-            },
-            "Finish_run": {
-              "runAfter": { "Final_status": ["Succeeded"] },
-              "type": "OpenApiConnection",
-              "inputs": {
-                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
-                "parameters": {
-                  "organization": "__HOST_URL__",
-                  "entityName": "pro_transferruns",
-                  "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
-                  "item/pro_status_opt": "@outputs('Final_status')",
-                  "item/pro_finishedon_dat": "@{utcNow()}",
-                  "item/pro_summary_str": "@{concat(variables('vTotCreated'),' created, ',variables('vTotUpdated'),' updated, ',variables('vTotDeact'),' deactivated, ',variables('vTotDeleted'),' deleted, ',variables('vErr'),' errors')}",
-                  "item/pro_log_txt": "@{string(variables('vLog'))}"
-                }
-              }
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "organization": "__HOST_URL__",
+              "entityName": "pro_environmentconfigs",
+              "$select": "pro_key,pro_url"
             }
           }
         },
 
-        "Catch": {
-          "runAfter": { "Try": ["Failed", "TimedOut"] },
-          "type": "Scope",
+        "If_no_package": {
+          "runAfter": { "Get_envs": ["Succeeded"] },
+          "type": "If",
+          "expression": "@equals(coalesce(triggerOutputs()?['body/_pro_package_ref_value'],''),'')",
           "actions": {
-            "Fail_run": {
+            "Fail_no_package": {
               "runAfter": {},
               "type": "OpenApiConnection",
               "inputs": {
@@ -552,10 +104,422 @@
                   "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
                   "item/pro_status_opt": 867520003,
                   "item/pro_finishedon_dat": "@{utcNow()}",
-                  "item/pro_summary_str": "Executor crashed — check the Power Automate run history.",
-                  "item/pro_log_txt": "@{string(variables('vLog'))}"
+                  "item/pro_summary_str": "Run has no package."
                 }
               }
+            },
+            "Stop_no_package": { "runAfter": { "Fail_no_package": ["Succeeded"] }, "type": "Terminate", "inputs": { "runStatus": "Succeeded" } }
+          }
+        },
+
+        "Get_entries": {
+          "runAfter": { "If_no_package": ["Succeeded"] },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "organization": "__HOST_URL__",
+              "entityName": "pro_transferentries",
+              "$select": "pro_name,pro_sourceenv_str,pro_sourceentityset_str,pro_primaryidattr_str,pro_fetchxml_txt,pro_matchmode_opt,pro_matchcolumns_str,pro_orphanhandling_opt,pro_order_int,pro_columnplan_txt",
+              "$filter": "_pro_package_ref_value eq @{triggerOutputs()?['body/_pro_package_ref_value']} and statecode eq 0",
+              "$orderby": "pro_order_int asc"
+            }
+          }
+        },
+
+        "Targets": {
+          "runAfter": { "Get_entries": ["Succeeded"] },
+          "type": "Compose",
+          "inputs": "@if(equals(coalesce(triggerOutputs()?['body/pro_targetenvs_str'],''),''), json('[]'), split(triggerOutputs()?['body/pro_targetenvs_str'],','))"
+        },
+
+        "For_entry": {
+          "runAfter": { "Targets": ["Succeeded"] },
+          "type": "Foreach",
+          "foreach": "@body('Get_entries')?['value']",
+          "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
+          "actions": {
+            "Plan": {
+              "runAfter": {},
+              "type": "Compose",
+              "inputs": "@json(if(equals(coalesce(items('For_entry')?['pro_columnplan_txt'],''),''),'{\"s\":[],\"l\":[],\"x\":[]}',items('For_entry')?['pro_columnplan_txt']))"
+            },
+            "Keycols": {
+              "runAfter": { "Plan": ["Succeeded"] },
+              "type": "Compose",
+              "inputs": "@if(equals(items('For_entry')?['pro_matchmode_opt'],867520001), split(coalesce(items('For_entry')?['pro_matchcolumns_str'],''),','), createArray(items('For_entry')?['pro_primaryidattr_str']))"
+            },
+            "Find_src": {
+              "runAfter": { "Keycols": ["Succeeded"] },
+              "type": "Query",
+              "inputs": { "from": "@body('Get_envs')?['value']", "where": "@equals(item()?['pro_key'], items('For_entry')?['pro_sourceenv_str'])" }
+            },
+            "If_entry_invalid": {
+              "runAfter": { "Find_src": ["Succeeded"] },
+              "type": "If",
+              "expression": "@or(and(equals(length(outputs('Plan')?['s']),0),equals(length(outputs('Plan')?['l']),0)), equals(length(body('Find_src')),0))",
+              "actions": {
+                "Log_entry_skip": {
+                  "runAfter": {},
+                  "type": "AppendToArrayVariable",
+                  "inputs": {
+                    "name": "vLog",
+                    "value": {
+                      "entry": "@{items('For_entry')?['pro_name']}",
+                      "error": "@{if(equals(length(body('Find_src')),0),'source environment key not found in pro_environmentconfig','no column plan — re-save the entry in the hub')}"
+                    }
+                  }
+                },
+                "Err_entry": { "runAfter": { "Log_entry_skip": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
+              },
+              "else": {
+                "actions": {
+                  "Set_src_url": { "runAfter": {}, "type": "SetVariable", "inputs": { "name": "vSrcUrl", "value": "@{first(body('Find_src'))?['pro_url']}" } },
+                  "Get_src_rows": {
+                    "runAfter": { "Set_src_url": ["Succeeded"] },
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                      "parameters": {
+                        "organization": "@variables('vSrcUrl')",
+                        "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
+                        "fetchXml": "@items('For_entry')?['pro_fetchxml_txt']"
+                      }
+                    }
+                  },
+                  "For_target": {
+                    "runAfter": { "Get_src_rows": ["Succeeded"] },
+                    "type": "Foreach",
+                    "foreach": "@outputs('Targets')",
+                    "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
+                    "actions": {
+                      "Find_tgt": {
+                        "runAfter": {},
+                        "type": "Query",
+                        "inputs": { "from": "@body('Get_envs')?['value']", "where": "@equals(item()?['pro_key'], items('For_target'))" }
+                      },
+                      "If_tgt_unknown": {
+                        "runAfter": { "Find_tgt": ["Succeeded"] },
+                        "type": "If",
+                        "expression": "@equals(length(body('Find_tgt')),0)",
+                        "actions": {
+                          "Log_tgt_unknown": { "runAfter": {}, "type": "AppendToArrayVariable", "inputs": { "name": "vLog", "value": { "entry": "@{items('For_entry')?['pro_name']}", "target": "@{items('For_target')}", "error": "target environment key not found in pro_environmentconfig" } } },
+                          "Err_tgt": { "runAfter": { "Log_tgt_unknown": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
+                        },
+                        "else": {
+                          "actions": {
+                            "Set_tgt_url": { "runAfter": {}, "type": "SetVariable", "inputs": { "name": "vTgtUrl", "value": "@{first(body('Find_tgt'))?['pro_url']}" } },
+                            "Reset_created": { "runAfter": { "Set_tgt_url": ["Succeeded"] }, "type": "SetVariable", "inputs": { "name": "vCellCreated", "value": 0 } },
+                            "Reset_updated": { "runAfter": { "Reset_created": ["Succeeded"] }, "type": "SetVariable", "inputs": { "name": "vCellUpdated", "value": 0 } },
+                            "Reset_deact": { "runAfter": { "Reset_updated": ["Succeeded"] }, "type": "SetVariable", "inputs": { "name": "vCellDeact", "value": 0 } },
+                            "Reset_deleted": { "runAfter": { "Reset_deact": ["Succeeded"] }, "type": "SetVariable", "inputs": { "name": "vCellDeleted", "value": 0 } },
+                            "Reset_rowerrs": { "runAfter": { "Reset_deleted": ["Succeeded"] }, "type": "SetVariable", "inputs": { "name": "vRowErrs", "value": [] } },
+                            "Reset_tgtidx": { "runAfter": { "Reset_rowerrs": ["Succeeded"] }, "type": "SetVariable", "inputs": { "name": "vTgtIdx", "value": [] } },
+                            "Reset_srckeys": { "runAfter": { "Reset_tgtidx": ["Succeeded"] }, "type": "SetVariable", "inputs": { "name": "vSrcKeys", "value": [] } },
+                            "Get_tgt_rows": {
+                              "runAfter": { "Reset_srckeys": ["Succeeded"] },
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                                "parameters": {
+                                  "organization": "@variables('vTgtUrl')",
+                                  "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
+                                  "fetchXml": "@items('For_entry')?['pro_fetchxml_txt']"
+                                }
+                              }
+                            },
+                            "If_page_cap": {
+                              "runAfter": { "Get_tgt_rows": ["Succeeded"] },
+                              "type": "If",
+                              "expression": "@or(greaterOrEquals(length(body('Get_src_rows')?['value']),5000),greaterOrEquals(length(body('Get_tgt_rows')?['value']),5000))",
+                              "actions": {
+                                "Warn_page_cap": { "runAfter": {}, "type": "AppendToArrayVariable", "inputs": { "name": "vRowErrs", "value": "warning: 5000-row page cap reached — result may be truncated" } }
+                              }
+                            },
+                            "For_trow": {
+                              "runAfter": { "If_page_cap": ["Succeeded"] },
+                              "type": "Foreach",
+                              "foreach": "@body('Get_tgt_rows')?['value']",
+                              "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
+                              "actions": {
+                                "TKey_parts": {
+                                  "runAfter": {},
+                                  "type": "Select",
+                                  "inputs": { "from": "@outputs('Keycols')", "select": "@string(coalesce(items('For_trow')?[item()], items('For_trow')?[concat('_',item(),'_value')],''))" }
+                                },
+                                "App_tgtidx": {
+                                  "runAfter": { "TKey_parts": ["Succeeded"] },
+                                  "type": "AppendToArrayVariable",
+                                  "inputs": { "name": "vTgtIdx", "value": { "k": "@{join(body('TKey_parts'),'|')}", "i": "@{items('For_trow')?[items('For_entry')?['pro_primaryidattr_str']]}" } }
+                                }
+                              }
+                            },
+                            "For_srow": {
+                              "runAfter": { "For_trow": ["Succeeded"] },
+                              "type": "Foreach",
+                              "foreach": "@body('Get_src_rows')?['value']",
+                              "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
+                              "actions": {
+                                "SKey_parts": {
+                                  "runAfter": {},
+                                  "type": "Select",
+                                  "inputs": { "from": "@outputs('Keycols')", "select": "@string(coalesce(items('For_srow')?[item()], items('For_srow')?[concat('_',item(),'_value')],''))" }
+                                },
+                                "SKey": { "runAfter": { "SKey_parts": ["Succeeded"] }, "type": "Compose", "inputs": "@join(body('SKey_parts'),'|')" },
+                                "App_srckey": { "runAfter": { "SKey": ["Succeeded"] }, "type": "AppendToArrayVariable", "inputs": { "name": "vSrcKeys", "value": "@outputs('SKey')" } },
+                                "Scalar_pairs": {
+                                  "runAfter": { "App_srckey": ["Succeeded"] },
+                                  "type": "Select",
+                                  "inputs": { "from": "@outputs('Plan')?['s']", "select": "@concat('\"',item(),'\":',if(equals(items('For_srow')?[item()],null),'null',substring(string(createArray(items('For_srow')?[item()])),1,sub(length(string(createArray(items('For_srow')?[item()]))),2))))" }
+                                },
+                                "Lookup_pairs": {
+                                  "runAfter": { "Scalar_pairs": ["Succeeded"] },
+                                  "type": "Select",
+                                  "inputs": { "from": "@outputs('Plan')?['l']", "select": "@if(equals(items('For_srow')?[concat('_',item()?['c'],'_value')],null),'',concat('\"',item()?['c'],'@odata.bind\":\"/',item()?['s'],'(',items('For_srow')?[concat('_',item()?['c'],'_value')],')\"'))" }
+                                },
+                                "Lookup_clean": {
+                                  "runAfter": { "Lookup_pairs": ["Succeeded"] },
+                                  "type": "Query",
+                                  "inputs": { "from": "@body('Lookup_pairs')", "where": "@not(equals(item(),''))" }
+                                },
+                                "Payload": {
+                                  "runAfter": { "Lookup_clean": ["Succeeded"] },
+                                  "type": "Compose",
+                                  "inputs": "@json(concat('{', join(union(body('Scalar_pairs'), body('Lookup_clean')), ','), '}'))"
+                                },
+                                "Match": {
+                                  "runAfter": { "Payload": ["Succeeded"] },
+                                  "type": "Query",
+                                  "inputs": { "from": "@variables('vTgtIdx')", "where": "@equals(item()?['k'], outputs('SKey'))" }
+                                },
+                                "Row_decision": {
+                                  "runAfter": { "Match": ["Succeeded"] },
+                                  "type": "Compose",
+                                  "inputs": "@if(greater(length(body('Match')),0), if(and(greater(length(body('Match')),1),equals(items('For_entry')?['pro_matchmode_opt'],867520001)),'ambiguous','update'), if(equals(items('For_entry')?['pro_matchmode_opt'],867520001),'create_cols','create_guid'))"
+                                },
+                                "Switch_row": {
+                                  "runAfter": { "Row_decision": ["Succeeded"] },
+                                  "type": "Switch",
+                                  "expression": "@outputs('Row_decision')",
+                                  "cases": {
+                                    "Case_update": {
+                                      "case": "update",
+                                      "actions": {
+                                        "Update_row": {
+                                          "runAfter": {},
+                                          "type": "OpenApiConnection",
+                                          "inputs": {
+                                            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                                            "parameters": {
+                                              "organization": "@variables('vTgtUrl')",
+                                              "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
+                                              "recordId": "@{first(body('Match'))?['i']}",
+                                              "item": "@outputs('Payload')"
+                                            }
+                                          }
+                                        },
+                                        "Inc_updated": { "runAfter": { "Update_row": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vCellUpdated", "value": 1 } },
+                                        "Update_fail": { "runAfter": { "Update_row": ["Failed", "TimedOut"] }, "type": "AppendToArrayVariable", "inputs": { "name": "vRowErrs", "value": "@{concat('update failed for key ', outputs('SKey'))}" } },
+                                        "Inc_err_update": { "runAfter": { "Update_fail": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
+                                      }
+                                    },
+                                    "Case_create_guid": {
+                                      "case": "create_guid",
+                                      "actions": {
+                                        "Payload_with_id": {
+                                          "runAfter": {},
+                                          "type": "Compose",
+                                          "inputs": "@addProperty(outputs('Payload'), items('For_entry')?['pro_primaryidattr_str'], items('For_srow')?[items('For_entry')?['pro_primaryidattr_str']])"
+                                        },
+                                        "Create_row_guid": {
+                                          "runAfter": { "Payload_with_id": ["Succeeded"] },
+                                          "type": "OpenApiConnection",
+                                          "inputs": {
+                                            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                                            "parameters": {
+                                              "organization": "@variables('vTgtUrl')",
+                                              "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
+                                              "item": "@outputs('Payload_with_id')"
+                                            }
+                                          }
+                                        },
+                                        "Inc_created_guid": { "runAfter": { "Create_row_guid": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vCellCreated", "value": 1 } },
+                                        "Create_fail_guid": { "runAfter": { "Create_row_guid": ["Failed", "TimedOut"] }, "type": "AppendToArrayVariable", "inputs": { "name": "vRowErrs", "value": "@{concat('create failed for key ', outputs('SKey'))}" } },
+                                        "Inc_err_create_guid": { "runAfter": { "Create_fail_guid": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
+                                      }
+                                    },
+                                    "Case_create_cols": {
+                                      "case": "create_cols",
+                                      "actions": {
+                                        "Create_row_cols": {
+                                          "runAfter": {},
+                                          "type": "OpenApiConnection",
+                                          "inputs": {
+                                            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                                            "parameters": {
+                                              "organization": "@variables('vTgtUrl')",
+                                              "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
+                                              "item": "@outputs('Payload')"
+                                            }
+                                          }
+                                        },
+                                        "Inc_created_cols": { "runAfter": { "Create_row_cols": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vCellCreated", "value": 1 } },
+                                        "Create_fail_cols": { "runAfter": { "Create_row_cols": ["Failed", "TimedOut"] }, "type": "AppendToArrayVariable", "inputs": { "name": "vRowErrs", "value": "@{concat('create failed for key ', outputs('SKey'))}" } },
+                                        "Inc_err_create_cols": { "runAfter": { "Create_fail_cols": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
+                                      }
+                                    },
+                                    "Case_ambiguous": {
+                                      "case": "ambiguous",
+                                      "actions": {
+                                        "Err_ambiguous": { "runAfter": {}, "type": "AppendToArrayVariable", "inputs": { "name": "vRowErrs", "value": "@{concat('ambiguous match for key ', outputs('SKey'), ' — skipped')}" } },
+                                        "Inc_err_ambiguous": { "runAfter": { "Err_ambiguous": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
+                                      }
+                                    }
+                                  },
+                                  "default": { "actions": {} }
+                                }
+                              }
+                            },
+                            "If_orphan_mode": {
+                              "runAfter": { "For_srow": ["Succeeded"] },
+                              "type": "If",
+                              "expression": "@and(not(equals(coalesce(items('For_entry')?['pro_orphanhandling_opt'],867520000),867520000)), greater(length(variables('vTgtIdx')),0))",
+                              "actions": {
+                                "For_orphan": {
+                                  "runAfter": {},
+                                  "type": "Foreach",
+                                  "foreach": "@variables('vTgtIdx')",
+                                  "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
+                                  "actions": {
+                                    "Orphan_match": {
+                                      "runAfter": {},
+                                      "type": "Query",
+                                      "inputs": { "from": "@variables('vSrcKeys')", "where": "@equals(item(), items('For_orphan')?['k'])" }
+                                    },
+                                    "Orphan_decision": {
+                                      "runAfter": { "Orphan_match": ["Succeeded"] },
+                                      "type": "Compose",
+                                      "inputs": "@if(greater(length(body('Orphan_match')),0),'keep', if(equals(items('For_entry')?['pro_orphanhandling_opt'],867520002),'delete','deact'))"
+                                    },
+                                    "Switch_orphan": {
+                                      "runAfter": { "Orphan_decision": ["Succeeded"] },
+                                      "type": "Switch",
+                                      "expression": "@outputs('Orphan_decision')",
+                                      "cases": {
+                                        "Case_delete": {
+                                          "case": "delete",
+                                          "actions": {
+                                            "Delete_row": {
+                                              "runAfter": {},
+                                              "type": "OpenApiConnection",
+                                              "inputs": {
+                                                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "DeleteRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                                                "parameters": {
+                                                  "organization": "@variables('vTgtUrl')",
+                                                  "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
+                                                  "recordId": "@{items('For_orphan')?['i']}"
+                                                }
+                                              }
+                                            },
+                                            "Inc_deleted": { "runAfter": { "Delete_row": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vCellDeleted", "value": 1 } },
+                                            "Delete_fail": { "runAfter": { "Delete_row": ["Failed", "TimedOut"] }, "type": "AppendToArrayVariable", "inputs": { "name": "vRowErrs", "value": "@{concat('delete failed for orphan ', items('For_orphan')?['i'])}" } },
+                                            "Inc_err_delete": { "runAfter": { "Delete_fail": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
+                                          }
+                                        },
+                                        "Case_deact": {
+                                          "case": "deact",
+                                          "actions": {
+                                            "Deact_row": {
+                                              "runAfter": {},
+                                              "type": "OpenApiConnection",
+                                              "inputs": {
+                                                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                                                "parameters": {
+                                                  "organization": "@variables('vTgtUrl')",
+                                                  "entityName": "@items('For_entry')?['pro_sourceentityset_str']",
+                                                  "recordId": "@{items('For_orphan')?['i']}",
+                                                  "item/statecode": 1
+                                                }
+                                              }
+                                            },
+                                            "Inc_deact": { "runAfter": { "Deact_row": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vCellDeact", "value": 1 } },
+                                            "Deact_fail": { "runAfter": { "Deact_row": ["Failed", "TimedOut"] }, "type": "AppendToArrayVariable", "inputs": { "name": "vRowErrs", "value": "@{concat('deactivate failed for orphan ', items('For_orphan')?['i'])}" } },
+                                            "Inc_err_deact": { "runAfter": { "Deact_fail": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vErr", "value": 1 } }
+                                          }
+                                        }
+                                      },
+                                      "default": { "actions": {} }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "Cell_log": {
+                              "runAfter": { "If_orphan_mode": ["Succeeded"] },
+                              "type": "AppendToArrayVariable",
+                              "inputs": {
+                                "name": "vLog",
+                                "value": {
+                                  "entry": "@{items('For_entry')?['pro_name']}",
+                                  "target": "@{items('For_target')}",
+                                  "created": "@variables('vCellCreated')",
+                                  "updated": "@variables('vCellUpdated')",
+                                  "deactivated": "@variables('vCellDeact')",
+                                  "deleted": "@variables('vCellDeleted')",
+                                  "errors": "@variables('vRowErrs')"
+                                }
+                              }
+                            },
+                            "Add_ok": { "runAfter": { "Cell_log": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vOk", "value": "@add(add(variables('vCellCreated'),variables('vCellUpdated')),add(variables('vCellDeact'),variables('vCellDeleted')))" } },
+                            "Add_tot_created": { "runAfter": { "Add_ok": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vTotCreated", "value": "@variables('vCellCreated')" } },
+                            "Add_tot_updated": { "runAfter": { "Add_tot_created": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vTotUpdated", "value": "@variables('vCellUpdated')" } },
+                            "Add_tot_deact": { "runAfter": { "Add_tot_updated": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vTotDeact", "value": "@variables('vCellDeact')" } },
+                            "Add_tot_deleted": { "runAfter": { "Add_tot_deact": ["Succeeded"] }, "type": "IncrementVariable", "inputs": { "name": "vTotDeleted", "value": "@variables('vCellDeleted')" } }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+
+        "Final_status": {
+          "runAfter": { "For_entry": ["Succeeded"] },
+          "type": "Compose",
+          "inputs": "@if(equals(variables('vErr'),0),867520002,if(greater(variables('vOk'),0),867520004,867520003))"
+        },
+        "Finish_run": {
+          "runAfter": { "Final_status": ["Succeeded"] },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "organization": "__HOST_URL__",
+              "entityName": "pro_transferruns",
+              "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
+              "item/pro_status_opt": "@outputs('Final_status')",
+              "item/pro_finishedon_dat": "@{utcNow()}",
+              "item/pro_summary_str": "@{concat(variables('vTotCreated'),' created, ',variables('vTotUpdated'),' updated, ',variables('vTotDeact'),' deactivated, ',variables('vTotDeleted'),' deleted, ',variables('vErr'),' errors')}",
+              "item/pro_log_txt": "@{string(variables('vLog'))}"
+            }
+          }
+        },
+        "Fail_run": {
+          "runAfter": { "For_entry": ["Failed", "TimedOut", "Skipped"] },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "organization": "__HOST_URL__",
+              "entityName": "pro_transferruns",
+              "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
+              "item/pro_status_opt": 867520003,
+              "item/pro_finishedon_dat": "@{utcNow()}",
+              "item/pro_summary_str": "Executor crashed — check the Power Automate run history.",
+              "item/pro_log_txt": "@{string(variables('vLog'))}"
             }
           }
         }
