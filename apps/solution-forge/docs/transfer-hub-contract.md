@@ -172,6 +172,51 @@ Delete).
 - The FetchXML snapshot may select `all-attributes` — the executor should
   then subtract the platform-managed columns above.
 
+## Verified executor approach: in-solution cloud flow (probe 2026-07-23)
+
+The queue protocol above was **empirically verified on INT-11** with a
+Dataverse-webhook cloud flow created purely via the Web API — the intended
+product-default executor. Findings:
+
+- **CONFIRMED end-to-end (~4 s trigger→done):** trigger on `pro_transferrun`
+  create (`SubscribeWebhookTrigger`, message 1, scope 4) → **cross-env read
+  via the existing SP connection reference `pro_CRDataverse`**
+  (`ListRecordsWithOrganization`, `organization` = UAT URL) → write-back to
+  the triggering host row (`UpdateRecordWithOrganization`:
+  `item/pro_summary_str`, `item/pro_status_opt`). No new connector,
+  connection or external infrastructure needed.
+- Parameter flattening: `subscriptionRequest/message|entityname|scope` on the
+  trigger, `item/<column>` on writes, `entityName` camelCase on the
+  `…WithOrganization` ops. No deprecation warnings surfaced.
+- **Working `clientdata` template** (create via `POST workflows` with
+  `category=5, type=1, primaryentity='none'` + header
+  `MSCRM.SolutionUniqueName`; activate via
+  `PATCH workflows(<id>) {"statecode":1,"statuscode":2}`):
+
+```json
+{"schemaVersion":"1.0.0.0","properties":{
+ "connectionReferences":{"shared_commondataserviceforapps":{"runtimeSource":"embedded","connection":{"connectionReferenceLogicalName":"pro_CRDataverse"},"api":{"name":"shared_commondataserviceforapps"}}},
+ "definition":{"$schema":"https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#","contentVersion":"1.0.0.0",
+  "parameters":{"$connections":{"defaultValue":{},"type":"Object"},"$authentication":{"defaultValue":{},"type":"SecureObject"}},
+  "triggers":{"When_a_run_is_queued":{"type":"OpenApiConnectionWebhook","inputs":{"host":{"connectionName":"shared_commondataserviceforapps","operationId":"SubscribeWebhookTrigger","apiId":"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"},"parameters":{"subscriptionRequest/message":1,"subscriptionRequest/entityname":"pro_transferrun","subscriptionRequest/scope":4}}}},
+  "actions":{
+   "List_UAT_org":{"runAfter":{},"type":"OpenApiConnection","inputs":{"host":{"connectionName":"shared_commondataserviceforapps","operationId":"ListRecordsWithOrganization","apiId":"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"},"parameters":{"organization":"https://operations-d365-schulz-uat-1-1.crm4.dynamics.com","entityName":"organizations","$select":"name","$top":1}}},
+   "Write_back":{"runAfter":{"List_UAT_org":["Succeeded"]},"type":"OpenApiConnection","inputs":{"host":{"connectionName":"shared_commondataserviceforapps","operationId":"UpdateRecordWithOrganization","apiId":"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"},"parameters":{"organization":"https://operations-d365-schulz-int-11.crm4.dynamics.com","entityName":"pro_transferruns","recordId":"@triggerOutputs()?['body/pro_transferrunid']","item/pro_summary_str":"PROBE ok - UAT org: @{first(outputs('List_UAT_org')?['body/value'])?['name']}","item/pro_status_opt":867520002}}}
+  }}}}
+```
+
+Gotchas for the real executor build:
+
+- **Activation identity:** raw Web API activation succeeded although the
+  activating user did not own the SP connection — the Designer UI has its own
+  connection-sharing gate; if the executor is ever (re)activated through the
+  maker portal by another user, verify that path separately.
+- `organizations.name` is the internal `unq…` string — use `friendlyname`
+  for human-readable logging.
+- **No Dataverse entity set for cloud-flow run history** (`flowruns`/
+  `flowsessions` → 404) — run diagnostics live in the Power Automate portal,
+  which is why the executor MUST write its own `pro_log_txt`/`pro_summary_str`.
+
 ## Example (Web API read the pipeline would do)
 
 ```
