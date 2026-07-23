@@ -6631,25 +6631,22 @@
 .thub-toolbar .cmp-sync {
   margin-left: auto;
 }
-.thub-layout {
-  display: grid;
-  /* Deliberately slim — the list only needs the package name to be readable;
-     the entries table on the right gets the space. */
-  grid-template-columns: minmax(170px, 210px) 1fr;
-  gap: 14px;
-  align-items: start;
-  margin-top: 12px;
-}
-.thub-pkg-list {
+.thub-pkg-strip {
+  /* Horizontal card strip under the toolbar — overflows to the right with a
+     scrollbar; the package detail below gets the full width. */
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  overflow-x: auto;
+  margin: 12px 0;
+  padding-bottom: 4px;
 }
 .thub-pkg {
   display: flex;
   flex-direction: column;
   gap: 5px;
   padding: 10px 12px;
+  flex: 0 0 auto;
+  width: 200px;
   text-align: left;
   cursor: pointer;
   border: 1px solid var(--border);
@@ -7008,8 +7005,13 @@
   white-space: nowrap;
   vertical-align: bottom;
 }
-.thub-entries tbody tr:nth-child(even) > td,
-.thub-runs tbody tr:nth-child(odd) > td {
+.thub-table-wrap {
+  overflow-x: auto;
+}
+.thub-runs-card {
+  margin-top: 14px;
+}
+.thub-entries tbody tr:nth-child(even) > td {
   background: #fafbfe;
 }
 .thub-entries tbody tr:hover > td,

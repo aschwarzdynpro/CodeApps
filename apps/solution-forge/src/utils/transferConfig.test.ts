@@ -251,7 +251,6 @@ describe('csv helpers', () => {
 
 describe('describeEntryValidation', () => {
   const base: TransferEntryDraft = {
-    name: 'Payment terms',
     sourceEnvKey: 'dev',
     tableLogicalName: 'cust_paymentterm',
     queryMode: 'fetchxml',
@@ -268,11 +267,10 @@ describe('describeEntryValidation', () => {
   it('requires the basics', () => {
     const errors = describeEntryValidation({
       ...base,
-      name: ' ',
       sourceEnvKey: '',
       tableLogicalName: '',
     })
-    expect(errors.length).toBeGreaterThanOrEqual(3)
+    expect(errors.length).toBeGreaterThanOrEqual(2)
   })
 
   it('requires a view in view mode and ignores fetchXml there', () => {

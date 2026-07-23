@@ -41,7 +41,7 @@ const ORPHAN_LABELS: Record<TransferEntry['orphanHandling'], string> = {
 /** Per-entry row-count cell: loading spinner, a number, or "not countable". */
 type CountState = 'loading' | 'na' | number
 
-const ENTRY_COLUMNS = 9
+const ENTRY_COLUMNS = 8
 const RUN_COLUMNS = 7
 
 const RUN_STATUS_LABELS: Record<TransferRunStatus, string> = {
@@ -277,16 +277,16 @@ export function TransferHubWorkspace() {
       {loadError && <div className="state state--error">{loadError}</div>}
       {actionError && <div className="state state--error">{actionError}</div>}
 
-      <div className="thub-layout">
-        <div className="thub-pkg-list">
-          {packages === null && <div className="card muted">Loading packages…</div>}
-          {packages !== null && packages.length === 0 && !loadError && (
-            <div className="card muted">
-              No transfer packages yet — create the first one to define which
-              configuration data moves between environments.
-            </div>
-          )}
-          {packages?.map((pkg) => (
+      {packages === null && <div className="card muted">Loading packages…</div>}
+      {packages !== null && packages.length === 0 && !loadError && (
+        <div className="card muted">
+          No transfer packages yet — create the first one to define which
+          configuration data moves between environments.
+        </div>
+      )}
+      {packages !== null && packages.length > 0 && (
+        <div className="thub-pkg-strip">
+          {packages.map((pkg) => (
             <button
               key={pkg.id}
               className={`card thub-pkg ${pkg.id === selectedId ? 'thub-pkg--active' : ''} ${
@@ -314,14 +314,14 @@ export function TransferHubWorkspace() {
             </button>
           ))}
         </div>
+      )}
 
-        <div className="thub-detail">
-          {!selected && (
-            <div className="card muted thub-empty">
-              Select a package to see and edit its entries.
-            </div>
-          )}
-          {selected && (
+      {packages !== null && packages.length > 0 && !selected && (
+        <div className="card muted thub-empty">
+          Select a package to see and edit its entries.
+        </div>
+      )}
+      {selected && (
             <div className="card">
               <div className="thub-detail-head">
                 <div>
@@ -329,18 +329,6 @@ export function TransferHubWorkspace() {
                   {selected.description && <p className="muted">{selected.description}</p>}
                 </div>
                 <span className="trace-level-control">
-                  <button
-                    className="btn btn--small btn--primary"
-                    title={
-                      selected.targetEnvKeys.length === 0
-                        ? 'No target environments configured.'
-                        : `Queue a run for ${selected.targetEnvKeys.map(envLabel).join(', ')}`
-                    }
-                    disabled={selected.targetEnvKeys.length === 0 || !selected.active}
-                    onClick={() => setRunConfirm(selected)}
-                  >
-                    ▶ Run
-                  </button>
                   <button
                     className="btn btn--small"
                     onClick={() => setPackageDialog({ pkg: selected })}
@@ -373,11 +361,11 @@ export function TransferHubWorkspace() {
 
               {entries !== null && (
                 <>
+                  <div className="thub-table-wrap">
                   <table className="ops-table thub-entries">
                     <thead>
                       <tr>
                         <th className="num">#</th>
-                        <th>Entry</th>
                         <th>Source</th>
                         <th>Table</th>
                         <th>Query</th>
@@ -410,23 +398,17 @@ export function TransferHubWorkspace() {
                         <Fragment key={entry.id}>
                         <tr className={entry.active ? '' : 'thub-row--inactive'}>
                           <td className="num">{entry.order}</td>
-                          <td>
-                            <span className="thub-entry-name">{entry.name}</span>
-                            {!entry.active && (
-                              <span className="thub-badge thub-badge--off">Inactive</span>
-                            )}
-                            {entry.notes && (
-                              <span className="muted thub-entry-notes">{entry.notes}</span>
-                            )}
-                          </td>
                           <td className="nowrap">{envLabel(entry.sourceEnvKey)}</td>
                           <td>
                             <span
                               className="thub-cell-clip"
-                              title={`${entry.tableDisplayName} (${entry.tableLogicalName})`}
+                              title={`${entry.tableDisplayName} (${entry.tableLogicalName})${entry.notes ? ` — ${entry.notes}` : ''}`}
                             >
                               {entry.tableDisplayName} <code>{entry.tableLogicalName}</code>
                             </span>
+                            {!entry.active && (
+                              <span className="thub-badge thub-badge--off">Inactive</span>
+                            )}
                           </td>
                           <td className="nowrap">
                             {entry.queryMode === 'view' ? (
@@ -538,6 +520,7 @@ export function TransferHubWorkspace() {
                       })}
                     </tbody>
                   </table>
+                  </div>
                   <div className="thub-add-entry">
                     <button
                       className="btn btn--primary btn--small"
@@ -550,20 +533,48 @@ export function TransferHubWorkspace() {
                       their children.
                     </span>
                   </div>
+                </>
+              )}
+            </div>
+          )}
 
-                  <div className="thub-runs-head">
-                    <h3 className="thub-runs-title">Runs</h3>
-                    <button
-                      className="thub-count-refresh"
-                      title="Reload the run list"
-                      onClick={() => void loadRuns(selected.id)}
-                    >
-                      ⟳
-                    </button>
-                  </div>
-                  {runsError && <div className="state state--error">{runsError}</div>}
-                  {runs === null && !runsError && <div className="muted">Loading runs…</div>}
-                  {runs !== null && (
+      {selected && (
+            <div className="card thub-runs-card">
+              <div className="thub-detail-head">
+                <div>
+                  <h2 className="thub-detail-title">Runs</h2>
+                  <p className="muted">
+                    Executed by the external pipeline — queue immediately or
+                    schedule for later.
+                  </p>
+                </div>
+                <span className="trace-level-control">
+                  <button
+                    className="btn btn--small btn--primary"
+                    title={
+                      selected.targetEnvKeys.length === 0
+                        ? 'No target environments configured.'
+                        : `Queue a run for ${selected.targetEnvKeys.map(envLabel).join(', ')}`
+                    }
+                    disabled={selected.targetEnvKeys.length === 0 || !selected.active}
+                    onClick={() => setRunConfirm(selected)}
+                  >
+                    ▶ Run
+                  </button>
+                  <button
+                    className="btn btn--small"
+                    title="Reload the run list"
+                    onClick={() => void loadRuns(selected.id)}
+                  >
+                    ⟳
+                  </button>
+                </span>
+              </div>
+              {runsError && <div className="state state--error">{runsError}</div>}
+              {runs === null && !runsError && <div className="muted">Loading runs…</div>}
+              {runs !== null && (
+                <>
+                  <div className="thub-table-wrap">
                     <table className="ops-table thub-runs">
                       <thead>
                         <tr>
@@ -648,8 +659,8 @@ export function TransferHubWorkspace() {
                         ))}
                       </tbody>
                     </table>
-                  )}
-                  {runs !== null && runs.length > 5 && (
+                  </div>
+                  {runs.length > 5 && (
                     <button
                       className="thub-runs-more"
                       onClick={() => setShowAllRuns((v) => !v)}
@@ -660,9 +671,7 @@ export function TransferHubWorkspace() {
                 </>
               )}
             </div>
-          )}
-        </div>
-      </div>
+      )}
 
       {packageDialog && (
         <TransferPackageDialog

@@ -51,10 +51,6 @@ export function TransferEntryDialog({
   onSave,
   onClose,
 }: Props) {
-  const [name, setName] = useState(entry?.name ?? '')
-  // True once the user typed a name themselves (or the entry came with one) —
-  // then picking a table no longer overwrites it with the suggestion.
-  const [nameTouched, setNameTouched] = useState(() => !!entry?.name)
   const [order, setOrder] = useState(String(entry?.order ?? defaultOrder))
   const [notes, setNotes] = useState(entry?.notes ?? '')
   const [envKey, setEnvKey] = useState(entry?.sourceEnvKey ?? '')
@@ -165,16 +161,6 @@ export function TransferEntryDialog({
     setPreview(null)
     setPreviewError(null)
     setLoadError(null)
-    // Suggest the table's plural display name as the entry name — unless the
-    // user already typed one (an emptied field counts as untyped again).
-    if (!nameTouched || name.trim() === '') {
-      const picked = tables?.find((t) => t.logicalName === logicalName)
-      const suggestion = picked?.displayCollectionName || picked?.displayName
-      if (suggestion) {
-        setName(suggestion)
-        setNameTouched(false)
-      }
-    }
   }
 
   /**
@@ -196,7 +182,6 @@ export function TransferEntryDialog({
   const parsed = useMemo(() => parseFetchXml(fetchXml), [fetchXml])
 
   const draft = {
-    name,
     sourceEnvKey: envKey,
     tableLogicalName: table,
     queryMode,
@@ -269,7 +254,8 @@ export function TransferEntryDialog({
       }
       await onSave({
         packageId,
-        name: name.trim(),
+        // The entry has no user-facing name — the table identifies it.
+        name: tableDisplayName || table,
         sourceEnvKey: envKey,
         tableLogicalName: table,
         tableDisplayName,
@@ -319,31 +305,17 @@ export function TransferEntryDialog({
           </button>
         </div>
 
-        <div className="thub-form-grid">
-          <label className="form-row">
-            <span className="form-label">Name</span>
-            <input
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value)
-                setNameTouched(true)
-              }}
-              placeholder="Payment terms"
-              autoFocus
-            />
-          </label>
-          <label className="form-row thub-order">
-            <span className="form-label">Order</span>
-            <input
-              type="number"
-              min={0}
-              max={10000}
-              value={order}
-              onChange={(e) => setOrder(e.target.value)}
-              title="Entries run in ascending order — parents before children resolves lookups."
-            />
-          </label>
-        </div>
+        <label className="form-row thub-order">
+          <span className="form-label">Order (in package)</span>
+          <input
+            type="number"
+            min={0}
+            max={10000}
+            value={order}
+            onChange={(e) => setOrder(e.target.value)}
+            title="Entries run in ascending order — parents before children resolves lookups."
+          />
+        </label>
 
         <div className="form-row">
           <span className="form-label">Source environment</span>
@@ -624,7 +596,7 @@ export function TransferEntryDialog({
         )}
 
         {error && <div className="state state--error">{error}</div>}
-        {blockers.length > 0 && name.trim() !== '' && (
+        {blockers.length > 0 && envKey !== '' && (
           <div className="muted thub-blockers">{blockers.join(' ')}</div>
         )}
 

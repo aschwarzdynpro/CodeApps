@@ -318,7 +318,6 @@ export function buildColumnPlan(
 
 /** The dialog's draft shape — everything the save gate needs. */
 export interface TransferEntryDraft {
-  name: string
   sourceEnvKey: string
   tableLogicalName: string
   queryMode: 'view' | 'fetchxml'
@@ -334,7 +333,6 @@ export interface TransferEntryDraft {
  */
 export function describeEntryValidation(draft: TransferEntryDraft): string[] {
   const errors: string[] = []
-  if (!draft.name.trim()) errors.push('Name is required.')
   if (!draft.sourceEnvKey) errors.push('Pick a source environment.')
   if (!draft.tableLogicalName) errors.push('Pick a source table.')
   if (draft.queryMode === 'view') {
