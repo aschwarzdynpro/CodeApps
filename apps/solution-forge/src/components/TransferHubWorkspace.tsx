@@ -74,6 +74,7 @@ export function TransferHubWorkspace() {
   const [runsError, setRunsError] = useState<string | null>(null)
   const [runConfirm, setRunConfirm] = useState<TransferPackage | null>(null)
   const [expandedRunId, setExpandedRunId] = useState('')
+  const [showAllRuns, setShowAllRuns] = useState(false)
 
   // On-demand row counts per entry id — kept across reloads (reorder,
   // toggles); invalidated when the entry's query may have changed (edit) or
@@ -176,6 +177,7 @@ export function TransferHubWorkspace() {
     setRuns(null)
     setRunsError(null)
     setExpandedRunId('')
+    setShowAllRuns(false)
   }
 
   const queueRun = async (pkg: TransferPackage, scheduledFor?: string) => {
@@ -419,13 +421,19 @@ export function TransferHubWorkspace() {
                           </td>
                           <td className="nowrap">{envLabel(entry.sourceEnvKey)}</td>
                           <td>
-                            {entry.tableDisplayName}
-                            <br />
-                            <code>{entry.tableLogicalName}</code>
+                            <span
+                              className="thub-cell-clip"
+                              title={`${entry.tableDisplayName} (${entry.tableLogicalName})`}
+                            >
+                              {entry.tableDisplayName} <code>{entry.tableLogicalName}</code>
+                            </span>
                           </td>
                           <td className="nowrap">
                             {entry.queryMode === 'view' ? (
-                              <span title={`Snapshot of "${entry.viewName}"`}>
+                              <span
+                                className="thub-cell-clip"
+                                title={`Snapshot of "${entry.viewName}"`}
+                              >
                                 📄 {entry.viewName || 'Saved view'}
                               </span>
                             ) : (
@@ -462,7 +470,7 @@ export function TransferHubWorkspace() {
                           </td>
                           <td className="nowrap thub-entry-actions">
                             <button
-                              className="btn btn--small"
+                              className="thub-icon-btn"
                               title="Move up"
                               disabled={idx === 0 || busyId !== ''}
                               onClick={() => moveEntry(entry, -1)}
@@ -470,7 +478,7 @@ export function TransferHubWorkspace() {
                               ↑
                             </button>
                             <button
-                              className="btn btn--small"
+                              className="thub-icon-btn"
                               title="Move down"
                               disabled={idx === entries.length - 1 || busyId !== ''}
                               onClick={() => moveEntry(entry, 1)}
@@ -478,18 +486,19 @@ export function TransferHubWorkspace() {
                               ↓
                             </button>
                             <button
-                              className="btn btn--small"
+                              className="thub-icon-btn"
+                              title="Edit entry (incl. data preview)"
                               onClick={() => setEntryDialog({ entry })}
                             >
-                              Edit
+                              ✎
                             </button>
                             {entry.queryMode === 'view' && (
                               <button
-                                className="btn btn--small"
+                                className="thub-icon-btn"
                                 title={
                                   entry.viewSnapshotAt
-                                    ? `Re-read the view's FetchXML (snapshot from ${new Date(entry.viewSnapshotAt).toLocaleString()})`
-                                    : "Re-read the view's FetchXML"
+                                    ? `Refresh the view snapshot (last: ${new Date(entry.viewSnapshotAt).toLocaleString()})`
+                                    : 'Refresh the view snapshot'
                                 }
                                 disabled={busyId === entry.id}
                                 onClick={() =>
@@ -499,11 +508,12 @@ export function TransferHubWorkspace() {
                                   })
                                 }
                               >
-                                {busyId === entry.id ? '…' : '⟳ View'}
+                                {busyId === entry.id ? '…' : '⟳'}
                               </button>
                             )}
                             <button
-                              className="btn btn--small"
+                              className={`thub-icon-btn ${entry.active ? '' : 'thub-icon-btn--off'}`}
+                              title={entry.active ? 'Deactivate entry' : 'Activate entry'}
                               disabled={busyId === entry.id}
                               onClick={() =>
                                 void runAction(entry.id, async () => {
@@ -512,10 +522,11 @@ export function TransferHubWorkspace() {
                                 })
                               }
                             >
-                              {entry.active ? 'Off' : 'On'}
+                              ⏻
                             </button>
                             <button
-                              className="btn btn--small btn--danger"
+                              className="thub-icon-btn thub-icon-btn--danger"
+                              title="Delete entry"
                               onClick={() => setConfirm({ kind: 'delete-entry', entry })}
                             >
                               ✕
@@ -574,7 +585,7 @@ export function TransferHubWorkspace() {
                             </td>
                           </tr>
                         )}
-                        {runs.map((run) => (
+                        {(showAllRuns ? runs : runs.slice(0, 5)).map((run) => (
                           <Fragment key={run.id}>
                             <tr
                               className={run.log ? 'thub-run-row--clickable' : ''}
@@ -614,7 +625,7 @@ export function TransferHubWorkspace() {
                               <td className="nowrap">
                                 {(run.status === 'scheduled' || run.status === 'queued') && (
                                   <button
-                                    className="btn btn--small btn--danger"
+                                    className="thub-icon-btn thub-icon-btn--danger"
                                     title="Cancel this run before it starts"
                                     onClick={(e) => {
                                       e.stopPropagation()
@@ -637,6 +648,14 @@ export function TransferHubWorkspace() {
                         ))}
                       </tbody>
                     </table>
+                  )}
+                  {runs !== null && runs.length > 5 && (
+                    <button
+                      className="thub-runs-more"
+                      onClick={() => setShowAllRuns((v) => !v)}
+                    >
+                      {showAllRuns ? 'Show fewer runs' : `Show all ${runs.length} runs`}
+                    </button>
                   )}
                 </>
               )}
