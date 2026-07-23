@@ -525,25 +525,35 @@ Expand für Lookup-Ziele, kein Metadata-Cast nötig) das Write-Rezept
 `pro_columnplan_txt` (`{"s":[Skalare],"l":[{c,s}=Lookup→Entity-Set],"x":
 [{c,r}=übersprungen]}`, pure function `utils/transferConfig.buildColumnPlan`,
 Vitest) — Owner/polymorphe Lookups werden übersprungen. **Executor-Flow**
-(implementiert + shipbar): Template `installer/executor-flow.clientdata.json`
-(`__HOST_URL__`-Platzhalter), Deploy create-or-update+activate via
-`installer/deploy-executor-flow.ps1`; nutzt `pro_CRDataverse` per
-Connection-Reference, alle Loops sequenziell, Match über zusammengesetzte
-Key-Strings (`Select`+`join` — KEINE setVariable-Self-Reference, ist in
-Logic Apps verboten), Payload JSON-sicher über den
+(implementiert + shipbar, **v3 = komplett variablenfrei**): Template
+`installer/executor-flow.clientdata.json` (`__HOST_URL__`-Platzhalter),
+Deploy create-or-update+activate via `installer/deploy-executor-flow.ps1`;
+nutzt `pro_CRDataverse` per Connection-Reference. Design v3: Row-Sets werden
+VOR den Loops per Filter-Arrays partitioniert (Updates/Creates/Ambiguous —
+Composite-Keys als festes 5-Slot-concat, **max. 5 Match-Spalten**, Ambiguität
+per `indexOf`/`lastIndexOf`-Stringprobe), Payload JSON-sicher über den
 `string(createArray(x))`-Encoding-Trick, dynamisches `item` als ganzes
-Objekt an `Create/UpdateRecordWithOrganization`. Zwei hart erarbeitete
-Aktivierungs-Gotchas: (a) **max. 8 Action-Nesting-Ebenen** — deshalb
-runAfter-Ketten statt Try/Catch-Scopes (`Fail_run` fängt `For_entry`
-Failed/TimedOut/**Skipped**) und Decision-`Compose` + `Switch` statt
-If-Kaskaden; (b) bei **Expression-basiertem `entityName`** kann der
-Validator kein Schema auflösen ⇒ geflattete `item/<col>`-Keys werden
-abgelehnt („missing required property 'item'") — `item` IMMER als ganzes
-Objekt übergeben (statisches entityName wie `pro_transferruns` darf
-weiter flatten). v1-Limits: 5000-Zeilen-Page-Cap (Warnung im Log), Flow
-NICHT im Designer editieren (Quelle ist die JSON-Datei). **Selbsttest
-2026-07-23 (dev→dev Self-Upsert pro_mergerun): Succeeded, 30 updated,
-0 errors, ~86 s — Namen/Emojis/Lookups unversehrt.**
+Objekt an `Create/UpdateRecordWithOrganization`; das **Zell-Log wird live in
+`pro_transferrun.pro_log_txt` akkumuliert** (Read-Modify-Write im
+sequenziellen Teil — Spalte ist jederzeit valides JSON-Array), Totals am Ende
+per **XPath `sum()`** über `xml(json(log))`. Counts = ATTEMPTED rows;
+Zeilenfehler erscheinen als Zell-Fehlerstring (Details in der PA-Run-History,
+keine per-Row-Fehlertexte mehr). Aktivierungs-Gotchas: (a) **max. 8
+Action-Nesting-Ebenen** — runAfter-Ketten statt Try/Catch-Scopes (`Fail_run`
+fängt `For_entry` Failed/TimedOut/**Skipped**); (b) bei
+**Expression-basiertem `entityName`** kein flaches `item/<col>` — `item`
+als ganzes Objekt. **Engine-Findings (empirisch 2026-07-23, Details im
+Contract-Doc):** verschachtelte Foreach laufen IMMER sequenziell
+(`repetitions` wird in Nested Loops ignoriert — echte Parallelität bräuchte
+einen Child Flow je Zelle mit Top-Level-Row-Loop); Variablen-Aktionen kosten
+~0,25–0,3 s (Run-State-Lock); `UpsertMultiple`&Co sind über den Konnektor
+NICHT aufrufbar (Engine blockt leere `recordId`, Instanz-Pfad 404t, Designer-
+Metadaten kennen xMultiple nicht); `result('<foreach>')` liefert nur die
+letzte Repetition. v3-Limits: 5000-Zeilen-Page-Cap (Warnung im Zell-Log),
+Flow NICHT im Designer editieren (Quelle ist die JSON-Datei). **Selbsttest
+2026-07-23 (dev→dev Self-Upsert pro_mergerun, 30 Zeilen): v1 ~86 s → v3
+37 s, Succeeded, 30 updated, 0 errors.** Create-/Orphan-Pfad dev→dev nicht
+testbar (gleiche Org matcht immer) — verify on first real cross-env run.
 Service-Trio `transferHubService`/`dataverse…`/`mock…`: **Config-CRUD nativ als
 User** (generierte `Pro_transferpackages`-/`Pro_transferentriesService`);
 **Quell-Env-Reads über den Konnektor** (`currentEnvQuery` + `orgUrlForEnvKey`):

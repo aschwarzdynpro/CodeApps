@@ -191,10 +191,27 @@ entry's FetchXML snapshot, GUID- or column-matching (composite keys), create/
 update with a payload built from the entry's **column plan**
 (`pro_columnplan_txt`: writable scalars + single-target lookups as
 `@odata.bind`; computed by the hub at entry save), orphan deactivate/delete,
-per-cell log, final status/summary/log write-back. Limits (v1, logged as
-warnings): 5000-row page cap per query (no paging), lookups only single-target
-(polymorphic/owner skipped per plan), entries without a column plan error with
-"re-save the entry in the hub".
+per-cell log, final status/summary/log write-back.
+
+**v3 design (2026-07-23, performance rework — entirely variable-free):**
+row sets are partitioned up front with Filter-array queries (updates = source
+keys present in the target index, creates = the rest, ambiguous = composite
+key occurs more than once among the target keys, checked case-insensitively
+via an `indexOf`/`lastIndexOf` string probe), composite keys support **at most
+5 match columns** (a fixed 5-slot concat; more → entry error), the per-cell
+log entry is **appended live into `pro_transferrun.pro_log_txt`**
+(read-modify-write in the sequential part of the flow — the column is a valid
+JSON array at every moment of the run, so the hub UI can show progress), and
+the final totals/status are computed from that log with XPath `sum()` over
+`xml(json(...))`. Semantics that changed vs v1/v2: `created`/`updated`/
+`deactivated`/`deleted` count **attempted** rows (the partition sizes); when a
+write fails, the row loop reports the failure as a cell-level error string
+("… loop reported row failures — see the flow run history") and the cell's
+`errs` count drives Partial/Failed status. Per-row error texts are no longer
+produced — row-level diagnostics live in the Power Automate run history.
+Limits: 5000-row page cap per query (warned in the cell errors), lookups only
+single-target (polymorphic/owner skipped per plan), entries without a column
+plan error with "re-save the entry in the hub".
 
 ## Verified executor approach: in-solution cloud flow (probe 2026-07-23)
 
@@ -228,6 +245,40 @@ product-default executor. Findings:
    "Write_back":{"runAfter":{"List_UAT_org":["Succeeded"]},"type":"OpenApiConnection","inputs":{"host":{"connectionName":"shared_commondataserviceforapps","operationId":"UpdateRecordWithOrganization","apiId":"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"},"parameters":{"organization":"https://operations-d365-schulz-int-11.crm4.dynamics.com","entityName":"pro_transferruns","recordId":"@triggerOutputs()?['body/pro_transferrunid']","item/pro_summary_str":"PROBE ok - UAT org: @{first(outputs('List_UAT_org')?['body/value'])?['name']}","item/pro_status_opt":867520002}}}
   }}}}
 ```
+
+**Hard-won engine findings (2026-07-23 performance probes — all empirically
+verified on INT-11, do not re-learn these):**
+
+- **Nested `Foreach` loops ALWAYS run sequentially.** The
+  `runtimeConfiguration.concurrency.repetitions` setting is honored only for
+  top-level loops; any foreach nested inside another foreach (even one level,
+  even inside If branches) executes its iterations serially at roughly
+  0.5–0.9 s per iteration (scheduling overhead), regardless of the setting.
+  This bounds the current executor at ~0.6 s per row. True row parallelism
+  requires hoisting the row loop to the top level of its own run — i.e. a
+  **child flow per entry × target cell** ("Run a Child Flow" / `Workflow`
+  action) whose Request-triggered run owns the row loop.
+- **Variable actions serialize.** `AppendToArrayVariable` / `IncrementVariable`
+  take ~0.25–0.3 s each under a run-state lock (measured: 30 appends = 7.4 s,
+  30 increments = 9.2 s, the same loop with pure Compose/Select actions =
+  1.0 s). Keep variables out of anything hot; v3 has **zero** variables.
+- **`UpsertMultiple`/`CreateMultiple`/`UpdateMultiple` are NOT callable through
+  the Dataverse connector.** The raw Web API accepts the collection-bound call
+  (even via the connector's URL shape `entityset()/Microsoft.Dynamics.CRM.
+  UpsertMultiple`, HTTP 204 verified), but (a) the Logic Apps engine rejects an
+  empty `recordId` path parameter at runtime
+  (`WorkflowOperationParametersRuntimeMissingValue`), (b) a real `recordId`
+  routes to the instance path which 404s for collection-bound actions, and
+  (c) the designer-time metadata check (`GetMetadataForBoundActionInput…`)
+  doesn't know the xMultiple messages at all (`XrmActionNameNotFound`) unless
+  the actionName is a non-foldable runtime expression.
+- **`result('<foreach>')` does not aggregate repetitions** — it returns only
+  the current/last repetition's actions (length 2 for a 2-action loop), so it
+  cannot collect per-row outcomes across iterations.
+- Per-action timings of a flow run are queryable via
+  `https://api.flow.microsoft.com/providers/Microsoft.ProcessSimple/environments/
+  <envId>/flows/<workflowidunique>/runs/<runName>/actions/<action>/repetitions`
+  (token audience `https://service.flow.microsoft.com/`).
 
 Gotchas for the real executor build:
 
