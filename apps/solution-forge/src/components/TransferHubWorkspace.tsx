@@ -6,7 +6,7 @@ import type {
   TransferRunStatus,
 } from '../types/transferHub'
 import { transferHubService } from '../services/transferHubService'
-import { parseRunLog } from '../utils/transferConfig'
+import { formatFetchXml, parseRunLog } from '../utils/transferConfig'
 import { ENVIRONMENTS } from '../config'
 import { formatDateTime, formatRelative } from '../utils/format'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -396,12 +396,12 @@ export function TransferHubWorkspace() {
                             {entry.queryMode === 'view' ? (
                               <span
                                 className="thub-cell-clip"
-                                title={`Snapshot of "${entry.viewName}"`}
+                                title={`Snapshot of "${entry.viewName}"\n\n${formatFetchXml(entry.fetchXml)}`}
                               >
                                 📄 {entry.viewName || 'Saved view'}
                               </span>
                             ) : (
-                              <span>✏️ FetchXML</span>
+                              <span title={formatFetchXml(entry.fetchXml)}>✏️ FetchXML</span>
                             )}
                           </td>
                           <td className="nowrap">
