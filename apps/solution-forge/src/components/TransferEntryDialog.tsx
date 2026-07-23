@@ -77,6 +77,7 @@ export function TransferEntryDialog({
   // FetchXML tooling.
   const [showColumnPicker, setShowColumnPicker] = useState(false)
   const [pickedColumns, setPickedColumns] = useState<Set<string>>(new Set())
+  const [columnSearch, setColumnSearch] = useState('')
   const [preview, setPreview] = useState<PreviewResult | null>(null)
   const [previewBusy, setPreviewBusy] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
@@ -212,12 +213,23 @@ export function TransferEntryDialog({
 
   const openColumnPicker = () => {
     setPickedColumns(new Set(fetchXmlAttributes(fetchXml)))
+    setColumnSearch('')
     setShowColumnPicker(true)
   }
   const applyColumnPicker = () => {
     setFetchXml(formatFetchXml(setAttributes(fetchXml, [...pickedColumns])))
     setShowColumnPicker(false)
   }
+  /** Picker list: alphabetical by display name, narrowed by the search box. */
+  const visibleColumns = useMemo(() => {
+    const sorted = [...(columns ?? [])].sort((a, b) => a.displayName.localeCompare(b.displayName))
+    const q = columnSearch.trim().toLowerCase()
+    if (!q) return sorted
+    return sorted.filter(
+      (c) =>
+        c.displayName.toLowerCase().includes(q) || c.logicalName.toLowerCase().includes(q),
+    )
+  }, [columns, columnSearch])
 
   const runPreview = async () => {
     setPreviewBusy(true)
@@ -452,8 +464,15 @@ export function TransferEntryDialog({
             {showColumnPicker && (
               <div className="form-row thub-col-picker">
                 <span className="form-label">Columns for the query</span>
-                <div className="thub-col-grid">
-                  {(columns ?? []).map((c) => (
+                <input
+                  type="search"
+                  className="thub-col-search"
+                  placeholder="Search columns…"
+                  value={columnSearch}
+                  onChange={(e) => setColumnSearch(e.target.value)}
+                />
+                <div className="thub-col-list">
+                  {visibleColumns.map((c) => (
                     <label key={c.logicalName} className="thub-col-option">
                       <input
                         type="checkbox"
@@ -467,12 +486,16 @@ export function TransferEntryDialog({
                           })
                         }
                       />
-                      <span>{c.displayName}</span>
+                      <span className="thub-col-name">{c.displayName}</span>
                       <code>{c.logicalName}</code>
                     </label>
                   ))}
+                  {visibleColumns.length === 0 && (
+                    <div className="muted">No columns match “{columnSearch}”.</div>
+                  )}
                 </div>
                 <div className="thub-xml-tools">
+                  <span className="muted">{pickedColumns.size} selected</span>
                   <button className="btn btn--small" onClick={() => setShowColumnPicker(false)}>
                     Cancel
                   </button>

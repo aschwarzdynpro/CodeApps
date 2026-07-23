@@ -6806,23 +6806,47 @@
   padding: 10px;
   background: var(--bg);
 }
-.thub-col-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 4px 12px;
-  max-height: 220px;
+.thub-col-search {
+  width: 100%;
+  max-width: 340px;
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.thub-col-search:focus {
+  outline: none;
+  border-color: var(--brand);
+}
+.thub-col-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 260px;
   overflow-y: auto;
 }
 .thub-col-option {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 12.5px;
   cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 6px;
+}
+.thub-col-option:hover {
+  background: var(--bg);
+}
+.thub-col-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .thub-col-option code {
   font-size: 11px;
   color: var(--muted);
+  white-space: nowrap;
 }
 .thub-preview {
   margin-top: 8px;
