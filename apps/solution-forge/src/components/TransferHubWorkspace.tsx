@@ -199,6 +199,14 @@ export function TransferHubWorkspace() {
   }
 
   const selected = packages?.find((p) => p.id === selectedId) ?? null
+  /**
+   * A queued/running run reads the entries live — lock every entry mutation
+   * while it is active to avoid mid-run inconsistencies. Scheduled runs do
+   * NOT lock (they read the config only when they fire). The 10s run polling
+   * releases the lock automatically.
+   */
+  const runActive = (runs ?? []).some((r) => r.status === 'queued' || r.status === 'running')
+  const lockHint = 'Locked while a run is queued or running.'
 
   const runAction = async (id: string, action: () => Promise<void>) => {
     setBusyId(id)
@@ -311,6 +319,11 @@ export function TransferHubWorkspace() {
                   {selected.description && <p className="muted">{selected.description}</p>}
                 </div>
                 <span className="trace-level-control">
+                  {runActive && (
+                    <span className="thub-badge" title={lockHint}>
+                      🔒 Run active
+                    </span>
+                  )}
                   <button
                     className="btn btn--small"
                     onClick={() => setPackageDialog({ pkg: selected })}
@@ -319,7 +332,8 @@ export function TransferHubWorkspace() {
                   </button>
                   <button
                     className="btn btn--small"
-                    disabled={busyId === selected.id}
+                    disabled={busyId === selected.id || runActive}
+                    title={runActive ? lockHint : undefined}
                     onClick={() =>
                       void runAction(selected.id, async () => {
                         await transferHubService.setPackageActive(selected.id, !selected.active)
@@ -331,6 +345,8 @@ export function TransferHubWorkspace() {
                   </button>
                   <button
                     className="btn btn--small btn--danger"
+                    disabled={runActive}
+                    title={runActive ? lockHint : undefined}
                     onClick={() => setConfirm({ kind: 'delete-package', pkg: selected })}
                   >
                     Delete
@@ -443,16 +459,16 @@ export function TransferHubWorkspace() {
                           <td className="nowrap thub-entry-actions">
                             <button
                               className="thub-icon-btn"
-                              title="Move up"
-                              disabled={idx === 0 || busyId !== ''}
+                              title={runActive ? lockHint : 'Move up'}
+                              disabled={idx === 0 || busyId !== '' || runActive}
                               onClick={() => moveEntry(entry, -1)}
                             >
                               ↑
                             </button>
                             <button
                               className="thub-icon-btn"
-                              title="Move down"
-                              disabled={idx === entries.length - 1 || busyId !== ''}
+                              title={runActive ? lockHint : 'Move down'}
+                              disabled={idx === entries.length - 1 || busyId !== '' || runActive}
                               onClick={() => moveEntry(entry, 1)}
                             >
                               ↓
@@ -461,11 +477,13 @@ export function TransferHubWorkspace() {
                               <button
                                 className="thub-icon-btn"
                                 title={
-                                  entry.viewSnapshotAt
-                                    ? `Refresh the view snapshot (last: ${new Date(entry.viewSnapshotAt).toLocaleString()})`
-                                    : 'Refresh the view snapshot'
+                                  runActive
+                                    ? lockHint
+                                    : entry.viewSnapshotAt
+                                      ? `Refresh the view snapshot (last: ${new Date(entry.viewSnapshotAt).toLocaleString()})`
+                                      : 'Refresh the view snapshot'
                                 }
-                                disabled={busyId === entry.id}
+                                disabled={busyId === entry.id || runActive}
                                 onClick={() =>
                                   void runAction(entry.id, async () => {
                                     await transferHubService.refreshViewSnapshot(entry.id)
@@ -478,8 +496,14 @@ export function TransferHubWorkspace() {
                             )}
                             <button
                               className={`thub-icon-btn ${entry.active ? '' : 'thub-icon-btn--off'}`}
-                              title={entry.active ? 'Deactivate entry' : 'Activate entry'}
-                              disabled={busyId === entry.id}
+                              title={
+                                runActive
+                                  ? lockHint
+                                  : entry.active
+                                    ? 'Deactivate entry'
+                                    : 'Activate entry'
+                              }
+                              disabled={busyId === entry.id || runActive}
                               onClick={() =>
                                 void runAction(entry.id, async () => {
                                   await transferHubService.setEntryActive(entry.id, !entry.active)
@@ -491,7 +515,8 @@ export function TransferHubWorkspace() {
                             </button>
                             <button
                               className="thub-icon-btn thub-icon-btn--danger"
-                              title="Delete entry"
+                              title={runActive ? lockHint : 'Delete entry'}
+                              disabled={runActive}
                               onClick={() => setConfirm({ kind: 'delete-entry', entry })}
                             >
                               ✕
@@ -507,13 +532,16 @@ export function TransferHubWorkspace() {
                   <div className="thub-add-entry">
                     <button
                       className="btn btn--primary btn--small"
+                      disabled={runActive}
+                      title={runActive ? lockHint : undefined}
                       onClick={() => setEntryDialog({ entry: null })}
                     >
                       + Add entry
                     </button>
                     <span className="muted">
-                      Entries run in ascending order — put lookup parents before
-                      their children.
+                      {runActive
+                        ? 'A run is queued or running — editing is locked until it finishes.'
+                        : 'Entries run in ascending order — put lookup parents before their children.'}
                     </span>
                   </div>
                 </>
@@ -734,6 +762,7 @@ export function TransferHubWorkspace() {
           key={entryDialog.entry?.id ?? 'new'}
           packageId={selected.id}
           entry={entryDialog.entry}
+          locked={runActive}
           defaultOrder={nextOrder}
           onClose={() => setEntryDialog(null)}
           onSave={async (input) => {

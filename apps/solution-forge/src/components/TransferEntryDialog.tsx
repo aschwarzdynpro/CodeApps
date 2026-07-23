@@ -26,6 +26,8 @@ interface Props {
   packageId: string
   /** Existing entry to edit, or null for a new one. */
   entry: TransferEntry | null
+  /** True while a run is queued/running — viewing stays open, saving is blocked. */
+  locked?: boolean
   /** Suggested pro_order_int for a new entry (last + 1). */
   defaultOrder: number
   onSave: (input: TransferEntryInput) => Promise<void>
@@ -48,6 +50,7 @@ const ORPHAN_OPTIONS: { value: OrphanHandling; label: string; hint: string }[] =
 export function TransferEntryDialog({
   packageId,
   entry,
+  locked = false,
   defaultOrder,
   onSave,
   onClose,
@@ -200,7 +203,7 @@ export function TransferEntryDialog({
   const blockers = describeEntryValidation(draft)
   const orderNum = Number(order)
   const canSubmit =
-    !submitting && blockers.length === 0 && Number.isFinite(orderNum) && orderNum >= 0
+    !submitting && !locked && blockers.length === 0 && Number.isFinite(orderNum) && orderNum >= 0
 
   const toggleMatchColumn = (col: string) => {
     setMatchColumns((prev) => {
@@ -630,6 +633,11 @@ export function TransferEntryDialog({
         )}
 
         <div className="modal-footer">
+          {locked && (
+            <span className="muted">
+              🔒 A run is queued or running — saving is locked until it finishes.
+            </span>
+          )}
           <button className="btn" onClick={onClose} disabled={submitting}>
             Cancel
           </button>
@@ -637,7 +645,11 @@ export function TransferEntryDialog({
             className="btn btn--primary"
             onClick={() => void submit()}
             disabled={!canSubmit}
-            title={blockers.join('\n') || undefined}
+            title={
+              locked
+                ? 'Locked while a run is queued or running.'
+                : blockers.join('\n') || undefined
+            }
           >
             {submitting
               ? 'Saving…'
