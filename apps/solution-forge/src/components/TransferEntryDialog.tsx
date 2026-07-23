@@ -177,6 +177,22 @@ export function TransferEntryDialog({
     }
   }
 
+  /**
+   * Mode toggle. Switching to FetchXML with a view picked and an empty
+   * textarea seeds the textarea with that view's FetchXML — a convenient
+   * starting point for hand-tuning. Hand-written XML is never overwritten
+   * (functional set guards against the async race).
+   */
+  const switchMode = (mode: TransferQueryMode) => {
+    setQueryMode(mode)
+    if (mode === 'fetchxml' && viewId && !fetchXml.trim()) {
+      transferHubService
+        .getViewFetchXml(envKey, viewId)
+        .then((view) => setFetchXml((prev) => (prev.trim() ? prev : view.fetchXml)))
+        .catch((err) => setLoadError(err instanceof Error ? err.message : String(err)))
+    }
+  }
+
   const parsed = useMemo(() => parseFetchXml(fetchXml), [fetchXml])
 
   const draft = {
@@ -372,13 +388,18 @@ export function TransferEntryDialog({
               <div className="subtabs thub-mode">
                 <button
                   className={`subtab ${queryMode === 'view' ? 'subtab--active' : ''}`}
-                  onClick={() => setQueryMode('view')}
+                  onClick={() => switchMode('view')}
                 >
                   Saved view
                 </button>
                 <button
                   className={`subtab ${queryMode === 'fetchxml' ? 'subtab--active' : ''}`}
-                  onClick={() => setQueryMode('fetchxml')}
+                  onClick={() => switchMode('fetchxml')}
+                  title={
+                    viewId
+                      ? "Starts from the selected view's FetchXML when the field is empty."
+                      : undefined
+                  }
                 >
                   FetchXML
                 </button>
