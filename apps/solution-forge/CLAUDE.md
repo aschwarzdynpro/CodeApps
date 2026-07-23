@@ -42,6 +42,7 @@ power-apps init --non-interactive -n "Solution Administration Console (Pro)" --c
 ./scripts/add-data-source.ps1 -a dataverse -t pro_environmentconfig
 ./scripts/add-data-source.ps1 -a dataverse -t pro_transferpackage
 ./scripts/add-data-source.ps1 -a dataverse -t pro_transferentry
+./scripts/add-data-source.ps1 -a dataverse -t pro_transferrun
 # Operate-Gruppe (nur Schreibpfade; alle Reads laufen über den Konnektor):
 ./scripts/add-data-source.ps1 -a dataverse -t asyncoperation
 ./scripts/add-data-source.ps1 -a dataverse -t organization
@@ -56,7 +57,7 @@ power-apps add-flow --flow-id e8d6ad6b-abd5-f011-8544-000d3ab3220a   # PA | MANU
 ```
 **Datenmodell auf neuem Environment erzeugen** (statt Maker-Handarbeit):
 `pwsh installer/provision-model.ps1 -EnvironmentUrl <url> [-TenantId <guid>]`
-legt Publisher `DynamicsPro` (Prefix `pro`) + Solution + alle 7 `pro_`-Tabellen an.
+legt Publisher `DynamicsPro` (Prefix `pro`) + Solution + alle 8 `pro_`-Tabellen an.
 Welche generated services der committete Code erwartet ⇔ Soll-Liste:
 `grep -rho "generated/services/\w*" src` gegen `ls src/generated/services`.
 
@@ -510,6 +511,14 @@ View-Referenz + `pro_fetchxml_txt` = **immer befülltes, ausführbares Snapshot*
 `pro_matchmode_opt` GUID/Spalten + `pro_matchcolumns_str`,
 `pro_orphanhandling_opt` Ignore/Deactivate/Delete, `pro_order_int` =
 Reihenfolge im Paket, Eltern vor Kindern). Aktiv/Inaktiv = **`statecode`**.
+**Run-Queue:** `pro_transferrun` (Lookup aufs Paket mit **RemoveLink** —
+Historie überlebt Paket-Delete; `pro_status_opt` Queued/Running/Succeeded/
+Failed/Partial/Cancelled, `pro_targetenvs_str` = **Snapshot** der Ziele beim
+Request, `pro_startedon_dat`/`pro_finishedon_dat`/`pro_summary_str`/
+`pro_log_txt` schreibt der Executor). „▶ Run" erzeugt nur den Queued-Record
+(`createRun`, Confirm mit PROD-Danger); die Runs-Liste im Paket-Detail pollt
+alle 10 s, solange ein Run Queued/Running ist, Log-JSON per Zeilen-Klick.
+Executor-Protokoll im Contract-Doc.
 Service-Trio `transferHubService`/`dataverse…`/`mock…`: **Config-CRUD nativ als
 User** (generierte `Pro_transferpackages`-/`Pro_transferentriesService`);
 **Quell-Env-Reads über den Konnektor** (`currentEnvQuery` + `orgUrlForEnvKey`):

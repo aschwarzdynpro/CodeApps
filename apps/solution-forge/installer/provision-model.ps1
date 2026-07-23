@@ -4,10 +4,11 @@
   publisher "Dynamics Pro") into a target Dataverse environment.
 
 .DESCRIPTION
-  Creates — idempotently — the publisher, a solution, and the seven custom
+  Creates — idempotently — the publisher, a solution, and the eight custom
   tables with all columns, choices and lookups the Code App needs:
     pro_workingsolution, pro_workbenchsettings, pro_mergerun, pro_releasenote,
-    pro_environmentconfig, pro_transferpackage, pro_transferentry
+    pro_environmentconfig, pro_transferpackage, pro_transferentry,
+    pro_transferrun
   Numeric choice values are pinned to the product's canonical values
   (867520000.. / 500870000.. / componenttype codes) regardless of the
   publisher's option-value prefix, so the app's constants stay stable.
@@ -127,6 +128,10 @@ $mergeTypeOpts = $mergeTypeDefs | ForEach-Object { New-DvOption ([int]$_[0]) ([s
 $queryModeOpts = @((New-DvOption 867520000 'Saved view'), (New-DvOption 867520001 'FetchXML'))
 $matchModeOpts = @((New-DvOption 867520000 'GUID upsert'), (New-DvOption 867520001 'Match by columns'))
 $orphanOpts    = @((New-DvOption 867520000 'Ignore'), (New-DvOption 867520001 'Deactivate'), (New-DvOption 867520002 'Delete'))
+$runStatusOpts = @(
+  (New-DvOption 867520000 'Queued'), (New-DvOption 867520001 'Running'),
+  (New-DvOption 867520002 'Succeeded'), (New-DvOption 867520003 'Failed'),
+  (New-DvOption 867520004 'Partially succeeded'), (New-DvOption 867520005 'Cancelled'))
 
 # ---- 3. Entities -----------------------------------------------------------
 # Each: SchemaName, primary attr (schema/max/req), ownership, set name, display
@@ -152,6 +157,9 @@ $entities = @(
   @{ schema="${p}_TransferEntry";     logical="${p}_transferentry";     set="${p}_transferentries"
      display='Transfer Entry'; coll='Transfer Entries'; ownership='OrganizationOwned'
      primary=@{ schema="${p}_name"; max=200; req='ApplicationRequired' } }
+  @{ schema="${p}_TransferRun";       logical="${p}_transferrun";       set="${p}_transferruns"
+     display='Transfer Run'; coll='Transfer Runs'; ownership='OrganizationOwned'
+     primary=@{ schema="${p}_name"; max=400; req='ApplicationRequired' } }
 )
 foreach ($e in $entities) {
   if (Test-DvExists "EntityDefinitions(LogicalName='$($e.logical)')?`$select=LogicalName") {
@@ -241,6 +249,14 @@ $columns = @{
     (IntAttr  "${p}_order_int" 0 10000 'None' 'Order'),
     (MemoAttr "${p}_notes_txt" 4000 'None' 'Notes')
   )
+  "${p}_transferrun" = @(
+    (PickAttr "${p}_status_opt" 'ApplicationRequired' 'Status' $runStatusOpts),
+    (StrAttr  "${p}_targetenvs_str" 400 'None' 'Target environment keys'),
+    (DateAttr "${p}_startedon_dat" 'UserLocal' 'None' 'Started on'),
+    (DateAttr "${p}_finishedon_dat" 'UserLocal' 'None' 'Finished on'),
+    (StrAttr  "${p}_summary_str" 1000 'None' 'Summary'),
+    (MemoAttr "${p}_log_txt" 500000 'None' 'Log')
+  )
 }
 foreach ($tbl in $columns.Keys) {
   foreach ($attr in $columns[$tbl]) {
@@ -277,6 +293,8 @@ New-Lookup "${p}_mergerun_targetsolution"            "${p}_workingsolution"  "${
 New-Lookup "${p}_releasenote_releasesolution"        "${p}_workingsolution"  "${p}_workingsolutionid"  "${p}_releasenote"     "${p}_releasesolution_ref"  "${p}_releasesolution_ref"  'ApplicationRequired' 'Release Solution'
 # Deleting a package removes its entries (Cascade delete)
 New-Lookup "${p}_transferentry_package"              "${p}_transferpackage"  "${p}_transferpackageid"  "${p}_transferentry"   "${p}_package_ref"          "${p}_package_ref"          'ApplicationRequired' 'Transfer Package' 'Cascade'
+# Runs are execution history — they survive a package delete (RemoveLink, like pro_mergerun)
+New-Lookup "${p}_transferrun_package"                "${p}_transferpackage"  "${p}_transferpackageid"  "${p}_transferrun"     "${p}_package_ref"          "${p}_package_ref"          'None'                'Transfer Package'
 
 Write-Host ""
 Write-Host "Data model provisioning complete (publisher '$PublisherUniqueName', prefix '$p', solution '$SolutionUniqueName')." -ForegroundColor Green

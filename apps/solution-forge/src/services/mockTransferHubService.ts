@@ -7,6 +7,7 @@ import type {
   TransferEntryInput,
   TransferPackage,
   TransferPackageInput,
+  TransferRun,
 } from '../types/transferHub'
 import type { TransferHubService } from './transferHubService'
 import { fetchXmlAttributes } from '../utils/transferConfig'
@@ -164,6 +165,30 @@ const entries: TransferEntry[] = [
   },
 ]
 
+const runs: TransferRun[] = [
+  {
+    id: 'mock-run-1',
+    packageId: 'mock-pkg-1',
+    name: 'Base configuration data — 2026-07-21 06:30 UTC',
+    status: 'succeeded',
+    targetEnvKeys: ['uat', 'prod'],
+    requestedOn: '2026-07-21T06:30:00Z',
+    requestedBy: 'Andy Schwarz',
+    startedOn: '2026-07-21T06:31:12Z',
+    finishedOn: '2026-07-21T06:33:40Z',
+    summary: '3 entries × 2 targets — 405 upserted, 2 deactivated, 0 errors',
+    log: JSON.stringify(
+      [
+        { entry: 'Payment terms', target: 'uat', created: 0, updated: 42, errors: [] },
+        { entry: 'Payment terms', target: 'prod', created: 0, updated: 42, errors: [] },
+        { entry: 'Price lists', target: 'uat', created: 1, updated: 6, deactivated: 2, errors: [] },
+      ],
+      null,
+      2,
+    ),
+  },
+]
+
 function withCounts(list: TransferPackage[]): TransferPackage[] {
   return list.map((p) => ({
     ...p,
@@ -274,6 +299,34 @@ class MockTransferHubService implements TransferHubService {
     entry.viewName = view.name
     entry.viewSnapshotAt = new Date().toISOString()
     return { ...entry }
+  }
+
+  async createRun(pkg: TransferPackage): Promise<TransferRun> {
+    await delay(200)
+    const run: TransferRun = {
+      id: nextId('run'),
+      packageId: pkg.id,
+      name: `${pkg.name} — ${new Date().toISOString().replace('T', ' ').slice(0, 16)} UTC`,
+      status: 'queued',
+      targetEnvKeys: [...pkg.targetEnvKeys],
+      requestedOn: new Date().toISOString(),
+      requestedBy: 'You',
+      startedOn: '',
+      finishedOn: '',
+      summary: '',
+      log: '',
+    }
+    runs.unshift(run)
+    return { ...run }
+  }
+
+  async listRuns(packageId: string, top = 20): Promise<TransferRun[]> {
+    await delay(200)
+    return runs
+      .filter((r) => r.packageId === packageId)
+      .sort((a, b) => b.requestedOn.localeCompare(a.requestedOn))
+      .slice(0, top)
+      .map((r) => ({ ...r }))
   }
 
   async listTables(_envKey: string): Promise<TableRef[]> {

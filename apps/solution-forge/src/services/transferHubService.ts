@@ -7,6 +7,7 @@ import type {
   TransferEntryInput,
   TransferPackage,
   TransferPackageInput,
+  TransferRun,
 } from '../types/transferHub'
 import { dataverseTransferHubService } from './dataverseTransferHubService'
 
@@ -42,6 +43,16 @@ export interface TransferHubService {
    * snapshot + timestamp. Throws when the view no longer exists.
    */
   refreshViewSnapshot(entryId: string): Promise<TransferEntry>
+
+  // -- runs (host, native writes) ------------------------------------------
+  /**
+   * Queue a run for the package: status Queued + the package's target envs
+   * snapshotted onto the record. An EXTERNAL executor picks it up and writes
+   * status/log back (docs/transfer-hub-contract.md) — the hub never executes.
+   */
+  createRun(pkg: TransferPackage): Promise<TransferRun>
+  /** Latest runs of the package, newest first. */
+  listRuns(packageId: string, top?: number): Promise<TransferRun[]>
 
   // -- source-environment reads (connector, cross-env) ---------------------
   listTables(envKey: string): Promise<TableRef[]>

@@ -7,14 +7,17 @@ import type {
   TransferEntryInput,
   TransferPackage,
   TransferPackageInput,
+  TransferRun,
 } from '../types/transferHub'
 import {
   MATCH_MODE_CODES,
   ORPHAN_CODES,
   QUERY_MODE_CODES,
+  RUN_STATUS_CODES,
   matchModeFromCode,
   orphanFromCode,
   queryModeFromCode,
+  runStatusFromCode,
 } from '../types/transferHub'
 import type { TransferHubService } from './transferHubService'
 import { mockTransferHubService } from './mockTransferHubService'
@@ -31,6 +34,8 @@ import {
 } from '../utils/transferConfig'
 import { Pro_transferpackagesService } from '../generated/services/Pro_transferpackagesService'
 import { Pro_transferentriesService } from '../generated/services/Pro_transferentriesService'
+import { Pro_transferrunsService } from '../generated/services/Pro_transferrunsService'
+import type { Pro_transferruns, Pro_transferrunsBase } from '../generated/models/Pro_transferrunsModel'
 import type { Pro_transferpackages, Pro_transferpackagesBase } from '../generated/models/Pro_transferpackagesModel'
 import type { Pro_transferentries, Pro_transferentriesBase } from '../generated/models/Pro_transferentriesModel'
 import type { IGetAllOptions } from '../generated/models/CommonModels'
@@ -102,6 +107,44 @@ const ENTRY_SELECT: (keyof Pro_transferentries)[] = [
   'statecode',
   '_pro_package_ref_value',
 ]
+
+const RUN_SELECT: (keyof Pro_transferruns)[] = [
+  'pro_transferrunid',
+  'pro_name',
+  'pro_status_opt',
+  'pro_targetenvs_str',
+  'pro_startedon_dat',
+  'pro_finishedon_dat',
+  'pro_summary_str',
+  'pro_log_txt',
+  'createdon',
+  '_pro_package_ref_value',
+  '_createdby_value',
+]
+
+/** Formatted-value annotation of a column, when the client returned it. */
+function fv(row: unknown, column: string): string {
+  const value = (row as Record<string, unknown>)[
+    `${column}@OData.Community.Display.V1.FormattedValue`
+  ]
+  return typeof value === 'string' ? value : ''
+}
+
+function toRun(row: Pro_transferruns): TransferRun {
+  return {
+    id: row.pro_transferrunid,
+    packageId: row._pro_package_ref_value ?? '',
+    name: row.pro_name ?? '',
+    status: runStatusFromCode(row.pro_status_opt),
+    targetEnvKeys: parseCsvList(row.pro_targetenvs_str),
+    requestedOn: row.createdon ?? '',
+    requestedBy: fv(row, '_createdby_value'),
+    startedOn: row.pro_startedon_dat ?? '',
+    finishedOn: row.pro_finishedon_dat ?? '',
+    summary: row.pro_summary_str ?? '',
+    log: row.pro_log_txt ?? '',
+  }
+}
 
 function toPackage(row: Pro_transferpackages): TransferPackage {
   return {
@@ -342,6 +385,39 @@ class DataverseTransferHubService implements TransferHubService {
       throw new Error('Saving the refreshed snapshot failed.')
     }
     return { ...entry, fetchXml: view.fetchXml, viewName: view.name, viewSnapshotAt: snapshotAt }
+  }
+
+  // ---- runs ---------------------------------------------------------------
+
+  async createRun(pkg: TransferPackage): Promise<TransferRun> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return mockTransferHubService.createRun(pkg)
+    const stamp = new Date().toISOString().replace('T', ' ').slice(0, 16)
+    const record = {
+      pro_name: `${pkg.name} — ${stamp} UTC`,
+      'pro_package_ref@odata.bind': `/pro_transferpackages(${pkg.id})`,
+      pro_status_opt: RUN_STATUS_CODES.queued,
+      // Target snapshot at request time — later package edits must not
+      // change what an already-queued run does.
+      pro_targetenvs_str: joinCsvList(pkg.targetEnvKeys) || null,
+    } as unknown as Omit<Pro_transferrunsBase, 'pro_transferrunid'>
+    const result = await Pro_transferrunsService.create(record)
+    if (!result.success || !result.data) {
+      console.warn('[transfer] run create failed — result:', result)
+      throw new Error(`Queuing a run for "${pkg.name}" failed.`)
+    }
+    return toRun(result.data)
+  }
+
+  async listRuns(packageId: string, top = 20): Promise<TransferRun[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return mockTransferHubService.listRuns(packageId, top)
+    const rows = await fetchAll((o) => Pro_transferrunsService.getAll(o), {
+      select: RUN_SELECT as string[],
+      filter: `_pro_package_ref_value eq ${packageId}`,
+      orderBy: ['createdon desc'],
+    })
+    return rows.slice(0, top).map(toRun)
   }
 
   // ---- source-environment reads (connector) -------------------------------

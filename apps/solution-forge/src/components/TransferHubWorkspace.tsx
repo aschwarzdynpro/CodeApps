@@ -1,9 +1,15 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
-import type { PreviewResult, TransferEntry, TransferPackage } from '../types/transferHub'
+import type {
+  PreviewResult,
+  TransferEntry,
+  TransferPackage,
+  TransferRun,
+  TransferRunStatus,
+} from '../types/transferHub'
 import { transferHubService } from '../services/transferHubService'
 import { formattedValue } from '../services/currentEnvQuery'
 import { ENVIRONMENTS } from '../config'
-import { formatRelative } from '../utils/format'
+import { formatDateTime, formatRelative } from '../utils/format'
 import { ConfirmDialog } from './ConfirmDialog'
 import { TransferPackageDialog } from './TransferPackageDialog'
 import { TransferEntryDialog } from './TransferEntryDialog'
@@ -39,6 +45,16 @@ type CountState = 'loading' | 'na' | number
 type PreviewState = 'loading' | { error: string } | PreviewResult
 
 const ENTRY_COLUMNS = 9
+const RUN_COLUMNS = 5
+
+const RUN_STATUS_LABELS: Record<TransferRunStatus, string> = {
+  queued: 'Queued',
+  running: 'Running',
+  succeeded: 'Succeeded',
+  failed: 'Failed',
+  partial: 'Partial',
+  cancelled: 'Cancelled',
+}
 
 export function TransferHubWorkspace() {
   const [packages, setPackages] = useState<TransferPackage[] | null>(null)
@@ -54,6 +70,13 @@ export function TransferHubWorkspace() {
   const [entryDialog, setEntryDialog] = useState<EntryDialogState>(null)
   const [confirm, setConfirm] = useState<ConfirmState>(null)
   const [confirmBusy, setConfirmBusy] = useState(false)
+
+  // Run queue of the selected package.
+  const [runs, setRuns] = useState<TransferRun[] | null>(null)
+  const [runsError, setRunsError] = useState<string | null>(null)
+  const [runConfirm, setRunConfirm] = useState<TransferPackage | null>(null)
+  const [runBusy, setRunBusy] = useState(false)
+  const [expandedRunId, setExpandedRunId] = useState('')
 
   // On-demand data insights per entry id — kept across reloads (reorder,
   // toggles); invalidated when the entry's query may have changed (edit) or
@@ -150,19 +173,62 @@ export function TransferHubWorkspace() {
     }
   }, [])
 
+  const loadRuns = useCallback(async (packageId: string) => {
+    try {
+      const list = await transferHubService.listRuns(packageId)
+      setRuns(list)
+      setRunsError(null)
+    } catch (err) {
+      setRuns([])
+      setRunsError(err instanceof Error ? err.message : String(err))
+    }
+  }, [])
+
   useEffect(() => {
     void loadPackages()
   }, [loadPackages])
 
   useEffect(() => {
-    if (selectedId) void loadEntries(selectedId)
-  }, [selectedId, loadEntries])
+    if (selectedId) {
+      void loadEntries(selectedId)
+      void loadRuns(selectedId)
+    }
+  }, [selectedId, loadEntries, loadRuns])
+
+  // While a run is queued/running, poll its status — the external executor
+  // writes progress into pro_transferrun.
+  useEffect(() => {
+    if (!selectedId) return
+    if (!runs?.some((r) => r.status === 'queued' || r.status === 'running')) return
+    const timer = setInterval(() => {
+      void loadRuns(selectedId)
+    }, 10000)
+    return () => clearInterval(timer)
+  }, [runs, selectedId, loadRuns])
 
   /** Change selection + clear the stale entry table (event-driven reset). */
   const selectPackage = (id: string) => {
     setSelectedId(id)
     setEntries(null)
     setEntriesError(null)
+    setRuns(null)
+    setRunsError(null)
+    setExpandedRunId('')
+  }
+
+  const queueRun = async (pkg: TransferPackage) => {
+    setRunBusy(true)
+    setActionError(null)
+    try {
+      await transferHubService.createRun(pkg)
+      setRunConfirm(null)
+      await loadRuns(pkg.id)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err))
+      setRunConfirm(null)
+    } finally {
+      setRunBusy(false)
+    }
   }
 
   const selected = packages?.find((p) => p.id === selectedId) ?? null
@@ -299,6 +365,18 @@ export function TransferHubWorkspace() {
                   {selected.description && <p className="muted">{selected.description}</p>}
                 </div>
                 <span className="trace-level-control">
+                  <button
+                    className="btn btn--small btn--primary"
+                    title={
+                      selected.targetEnvKeys.length === 0
+                        ? 'No target environments configured.'
+                        : `Queue a run for ${selected.targetEnvKeys.map(envLabel).join(', ')}`
+                    }
+                    disabled={selected.targetEnvKeys.length === 0 || !selected.active}
+                    onClick={() => setRunConfirm(selected)}
+                  >
+                    ▶ Run
+                  </button>
                   <button
                     className="btn btn--small"
                     onClick={() => setPackageDialog({ pkg: selected })}
@@ -569,6 +647,80 @@ export function TransferHubWorkspace() {
                       their children.
                     </span>
                   </div>
+
+                  <div className="thub-runs-head">
+                    <h3 className="thub-runs-title">Runs</h3>
+                    <button
+                      className="thub-count-refresh"
+                      title="Reload the run list"
+                      onClick={() => void loadRuns(selected.id)}
+                    >
+                      ⟳
+                    </button>
+                  </div>
+                  {runsError && <div className="state state--error">{runsError}</div>}
+                  {runs === null && !runsError && <div className="muted">Loading runs…</div>}
+                  {runs !== null && (
+                    <table className="ops-table thub-runs">
+                      <thead>
+                        <tr>
+                          <th>Status</th>
+                          <th>Requested</th>
+                          <th>Targets</th>
+                          <th>Finished</th>
+                          <th>Summary</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {runs.length === 0 && (
+                          <tr>
+                            <td colSpan={RUN_COLUMNS} className="muted">
+                              No runs yet — ▶ Run queues one for the external
+                              executor.
+                            </td>
+                          </tr>
+                        )}
+                        {runs.map((run) => (
+                          <Fragment key={run.id}>
+                            <tr
+                              className={run.log ? 'thub-run-row--clickable' : ''}
+                              title={run.log ? 'Show the run log' : undefined}
+                              onClick={() =>
+                                run.log &&
+                                setExpandedRunId(expandedRunId === run.id ? '' : run.id)
+                              }
+                            >
+                              <td className="nowrap">
+                                <span className={`thub-run-chip thub-run-chip--${run.status}`}>
+                                  {RUN_STATUS_LABELS[run.status]}
+                                </span>
+                              </td>
+                              <td className="nowrap" title={formatDateTime(run.requestedOn)}>
+                                {formatRelative(run.requestedOn)}
+                                {run.requestedBy && (
+                                  <span className="muted"> · {run.requestedBy}</span>
+                                )}
+                              </td>
+                              <td className="nowrap">
+                                {run.targetEnvKeys.map(envLabel).join(', ')}
+                              </td>
+                              <td className="nowrap" title={run.finishedOn ? formatDateTime(run.finishedOn) : undefined}>
+                                {run.finishedOn ? formatRelative(run.finishedOn) : '–'}
+                              </td>
+                              <td>{run.summary || <span className="muted">–</span>}</td>
+                            </tr>
+                            {expandedRunId === run.id && run.log && (
+                              <tr className="thub-preview-tr">
+                                <td colSpan={RUN_COLUMNS}>
+                                  <pre className="thub-run-log">{run.log}</pre>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </>
               )}
             </div>
@@ -611,6 +763,29 @@ export function TransferHubWorkspace() {
             await loadEntries(selected.id)
             await loadPackages()
           }}
+        />
+      )}
+
+      {runConfirm && (
+        <ConfirmDialog
+          title={`Queue a run for "${runConfirm.name}"?`}
+          message={
+            <>
+              The external executor will transport{' '}
+              <strong>
+                {runConfirm.entryCount ?? '?'} entr
+                {(runConfirm.entryCount ?? 0) === 1 ? 'y' : 'ies'}
+              </strong>{' '}
+              into{' '}
+              <strong>{runConfirm.targetEnvKeys.map(envLabel).join(', ')}</strong>.
+              The target list is snapshotted onto the run.
+            </>
+          }
+          confirmLabel="Queue run"
+          danger={runConfirm.targetEnvKeys.includes('prod')}
+          busy={runBusy}
+          onCancel={() => setRunConfirm(null)}
+          onConfirm={() => void queueRun(runConfirm)}
         />
       )}
 

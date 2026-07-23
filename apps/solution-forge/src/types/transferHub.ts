@@ -14,6 +14,13 @@
 export type TransferQueryMode = 'view' | 'fetchxml'
 export type TransferMatchMode = 'guid' | 'columns'
 export type OrphanHandling = 'ignore' | 'deactivate' | 'delete'
+export type TransferRunStatus =
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'partial'
+  | 'cancelled'
 
 /** pro_querymode_opt option values. */
 export const QUERY_MODE_CODES: Record<TransferQueryMode, number> = {
@@ -32,6 +39,23 @@ export const ORPHAN_CODES: Record<OrphanHandling, number> = {
   ignore: 867520000,
   deactivate: 867520001,
   delete: 867520002,
+}
+
+/** pro_status_opt option values on pro_transferrun. */
+export const RUN_STATUS_CODES: Record<TransferRunStatus, number> = {
+  queued: 867520000,
+  running: 867520001,
+  succeeded: 867520002,
+  failed: 867520003,
+  partial: 867520004,
+  cancelled: 867520005,
+}
+
+export function runStatusFromCode(code: number | null | undefined): TransferRunStatus {
+  const entry = (Object.entries(RUN_STATUS_CODES) as [TransferRunStatus, number][]).find(
+    ([, value]) => value === code,
+  )
+  return entry?.[0] ?? 'queued'
 }
 
 export function queryModeFromCode(code: number | null | undefined): TransferQueryMode {
@@ -120,6 +144,27 @@ export interface TransferEntryInput {
   orphanHandling: OrphanHandling
   order: number
   notes: string
+}
+
+/**
+ * One queued/executed run of a package. The hub only CREATES runs (status
+ * queued, target snapshot); an external executor picks them up and writes
+ * status/log back — see docs/transfer-hub-contract.md.
+ */
+export interface TransferRun {
+  id: string
+  packageId: string
+  name: string
+  status: TransferRunStatus
+  /** Target env keys snapshotted at request time (package may change later). */
+  targetEnvKeys: string[]
+  requestedOn: string
+  requestedBy: string
+  startedOn: string
+  finishedOn: string
+  summary: string
+  /** Executor-written result JSON (per entry × target env). */
+  log: string
 }
 
 /** A source-environment table candidate (from EntityDefinitions). */

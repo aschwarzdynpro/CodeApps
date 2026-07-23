@@ -11,25 +11,72 @@ against.
 
 - Host environment of the app (Schulz INT-11), solution
   `DynamicsProSolutionAdminConsole`, publisher `DynamicsPro` (prefix `pro`).
-- Entity sets (Web API): **`pro_transferpackages`** and
+- Entity sets (Web API): **`pro_transferpackages`**,
   **`pro_transferentries`** (`pro_transferentry.pro_package_ref` → package,
-  relationship `pro_transferentry_package`, delete = cascade).
+  relationship `pro_transferentry_package`, delete = cascade) and
+  **`pro_transferruns`** (run queue + execution log; lookup → package with
+  delete = remove-link, so run history survives a package delete).
 - Environment keys (`pro_targetenvs_str`, `pro_sourceenv_str`) resolve against
   the **`pro_environmentconfigs`** table: `pro_key` → `pro_url`
   (+ `pro_environmentid`). The same registry drives the app's `ENVIRONMENTS`.
 
+## Run queue (`pro_transferrun`) — how execution is triggered
+
+The hub's **▶ Run** button creates one `pro_transferrun` row per requested
+execution; the executor is queue-driven (never scans packages on its own
+schedule unless you build that separately):
+
+| Column | Type | Semantics |
+|---|---|---|
+| `pro_name` | String(400) | Display name (`<package> — <utc timestamp>`). |
+| `pro_package_ref` | Lookup | The package to execute. |
+| `pro_status_opt` | Choice | 867520000 Queued / …001 Running / …002 Succeeded / …003 Failed / …004 Partially succeeded / …005 Cancelled. |
+| `pro_targetenvs_str` | String(400) | Target env keys **snapshotted at request time** — the executor uses THIS list, not the package's current one. |
+| `pro_startedon_dat` / `pro_finishedon_dat` | DateTime | Written by the executor. |
+| `pro_summary_str` | String(1000) | One-line result written by the executor. |
+| `pro_log_txt` | Memo | Result JSON written by the executor (shown in the hub). |
+| `createdon` / `createdby` | audit | Who requested the run, when. |
+
+**Executor protocol:**
+
+1. Pick up rows with `pro_status_opt eq 867520000` (Queued), oldest first —
+   ideally via a Dataverse trigger ("row added", filter on status), else by
+   polling.
+2. Immediately set `pro_status_opt = Running` + `pro_startedon_dat` (this is
+   the claim — with a single executor instance no further locking is needed).
+3. Execute the run's package (semantics below) against the run's
+   `pro_targetenvs_str`.
+4. Write `pro_finishedon_dat`, `pro_summary_str`, `pro_log_txt` and the final
+   status: Succeeded / Failed / **Partially succeeded** (some entries or
+   targets errored, others landed).
+5. Suggested `pro_log_txt` shape (the hub renders it verbatim as JSON):
+
+```json
+[
+  { "entry": "Payment terms", "target": "uat", "created": 0, "updated": 42,
+    "deactivated": 0, "deleted": 0, "errors": [] },
+  { "entry": "Price lists", "target": "prod", "created": 1, "updated": 6,
+    "errors": ["cust_code 'X9' matched 2 rows — skipped"] }
+]
+```
+
+A run whose package was deleted in the meantime (lookup empty) is marked
+Failed with a note. Runs in status Cancelled are never picked up.
+
 ## Execution semantics
 
-1. Read all **active** packages: `statecode eq 0`, ordered by
-   `pro_order_int asc` (ties: name).
+1. The unit of execution is ONE `pro_transferrun`. Resolve its package; read
+   the package's **active** entries as below. (Cross-package ordering via
+   `pro_order_int` applies only if you batch multiple queued runs.)
 2. Per package, read its **active** entries: `_pro_package_ref_value eq
    <packageId> and statecode eq 0`, ordered by `pro_order_int asc`.
    **Entry order is meaningful** — lookup parents come before their children,
    so upserting in order resolves intra-package references.
 3. Per entry, run `pro_fetchxml_txt` against the **source** environment
    (`pro_sourceenv_str` → `pro_environmentconfig.pro_url`) and write the rows
-   into **every** target environment of the package (`pro_targetenvs_str`,
-   comma-separated keys). A package without target keys is a no-op.
+   into **every** target environment of the RUN (`pro_transferrun.
+   pro_targetenvs_str` — the snapshot; comma-separated keys). A run without
+   target keys is a no-op.
 4. Inactive packages/entries (`statecode 1`) are skipped entirely.
 
 ## `pro_transferpackage` columns

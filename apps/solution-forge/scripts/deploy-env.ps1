@@ -157,7 +157,7 @@ $envJson = $cfg.Envs | ForEach-Object { [pscustomobject]$_ } | ConvertTo-Json -C
 @("VITE_ENVIRONMENT_ID=$($cfg.EnvId)", "VITE_ENVIRONMENTS=$envJson") -join "`n" | Set-Content .env.local -NoNewline
 
 # 5) Data Sources (immer gleiches pro_-Schema) + Connector (cr ODER c)
-foreach ($t in 'solution', 'publisher', 'solutioncomponent', 'msdyn_solutioncomponentsummary', 'systemuser', 'role', 'pro_workingsolution', 'pro_workbenchsettings', 'pro_mergerun', 'pro_releasenote', 'pro_environmentconfig', 'pro_transferpackage', 'pro_transferentry', 'asyncoperation', 'organization') {
+foreach ($t in 'solution', 'publisher', 'solutioncomponent', 'msdyn_solutioncomponentsummary', 'systemuser', 'role', 'pro_workingsolution', 'pro_workbenchsettings', 'pro_mergerun', 'pro_releasenote', 'pro_environmentconfig', 'pro_transferpackage', 'pro_transferentry', 'pro_transferrun', 'asyncoperation', 'organization') {
   & .\scripts\add-data-source.ps1 -a dataverse -t $t 2>&1 | Select-Object -Last 1 | Out-Null
 }
 if ($cfg.Connector.Mode -eq 'cr') {

@@ -143,9 +143,13 @@ nach Typ.
   ~Gesamtzahl), dazu **Record-Matching** (GUID-Upsert oder fachliche
   Match-Spalten) und **Orphan-Handling** (Ignore/Deactivate/Delete). Views
   werden als **FetchXML-Snapshot** gespeichert (self-contained für die
-  Pipeline, „⟳ View" re-snapshottet). Persistenz in `pro_transferpackage`/
-  `pro_transferentry` (Host, native Writes als User); Quell-Env-Reads über
-  den Konnektor. Pipeline-Contract: `docs/transfer-hub-contract.md`.
+  Pipeline, „⟳ View" re-snapshottet). **▶ Run** stellt einen **Transfer Run**
+  in die Queue (`pro_transferrun`: Status Queued + Ziel-Env-Snapshot); der
+  externe Executor arbeitet ihn ab und schreibt Status/Summary/Log zurück —
+  die Runs-Liste pollt bei aktivem Lauf und zeigt das Log per Klick.
+  Persistenz in `pro_transferpackage`/`pro_transferentry`/`pro_transferrun`
+  (Host, native Writes als User); Quell-Env-Reads über den Konnektor.
+  Pipeline-Contract: `docs/transfer-hub-contract.md`.
 - **Links** (Reference) — statische **Linksammlung** der ständig gebrauchten
   URLs als **Matrix** (eine Zeile je Link-Art, **je Umgebung eine Spalte**):
   System-App, OData/Web API, Diagnostics, classic Advanced Settings / Rollen /

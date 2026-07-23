@@ -712,8 +712,17 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 source). Entry order matters — lookup parents first.
               </li>
               <li>
-                The pipeline contract (tables, choice codes, semantics) is
-                documented in <code>docs/transfer-hub-contract.md</code>.
+                <strong>▶ Run</strong> queues a <strong>Transfer Run</strong>{' '}
+                (<code>pro_transferrun</code>): status Queued + the package's
+                targets snapshotted. The external executor picks it up and
+                writes status, summary and a result log back — the Runs list
+                below the entries polls while a run is active; click a row to
+                see its log.
+              </li>
+              <li>
+                The pipeline contract (tables, choice codes, run-queue
+                protocol) is documented in{' '}
+                <code>docs/transfer-hub-contract.md</code>.
               </li>
             </ul>
           </section>
