@@ -225,6 +225,11 @@ The repo ships a working executor implementation of this contract as a
 All three are deployed create-or-update + activate by
 `installer/deploy-executor-flow.ps1` (child first — the parent's `Workflow`
 action references the child's **workflowid**, injected as `__CHILD_ID__`).
+All three live in the app solution, so a **solution export/import carries
+them along**; record ids survive the transport, which keeps the parent →
+child reference intact. In the target environment only the usual ALM steps
+remain: bind the Dataverse connection reference and activate the flows
+(re-running the deploy script there is equally fine and re-injects the id).
 
 **Dry run** (`pro_transferrun.pro_dryrun_bit`): the parent passes the flag to
 each child, which empties the `foreach` inputs of the update/create/orphan
