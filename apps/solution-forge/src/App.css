@@ -6743,9 +6743,11 @@
   gap: 10px;
   margin-top: 12px;
 }
-/* Entry dialog */
+/* Entry dialog — fixed height so it opens full-size from the start (the
+   source-table dropdown panel needs the room; a grow-as-you-fill modal
+   clipped it while the form was still short). */
 .thub-entry-modal {
-  max-height: 88vh;
+  height: 88vh;
   overflow-y: auto;
 }
 .thub-form-grid {

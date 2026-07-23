@@ -19,14 +19,7 @@ import {
 import type { TransferHubService } from './transferHubService'
 import { mockTransferHubService } from './mockTransferHubService'
 import { powerModeReady } from '../PowerProvider'
-import {
-  fetchXmlEscape,
-  fetchXmlQuery,
-  odataQuery,
-  rowNum,
-  rowStr,
-  type Row,
-} from './currentEnvQuery'
+import { fetchXmlQuery, odataQuery, rowNum, rowStr, type Row } from './currentEnvQuery'
 import { orgUrlForEnvKey } from '../config'
 import {
   COUNT_ALIAS,
@@ -382,17 +375,15 @@ class DataverseTransferHubService implements TransferHubService {
     if (mode !== 'power-platform') return mockTransferHubService.listViews(envKey, tableLogicalName)
     // System views only (querytype 0); the fetchxml column is deliberately NOT
     // selected here — it is resolved per view on save (keeps the list cheap).
-    const xml = `<fetch><entity name="savedquery">
-      <attribute name="savedqueryid"/><attribute name="name"/>
-      <attribute name="description"/><attribute name="isdefault"/>
-      <filter>
-        <condition attribute="returnedtypecode" operator="eq" value="${fetchXmlEscape(tableLogicalName)}"/>
-        <condition attribute="querytype" operator="eq" value="0"/>
-        <condition attribute="statecode" operator="eq" value="0"/>
-      </filter>
-      <order attribute="name"/>
-    </entity></fetch>`
-    const rows = await fetchXmlQuery('savedqueries', xml, orgUrlForEnvKey(envKey))
+    // MUST be an OData filter: in FetchXML the EntityName attribute
+    // `returnedtypecode` expects the numeric ObjectTypeCode (a logical-name
+    // string throws 0x80040203 FormatException — verified live on INT-11);
+    // via OData it is a string and matches the logical name.
+    const safe = tableLogicalName.replace(/'/g, "''")
+    const rows = await odataQuery('savedqueries', 'savedqueryid,name,description,isdefault', {
+      orgUrl: orgUrlForEnvKey(envKey),
+      filter: `returnedtypecode eq '${safe}' and querytype eq 0 and statecode eq 0`,
+    })
     return rows
       .map((row) => ({
         id: rowStr(row.savedqueryid),
@@ -401,6 +392,7 @@ class DataverseTransferHubService implements TransferHubService {
         isDefault: row.isdefault === true,
       }))
       .filter((v) => v.id)
+      .sort((a, b) => a.name.localeCompare(b.name))
   }
 
   async getViewFetchXml(

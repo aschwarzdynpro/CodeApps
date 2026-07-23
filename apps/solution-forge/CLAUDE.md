@@ -513,9 +513,13 @@ Reihenfolge im Paket, Eltern vor Kindern). Aktiv/Inaktiv = **`statecode`**.
 Service-Trio `transferHubService`/`dataverse…`/`mock…`: **Config-CRUD nativ als
 User** (generierte `Pro_transferpackages`-/`Pro_transferentriesService`);
 **Quell-Env-Reads über den Konnektor** (`currentEnvQuery` + `orgUrlForEnvKey`):
-`listTables` = `EntityDefinitions` (Cache pro orgUrl), `listViews` = FetchXML
+`listTables` = `EntityDefinitions` (Cache pro orgUrl), `listViews` = **OData**
 auf `savedqueries` (`returnedtypecode eq '<table>' and querytype eq 0`, OHNE
-`fetchxml`-Spalte), `getViewFetchXml` einzeln, `preview` mit
+`fetchxml`-Spalte) — ⚠ NICHT als FetchXML-Condition: das EntityName-Attribut
+`returnedtypecode` erwartet dort den numerischen ObjectTypeCode, ein
+Logical-Name-String wirft `0x80040203` FormatException (live an INT-11
+verifiziert); im OData-Pfad ist es ein String und matcht den logischen Namen.
+`getViewFetchXml` einzeln, `preview` mit
 `withRowLimit`-Count-Injektion + Best-effort-Aggregate-Count
 (`buildCountFetchXml` transformiert die Query selbst → Filter bleibt). Pure
 Utils in `utils/transferConfig.ts` (DOMParser, Vitest jsdom): `parseFetchXml`,
@@ -524,11 +528,12 @@ UI: `TransferHubWorkspace` (Master-Detail) + `TransferPackageDialog` +
 `TransferEntryDialog` (wide, remount per key) + generischer `SearchSelect`
 (`.sselect*`-Klassen). Save im View-Modus löst das View-FetchXML VOR dem Write
 auf (Snapshot + `pro_viewsnapshotat_dat`); „⟳ View" re-snapshottet.
-**Verify-on-first-use:** (a) savedquery-Cross-Env-Read inkl.
-`returnedtypecode`-String-Condition (Fallback: OData-Filter), (b)
-statecode-Write über generiertes `update()` (bei Ablehnung Toggle verstecken),
-(c) SP braucht Leserechte auf Quelltabellen + `savedquery` in UAT/PROD für
-Preview/View-Liste.
+**Verify-on-first-use:** (a) ✅ geklärt — savedquery-Read läuft über den
+OData-Filter (s. o.), (b) statecode-Write über generiertes `update()` (bei
+Ablehnung Toggle verstecken), (c) SP braucht Leserechte auf Quelltabellen +
+`savedquery` in UAT/PROD für Preview/View-Liste. Der Entry-Dialog hat eine
+**feste Höhe** (`.thub-entry-modal`, 88vh) — nicht auf max-height
+zurückbauen, sonst clippt das Source-Table-Dropdown im noch kurzen Formular.
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
