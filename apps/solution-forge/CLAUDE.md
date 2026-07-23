@@ -40,6 +40,8 @@ power-apps init --non-interactive -n "Solution Administration Console (Pro)" --c
 ./scripts/add-data-source.ps1 -a dataverse -t pro_mergerun
 ./scripts/add-data-source.ps1 -a dataverse -t pro_releasenote
 ./scripts/add-data-source.ps1 -a dataverse -t pro_environmentconfig
+./scripts/add-data-source.ps1 -a dataverse -t pro_transferpackage
+./scripts/add-data-source.ps1 -a dataverse -t pro_transferentry
 # Operate-Gruppe (nur Schreibpfade; alle Reads laufen über den Konnektor):
 ./scripts/add-data-source.ps1 -a dataverse -t asyncoperation
 ./scripts/add-data-source.ps1 -a dataverse -t organization
@@ -54,7 +56,7 @@ power-apps add-flow --flow-id e8d6ad6b-abd5-f011-8544-000d3ab3220a   # PA | MANU
 ```
 **Datenmodell auf neuem Environment erzeugen** (statt Maker-Handarbeit):
 `pwsh installer/provision-model.ps1 -EnvironmentUrl <url> [-TenantId <guid>]`
-legt Publisher `DynamicsPro` (Prefix `pro`) + Solution + alle 4 `pro_`-Tabellen an.
+legt Publisher `DynamicsPro` (Prefix `pro`) + Solution + alle 7 `pro_`-Tabellen an.
 Welche generated services der committete Code erwartet ⇔ Soll-Liste:
 `grep -rho "generated/services/\w*" src` gegen `ls src/generated/services`.
 
@@ -494,6 +496,39 @@ Schritt** (`bulk.label`: „Activating …"/„Deactivating …"/„Assigning ow
 `done/total` = abgeschlossene Items. **Sync-Header** oben rechts (`.cmp-sync`): Last
 sync (`formatRelative(loadedAt)`) + Refresh (re-run compare). ⚠ `set`-in-effect für
 `flowBarHidden`-Reset via `// eslint-disable-next-line react-hooks/set-state-in-effect`.
+
+**Configuration Data Transfer Hub** (Manage-Gruppe, Menüpunkt „Data Transfer",
+gated): deklarative **Transfer-Pakete** für Konfigurationsdaten, die eine
+**externe Pipeline** ausführt (bewusst NICHT in-app — Contract in
+`docs/transfer-hub-contract.md`, dort Spalten-/Choice-Semantik; Choice-Codes
+gespiegelt in `types/transferHub.ts`). Datenmodell: `pro_transferpackage`
+(Name, `pro_targetenvs_str` = Komma-Liste der ENVIRONMENTS-**Keys** — bewusst
+String statt Choice, Registry ist runtime-hydriert; `pro_order_int`) +
+`pro_transferentry` (Lookup `pro_package_ref` **Delete=Cascade**, Quell-Env-Key,
+Tabelle + Entity-Set-/PrimaryId-**Snapshots**, `pro_querymode_opt` View/FetchXML,
+View-Referenz + `pro_fetchxml_txt` = **immer befülltes, ausführbares Snapshot**,
+`pro_matchmode_opt` GUID/Spalten + `pro_matchcolumns_str`,
+`pro_orphanhandling_opt` Ignore/Deactivate/Delete, `pro_order_int` =
+Reihenfolge im Paket, Eltern vor Kindern). Aktiv/Inaktiv = **`statecode`**.
+Service-Trio `transferHubService`/`dataverse…`/`mock…`: **Config-CRUD nativ als
+User** (generierte `Pro_transferpackages`-/`Pro_transferentriesService`);
+**Quell-Env-Reads über den Konnektor** (`currentEnvQuery` + `orgUrlForEnvKey`):
+`listTables` = `EntityDefinitions` (Cache pro orgUrl), `listViews` = FetchXML
+auf `savedqueries` (`returnedtypecode eq '<table>' and querytype eq 0`, OHNE
+`fetchxml`-Spalte), `getViewFetchXml` einzeln, `preview` mit
+`withRowLimit`-Count-Injektion + Best-effort-Aggregate-Count
+(`buildCountFetchXml` transformiert die Query selbst → Filter bleibt). Pure
+Utils in `utils/transferConfig.ts` (DOMParser, Vitest jsdom): `parseFetchXml`,
+`setAttributes` (Spalten-Picker), `describeEntryValidation` (Save-Gate).
+UI: `TransferHubWorkspace` (Master-Detail) + `TransferPackageDialog` +
+`TransferEntryDialog` (wide, remount per key) + generischer `SearchSelect`
+(`.sselect*`-Klassen). Save im View-Modus löst das View-FetchXML VOR dem Write
+auf (Snapshot + `pro_viewsnapshotat_dat`); „⟳ View" re-snapshottet.
+**Verify-on-first-use:** (a) savedquery-Cross-Env-Read inkl.
+`returnedtypecode`-String-Condition (Fallback: OData-Filter), (b)
+statecode-Write über generiertes `update()` (bei Ablehnung Toggle verstecken),
+(c) SP braucht Leserechte auf Quelltabellen + `savedquery` in UAT/PROD für
+Preview/View-Liste.
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 

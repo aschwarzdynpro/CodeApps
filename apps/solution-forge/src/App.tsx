@@ -19,6 +19,7 @@ import { ReleaseNotesWorkspace } from './components/ReleaseNotesWorkspace'
 import { ReleaseTimelineWorkspace } from './components/ReleaseTimelineWorkspace'
 import { ActivityBar } from './components/ActivityBar'
 import { EnvConfigWorkspace } from './components/EnvConfigWorkspace'
+import { TransferHubWorkspace } from './components/TransferHubWorkspace'
 import { DualWriteWorkspace } from './components/DualWriteWorkspace'
 import { AuditConfigWorkspace } from './components/AuditConfigWorkspace'
 import { ImportHistoryWorkspace } from './components/ImportHistoryWorkspace'
@@ -61,6 +62,7 @@ type Tab =
   | 'mergeRules'
   | 'releaseNotes'
   | 'timeline'
+  | 'transferHub'
   | 'readiness'
   | 'analyze'
   | 'envConfig'
@@ -93,6 +95,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { key: 'mergeRules', label: 'Merge Rules', icon: '⚙', gated: true },
       { key: 'releaseNotes', label: 'Release Notes', icon: '📝', gated: false },
       { key: 'timeline', label: 'Timeline', icon: '🕘', gated: false },
+      { key: 'transferHub', label: 'Data Transfer', icon: '🚚', gated: true },
     ],
   },
   {
@@ -159,6 +162,7 @@ const TAB_TITLES: Record<Tab, string> = {
   mergeRules: 'Merge Rules',
   releaseNotes: 'Release Notes',
   timeline: 'Release Timeline',
+  transferHub: 'Configuration Data Transfer Hub',
   readiness: 'Deployment Readiness',
   analyze: 'Analyze',
   envConfig: 'Environment Config',
@@ -1334,6 +1338,10 @@ function App() {
 
       {!loading && !error && tab === 'timeline' && (
         <ReleaseTimelineWorkspace solutions={allSolutions} />
+      )}
+
+      {!error && tab === 'transferHub' && isDeploymentManager && (
+        <TransferHubWorkspace />
       )}
 
       {!loading && !error && tab === 'readiness' && isDeploymentManager && (

@@ -133,6 +133,19 @@ nach Typ.
   degradieren zu einem Hinweis statt die Timeline zu blocken. Reine
   Visualisierung vorhandener Daten (Builder `buildReleaseTimeline` als pure
   function mit Tests) — kein neuer Datenpfad.
+- **Data Transfer** (Manage, gated) — **Configuration Data Transfer Hub**:
+  deklarative **Transfer-Pakete** für Konfigurationsdaten, die eine **externe
+  Pipeline** (nicht Teil der App) von einer Quell- in Ziel-Umgebungen
+  transportiert. Paket = Name + Ziel-Umgebungen (Multi-Select aus der
+  Env-Registry) + Reihenfolge; Eintrag = Quell-Umgebung → Quell-Tabelle
+  (durchsuchbarer Metadaten-Picker) → Filter & Spalten per **System-View**
+  oder **FetchXML** (Validierung, Spalten-Picker, **Daten-Preview** mit
+  ~Gesamtzahl), dazu **Record-Matching** (GUID-Upsert oder fachliche
+  Match-Spalten) und **Orphan-Handling** (Ignore/Deactivate/Delete). Views
+  werden als **FetchXML-Snapshot** gespeichert (self-contained für die
+  Pipeline, „⟳ View" re-snapshottet). Persistenz in `pro_transferpackage`/
+  `pro_transferentry` (Host, native Writes als User); Quell-Env-Reads über
+  den Konnektor. Pipeline-Contract: `docs/transfer-hub-contract.md`.
 - **Links** (Reference) — statische **Linksammlung** der ständig gebrauchten
   URLs als **Matrix** (eine Zeile je Link-Art, **je Umgebung eine Spalte**):
   System-App, OData/Web API, Diagnostics, classic Advanced Settings / Rollen /

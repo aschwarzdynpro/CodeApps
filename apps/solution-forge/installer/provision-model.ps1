@@ -4,9 +4,10 @@
   publisher "Dynamics Pro") into a target Dataverse environment.
 
 .DESCRIPTION
-  Creates — idempotently — the publisher, a solution, and the four custom
+  Creates — idempotently — the publisher, a solution, and the seven custom
   tables with all columns, choices and lookups the Code App needs:
-    pro_workingsolution, pro_workbenchsettings, pro_mergerun, pro_releasenote
+    pro_workingsolution, pro_workbenchsettings, pro_mergerun, pro_releasenote,
+    pro_environmentconfig, pro_transferpackage, pro_transferentry
   Numeric choice values are pinned to the product's canonical values
   (867520000.. / 500870000.. / componenttype codes) regardless of the
   publisher's option-value prefix, so the app's constants stay stable.
@@ -122,6 +123,10 @@ $mergeTypeDefs = @(
   @(10022,'Custom API Request Parameter'),@(10023,'Custom API Response Property'),
   @(10064,'Connection Reference'),@(380,'Environment Variable'),@(381,'Environment Variable Value'))
 $mergeTypeOpts = $mergeTypeDefs | ForEach-Object { New-DvOption ([int]$_[0]) ([string]$_[1]) }
+# Transfer hub choices (codes mirrored in src/types/transferHub.ts + docs/transfer-hub-contract.md)
+$queryModeOpts = @((New-DvOption 867520000 'Saved view'), (New-DvOption 867520001 'FetchXML'))
+$matchModeOpts = @((New-DvOption 867520000 'GUID upsert'), (New-DvOption 867520001 'Match by columns'))
+$orphanOpts    = @((New-DvOption 867520000 'Ignore'), (New-DvOption 867520001 'Deactivate'), (New-DvOption 867520002 'Delete'))
 
 # ---- 3. Entities -----------------------------------------------------------
 # Each: SchemaName, primary attr (schema/max/req), ownership, set name, display
@@ -140,6 +145,12 @@ $entities = @(
      primary=@{ schema="${p}_name"; max=850; req='ApplicationRequired' } }
   @{ schema="${p}_EnvironmentConfig"; logical="${p}_environmentconfig"; set="${p}_environmentconfigs"
      display='Environment Config'; coll='Environment Configs'; ownership='OrganizationOwned'
+     primary=@{ schema="${p}_name"; max=200; req='ApplicationRequired' } }
+  @{ schema="${p}_TransferPackage";   logical="${p}_transferpackage";   set="${p}_transferpackages"
+     display='Transfer Package'; coll='Transfer Packages'; ownership='OrganizationOwned'
+     primary=@{ schema="${p}_name"; max=200; req='ApplicationRequired' } }
+  @{ schema="${p}_TransferEntry";     logical="${p}_transferentry";     set="${p}_transferentries"
+     display='Transfer Entry'; coll='Transfer Entries'; ownership='OrganizationOwned'
      primary=@{ schema="${p}_name"; max=200; req='ApplicationRequired' } }
 )
 foreach ($e in $entities) {
@@ -208,6 +219,28 @@ $columns = @{
     (StrAttr  "${p}_summary_txt" 200 'None' 'Summary'),
     (StrAttr  "${p}_version_txt" 50 'None' 'Version')
   )
+  "${p}_transferpackage" = @(
+    (MemoAttr "${p}_description_txt" 4000 'None' 'Description'),
+    (StrAttr  "${p}_targetenvs_str" 400 'None' 'Target environment keys'),
+    (IntAttr  "${p}_order_int" 0 10000 'None' 'Order')
+  )
+  "${p}_transferentry" = @(
+    (StrAttr  "${p}_sourceenv_str" 50 'ApplicationRequired' 'Source environment key'),
+    (StrAttr  "${p}_sourcetable_str" 200 'ApplicationRequired' 'Source table logical name'),
+    (StrAttr  "${p}_sourcetabledisplay_str" 400 'None' 'Source table display name'),
+    (StrAttr  "${p}_sourceentityset_str" 200 'None' 'Source entity-set name'),
+    (StrAttr  "${p}_primaryidattr_str" 200 'None' 'Primary id attribute'),
+    (PickAttr "${p}_querymode_opt" 'ApplicationRequired' 'Query mode' $queryModeOpts),
+    (StrAttr  "${p}_viewid_str" 100 'None' 'Saved view id'),
+    (StrAttr  "${p}_viewname_str" 400 'None' 'Saved view name'),
+    (DateAttr "${p}_viewsnapshotat_dat" 'UserLocal' 'None' 'View snapshot taken at'),
+    (MemoAttr "${p}_fetchxml_txt" 1000000 'None' 'FetchXML snapshot'),
+    (PickAttr "${p}_matchmode_opt" 'None' 'Match mode' $matchModeOpts),
+    (StrAttr  "${p}_matchcolumns_str" 1000 'None' 'Match columns'),
+    (PickAttr "${p}_orphanhandling_opt" 'None' 'Orphan handling' $orphanOpts),
+    (IntAttr  "${p}_order_int" 0 10000 'None' 'Order'),
+    (MemoAttr "${p}_notes_txt" 4000 'None' 'Notes')
+  )
 }
 foreach ($tbl in $columns.Keys) {
   foreach ($attr in $columns[$tbl]) {
@@ -221,7 +254,7 @@ foreach ($tbl in $columns.Keys) {
 }
 
 # ---- 5. Lookups (one-to-many relationships) --------------------------------
-function New-Lookup($relSchema,$referenced,$referencedId,$referencing,$navProp,$lookupSchema,$req,$display) {
+function New-Lookup($relSchema,$referenced,$referencedId,$referencing,$navProp,$lookupSchema,$req,$display,$deleteCascade='RemoveLink') {
   if (Test-DvExists "RelationshipDefinitions(SchemaName='$relSchema')?`$select=SchemaName") {
     Write-Host "  rel $relSchema exists." -ForegroundColor DarkGray; return
   }
@@ -229,7 +262,7 @@ function New-Lookup($relSchema,$referenced,$referencedId,$referencing,$navProp,$
     '@odata.type'='Microsoft.Dynamics.CRM.OneToManyRelationshipMetadata'
     SchemaName=$relSchema; ReferencedEntity=$referenced; ReferencedAttribute=$referencedId
     ReferencingEntity=$referencing; ReferencingEntityNavigationPropertyName=$navProp
-    CascadeConfiguration=@{ Assign='NoCascade'; Delete='RemoveLink'; Merge='NoCascade'
+    CascadeConfiguration=@{ Assign='NoCascade'; Delete=$deleteCascade; Merge='NoCascade'
       Reparent='NoCascade'; Share='NoCascade'; Unshare='NoCascade'; RollupView='NoCascade' }
     Lookup=@{ '@odata.type'='Microsoft.Dynamics.CRM.LookupAttributeMetadata'; AttributeType='Lookup'
       AttributeTypeName=@{ Value='LookupType' }; SchemaName=$lookupSchema
@@ -242,6 +275,8 @@ New-Lookup "${p}_workingsolution_workbenchsetting"  "${p}_workbenchsettings" "${
 New-Lookup "${p}_workingsolution_deploymentsolution" "${p}_workingsolution"  "${p}_workingsolutionid"  "${p}_workingsolution" "${p}_DeploymentSolution_id" "${p}_DeploymentSolution_id" 'None'               'Deployment Solution'
 New-Lookup "${p}_mergerun_targetsolution"            "${p}_workingsolution"  "${p}_workingsolutionid"  "${p}_mergerun"        "${p}_targetsolution_ref"   "${p}_targetsolution_ref"   'None'               'Target Solution'
 New-Lookup "${p}_releasenote_releasesolution"        "${p}_workingsolution"  "${p}_workingsolutionid"  "${p}_releasenote"     "${p}_releasesolution_ref"  "${p}_releasesolution_ref"  'ApplicationRequired' 'Release Solution'
+# Deleting a package removes its entries (Cascade delete)
+New-Lookup "${p}_transferentry_package"              "${p}_transferpackage"  "${p}_transferpackageid"  "${p}_transferentry"   "${p}_package_ref"          "${p}_package_ref"          'ApplicationRequired' 'Transfer Package' 'Cascade'
 
 Write-Host ""
 Write-Host "Data model provisioning complete (publisher '$PublisherUniqueName', prefix '$p', solution '$SolutionUniqueName')." -ForegroundColor Green

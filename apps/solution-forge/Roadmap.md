@@ -24,6 +24,14 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       Counter), Umschalter Markdown | Raw + Copy. **Publish** speichert
       versionierte Snapshots (`pro_releasenote`, nur Deployment Manager),
       **History**-Tab zum Wiederabruf.
+- [x] **Configuration Data Transfer Hub** (Menüpunkt „Data Transfer",
+      Manage-Gruppe, gated): deklarative Transfer-Pakete für
+      Konfigurationsdaten — Quell-Env → Tabelle → Filter/Spalten per
+      System-View-Snapshot oder FetchXML (Validierung, Spalten-Picker,
+      Preview), Record-Matching (GUID/Match-Spalten), Orphan-Handling,
+      Reihenfolge. Ausführung durch **externe Pipeline** (bewusst nicht
+      in-app); Contract in `docs/transfer-hub-contract.md`, Datenmodell
+      `pro_transferpackage`/`pro_transferentry`.
 - [ ] **Power-Platform-Pipelines-Integration**: Pipeline-Run aus der App
       starten, Run-Status nach `pro_deploymentstatus` zurückspiegeln.
 - [x] **Solution Import History Viewer**: `importjob`-Historie je wählbarer

@@ -680,6 +680,45 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🚚 Data Transfer (Manage)</h3>
+            <p>
+              The <strong>Configuration Data Transfer Hub</strong> authors
+              which configuration data an <strong>external pipeline</strong>{' '}
+              transports between environments — the app itself never executes
+              a transfer.
+            </p>
+            <ul>
+              <li>
+                <strong>Packages</strong> group entries, carry the target
+                environments and run in ascending order; inactive packages are
+                skipped by the pipeline.
+              </li>
+              <li>
+                <strong>Entries</strong> define one source query each: source
+                environment → table → filter &amp; columns via a{' '}
+                <strong>system saved view</strong> or hand-written{' '}
+                <strong>FetchXML</strong> — with live validation, a column
+                picker and a data preview (first 25 rows + approximate total).
+              </li>
+              <li>
+                A saved view is stored as a <strong>snapshot</strong> (the
+                view's FetchXML at save time) so the configuration is
+                self-contained; "⟳ View" re-reads the view when it changed.
+              </li>
+              <li>
+                Per entry: <strong>record matching</strong> (GUID upsert or
+                match by business columns) and <strong>orphan handling</strong>{' '}
+                (ignore / deactivate / delete target records missing from the
+                source). Entry order matters — lookup parents first.
+              </li>
+              <li>
+                The pipeline contract (tables, choice codes, semantics) is
+                documented in <code>docs/transfer-hub-contract.md</code>.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
             <h3>📦 Import History (Validate)</h3>
             <p>
               The <strong>Solution Import History</strong> lists a chosen
