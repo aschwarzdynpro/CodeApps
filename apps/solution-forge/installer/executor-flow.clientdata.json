@@ -4,7 +4,7 @@
     "connectionReferences": {
       "shared_commondataserviceforapps": {
         "runtimeSource": "embedded",
-        "connection": { "connectionReferenceLogicalName": "pro_CRDataverse" },
+        "connection": { "connectionReferenceLogicalName": "__CONNREF__" },
         "api": { "name": "shared_commondataserviceforapps" }
       }
     },

@@ -25,7 +25,10 @@ param(
   [Parameter(Mandatory)][string]$EnvironmentUrl,
   [string]$TenantId,
   [string]$SolutionUniqueName = 'DynamicsProSolutionAdminConsole',
-  [string]$FlowName = 'PA | AUTO | Transfer Run | Execute Package'
+  [string]$FlowName = 'PA | AUTO | Transfer Run | Execute Package',
+  # Dataverse connection reference the flow binds to — differs per install
+  # (Schulz: pro_CRDataverse, Playground: pro_CR_SAC_Dataverse).
+  [string]$ConnectionReference = 'pro_CRDataverse'
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib/Dataverse.ps1')
@@ -34,12 +37,12 @@ $hostUrl = $EnvironmentUrl.TrimEnd('/')
 Connect-Dataverse -EnvironmentUrl $hostUrl -TenantId $TenantId | Out-Null
 
 # Sanity: the connection reference must exist (and ideally be bound).
-$cr = (Invoke-Dv -Method GET -Path "connectionreferences?`$select=connectionreferenceid,connectionid&`$filter=connectionreferencelogicalname eq 'pro_CRDataverse'").value
-if (-not $cr) { throw "Connection reference 'pro_CRDataverse' not found — run the app installer first." }
-if (-not $cr[0].connectionid) { Write-Warning "pro_CRDataverse is UNBOUND — bind a connection before the flow can run." }
+$cr = (Invoke-Dv -Method GET -Path "connectionreferences?`$select=connectionreferenceid,connectionid&`$filter=connectionreferencelogicalname eq '$ConnectionReference'").value
+if (-not $cr) { throw "Connection reference '$ConnectionReference' not found — run the app installer first." }
+if (-not $cr[0].connectionid) { Write-Warning "$ConnectionReference is UNBOUND — bind a connection before the flow can run." }
 
 $clientData = Get-Content (Join-Path $PSScriptRoot 'executor-flow.clientdata.json') -Raw
-$clientData = $clientData.Replace('__HOST_URL__', $hostUrl)
+$clientData = $clientData.Replace('__HOST_URL__', $hostUrl).Replace('__CONNREF__', $ConnectionReference)
 
 $existing = (Invoke-Dv -Method GET -Path "workflows?`$select=workflowid,statecode&`$filter=name eq '$($FlowName.Replace("'","''"))' and category eq 5").value
 if ($existing) {
