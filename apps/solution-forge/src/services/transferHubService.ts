@@ -56,6 +56,15 @@ export interface TransferHubService {
     fetchXml: string,
     maxRows?: number,
   ): Promise<PreviewResult>
+  /**
+   * Row count of the query (same filter, aggregate count) — undefined when
+   * not countable (aggregate XML, >50k rows, or the count query failed).
+   */
+  countRows(
+    envKey: string,
+    tableLogicalName: string,
+    fetchXml: string,
+  ): Promise<number | undefined>
 }
 
 export const transferHubService: TransferHubService = dataverseTransferHubService

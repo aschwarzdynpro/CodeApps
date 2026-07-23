@@ -6845,3 +6845,36 @@
   font-size: 12px;
   margin-top: 6px;
 }
+/* Transfer hub — per-entry insights (count column + collapsible preview) */
+.thub-count-cell {
+  white-space: nowrap;
+}
+.thub-count-refresh {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.thub-count-refresh:hover {
+  color: var(--brand);
+}
+.thub-count-refresh:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.thub-preview-tr > td {
+  background: var(--bg);
+  padding: 10px 12px;
+}
+.thub-preview-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.thub-preview-tr .thub-preview {
+  margin-top: 0;
+  background: var(--surface);
+}

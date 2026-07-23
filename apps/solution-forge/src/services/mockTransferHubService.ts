@@ -331,6 +331,22 @@ class MockTransferHubService implements TransferHubService {
     })
     return { columns: cols, rows, totalCount: total, limit: maxRows }
   }
+
+  async countRows(
+    _envKey: string,
+    tableLogicalName: string,
+    _fetchXml: string,
+  ): Promise<number | undefined> {
+    void _envKey
+    void _fetchXml
+    await delay(300)
+    const seeded: Record<string, number> = {
+      cust_paymentterm: 42,
+      cust_pricelist: 7,
+      cust_pricelistitem: 356,
+    }
+    return seeded[tableLogicalName] ?? 12
+  }
 }
 
 export const mockTransferHubService: TransferHubService = new MockTransferHubService()

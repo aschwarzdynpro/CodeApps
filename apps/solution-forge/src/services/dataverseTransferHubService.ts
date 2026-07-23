@@ -503,6 +503,28 @@ class DataverseTransferHubService implements TransferHubService {
     }
     return { columns, rows, totalCount, limit: maxRows }
   }
+
+  async countRows(
+    envKey: string,
+    tableLogicalName: string,
+    fetchXml: string,
+  ): Promise<number | undefined> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockTransferHubService.countRows(envKey, tableLogicalName, fetchXml)
+    const orgUrl = orgUrlForEnvKey(envKey)
+    const info = await this.resolveEntityInfo(orgUrl, tableLogicalName)
+    const countXml = buildCountFetchXml(fetchXml, info.idAttr)
+    if (!countXml) return undefined
+    try {
+      const rows = await fetchXmlQuery(info.set, countXml, orgUrl)
+      const value = rows[0]?.[COUNT_ALIAS]
+      return value === undefined || value === null ? undefined : rowNum(value)
+    } catch (err) {
+      console.warn('[transfer] countRows failed:', err)
+      return undefined
+    }
+  }
 }
 
 export const dataverseTransferHubService: TransferHubService =
