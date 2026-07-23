@@ -1,6 +1,9 @@
 /**
  * Feature guide, opened via the "?" icon in the header. Static content —
- * keep the sections in sync with the README when features change.
+ * sections follow the sidebar menu structure (Manage → Validate → Operate →
+ * Reference); keep them in sync with the README when features change.
+ * Features hidden from the menu (ALM Detective, Job Monitor, Role Analyzer)
+ * are deliberately not documented here.
  */
 export function HelpPanel({ onClose }: { onClose: () => void }) {
   return (
@@ -19,7 +22,8 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <div className="help-title-text">
               <h2>Feature guide</h2>
               <p className="help-subtitle">
-                How the Solution Administration Console works — tab by tab.
+                How the Solution Administration Console works — in the order of
+                the menu.
               </p>
             </div>
           </div>
@@ -45,103 +49,21 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
-            <h3>📊 Analyze (post-deployment)</h3>
-            <ul>
-              <li>
-                Everything to review <strong>after</strong> a release reaches a
-                target. In one toolbar row pick the release, the target (UAT /
-                PROD) and which checks to include —{' '}
-                <strong>Compare</strong> (incl. content drift),{' '}
-                <strong>Layers</strong> and <strong>App Sharing</strong> — then
-                hit <strong>Analyze</strong>.
-              </li>
-              <li>
-                The sweep fills four tabs: a <strong>Summary</strong> dashboard
-                plus one tab per selected check with its full content. (Things
-                to check <em>before</em> deploying live in{' '}
-                <strong>Deployment Readiness</strong>.)
-              </li>
-              <li>
-                The sweep <strong>keeps running when you navigate away</strong>
-                {' '}— a small bar at the bottom-left shows the progress and a{' '}
-                <strong>View</strong> button to jump back; the result is ready
-                when you return.
-              </li>
-              <li>
-                A <strong>Deployment Risk Score</strong> gauge (0–100, higher is
-                safer) bands the release as{' '}
-                <span className="risk-band risk-band--low">Low Risk</span>,{' '}
-                <span className="risk-band risk-band--medium">Medium Risk</span>{' '}
-                or <span className="risk-band risk-band--high">High Risk</span>,
-                with severity cards counting{' '}
-                <span className="sev-pill sev-pill--critical">Critical</span>,{' '}
-                <span className="sev-pill sev-pill--high">High</span>,{' '}
-                <span className="sev-pill sev-pill--medium">Medium</span> and{' '}
-                <span className="sev-pill sev-pill--low">Low</span> findings.
-              </li>
-              <li>
-                The severity cards are <strong>clickable filters</strong>, and{' '}
-                <strong>Issues</strong> lists every finding grouped by
-                criticality in collapsible sections;{' '}
-                <strong>Solution Components</strong> breaks the solution down by
-                component type.
-              </li>
-              <li>
-                <strong>Recommendations</strong> turn the findings into concrete
-                next steps, and the <strong>Environment Readiness</strong>{' '}
-                matrix shows per-area compatibility with the target plus an
-                overall readiness percentage.
-              </li>
-              <li>
-                Requires the “INT | Deployment Manager” role.
-              </li>
-            </ul>
+            <h3>Navigation &amp; access</h3>
+            <p>
+              The left sidebar groups the features: <strong>Manage</strong>{' '}
+              (day-to-day solution work), <strong>Validate</strong>{' '}
+              (pre-/post-deployment checks), <strong>Operate</strong>{' '}
+              (live-environment diagnostics) and <strong>Reference</strong>.
+              Locked entries require the security role{' '}
+              <strong>“INT | Deployment Manager”</strong> (assigned directly to
+              your user) — Workbench, Merge, Release Notes, Timeline, Plugin
+              Traces and Links are open to everyone.
+            </p>
           </section>
 
           <section className="help-section">
-            <h3>🔍 ALM Detective</h3>
-            <ul>
-              <li>
-                A phased <strong>pre-deployment audit</strong> for a release
-                solution: it runs the selected ALM checks one after another
-                and compiles everything into a single report ranked by
-                criticality — instead of opening each tab separately.
-              </li>
-              <li>
-                Pick the <strong>deployment target</strong> (UAT / PROD) and
-                tick the checks: <strong>Dependency Check</strong>,{' '}
-                <strong>Compare</strong> (incl. content drift),{' '}
-                <strong>Layer Inspector</strong>, <strong>App Sharing</strong>.
-                The target applies to Layer &amp; Dependency checks; Compare
-                and App Sharing always span UAT &amp; PROD.
-              </li>
-              <li>
-                A <strong>phase stepper</strong> lights up as the
-                investigation runs — each phase shows its progress, then a ✓
-                with the number of findings (or “skipped” / “failed”).
-              </li>
-              <li>
-                Findings are grouped by severity and filterable:{' '}
-                <span className="sev-pill sev-pill--critical">Critical</span>{' '}
-                (missing dependency — import breaks),{' '}
-                <span className="sev-pill sev-pill--high">High</span> (unmanaged
-                layer over a managed component, canvas app not shared),{' '}
-                <span className="sev-pill sev-pill--medium">Medium</span>{' '}
-                (status / content drift),{' '}
-                <span className="sev-pill sev-pill--low">Low</span> (missing in
-                target, unmanaged-only, lookup failures). The verdict at the
-                top says whether the release is deployment-ready.
-              </li>
-              <li>
-                The report is intentionally compact — for the full detail of
-                any finding, open the matching single-feature tab. Requires the
-                “INT | Deployment Manager” role.
-              </li>
-            </ul>
-          </section>
-
-          <section className="help-section">
-            <h3>Workbench</h3>
+            <h3>🧰 Workbench (Manage)</h3>
             <ul>
               <li>
                 <strong>Filter chips</strong> (Features / Bugs / Releases /
@@ -204,7 +126,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
-            <h3>Create &amp; track</h3>
+            <h3>🧰 Workbench — create &amp; track</h3>
             <ul>
               <li>
                 <strong>+ New Working Solution</strong> creates both parts:
@@ -230,7 +152,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
-            <h3>Detail pane</h3>
+            <h3>🧰 Workbench — detail pane &amp; row actions</h3>
             <ul>
               <li>
                 Click a row to <strong>expand its details inline</strong>,
@@ -252,9 +174,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 Open a solution in the <strong>Maker Portal</strong> via its{' '}
                 <strong>unique name</strong> in the Solution column — it's a link
-                (with a ↗ icon). The detail pane is kept short (type, title,
-                description, components, merge history); the row actions and this
-                link replace the old command bar and metadata block.
+                (with a ↗ icon).
               </li>
               <li>
                 The list is a <strong>columnar table</strong> — Type ·{' '}
@@ -274,9 +194,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 When an open entry's DevOps work item is <strong>Closed</strong>,
                 it's flagged{' '}
                 <span className="tbc-chip">✓ to be completed</span> in the list
-                and its <strong>Mark completed</strong> command is highlighted —
-                a startup check over the synced work-item status
-                (<code>pro_devopsworkitemstatus</code>).
+                and its <strong>Mark completed</strong> command is highlighted.
               </li>
               <li>
                 <strong>👤 Assign</strong> (tracked entries) opens a dialog to
@@ -284,20 +202,10 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 search a user by name and pick them.
               </li>
               <li>
-                <strong>✎ Edit</strong> (tracked entries) opens an overlay to
-                change the <strong>type</strong>, <strong>title</strong> and{' '}
-                <strong>description</strong> — like the create dialog. The unique
-                name and DevOps id stay fixed.
-              </li>
-              <li>
                 <strong>Components</strong> grouped by type in collapsible
                 sections — display names come from the same source the maker
                 portal uses. Loaded once per solution;{' '}
                 <strong>Refresh</strong> forces a reload.
-              </li>
-              <li>
-                The Azure DevOps work item panel (status, assignee, link)
-                appears here once the DevOps connection is active.
               </li>
               <li>
                 <strong>Mark completed…</strong> (active tracked entries) sets
@@ -321,20 +229,8 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
-            <h3>Merge</h3>
+            <h3>⇉ Merge (Manage)</h3>
             <ul>
-              <li>
-                Navigation is a left sidebar grouped into <strong>Manage</strong>{' '}
-                (Workbench, Merge, Merge Rules) and <strong>Validate</strong>{' '}
-                (<strong>Deployment Readiness</strong> = before, and{' '}
-                <strong>Analyze</strong> = after, with Compare / Layers / App
-                Sharing as tabs inside Analyze). The whole{' '}
-                <strong>Validate</strong> group and <strong>Merge Rules</strong>{' '}
-                require the security role{' '}
-                <strong>“INT | Deployment Manager”</strong> (assigned directly
-                to your user) — without it those appear locked. Workbench and
-                Merge are open to everyone.
-              </li>
               <li>
                 Only <strong>tracked</strong> feature / bug solutions can be
                 merged; the target must be a tracked <strong>Release</strong>{' '}
@@ -352,18 +248,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 The <strong>component plan</strong> shows the distinct
                 component set; entries contributed by several sources are
                 marked as conflicts and applied once. Components already in
-                the target are skipped.
-              </li>
-              <li>
-                <strong>Merge rules</strong> (optional): each Release can
-                restrict which component types it accepts — an{' '}
-                <strong>allow-list</strong> (none = all allowed) and an{' '}
-                <strong>exclude-list</strong> applied on top (a type is
-                mergeable when it's allowed AND not excluded). Manage them in
-                the <strong>Merge Rules</strong> tab (Deployment Manager only);
-                the Workbench detail shows a read-only summary. Blocked
-                components are greyed in the plan and reported as “excluded by
-                merge rules” on merge.
+                the target are skipped. Components blocked by the release's{' '}
+                <strong>merge rules</strong> are greyed out and reported as
+                “excluded by merge rules”.
               </li>
               <li>
                 After a merge the source records get the “Merged into
@@ -380,7 +267,19 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
-            <h3>📝 Release Notes</h3>
+            <h3>⚙ Merge Rules (Manage)</h3>
+            <p>
+              Each Release can restrict which <strong>component types</strong>{' '}
+              it accepts: an <strong>allow-list</strong> (empty = all allowed)
+              and an <strong>exclude-list</strong> applied on top — a type is
+              mergeable when it's allowed AND not excluded. Manage the lists
+              here (Deployment Manager only); the Workbench detail shows a
+              read-only summary and the merge plan enforces them.
+            </p>
+          </section>
+
+          <section className="help-section">
+            <h3>📝 Release Notes (Manage)</h3>
             <ul>
               <li>
                 Pick a <strong>release solution</strong> — the{' '}
@@ -417,7 +316,94 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
-            <h3>Deployment Readiness (Dependency Check)</h3>
+            <h3>🕘 Timeline (Manage)</h3>
+            <p>
+              The <strong>Release Timeline</strong> shows "what went where,
+              when" for one release on a single time axis: its merge runs
+              (with counts and source solutions), its published release notes
+              (with version) and its imports into every configured environment
+              (matched by unique name, badge colored by outcome). Toggle event
+              kinds with the chips; environments that cannot be read degrade
+              to a notice. Pure visualization of existing data.
+            </p>
+          </section>
+
+          <section className="help-section">
+            <h3>🚚 Data Transfer (Manage)</h3>
+            <p>
+              The <strong>Configuration Data Transfer Hub</strong> authors
+              declarative <strong>transfer packages</strong> for configuration
+              data (source query → target environments). Transfers are executed
+              by <strong>cloud flows installed with the app</strong> (executor +
+              scheduler) — never inside the app session itself.
+            </p>
+            <ul>
+              <li>
+                <strong>Packages</strong> live in the strip at the top (“+ New
+                package” stays leftmost). A package groups entries, carries the
+                target environments and runs its entries in ascending order;
+                inactive packages are skipped.
+              </li>
+              <li>
+                <strong>Entries</strong> define one source query each: source
+                environment → table → filter &amp; columns via a{' '}
+                <strong>system saved view</strong> or hand-written{' '}
+                <strong>FetchXML</strong> (pretty-printed in the editor, live
+                validation, searchable column picker, data preview + a
+                refreshable row-count column). <strong>Click a row</strong> to
+                edit it; hovering the Query cell shows the executable FetchXML.
+              </li>
+              <li>
+                A saved view is stored as a <strong>snapshot</strong> (the
+                view's FetchXML at save time) so the configuration is
+                self-contained; “⟳” re-reads the view when it changed.
+              </li>
+              <li>
+                <strong>Record matching</strong> per entry: GUID upsert (ids
+                stay identical across environments) or match by business
+                columns (up to <strong>5</strong>). Ambiguous matches are
+                skipped and reported as errors.
+              </li>
+              <li>
+                <strong>Orphan handling</strong> per entry: ignore / deactivate
+                / delete target records missing from the source. The scope is
+                the entry's <strong>query on both sides</strong> — only target
+                rows the query returns can become orphans (a filter on
+                countries starting with “A” never touches B–Z). Entry order
+                matters — lookup parents first.
+              </li>
+              <li>
+                While a run is <strong>queued or running</strong>, the
+                package's configuration is locked (add / edit / reorder /
+                delete) so the executor reads a consistent state; the lock
+                releases automatically when the run finishes.
+              </li>
+              <li>
+                <strong>▶ Run</strong> queues a <strong>Transfer Run</strong>:{' '}
+                <strong>Run now</strong> (status Queued, picked up within
+                seconds) or <strong>Run later</strong> via the built-in
+                date/time picker with quick-pick chips (status Scheduled; a
+                scheduler flow promotes due runs every few minutes). The
+                package's targets are snapshotted onto the run.
+              </li>
+              <li>
+                The <strong>Runs</strong> card shows status, requested /
+                scheduled / finished times, a live-ticking{' '}
+                <strong>Duration</strong> column and the result summary. The
+                result log fills <strong>live while the run executes</strong>;
+                click a row to expand the structured result table — created /
+                updated / deactivated / deleted / errors per entry × target.
+                Queued and Scheduled runs can be cancelled (✕).
+              </li>
+              <li>
+                The pipeline contract and executor internals are documented in{' '}
+                <code>docs/transfer-hub-contract.md</code>.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
+            <h3>🚦 Deployment Readiness (Validate)</h3>
             <ul>
               <li>
                 Pick a <strong>release solution</strong> and a target
@@ -449,15 +435,98 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
-            <h3>Layer Inspector</h3>
+            <h3>📊 Analyze (Validate, post-deployment)</h3>
             <ul>
               <li>
-                With the release solution and target environment (UAT / PROD)
-                chosen in the shared Validate selector, click{' '}
-                <strong>Inspect Layers</strong> — every component's{' '}
-                <strong>solution layers</strong> there
-                are resolved (the same stack the maker portal shows under
-                “See solution layers”). Results appear{' '}
+                Everything to review <strong>after</strong> a release reaches a
+                target. In one toolbar row pick the release, the target (UAT /
+                PROD) and which checks to include —{' '}
+                <strong>Compare</strong> (incl. content drift),{' '}
+                <strong>Layers</strong> and <strong>App Sharing</strong> — then
+                hit <strong>Analyze</strong>.
+              </li>
+              <li>
+                The sweep fills four tabs: a <strong>Summary</strong> dashboard
+                plus one tab per selected check with its full content. (Things
+                to check <em>before</em> deploying live in{' '}
+                <strong>Deployment Readiness</strong>.)
+              </li>
+              <li>
+                The sweep <strong>keeps running when you navigate away</strong>
+                {' '}— a small bar at the bottom-left shows the progress and a{' '}
+                <strong>View</strong> button to jump back; the result is ready
+                when you return.
+              </li>
+              <li>
+                A <strong>Deployment Risk Score</strong> gauge (0–100, higher is
+                safer) bands the release as{' '}
+                <span className="risk-band risk-band--low">Low Risk</span>,{' '}
+                <span className="risk-band risk-band--medium">Medium Risk</span>{' '}
+                or <span className="risk-band risk-band--high">High Risk</span>,
+                with severity cards counting{' '}
+                <span className="sev-pill sev-pill--critical">Critical</span>,{' '}
+                <span className="sev-pill sev-pill--high">High</span>,{' '}
+                <span className="sev-pill sev-pill--medium">Medium</span> and{' '}
+                <span className="sev-pill sev-pill--low">Low</span> findings.
+              </li>
+              <li>
+                The severity cards are <strong>clickable filters</strong>, and{' '}
+                <strong>Issues</strong> lists every finding grouped by
+                criticality in collapsible sections;{' '}
+                <strong>Solution Components</strong> breaks the solution down by
+                component type.
+              </li>
+              <li>
+                <strong>Recommendations</strong> turn the findings into concrete
+                next steps, and the <strong>Environment Readiness</strong>{' '}
+                matrix shows per-area compatibility with the target plus an
+                overall readiness percentage.
+              </li>
+              <li>
+                Requires the “INT | Deployment Manager” role.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
+            <h3>📊 Analyze → Compare</h3>
+            <ul>
+              <li>
+                The release's cloud flows, workflows, business rules, plugin
+                steps and scripts are compared across the configured
+                environments (current / UAT / PROD), matched by their
+                import-stable ids. Components are grouped by type in
+                collapsible sections.
+              </li>
+              <li>
+                Deviation tags: <strong>Missing</strong> (not in the target),
+                <strong> Status drift</strong> (e.g. flow Draft in PROD, plugin
+                step disabled) and <strong>Content drift</strong> (the
+                definition differs from DEV). The summary chips filter the
+                matrix; modified dates are shown for information only (solution
+                import rewrites them).
+              </li>
+              <li>
+                <strong>Content drift</strong> needs the heavier content pass:
+                inside <strong>Analyze</strong> it runs automatically; on its
+                own use the <strong>Check content drift</strong> button. Drifted
+                rows get a <strong>⇄ diff</strong> link opening the DEV-vs-target
+                side-by-side diff.
+              </li>
+              <li>
+                “?” cells mean the environment could not be queried — the
+                banner shows the reason.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
+            <h3>📊 Analyze → Layer Inspector</h3>
+            <ul>
+              <li>
+                Every component's <strong>solution layers</strong> in the
+                target are resolved (the same stack the maker portal shows
+                under “See solution layers”). Results appear{' '}
                 <strong>per component type as each section finishes</strong>,
                 while the rest keep loading; each type group is collapsible.
               </li>
@@ -480,8 +549,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 Two chips above the list —{' '}
                 <strong>Missing</strong> and <strong>Unmanaged layer</strong>{' '}
-                — filter the results to that category (e.g. show only the
-                components carrying an unmanaged layer); click again to clear.
+                — filter the results to that category; click again to clear.
               </li>
               <li>
                 Rows with an unmanaged layer get a jump into the target
@@ -517,15 +585,14 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 layer data”. One layer query per component, so large
                 solutions take a moment — the spinner shows progress.
               </li>
-              <li>Requires the “INT | Deployment Manager” role.</li>
             </ul>
           </section>
 
           <section className="help-section">
-            <h3>App Sharing</h3>
+            <h3>📊 Analyze → App Sharing</h3>
             <ul>
               <li>
-                Pick a solution — its <strong>canvas apps</strong> and{' '}
+                The release's <strong>canvas apps</strong> and{' '}
                 <strong>custom pages</strong> are checked for who they're
                 shared with in DEV, UAT and PROD (matched across environments
                 by their import-stable unique name).
@@ -547,47 +614,6 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 <strong>Custom pages</strong> get access through the
                 model-driven app's security roles, not direct sharing — so
                 “no shares” is normal for them and not flagged as a gap.
-              </li>
-              <li>Requires the “INT | Deployment Manager” role.</li>
-            </ul>
-          </section>
-
-          <section className="help-section">
-            <h3>Compare (ALM)</h3>
-            <ul>
-              <li>
-                With the release solution chosen in the shared Validate
-                selector, click <strong>Compare</strong> — its cloud flows,
-                workflows, business rules, plugin steps and scripts are compared
-                across the configured environments (current / UAT / PROD),
-                matched
-                by their import-stable ids. Components are grouped by type in
-                collapsible sections.
-              </li>
-              <li>
-                Deviation tags: <strong>Missing</strong> (not in the target),
-                <strong>Status drift</strong> (e.g. flow Draft in PROD, plugin
-                step disabled) and <strong>Content drift</strong> (the
-                definition differs from DEV). The summary chips filter the
-                matrix; modified dates are shown for information only (solution
-                import rewrites them).
-              </li>
-              <li>
-                <strong>Content drift</strong> needs the heavier content pass:
-                inside <strong>Analyze</strong> it runs automatically; on its
-                own use the <strong>Check content drift</strong> button. Drifted
-                rows get a <strong>⇄ diff</strong> link opening the DEV-vs-target
-                side-by-side diff.
-              </li>
-              <li>
-                “?” cells mean the environment could not be queried — the
-                banner shows the reason.
-              </li>
-              <li>
-                <strong>Unmanaged layers</strong> and the{' '}
-                <strong>existence of every other component type</strong>{' '}
-                (plugin assemblies, custom APIs, …) live in the{' '}
-                <strong>Layer Inspector</strong>.
               </li>
             </ul>
           </section>
@@ -664,70 +690,6 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <em>Hide system-generated</em> or <em>Show raw JSON</em>.
               Read-only.
             </p>
-          </section>
-
-          <section className="help-section">
-            <h3>🕘 Timeline (Manage)</h3>
-            <p>
-              The <strong>Release Timeline</strong> shows "what went where,
-              when" for one release on a single time axis: its merge runs
-              (with counts and source solutions), its published release notes
-              (with version) and its imports into every configured environment
-              (matched by unique name, badge colored by outcome). Toggle event
-              kinds with the chips; environments that cannot be read degrade
-              to a notice. Pure visualization of existing data.
-            </p>
-          </section>
-
-          <section className="help-section">
-            <h3>🚚 Data Transfer (Manage)</h3>
-            <p>
-              The <strong>Configuration Data Transfer Hub</strong> authors
-              which configuration data an <strong>external pipeline</strong>{' '}
-              transports between environments — the app itself never executes
-              a transfer.
-            </p>
-            <ul>
-              <li>
-                <strong>Packages</strong> group entries, carry the target
-                environments and run in ascending order; inactive packages are
-                skipped by the pipeline.
-              </li>
-              <li>
-                <strong>Entries</strong> define one source query each: source
-                environment → table → filter &amp; columns via a{' '}
-                <strong>system saved view</strong> or hand-written{' '}
-                <strong>FetchXML</strong> — with live validation, a column
-                picker and a data preview (first 25 rows + approximate total).
-              </li>
-              <li>
-                A saved view is stored as a <strong>snapshot</strong> (the
-                view's FetchXML at save time) so the configuration is
-                self-contained; "⟳ View" re-reads the view when it changed.
-              </li>
-              <li>
-                Per entry: <strong>record matching</strong> (GUID upsert or
-                match by business columns) and <strong>orphan handling</strong>{' '}
-                (ignore / deactivate / delete target records missing from the
-                source). Entry order matters — lookup parents first.
-              </li>
-              <li>
-                <strong>▶ Run</strong> queues a <strong>Transfer Run</strong>{' '}
-                (<code>pro_transferrun</code>) — either <strong>Run now</strong>{' '}
-                (status Queued) or <strong>Run later</strong> with a date/time
-                (status Scheduled; a scheduler flow promotes due runs every few
-                minutes). The package's targets are snapshotted onto the run.
-                The executor writes status, summary and a result log back — the
-                Runs list below the entries shows the scheduled time, polls
-                while a run is active, lets you cancel Queued/Scheduled runs
-                (✕) and opens the log on row click.
-              </li>
-              <li>
-                The pipeline contract (tables, choice codes, run-queue
-                protocol) is documented in{' '}
-                <code>docs/transfer-hub-contract.md</code>.
-              </li>
-            </ul>
           </section>
 
           <section className="help-section">
@@ -894,22 +856,15 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
-            <h3>🌐 Operate — target environment</h3>
-            <p>
-              Each Operate feature (Plugin Traces, Job Monitor, Role Analyzer)
-              starts with a <strong>Target environment</strong> picker that
-              chooses from the configured environments (host / UAT / PROD …).
-              All <strong>reads</strong> work against any of them (via the
-              connector). <strong>Writes</strong> — the trace-level switch and
-              job cancel/retry — only apply to the <strong>host</strong>
-              environment, so they turn read-only when another environment is
-              selected. The selection is shared across the three features.
-            </p>
-          </section>
-
-          <section className="help-section">
             <h3>🧵 Plugin Traces (Operate)</h3>
             <ul>
+              <li>
+                Starts with a <strong>Target environment</strong> picker —
+                all <strong>reads</strong> work against any configured
+                environment (via the connector); the{' '}
+                <strong>trace-level switch</strong> writes only to the{' '}
+                <strong>host</strong> environment and turns read-only elsewhere.
+              </li>
               <li>
                 A usable frontend over <code>plugintracelog</code>: the{' '}
                 <strong>Trace stream</strong> polls every 15 s (paused while
@@ -946,109 +901,6 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 requires the deployment-manager role and runs as you — “All”
                 warns before enabling (log growth). The platform prunes
                 traces: this is an explorer, not an archive.
-              </li>
-            </ul>
-          </section>
-
-          <section className="help-section">
-            <h3>📡 Job Monitor (Operate)</h3>
-            <ul>
-              <li>
-                <strong>Health</strong> answers “is async processing healthy?”
-                in one look: failed jobs (24 h), waiting backlog with the
-                oldest waiting operation, a sampled flow failure rate and the
-                watchdog lights. Every tile drills into its detail tab.
-              </li>
-              <li>
-                <strong>System jobs</strong> explores{' '}
-                <code>asyncoperation</code> with an enforced look-back window
-                and status/type/name filters. Deployment managers can{' '}
-                <strong>bulk-cancel / retry</strong> (max 50 per batch,
-                sequential, per-job outcome) — writes run as you.
-              </li>
-              <li>
-                <strong>Flows</strong> lists <em>all</em> cloud flows (no cap),
-                filterable by name and by <strong>release solution</strong> (the
-                flows that are components of it). “Load failure rates” samples
-                each flow's recent runs (marked as a sample — connector-friendly).
-                Selecting a flow opens its runs in a <strong>side pane</strong>;
-                clicking a run shows a <strong>popup with the full run record</strong>
-                (fields incl. trigger info where stored), plus “Open run ↗” into
-                the Power Automate portal.
-              </li>
-              <li>
-                <strong>Watchdog</strong> compares each heartbeat definition
-                (expected interval + grace) against the latest beat —
-                🔴 overdue / never beaten, ⚪ inactive. Table names are
-                configurable (<code>config.ts → WATCHDOG_TABLES</code>).
-              </li>
-              <li>
-                <strong>Trends</strong> charts failed jobs per day over 7/30
-                days (server-side aggregates).
-              </li>
-            </ul>
-          </section>
-
-          <section className="help-section">
-            <h3>🛡 Role Analyzer (Operate, read-only)</h3>
-            <ul>
-              <li>
-                Works on a snapshot of the security model, cached ~15 min;
-                roles are aggregated on their <strong>root copy</strong>{' '}
-                (<code>parentrootroleid</code> — BU copies collapse).
-              </li>
-              <li>
-                <strong>Matrix</strong>: role × table × privilege with the
-                classic depths (User / BU / Parent:Child / Organization).
-              </li>
-              <li>
-                <strong>Diff</strong>: two roles side-by-side, deltas only,
-                exportable as Markdown or CSV.
-              </li>
-              <li>
-                <strong>User rights</strong>: effective table privileges of
-                one user aggregated from direct + team roles — deepest depth
-                wins — with the provenance path per grant (“role ‘Vertrieb
-                Süd’ ← team ‘Sales DE’”).
-              </li>
-              <li>
-                <strong>Reverse lookup</strong>: “who can Delete on account?”
-                → all users/teams with their path.
-              </li>
-              <li>
-                <strong>Hygiene</strong>: roles without any assignment and
-                users above a role-count threshold.
-              </li>
-              <li>
-                <strong>Field security</strong>: the column-level analog of
-                the matrix — Field Security Profiles with their secured columns
-                (Read / Create / Update / read-unmasked) and who they are
-                assigned to, plus a column-centric view (“who can read/update
-                secured column X?”). Flags profiles assigned to nobody and
-                columns no profile grants read on (admins only — System
-                Administrators bypass field security).
-              </li>
-              <li>
-                <strong>Team &amp; BU map</strong>: an interactive org-chart
-                of the business-unit hierarchy with the role-granting teams on
-                each BU. Drag to pan, wheel to zoom, collapse a subtree. Click
-                a BU or team for its roles and members; pick a user in{' '}
-                <em>Trace user</em> to highlight their BU and teams and see the
-                roles they inherit through team membership. A toggle adds the
-                default / access teams.
-              </li>
-              <li>
-                <strong>Core roles</strong> (write, host env only): analyzes
-                the <strong>custom (unmanaged)</strong> roles for privileges
-                shared by ≥ 2 of them and proposes a consolidated{' '}
-                <strong>core role</strong> per shared role-set. Give it a name,
-                pick a <strong>working solution</strong> and click{' '}
-                <em>Create core role</em> — it creates the role in that
-                solution, grants the consolidated privileges (deepest depth
-                wins) and, if you opt in, removes the duplicates from the
-                source roles (which then also go into the solution). Members
-                holding only a source role need the new core role to keep
-                their access.
               </li>
             </ul>
           </section>
