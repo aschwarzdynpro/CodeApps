@@ -7035,3 +7035,21 @@
 .thub-runs-more:hover {
   text-decoration: underline;
 }
+/* Transfer hub — "New package" card in the strip */
+.thub-pkg--new {
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-style: dashed;
+  color: var(--muted);
+  font-weight: 600;
+  min-height: 86px;
+}
+.thub-pkg--new:hover {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+.thub-pkg-new-plus {
+  font-size: 22px;
+  line-height: 1;
+}

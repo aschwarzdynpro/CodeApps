@@ -62,7 +62,6 @@ export function TransferHubWorkspace() {
   const [entriesError, setEntriesError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState('')
-  const [loadedAt, setLoadedAt] = useState('')
 
   const [packageDialog, setPackageDialog] = useState<PackageDialogState>(null)
   const [entryDialog, setEntryDialog] = useState<EntryDialogState>(null)
@@ -114,7 +113,6 @@ export function TransferHubWorkspace() {
       const list = await transferHubService.listPackages()
       setPackages(list)
       setLoadError(null)
-      setLoadedAt(new Date().toISOString())
       return list
     } catch (err) {
       setPackages([])
@@ -251,40 +249,11 @@ export function TransferHubWorkspace() {
 
   return (
     <div className="thub">
-      <div className="card compare-controls thub-toolbar">
-        <button className="btn btn--primary" onClick={() => setPackageDialog({ pkg: null })}>
-          + New package
-        </button>
-        <span className="muted">
-          Packages an external pipeline reads and executes — the hub only authors
-          the configuration.
-        </span>
-        <span className="cmp-sync">
-          {loadedAt && <span className="cmp-sync-time">Last sync {formatRelative(loadedAt)}</span>}
-          <button
-            className="btn btn--small"
-            onClick={() => {
-              clearInsights()
-              void loadPackages()
-              if (selectedId) void loadEntries(selectedId)
-            }}
-          >
-            ⟳ Refresh
-          </button>
-        </span>
-      </div>
-
       {loadError && <div className="state state--error">{loadError}</div>}
       {actionError && <div className="state state--error">{actionError}</div>}
 
       {packages === null && <div className="card muted">Loading packages…</div>}
-      {packages !== null && packages.length === 0 && !loadError && (
-        <div className="card muted">
-          No transfer packages yet — create the first one to define which
-          configuration data moves between environments.
-        </div>
-      )}
-      {packages !== null && packages.length > 0 && (
+      {packages !== null && (
         <div className="thub-pkg-strip">
           {packages.map((pkg) => (
             <button
@@ -313,6 +282,14 @@ export function TransferHubWorkspace() {
               </span>
             </button>
           ))}
+          <button
+            className="card thub-pkg thub-pkg--new"
+            title="Create a new transfer package"
+            onClick={() => setPackageDialog({ pkg: null })}
+          >
+            <span className="thub-pkg-new-plus">+</span>
+            <span>New package</span>
+          </button>
         </div>
       )}
 
