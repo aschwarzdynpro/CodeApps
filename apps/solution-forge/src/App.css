@@ -4904,8 +4904,29 @@
   word-break: break-word;
   margin: 0;
 }
+/* Cap the mapping overlay at 80% of the viewport — long value maps scroll
+   inside the body instead of pushing the dialog off screen. */
+.dw-modal {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
 .dw-modal-body {
   padding: 4px 2px 2px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.dw-field-search {
+  width: 190px;
+  padding: 5px 10px;
+  font-size: 12.5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.dw-field-search:focus {
+  outline: none;
+  border-color: var(--brand);
 }
 .dw-modal-meta {
   display: flex;

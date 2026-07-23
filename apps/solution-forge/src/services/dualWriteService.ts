@@ -8,6 +8,13 @@ import { dataverseDualWriteService } from './dataverseDualWriteService'
  */
 export interface DualWriteService {
   /**
+   * Whether Dual-Write is installed in the host environment (the
+   * `msdyn_dualwriteentitymap` table exists). Drives the visibility of the
+   * whole menu entry. Fails OPEN: a probe error reports true so a transient
+   * hiccup never hides a working feature.
+   */
+  isInstalled(): Promise<boolean>
+  /**
    * Custom (unmanaged) dual-write table maps in the current environment — one
    * entry per map name at its current (highest) version, with the owner and a
    * count of how many version records exist.

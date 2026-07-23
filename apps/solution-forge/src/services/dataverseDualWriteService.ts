@@ -7,6 +7,7 @@ import {
   fetchXmlAllPages,
   fetchXmlEscape,
   fetchXmlQuery,
+  odataQuery,
   rowStr,
 } from './currentEnvQuery'
 import {
@@ -27,6 +28,25 @@ import {
 const ENTITY_SET = 'msdyn_dualwriteentitymaps'
 
 class DataverseDualWriteService implements DualWriteService {
+  /** Cached per session — the table does not appear/disappear at runtime. */
+  private installed: boolean | null = null
+
+  async isInstalled(): Promise<boolean> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return mockDualWriteService.isInstalled()
+    if (this.installed !== null) return this.installed
+    try {
+      const rows = await odataQuery('EntityDefinitions', 'LogicalName', {
+        filter: "LogicalName eq 'msdyn_dualwriteentitymap'",
+      })
+      this.installed = rows.length > 0
+    } catch {
+      // Fail open — a probe hiccup must not hide a working feature.
+      this.installed = true
+    }
+    return this.installed
+  }
+
   async listTableMaps(): Promise<DualWriteMapSummary[]> {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockDualWriteService.listTableMaps()

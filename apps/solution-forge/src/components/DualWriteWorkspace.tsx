@@ -42,6 +42,7 @@ function DualWriteMappingModal({
   const [error, setError] = useState<string | null>(null)
   const [showRaw, setShowRaw] = useState(false)
   const [hideSystem, setHideSystem] = useState(false)
+  const [fieldSearch, setFieldSearch] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -68,7 +69,7 @@ function DualWriteMappingModal({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
-        className="modal card modal--wide"
+        className="modal card modal--wide dw-modal"
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
@@ -95,6 +96,13 @@ function DualWriteMappingModal({
               </span>
             )}
             <span className="dw-modal-actions">
+              <input
+                className="dw-field-search"
+                type="search"
+                placeholder="Search fields…"
+                value={fieldSearch}
+                onChange={(e) => setFieldSearch(e.target.value)}
+              />
               <label className="dw-check">
                 <input
                   type="checkbox"
@@ -132,9 +140,15 @@ function DualWriteMappingModal({
           {detail && !showRaw && !detail.unparsed && (
             <div className="dw-legs">
               {detail.legs.map((leg, li) => {
-                const rows = hideSystem
-                  ? leg.fieldMappings.filter((f) => !f.isSystemGenerated)
-                  : leg.fieldMappings
+                const fq = fieldSearch.trim().toLowerCase()
+                const rows = leg.fieldMappings.filter(
+                  (f) =>
+                    (!hideSystem || !f.isSystemGenerated) &&
+                    (!fq ||
+                      f.sourceField.toLowerCase().includes(fq) ||
+                      f.destinationField.toLowerCase().includes(fq) ||
+                      (f.lookupRelatedEntity ?? '').toLowerCase().includes(fq)),
+                )
                 return (
                   <div className="dw-leg" key={leg.id || li}>
                     <div className="dw-leg-head">
@@ -221,8 +235,9 @@ function DualWriteMappingModal({
                         {rows.length === 0 && (
                           <tr>
                             <td colSpan={4} className="muted">
-                              All field mappings in this leg are
-                              system-generated (hidden).
+                              {fieldSearch.trim()
+                                ? 'No field mappings in this leg match the search.'
+                                : 'All field mappings in this leg are system-generated (hidden).'}
                             </td>
                           </tr>
                         )}

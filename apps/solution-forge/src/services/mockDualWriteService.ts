@@ -152,6 +152,10 @@ const MAPPINGS: Record<string, string> = {
 }
 
 class MockDualWriteService implements DualWriteService {
+  async isInstalled(): Promise<boolean> {
+    return true
+  }
+
   async listTableMaps(): Promise<DualWriteMapSummary[]> {
     await delay(200)
     // Index each map's mapped field names (mirrors the real service) so field

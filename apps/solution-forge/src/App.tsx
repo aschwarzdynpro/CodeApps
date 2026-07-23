@@ -7,6 +7,7 @@ import { useReadinessRun } from './hooks/useReadinessRun'
 import { useFlowRun } from './hooks/useFlowRun'
 import { PHASE_LABELS, type DetectivePhaseKey } from './types/detective'
 import { solutionService } from './services/solutionService'
+import { dualWriteService } from './services/dualWriteService'
 import { SolutionFilterBar, type KindFilter } from './components/SolutionFilterBar'
 import { SolutionList } from './components/SolutionList'
 import { SolutionDetail } from './components/SolutionDetail'
@@ -263,6 +264,10 @@ function App() {
   // Merge and Compare are restricted to deployment managers; tabs stay
   // visible but disabled until the role check confirms access.
   const [isDeploymentManager, setIsDeploymentManager] = useState(false)
+  // Dual-Write Maps only appears once the msdyn_dualwriteentitymap table is
+  // confirmed to exist in the host env (hidden until then; the probe fails
+  // open so a hiccup never hides an installed feature).
+  const [dualWriteInstalled, setDualWriteInstalled] = useState(false)
   // Bumped once startup config is applied, so children re-read the (live-bound)
   // ENVIRONMENTS / role / ADO values from config.ts.
   const [, setConfigVersion] = useState(0)
@@ -286,6 +291,12 @@ function App() {
         if (!cancelled) setIsDeploymentManager(false)
       }
       if (!cancelled) setConfigVersion((v) => v + 1)
+      try {
+        const dw = await dualWriteService.isInstalled()
+        if (!cancelled) setDualWriteInstalled(dw)
+      } catch {
+        if (!cancelled) setDualWriteInstalled(true)
+      }
     })()
     return () => {
       cancelled = true
@@ -1012,7 +1023,9 @@ function App() {
             {NAV_GROUPS.map((group) => (
               <div className="nav-group" key={group.label}>
                 <span className="nav-group-label">{group.label}</span>
-                {group.items.map((item) => {
+                {group.items
+                  .filter((item) => item.key !== 'dualWrite' || dualWriteInstalled)
+                  .map((item) => {
                   const locked = item.gated && !isDeploymentManager
                   return (
                     <button
