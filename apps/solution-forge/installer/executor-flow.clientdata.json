@@ -227,7 +227,8 @@
                                   "entryId": "@{items('For_entry')?['pro_transferentryid']}",
                                   "srcUrl": "@{first(body('Find_src'))?['pro_url']}",
                                   "tgtUrl": "@{first(body('Find_tgt'))?['pro_url']}",
-                                  "targetKey": "@{items('For_target')}"
+                                  "targetKey": "@{items('For_target')}",
+                                  "dryRun": "@coalesce(triggerOutputs()?['body/pro_dryrun_bit'], false)"
                                 }
                               }
                             },
@@ -315,7 +316,7 @@
               "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
               "item/pro_status_opt": "@outputs('Final_status')",
               "item/pro_finishedon_dat": "@{utcNow()}",
-              "item/pro_summary_str": "@{concat(outputs('Totals')?['created'],' created, ',outputs('Totals')?['updated'],' updated, ',outputs('Totals')?['deactivated'],' deactivated, ',outputs('Totals')?['deleted'],' deleted, ',outputs('Totals')?['errs'],' errors')}"
+              "item/pro_summary_str": "@{concat(if(equals(coalesce(triggerOutputs()?['body/pro_dryrun_bit'], false), true), 'DRY RUN — would be: ', ''), outputs('Totals')?['created'],' created, ',outputs('Totals')?['updated'],' updated, ',outputs('Totals')?['deactivated'],' deactivated, ',outputs('Totals')?['deleted'],' deleted, ',outputs('Totals')?['errs'],' errors')}"
             }
           }
         },

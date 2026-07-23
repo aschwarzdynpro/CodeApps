@@ -20,6 +20,14 @@ import { dataverseTransferHubService } from './dataverseTransferHubService'
  * source environment through the Dataverse connector (SP identity) — the same
  * cross-env split every Operate/Validate feature uses.
  */
+/** Options for {@link TransferHubService.createRun}. */
+export interface CreateRunOptions {
+  /** ISO time for "Run later" — omitted/empty means run immediately. */
+  scheduledFor?: string
+  /** Simulate: partition and log, but perform no writes in the targets. */
+  dryRun?: boolean
+}
+
 export interface TransferHubService {
   // -- packages (host, native writes) --------------------------------------
   listPackages(): Promise<TransferPackage[]>
@@ -49,11 +57,12 @@ export interface TransferHubService {
    * Queue a run for the package: the package's target envs are snapshotted
    * onto the record. Without `scheduledFor` the run is Queued (executed
    * immediately); with an ISO time it is Scheduled — the scheduler flow
-   * flips it to Queued once due. An EXTERNAL executor picks Queued runs up
-   * and writes status/log back (docs/transfer-hub-contract.md) — the hub
-   * never executes.
+   * flips it to Queued once due. With `dryRun` the executor partitions and
+   * logs as usual but writes nothing. The executor cloud flows pick Queued
+   * runs up and write status/log back (docs/transfer-hub-contract.md) — the
+   * hub never executes in-session.
    */
-  createRun(pkg: TransferPackage, scheduledFor?: string): Promise<TransferRun>
+  createRun(pkg: TransferPackage, opts?: CreateRunOptions): Promise<TransferRun>
   /** Latest runs of the package, newest first. */
   listRuns(packageId: string, top?: number): Promise<TransferRun[]>
   /** Cancel a run that has not started yet (Queued or Scheduled). */

@@ -133,6 +133,9 @@ $runStatusOpts = @(
   (New-DvOption 867520002 'Succeeded'), (New-DvOption 867520003 'Failed'),
   (New-DvOption 867520004 'Partially succeeded'), (New-DvOption 867520005 'Cancelled'),
   (New-DvOption 867520006 'Scheduled'))
+$recurrenceOpts = @(
+  (New-DvOption 867520000 'None'), (New-DvOption 867520001 'Daily'),
+  (New-DvOption 867520002 'Weekly'))
 
 # ---- 3. Entities -----------------------------------------------------------
 # Each: SchemaName, primary attr (schema/max/req), ownership, set name, display
@@ -231,7 +234,13 @@ $columns = @{
   "${p}_transferpackage" = @(
     (MemoAttr "${p}_description_txt" 4000 'None' 'Description'),
     (StrAttr  "${p}_targetenvs_str" 400 'None' 'Target environment keys'),
-    (IntAttr  "${p}_order_int" 0 10000 'None' 'Order')
+    (IntAttr  "${p}_order_int" 0 10000 'None' 'Order'),
+    # Recurring schedule: the cadence plus the absolute UTC timestamp of the
+    # next due run — time-of-day and weekday live inside that timestamp, so no
+    # extra columns are needed. The scheduler flow queues a run and rolls the
+    # timestamp forward by the cadence.
+    (PickAttr "${p}_recurrence_opt" 'None' 'Recurrence' $recurrenceOpts),
+    (DateAttr "${p}_nextrun_dat" 'UserLocal' 'None' 'Next scheduled run')
   )
   "${p}_transferentry" = @(
     (StrAttr  "${p}_sourceenv_str" 50 'ApplicationRequired' 'Source environment key'),
@@ -258,7 +267,10 @@ $columns = @{
     (DateAttr "${p}_startedon_dat" 'UserLocal' 'None' 'Started on'),
     (DateAttr "${p}_finishedon_dat" 'UserLocal' 'None' 'Finished on'),
     (StrAttr  "${p}_summary_str" 1000 'None' 'Summary'),
-    (MemoAttr "${p}_log_txt" 500000 'None' 'Log')
+    (MemoAttr "${p}_log_txt" 500000 'None' 'Log'),
+    # Simulation: the executor partitions and logs as usual but performs no
+    # create/update/delete — the log shows what WOULD happen.
+    (BoolAttr "${p}_dryrun_bit" 'None' 'Dry run')
   )
 }
 foreach ($tbl in $columns.Keys) {

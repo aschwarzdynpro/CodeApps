@@ -39,6 +39,19 @@ const ORPHAN_LABELS: Record<TransferEntry['orphanHandling'], string> = {
   delete: 'Delete',
 }
 
+/** "Daily at 02:00 · next Fri, Jul 24, 02:00" — '' when not recurring. */
+function describeRecurrence(pkg: TransferPackage): string {
+  if (pkg.recurrence === 'none') return ''
+  const cadence = pkg.recurrence === 'daily' ? 'Daily' : 'Weekly'
+  if (!pkg.nextRun) return `${cadence} — no next run set`
+  const next = new Date(pkg.nextRun)
+  if (Number.isNaN(next.getTime())) return cadence
+  const time = next.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const weekday = next.toLocaleDateString([], { weekday: 'long' })
+  const when = pkg.recurrence === 'daily' ? `at ${time}` : `${weekday}s at ${time}`
+  return `${cadence} ${when} · next ${formatDateTime(pkg.nextRun)}`
+}
+
 /** Per-entry row-count cell: loading spinner, a number, or "not countable". */
 type CountState = 'loading' | 'na' | number
 
@@ -204,8 +217,11 @@ export function TransferHubWorkspace() {
     setShowAllRuns(false)
   }
 
-  const queueRun = async (pkg: TransferPackage, scheduledFor?: string) => {
-    await transferHubService.createRun(pkg, scheduledFor)
+  const queueRun = async (
+    pkg: TransferPackage,
+    opts: { scheduledFor?: string; dryRun?: boolean },
+  ) => {
+    await transferHubService.createRun(pkg, opts)
     await loadRuns(pkg.id)
   }
 
@@ -307,6 +323,14 @@ export function TransferHubWorkspace() {
             >
               <span className="thub-pkg-head">
                 <span className="thub-pkg-name">{pkg.name}</span>
+                {pkg.recurrence !== 'none' && (
+                  <span
+                    className="thub-badge thub-badge--recur"
+                    title={describeRecurrence(pkg)}
+                  >
+                    🔁 {pkg.recurrence === 'daily' ? 'Daily' : 'Weekly'}
+                  </span>
+                )}
                 {!pkg.active && <span className="thub-badge thub-badge--off">Inactive</span>}
               </span>
               <span className="thub-pkg-meta">
@@ -338,6 +362,9 @@ export function TransferHubWorkspace() {
                 <div>
                   <h2 className="thub-detail-title">{selected.name}</h2>
                   {selected.description && <p className="muted">{selected.description}</p>}
+                  {selected.recurrence !== 'none' && (
+                    <p className="muted">🔁 {describeRecurrence(selected)}</p>
+                  )}
                 </div>
                 <span className="trace-level-control">
                   {runActive && (
@@ -643,6 +670,14 @@ export function TransferHubWorkspace() {
                                 <span className={`thub-run-chip thub-run-chip--${run.status}`}>
                                   {RUN_STATUS_LABELS[run.status]}
                                 </span>
+                                {run.dryRun && (
+                                  <span
+                                    className="thub-run-chip thub-run-chip--dry"
+                                    title="Simulation — the targets were not modified."
+                                  >
+                                    🧪 Dry
+                                  </span>
+                                )}
                               </td>
                               <td className="nowrap" title={formatDateTime(run.requestedOn)}>
                                 {formatRelative(run.requestedOn)}
@@ -811,7 +846,7 @@ export function TransferHubWorkspace() {
         <TransferRunDialog
           pkg={runConfirm}
           onClose={() => setRunConfirm(null)}
-          onQueue={(scheduledFor) => queueRun(runConfirm, scheduledFor)}
+          onQueue={(opts) => queueRun(runConfirm, opts)}
         />
       )}
 

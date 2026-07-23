@@ -26,7 +26,8 @@
                 "entryId": { "type": "string" },
                 "srcUrl": { "type": "string" },
                 "tgtUrl": { "type": "string" },
-                "targetKey": { "type": "string" }
+                "targetKey": { "type": "string" },
+                "dryRun": { "type": "boolean" }
               },
               "required": ["entryId", "srcUrl", "tgtUrl", "targetKey"]
             }
@@ -82,7 +83,8 @@
               "entityName": "@outputs('Entry')?['pro_sourceentityset_str']",
               "fetchXml": "@outputs('Entry')?['pro_fetchxml_txt']"
             }
-          }
+          },
+          "runtimeConfiguration": { "paginationPolicy": { "minimumItemCount": 100000 } }
         },
         "Get_tgt_rows": {
           "runAfter": { "PlanCl": ["Succeeded"] },
@@ -94,7 +96,8 @@
               "entityName": "@outputs('Entry')?['pro_sourceentityset_str']",
               "fetchXml": "@outputs('Entry')?['pro_fetchxml_txt']"
             }
-          }
+          },
+          "runtimeConfiguration": { "paginationPolicy": { "minimumItemCount": 100000 } }
         },
         "SKeys": {
           "runAfter": { "Get_src_rows": ["Succeeded"] },
@@ -173,7 +176,7 @@
         "For_upd": {
           "runAfter": { "UpdSet": ["Succeeded"] },
           "type": "Foreach",
-          "foreach": "@outputs('UpdSet')",
+          "foreach": "@if(equals(toLower(string(coalesce(triggerBody()?['dryRun'], false))), 'true'), json('[]'), outputs('UpdSet'))",
           "runtimeConfiguration": { "concurrency": { "repetitions": 20 } },
           "actions": {
             "Pairs_u": {
@@ -215,7 +218,7 @@
         "For_cre": {
           "runAfter": { "UpdSet": ["Succeeded"] },
           "type": "Foreach",
-          "foreach": "@body('Cre_rows')",
+          "foreach": "@if(equals(toLower(string(coalesce(triggerBody()?['dryRun'], false))), 'true'), json('[]'), body('Cre_rows'))",
           "runtimeConfiguration": { "concurrency": { "repetitions": 20 } },
           "actions": {
             "Pairs_c": {
@@ -260,7 +263,7 @@
         "For_del": {
           "runAfter": { "Orphs": ["Succeeded"] },
           "type": "Foreach",
-          "foreach": "@if(equals(outputs('Entry')?['pro_orphanhandling_opt'],867520002), body('Orphs'), json('[]'))",
+          "foreach": "@if(and(equals(outputs('Entry')?['pro_orphanhandling_opt'],867520002), not(equals(toLower(string(coalesce(triggerBody()?['dryRun'], false))), 'true'))), body('Orphs'), json('[]'))",
           "runtimeConfiguration": { "concurrency": { "repetitions": 20 } },
           "actions": {
             "Delete_row": {
@@ -280,7 +283,7 @@
         "For_deact": {
           "runAfter": { "Orphs": ["Succeeded"] },
           "type": "Foreach",
-          "foreach": "@if(equals(outputs('Entry')?['pro_orphanhandling_opt'],867520001), body('Orphs'), json('[]'))",
+          "foreach": "@if(and(equals(outputs('Entry')?['pro_orphanhandling_opt'],867520001), not(equals(toLower(string(coalesce(triggerBody()?['dryRun'], false))), 'true'))), body('Orphs'), json('[]'))",
           "runtimeConfiguration": { "concurrency": { "repetitions": 20 } },
           "actions": {
             "Deact_row": {
@@ -311,7 +314,7 @@
           },
           "type": "Query",
           "inputs": {
-            "from": "@createArray(if(greater(length(body('Amb_rows')),0), concat('ambiguous match for keys: ', join(body('Amb_keys'), ', '), ' — skipped'), ''), if(or(greaterOrEquals(length(body('Get_src_rows')?['value']),5000),greaterOrEquals(length(body('Get_tgt_rows')?['value']),5000)), 'warning: 5000-row page cap reached — result may be truncated', ''), if(equals(coalesce(outputs('U_fail'),0),1), 'update loop reported row failures — see the flow run history', ''), if(equals(coalesce(outputs('C_fail'),0),1), 'create loop reported row failures — see the flow run history', ''), if(equals(coalesce(outputs('D_fail'),0),1), 'orphan delete reported failures — see the flow run history', ''), if(equals(coalesce(outputs('A_fail'),0),1), 'orphan deactivate reported failures — see the flow run history', ''))",
+            "from": "@createArray(if(greater(length(body('Amb_rows')),0), concat('ambiguous match for keys: ', join(body('Amb_keys'), ', '), ' — skipped'), ''), if(or(greaterOrEquals(length(body('Get_src_rows')?['value']),100000),greaterOrEquals(length(body('Get_tgt_rows')?['value']),100000)), 'warning: 100000-row pagination cap reached — result may be truncated', ''), if(equals(coalesce(outputs('U_fail'),0),1), 'update loop reported row failures — see the flow run history', ''), if(equals(coalesce(outputs('C_fail'),0),1), 'create loop reported row failures — see the flow run history', ''), if(equals(coalesce(outputs('D_fail'),0),1), 'orphan delete reported failures — see the flow run history', ''), if(equals(coalesce(outputs('A_fail'),0),1), 'orphan deactivate reported failures — see the flow run history', ''))",
             "where": "@not(equals(item(),''))"
           }
         },

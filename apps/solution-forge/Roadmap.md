@@ -28,10 +28,32 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       Manage-Gruppe, gated): deklarative Transfer-Pakete für
       Konfigurationsdaten — Quell-Env → Tabelle → Filter/Spalten per
       System-View-Snapshot oder FetchXML (Validierung, Spalten-Picker,
-      Preview), Record-Matching (GUID/Match-Spalten), Orphan-Handling,
-      Reihenfolge. Ausführung durch **externe Pipeline** (bewusst nicht
-      in-app); Contract in `docs/transfer-hub-contract.md`, Datenmodell
-      `pro_transferpackage`/`pro_transferentry`.
+      Preview), Record-Matching (GUID/Match-Spalten, max. 5), Orphan-Handling,
+      Reihenfolge. **Ausführung durch mitinstallierte Cloud Flows** (Executor
+      Parent+Child + Scheduler, `installer/deploy-executor-flow.ps1`) —
+      Run now / Run later / **Dry run** (Simulation) / **wiederkehrender
+      Zeitplan** je Paket (Daily/Weekly), Live-Log während der Ausführung,
+      Konfigurationssperre bei aktivem Run. Contract in
+      `docs/transfer-hub-contract.md`, Datenmodell
+      `pro_transferpackage`/`pro_transferentry`/`pro_transferrun`.
+
+### Transfer Hub — offene Ausbaustufen
+
+- [ ] **Delta-Transfers**: nur Zeilen mit `modifiedon` seit dem letzten
+      erfolgreichen Run übertragen (Zeitstempel je Entry snapshotten, in den
+      Fetch injizieren). Schließt sich mit Orphan-Handling gegenseitig aus
+      (unvollständiges Quell-Set ⇒ False-Positive-Orphans) — im UI koppeln.
+- [ ] **Benachrichtigung bei Failed/Partial**: Teams-/Mail-Action im
+      Finish-Pfad des Executors oder ein Notification-Flow auf den
+      `pro_transferrun`-Statuswechsel („Run lief nachts schief, niemand
+      hat's gesehen").
+- [ ] **Paket/Entry duplizieren**: ähnliche Pakete (gleiche Tabellen Richtung
+      UAT vs. PROD) schnell aufsetzen.
+- [ ] **Run-Housekeeping**: Runs akkumulieren unbegrenzt — „älter als N Tage
+      löschen" als Bulk-Aktion oder im Scheduler.
+- [ ] **Column-Plan-Transparenz im Entry-Dialog**: anzeigen, welche Spalten
+      der Plan überspringt (Owner, polymorphe Lookups, read-only, statecode)
+      statt sie still zu ignorieren.
 - [ ] **Power-Platform-Pipelines-Integration**: Pipeline-Run aus der App
       starten, Run-Status nach `pro_deploymentstatus` zurückspiegeln.
 - [x] **Solution Import History Viewer**: `importjob`-Historie je wählbarer
@@ -97,6 +119,18 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
 - [ ] **Branch/PR-Verknüpfung**: PRs zur Branch-Konvention `feature/<id>` am
       Eintrag zeigen (`pro_devopslink`).
 - [ ] **DevOps-Panel reaktivieren** (`DEVOPS_PANEL_ENABLED`, siehe TODO.md).
+
+## Performance & Bundle
+
+- [x] **Chunk-Splitting**: react, übrige node_modules und der generierte
+      Dataverse-Client liegen in eigenen Chunks (App-Chunk 984 → 620 kB).
+      Bewusst **statisch** (`manualChunks`), weil der Code-Apps-Player nur
+      Dateien ausliefert, die in `index.html` referenziert sind (gotcha #10)
+      — `modulepreload`-Links erfüllen das, dynamische Imports nicht.
+- [ ] **Echtes Lazy-Loading der Workspaces** (React.lazy): würde den
+      Erststart weiter drücken, braucht aber vorher einen **Live-Test im
+      Player**, ob zur Laufzeit nachgeladene Chunks ausgeliefert werden.
+      Bei 404 ⇒ weißer Screen beim Tab-Wechsel, deshalb nicht blind machen.
 
 ## Team & Komfort
 

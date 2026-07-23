@@ -9,7 +9,7 @@ import type {
   TransferPackageInput,
   TransferRun,
 } from '../types/transferHub'
-import type { TransferHubService } from './transferHubService'
+import type { CreateRunOptions, TransferHubService } from './transferHubService'
 import { fetchTop, fetchXmlAttributes } from '../utils/transferConfig'
 
 /**
@@ -107,6 +107,9 @@ const packages: TransferPackage[] = [
     targetEnvKeys: ['uat', 'prod'],
     order: 1,
     active: true,
+    // Runs itself every night — shows the schedule chip offline.
+    recurrence: 'daily',
+    nextRun: '2026-07-24T02:00:00Z',
     modifiedOn: '2026-07-20T09:30:00Z',
   },
   {
@@ -116,6 +119,8 @@ const packages: TransferPackage[] = [
     targetEnvKeys: ['uat'],
     order: 2,
     active: false,
+    recurrence: 'none',
+    nextRun: '',
     modifiedOn: '2026-06-30T14:00:00Z',
   },
 ]
@@ -212,6 +217,7 @@ const runs: TransferRun[] = [
       null,
       2,
     ),
+    dryRun: false,
   },
 ]
 
@@ -239,6 +245,8 @@ class MockTransferHubService implements TransferHubService {
       targetEnvKeys: [...input.targetEnvKeys],
       order: input.order,
       active: true,
+      recurrence: input.recurrence,
+      nextRun: input.recurrence === 'none' ? '' : input.nextRun,
       entryCount: 0,
       modifiedOn: new Date().toISOString(),
     }
@@ -255,6 +263,8 @@ class MockTransferHubService implements TransferHubService {
       description: input.description,
       targetEnvKeys: [...input.targetEnvKeys],
       order: input.order,
+      recurrence: input.recurrence,
+      nextRun: input.recurrence === 'none' ? '' : input.nextRun,
       modifiedOn: new Date().toISOString(),
     })
   }
@@ -335,21 +345,23 @@ class MockTransferHubService implements TransferHubService {
     return { ...entry }
   }
 
-  async createRun(pkg: TransferPackage, scheduledFor?: string): Promise<TransferRun> {
+  async createRun(pkg: TransferPackage, opts: CreateRunOptions = {}): Promise<TransferRun> {
     await delay(200)
+    const stamp = new Date().toISOString().replace('T', ' ').slice(0, 16)
     const run: TransferRun = {
       id: nextId('run'),
       packageId: pkg.id,
-      name: `${pkg.name} — ${new Date().toISOString().replace('T', ' ').slice(0, 16)} UTC`,
-      status: scheduledFor ? 'scheduled' : 'queued',
+      name: `${opts.dryRun ? 'DRY RUN — ' : ''}${pkg.name} — ${stamp} UTC`,
+      status: opts.scheduledFor ? 'scheduled' : 'queued',
       targetEnvKeys: [...pkg.targetEnvKeys],
-      scheduledFor: scheduledFor ?? '',
+      scheduledFor: opts.scheduledFor ?? '',
       requestedOn: new Date().toISOString(),
       requestedBy: 'You',
       startedOn: '',
       finishedOn: '',
       summary: '',
       log: '',
+      dryRun: opts.dryRun === true,
     }
     runs.unshift(run)
     return { ...run }

@@ -13,13 +13,15 @@ import {
   MATCH_MODE_CODES,
   ORPHAN_CODES,
   QUERY_MODE_CODES,
+  RECURRENCE_CODES,
   RUN_STATUS_CODES,
   matchModeFromCode,
   orphanFromCode,
   queryModeFromCode,
+  recurrenceFromCode,
   runStatusFromCode,
 } from '../types/transferHub'
-import type { TransferHubService } from './transferHubService'
+import type { CreateRunOptions, TransferHubService } from './transferHubService'
 import { mockTransferHubService } from './mockTransferHubService'
 import { powerModeReady } from '../PowerProvider'
 import { fetchXmlQuery, odataQuery, rowNum, rowStr, type Row } from './currentEnvQuery'
@@ -79,14 +81,25 @@ async function fetchAll<T>(
   return rows
 }
 
-const PACKAGE_SELECT: (keyof Pro_transferpackages)[] = [
-  'pro_transferpackageid',
-  'pro_name',
-  'pro_description_txt',
-  'pro_targetenvs_str',
-  'pro_order_int',
-  'statecode',
-  'modifiedon',
+/**
+ * Columns provisioned after the typed client was generated are appended as
+ * plain strings — the generated models only know the older shape, and
+ * regenerating the data source is a manual installer step (gotcha #1).
+ */
+const LATE_PACKAGE_COLUMNS = ['pro_recurrence_opt', 'pro_nextrun_dat']
+const LATE_RUN_COLUMNS = ['pro_dryrun_bit']
+
+const PACKAGE_SELECT: string[] = [
+  ...([
+    'pro_transferpackageid',
+    'pro_name',
+    'pro_description_txt',
+    'pro_targetenvs_str',
+    'pro_order_int',
+    'statecode',
+    'modifiedon',
+  ] satisfies (keyof Pro_transferpackages)[]),
+  ...LATE_PACKAGE_COLUMNS,
 ]
 
 const ENTRY_SELECT: (keyof Pro_transferentries)[] = [
@@ -112,20 +125,40 @@ const ENTRY_SELECT: (keyof Pro_transferentries)[] = [
   '_pro_package_ref_value',
 ]
 
-const RUN_SELECT: (keyof Pro_transferruns)[] = [
-  'pro_transferrunid',
-  'pro_name',
-  'pro_status_opt',
-  'pro_targetenvs_str',
-  'pro_scheduledfor_dat',
-  'pro_startedon_dat',
-  'pro_finishedon_dat',
-  'pro_summary_str',
-  'pro_log_txt',
-  'createdon',
-  '_pro_package_ref_value',
-  '_createdby_value',
+const RUN_SELECT: string[] = [
+  ...([
+    'pro_transferrunid',
+    'pro_name',
+    'pro_status_opt',
+    'pro_targetenvs_str',
+    'pro_scheduledfor_dat',
+    'pro_startedon_dat',
+    'pro_finishedon_dat',
+    'pro_summary_str',
+    'pro_log_txt',
+    'createdon',
+    '_pro_package_ref_value',
+    '_createdby_value',
+  ] satisfies (keyof Pro_transferruns)[]),
+  ...LATE_RUN_COLUMNS,
 ]
+
+/** Reads a column the generated model does not know yet (see above). */
+function late(row: unknown, column: string): unknown {
+  return (row as Record<string, unknown>)[column]
+}
+
+/**
+ * Schedule fields of a package write. 'none' clears the next-run stamp so the
+ * scheduler flow can filter on `pro_recurrence_opt ne 867520000` alone.
+ */
+function recurrenceFields(input: TransferPackageInput): Record<string, unknown> {
+  const recurring = input.recurrence !== 'none'
+  return {
+    pro_recurrence_opt: RECURRENCE_CODES[input.recurrence],
+    pro_nextrun_dat: recurring && input.nextRun ? input.nextRun : null,
+  }
+}
 
 /** Formatted-value annotation of a column, when the client returned it. */
 function fv(row: unknown, column: string): string {
@@ -149,6 +182,7 @@ function toRun(row: Pro_transferruns): TransferRun {
     finishedOn: row.pro_finishedon_dat ?? '',
     summary: row.pro_summary_str ?? '',
     log: row.pro_log_txt ?? '',
+    dryRun: late(row, 'pro_dryrun_bit') === true,
   }
 }
 
@@ -160,6 +194,8 @@ function toPackage(row: Pro_transferpackages): TransferPackage {
     targetEnvKeys: parseCsvList(row.pro_targetenvs_str),
     order: row.pro_order_int ?? 0,
     active: Number(row.statecode ?? 0) === 0,
+    recurrence: recurrenceFromCode(late(row, 'pro_recurrence_opt') as number | null),
+    nextRun: (late(row, 'pro_nextrun_dat') as string | null) ?? '',
     modifiedOn: row.modifiedon,
   }
 }
@@ -251,6 +287,7 @@ class DataverseTransferHubService implements TransferHubService {
       pro_description_txt: input.description,
       pro_targetenvs_str: joinCsvList(input.targetEnvKeys) || null,
       pro_order_int: input.order,
+      ...recurrenceFields(input),
     } as unknown as Omit<Pro_transferpackagesBase, 'pro_transferpackageid'>
     const result = await Pro_transferpackagesService.create(record)
     if (!result.success || !result.data) {
@@ -268,6 +305,7 @@ class DataverseTransferHubService implements TransferHubService {
       pro_description_txt: input.description,
       pro_targetenvs_str: joinCsvList(input.targetEnvKeys) || null,
       pro_order_int: input.order,
+      ...recurrenceFields(input),
     } as unknown as Partial<Omit<Pro_transferpackagesBase, 'pro_transferpackageid'>>
     const result = await Pro_transferpackagesService.update(id, changed)
     if (!result.success) {
@@ -417,19 +455,20 @@ class DataverseTransferHubService implements TransferHubService {
 
   // ---- runs ---------------------------------------------------------------
 
-  async createRun(pkg: TransferPackage, scheduledFor?: string): Promise<TransferRun> {
+  async createRun(pkg: TransferPackage, opts: CreateRunOptions = {}): Promise<TransferRun> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockTransferHubService.createRun(pkg, scheduledFor)
+    if (mode !== 'power-platform') return mockTransferHubService.createRun(pkg, opts)
     const stamp = new Date().toISOString().replace('T', ' ').slice(0, 16)
     const record = {
-      pro_name: `${pkg.name} — ${stamp} UTC`,
+      pro_name: `${opts.dryRun ? 'DRY RUN — ' : ''}${pkg.name} — ${stamp} UTC`,
       'pro_package_ref@odata.bind': `/pro_transferpackages(${pkg.id})`,
       // Scheduled runs wait for the scheduler flow to flip them to Queued.
-      pro_status_opt: scheduledFor ? RUN_STATUS_CODES.scheduled : RUN_STATUS_CODES.queued,
-      pro_scheduledfor_dat: scheduledFor || null,
+      pro_status_opt: opts.scheduledFor ? RUN_STATUS_CODES.scheduled : RUN_STATUS_CODES.queued,
+      pro_scheduledfor_dat: opts.scheduledFor || null,
       // Target snapshot at request time — later package edits must not
       // change what an already-queued run does.
       pro_targetenvs_str: joinCsvList(pkg.targetEnvKeys) || null,
+      pro_dryrun_bit: opts.dryRun === true,
     } as unknown as Omit<Pro_transferrunsBase, 'pro_transferrunid'>
     const result = await Pro_transferrunsService.create(record)
     if (!result.success || !result.data) {

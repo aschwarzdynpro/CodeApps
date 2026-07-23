@@ -182,14 +182,23 @@ nach Typ.
   und **Orphan-Handling** (Ignore/Deactivate/Delete — Scope ist beidseitig
   die Query des Eintrags: nur Zielzeilen, die die Query zurückgibt, können
   Orphans werden). Views werden als **FetchXML-Snapshot** gespeichert
-  (self-contained, „⟳" re-snapshottet). **▶ Run** = **Run now** (Queued,
-  Webhook-Executor startet in Sekunden) oder **Run later** über den
-  eingebauten Datums-Picker (Scheduled; Scheduler-Flow promotet fällige
-  Runs). Während ein Run Queued/Running ist, ist die Paket-Konfiguration
-  **gesperrt**. Die Runs-Karte zeigt Status, Zeiten, eine live tickende
-  **Duration**-Spalte und die Summary; das Ergebnis-Log füllt sich **live
-  während der Ausführung** (Klick → strukturiertes Subgrid je
-  Entry × Target). Persistenz in
+  (self-contained, „⟳" re-snapshottet). **▶ Run** bietet zwei Achsen:
+  **✍ Transfer | 🧪 Dry run** (Simulation — der Executor partitioniert, zählt
+  und loggt, schreibt aber nichts; das Log zeigt, was passiert *wäre*,
+  Summary-Präfix „DRY RUN — would be:") und **Run now** (Queued,
+  Webhook-Executor startet in Sekunden) | **Run later** über den eingebauten
+  Datums-Picker (Scheduled; Scheduler-Flow promotet fällige Runs).
+  Zusätzlich kann ein Paket **automatisch wiederkehren** (Zeitplan
+  **Daily/Weekly** im Paket-Dialog, erster Termin per Picker; Uhrzeit und
+  Wochentag stecken im Termin) — der Scheduler queued fällige Pakete und
+  schreibt den nächsten Termin fort, ohne verpasste Läufe nachzuholen.
+  Während ein Run Queued/Running ist, ist die Paket-Konfiguration
+  **gesperrt**. Die Runs-Karte zeigt Status (inkl. 🧪-Marker für
+  Simulationen), Zeiten, eine live tickende **Duration**-Spalte und die
+  Summary; das Ergebnis-Log füllt sich **live während der Ausführung**
+  (Klick → strukturiertes Subgrid je Entry × Target). Reads sind dank
+  Konnektor-Pagination nicht mehr auf 5000 Zeilen begrenzt (Cap 100 000 mit
+  Warnung im Log). Persistenz in
   `pro_transferpackage`/`pro_transferentry`/`pro_transferrun` (Host, native
   Writes als User); Quell-Env-Reads über den Konnektor. Contract + Executor-
   Interna: `docs/transfer-hub-contract.md`.

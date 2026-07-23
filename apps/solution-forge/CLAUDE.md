@@ -508,13 +508,20 @@ String statt Choice, Registry ist runtime-hydriert; `pro_order_int`) +
 `pro_transferentry` (Lookup `pro_package_ref` **Delete=Cascade**, Quell-Env-Key,
 Tabelle + Entity-Set-/PrimaryId-**Snapshots**, `pro_querymode_opt` View/FetchXML,
 View-Referenz + `pro_fetchxml_txt` = **immer befülltes, ausführbares Snapshot**,
-`pro_matchmode_opt` GUID/Spalten + `pro_matchcolumns_str`,
-`pro_orphanhandling_opt` Ignore/Deactivate/Delete, `pro_order_int` =
-Reihenfolge im Paket, Eltern vor Kindern). Aktiv/Inaktiv = **`statecode`**.
+`pro_matchmode_opt` GUID/Spalten + `pro_matchcolumns_str` (**max. 5**,
+Save-Gate `describeEntryValidation`), `pro_orphanhandling_opt`
+Ignore/Deactivate/Delete, `pro_order_int` = Reihenfolge im Paket, Eltern vor
+Kindern). Aktiv/Inaktiv = **`statecode`**. **Zeitplan je Paket:**
+`pro_recurrence_opt` (None/Daily/Weekly) + `pro_nextrun_dat` (UTC; Uhrzeit
+und Wochentag stecken IM Zeitstempel — keine extra Spalten). Der Scheduler
+queued fällige Pakete und rollt den Stempel um die Kadenz weiter
+(`addDays(next, (verpasste+1) × Intervall)` — kein Nachhol-Burst).
 **Run-Queue:** `pro_transferrun` (Lookup aufs Paket mit **RemoveLink** —
 Historie überlebt Paket-Delete; `pro_status_opt` Queued/Running/Succeeded/
 Failed/Partial/Cancelled, `pro_targetenvs_str` = **Snapshot** der Ziele beim
-Request, `pro_startedon_dat`/`pro_finishedon_dat`/`pro_summary_str`/
+Request, `pro_dryrun_bit` = Simulation (Executor partitioniert/zählt/loggt,
+schreibt aber NICHTS; Summary-Präfix „DRY RUN — would be:"),
+`pro_startedon_dat`/`pro_finishedon_dat`/`pro_summary_str`/
 `pro_log_txt` schreibt der Executor). „▶ Run" erzeugt nur den Queued-Record
 (`createRun`, Confirm mit PROD-Danger); die Runs-Liste im Paket-Detail pollt
 alle 10 s, solange ein Run Queued/Running ist, Log-JSON per Zeilen-Klick.
@@ -552,12 +559,18 @@ sequenziell (`repetitions` zählt nur top-level — deshalb der Child);
 Variablen-Aktionen kosten ~0,25–0,3 s (Run-State-Lock); `UpsertMultiple`&Co
 sind über den Konnektor NICHT aufrufbar; `result('<foreach>')` liefert nur
 die letzte Repetition; bei Expression-basiertem `entityName` kein flaches
-`item/<col>`. Limits: 5000-Zeilen-Page-Cap (Warnung im Zell-Log), Flows
-NICHT im Designer editieren (Quelle sind die JSON-Dateien). **Selbsttest
-2026-07-23 (dev→dev Self-Upsert pro_mergerun, 30 Zeilen): v1 ~86 s → v3
-37 s → v4 10 s, Succeeded, 30 updated, 0 errors.** Create-/Orphan-Pfad
-dev→dev nicht testbar (gleiche Org matcht immer) — verify on first real
-cross-env run.
+`item/<col>`; **`setVariable` darf sich NIE selbst referenzieren — auch
+nicht in einem sequenziellen `Until`** („Self reference is not supported"),
+deshalb läuft das FetchXML-Paging über die
+**`paginationPolicy.minimumItemCount: 100000`** des Konnektors (Reads sind
+damit nicht mehr auf eine 5000er-Seite begrenzt) statt über eine
+Akkumulator-Schleife. Limits: 100 000 Zeilen je Query (Warnung im Zell-Log),
+Flows NICHT im Designer editieren (Quelle sind die JSON-Dateien).
+**Selbsttest 2026-07-23 (dev→dev Self-Upsert pro_mergerun, 30 Zeilen):
+v1 ~86 s → v3 37 s → v4 10 s; Dry-Run 7 s mit 0 tatsächlich geänderten
+Zeilen bei „30 updated" im Log, echter Run danach 30 Zeilen angefasst.**
+Create-/Orphan-Pfad dev→dev nicht testbar (gleiche Org matcht immer) —
+verify on first real cross-env run.
 Service-Trio `transferHubService`/`dataverse…`/`mock…`: **Config-CRUD nativ als
 User** (generierte `Pro_transferpackages`-/`Pro_transferentriesService`);
 **Quell-Env-Reads über den Konnektor** (`currentEnvQuery` + `orgUrlForEnvKey`):

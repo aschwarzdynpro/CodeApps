@@ -361,8 +361,8 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 <strong>Record matching</strong> per entry: GUID upsert (ids
                 stay identical across environments) or match by business
-                columns (up to <strong>5</strong>). Ambiguous matches are
-                skipped and reported as errors.
+                columns (up to <strong>5</strong> — the picker stops there).
+                Ambiguous matches are skipped and reported as errors.
               </li>
               <li>
                 <strong>Orphan handling</strong> per entry: ignore / deactivate
@@ -379,21 +379,39 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 releases automatically when the run finishes.
               </li>
               <li>
-                <strong>▶ Run</strong> queues a <strong>Transfer Run</strong>:{' '}
-                <strong>Run now</strong> (status Queued, picked up within
-                seconds) or <strong>Run later</strong> via the built-in
-                date/time picker with quick-pick chips (status Scheduled; a
-                scheduler flow promotes due runs every few minutes). The
-                package's targets are snapshotted onto the run.
+                <strong>▶ Run</strong> queues a <strong>Transfer Run</strong>.
+                Pick the <strong>mode</strong> —{' '}
+                <strong>✍ Transfer</strong> (writes) or{' '}
+                <strong>🧪 Dry run</strong> (simulation: the executor reads,
+                matches and logs exactly as usual but writes{' '}
+                <em>nothing</em>, so the log shows what <em>would</em> be
+                created, updated, deactivated or deleted) — and the{' '}
+                <strong>timing</strong>: <strong>Run now</strong> (status
+                Queued, picked up within seconds) or{' '}
+                <strong>Run later</strong> via the built-in date/time picker
+                with quick-pick chips (status Scheduled; a scheduler flow
+                promotes due runs every few minutes). The package's targets
+                are snapshotted onto the run.
               </li>
               <li>
-                The <strong>Runs</strong> card shows status, requested /
-                scheduled / finished times, a live-ticking{' '}
-                <strong>Duration</strong> column and the result summary. The
-                result log fills <strong>live while the run executes</strong>;
-                click a row to expand the structured result table — created /
-                updated / deactivated / deleted / errors per entry × target.
-                Queued and Scheduled runs can be cancelled (✕).
+                <strong>Recurring runs</strong>: a package can carry a{' '}
+                <strong>schedule</strong> (Edit → <em>Daily</em> /{' '}
+                <em>Weekly</em> plus the first run's date and time — the time
+                of day, and the weekday for Weekly, repeat from there). The
+                package card shows a 🔁 chip; the scheduler queues each due
+                run and moves the next date forward. Missed windows (e.g. the
+                environment was down) do <strong>not</strong> pile up — only
+                the next one is queued.
+              </li>
+              <li>
+                The <strong>Runs</strong> card shows status (simulations carry
+                a 🧪 marker), requested / scheduled / finished times, a
+                live-ticking <strong>Duration</strong> column and the result
+                summary. The result log fills{' '}
+                <strong>live while the run executes</strong>; click a row to
+                expand the structured result table — created / updated /
+                deactivated / deleted / errors per entry × target. Queued and
+                Scheduled runs can be cancelled (✕).
               </li>
               <li>
                 The pipeline contract and executor internals are documented in{' '}

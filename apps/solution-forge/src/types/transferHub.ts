@@ -14,6 +14,8 @@
 export type TransferQueryMode = 'view' | 'fetchxml'
 export type TransferMatchMode = 'guid' | 'columns'
 export type OrphanHandling = 'ignore' | 'deactivate' | 'delete'
+/** Cadence of an automatically recurring package run. */
+export type TransferRecurrence = 'none' | 'daily' | 'weekly'
 export type TransferRunStatus =
   | 'queued'
   | 'running'
@@ -53,6 +55,19 @@ export const RUN_STATUS_CODES: Record<TransferRunStatus, number> = {
   scheduled: 867520006,
 }
 
+/** pro_recurrence_opt option values on pro_transferpackage. */
+export const RECURRENCE_CODES: Record<TransferRecurrence, number> = {
+  none: 867520000,
+  daily: 867520001,
+  weekly: 867520002,
+}
+
+export function recurrenceFromCode(code: number | null | undefined): TransferRecurrence {
+  if (code === RECURRENCE_CODES.daily) return 'daily'
+  if (code === RECURRENCE_CODES.weekly) return 'weekly'
+  return 'none'
+}
+
 export function runStatusFromCode(code: number | null | undefined): TransferRunStatus {
   const entry = (Object.entries(RUN_STATUS_CODES) as [TransferRunStatus, number][]).find(
     ([, value]) => value === code,
@@ -83,6 +98,14 @@ export interface TransferPackage {
   order: number
   /** statecode 0 = active; the pipeline skips inactive packages. */
   active: boolean
+  /** Automatic cadence — 'none' unless a schedule is configured. */
+  recurrence: TransferRecurrence
+  /**
+   * ISO timestamp of the next automatic run. The time-of-day (and weekday for
+   * 'weekly') live inside this value — the scheduler flow queues a run once it
+   * is due and rolls the timestamp forward by the cadence.
+   */
+  nextRun: string
   entryCount?: number
   modifiedOn?: string
 }
@@ -130,6 +153,9 @@ export interface TransferPackageInput {
   description: string
   targetEnvKeys: string[]
   order: number
+  recurrence: TransferRecurrence
+  /** ISO; '' clears the schedule (also written when recurrence is 'none'). */
+  nextRun: string
 }
 
 /** Create/update shape for an entry (id-less). */
@@ -174,6 +200,8 @@ export interface TransferRun {
   summary: string
   /** Executor-written result JSON (per entry × target env). */
   log: string
+  /** Simulation: the executor counts and logs but writes nothing. */
+  dryRun: boolean
 }
 
 /** A source-environment table candidate (from EntityDefinitions). */

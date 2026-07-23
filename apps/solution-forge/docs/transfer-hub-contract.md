@@ -31,6 +31,7 @@ schedule unless you build that separately):
 | `pro_name` | String(400) | Display name (`<package> — <utc timestamp>`). |
 | `pro_package_ref` | Lookup | The package to execute. |
 | `pro_status_opt` | Choice | 867520000 Queued / …001 Running / …002 Succeeded / …003 Failed / …004 Partially succeeded / …005 Cancelled / …006 **Scheduled**. |
+| `pro_dryrun_bit` | Boolean | Simulation — the executor partitions, counts and logs but writes nothing. |
 | `pro_targetenvs_str` | String(400) | Target env keys **snapshotted at request time** — the executor uses THIS list, not the package's current one. |
 | `pro_scheduledfor_dat` | DateTime | "Run later" due time (status Scheduled). The **scheduler flow** (recurrence, every 5 min) promotes due Scheduled runs to Queued; the executor never reads this column. |
 | `pro_startedon_dat` / `pro_finishedon_dat` | DateTime | Written by the executor. |
@@ -92,6 +93,8 @@ Failed with a note. Runs in status Cancelled are never picked up.
 | `pro_description_txt` | Memo | Free text, informational. |
 | `pro_targetenvs_str` | String(400) | Comma-separated environment **keys** (e.g. `uat,prod`). Empty ⇒ no-op. |
 | `pro_order_int` | Int | Cross-package execution order, ascending. |
+| `pro_recurrence_opt` | Choice | 867520000 None / …001 Daily / …002 Weekly — automatic cadence. |
+| `pro_nextrun_dat` | DateTime | Next due automatic run (UTC). Carries the time of day and, for Weekly, the weekday. |
 | `statecode` | State | 0 = execute, 1 = skip. |
 
 ## `pro_transferentry` columns
@@ -129,13 +132,19 @@ Mirrored in `src/types/transferHub.ts` — codes are pinned, never renumber.
 | `pro_matchmode_opt` | |
 |---|---|
 | 867520000 | **GUID upsert** — write with the source record's id; ids stay identical across environments. |
-| 867520001 | **Match by columns** — find the target record by equality on *all* `pro_matchcolumns_str` columns. |
+| 867520001 | **Match by columns** — find the target record by equality on *all* `pro_matchcolumns_str` columns (**max. 5**, see below). |
 
 | `pro_orphanhandling_opt` | |
 |---|---|
 | 867520000 | **Ignore** — leave target records untouched. |
 | 867520001 | **Deactivate** — set orphaned target records `statecode 1`. |
 | 867520002 | **Delete** — delete orphaned target records. |
+
+| `pro_recurrence_opt` | |
+|---|---|
+| 867520000 | **None** — the package only runs when a run is queued manually. |
+| 867520001 | **Daily** — one run every 24 h at the `pro_nextrun_dat` time. |
+| 867520002 | **Weekly** — one run every 7 days at the `pro_nextrun_dat` weekday/time. |
 
 ## Record matching
 
@@ -203,12 +212,25 @@ The repo ships a working executor implementation of this contract as a
   runs update/create/orphan loops **at the top level of its own run — the
   only place Logic Apps honors foreach concurrency** (20 parallel) — and
   returns the cell-log JSON in its Response.
-- **Scheduler** (`installer/scheduler-flow.clientdata.json`, every 5 min,
-  promotes due Scheduled runs to Queued).
+- **Scheduler** (`installer/scheduler-flow.clientdata.json`, every 5 min).
+  Two jobs: promote due **Scheduled runs** to Queued, and queue a run for
+  every **recurring package** whose `pro_nextrun_dat` is due
+  (`pro_recurrence_opt` Daily/Weekly, `statecode 0`), then roll that stamp
+  forward by the cadence — `addDays(next, (missedPeriods + 1) × interval)`,
+  so a scheduler outage never produces a burst of catch-up runs. Time of day
+  and weekday live inside `pro_nextrun_dat`; the hub writes it as UTC from
+  the user's local pick. DST shifts the local time by an hour (the stamp is
+  rolled in fixed 24 h/7 d steps) — re-pick the first run to correct it.
 
 All three are deployed create-or-update + activate by
 `installer/deploy-executor-flow.ps1` (child first — the parent's `Workflow`
 action references the child's **workflowid**, injected as `__CHILD_ID__`).
+
+**Dry run** (`pro_transferrun.pro_dryrun_bit`): the parent passes the flag to
+each child, which empties the `foreach` inputs of the update/create/orphan
+loops. Partitioning, counting and logging are untouched, so the run log
+reports exactly what *would* have happened; the summary is prefixed
+`DRY RUN — would be: …`. Nothing is written in any target.
 
 Semantics: `created`/`updated`/`deactivated`/`deleted` count **attempted**
 rows (partition sizes); a failing write surfaces as a cell-level error string
@@ -216,10 +238,13 @@ rows (partition sizes); a failing write surfaces as a cell-level error string
 `errs` count drives Partial/Failed status, and a crashed child yields an
 error cell ("cell execution failed…"). Per-row error texts are not produced —
 row-level diagnostics live in the child flow's run history. Both flows are
-**variable-free** (see engine findings below). Limits: 5000-row page cap per
-query (warned in the cell errors), lookups only single-target
-(polymorphic/owner skipped per plan), entries without a column plan error
-with "re-save the entry in the hub".
+**variable-free** (see engine findings below). Limits: reads use the
+connector's **pagination policy** (`runtimeConfiguration.paginationPolicy.
+minimumItemCount: 100000`) so a query is no longer capped at one 5000-row
+page — beyond 100 000 rows the cell logs a truncation warning; lookups only
+single-target (polymorphic/owner skipped per plan); entries without a column
+plan error with "re-save the entry in the hub"; composite keys are limited to
+**5 match columns** (fixed slot count, enforced by the hub's save gate).
 
 **Measured (INT-11, 30-row dev→dev GUID upsert):** v1 sequential ~86 s →
 v3 variable-free single flow 37 s → **v4 parent+child 10 s**
@@ -289,6 +314,12 @@ verified on INT-11, do not re-learn these):**
   (c) the designer-time metadata check (`GetMetadataForBoundActionInput…`)
   doesn't know the xMultiple messages at all (`XrmActionNameNotFound`) unless
   the actionName is a non-foldable runtime expression.
+- **`setVariable` may never reference its own variable — not even inside a
+  sequential `Until`.** The activation fails with
+  `WorkflowRunActionInputsInvalidProperty: Self reference is not supported`.
+  That rules out the classic accumulator loop for FetchXML paging; use the
+  connector's `paginationPolicy.minimumItemCount` instead (it merges the
+  pages server-side and keeps the action variable-free).
 - **`result('<foreach>')` does not aggregate repetitions** — it returns only
   the current/last repetition's actions (length 2 for a 2-action loop), so it
   cannot collect per-row outcomes across iterations.

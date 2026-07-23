@@ -6,7 +6,7 @@ import { SchedulePicker } from './SchedulePicker'
 interface Props {
   pkg: TransferPackage
   /** Queue the run — `scheduledFor` (ISO, UTC) only for "Run later". */
-  onQueue: (scheduledFor?: string) => Promise<void>
+  onQueue: (opts: { scheduledFor?: string; dryRun?: boolean }) => Promise<void>
   onClose: () => void
 }
 
@@ -28,10 +28,12 @@ function defaultWhen(): string {
 export function TransferRunDialog({ pkg, onQueue, onClose }: Props) {
   const [mode, setMode] = useState<'now' | 'later'>('now')
   const [when, setWhen] = useState(defaultWhen)
+  const [dryRun, setDryRun] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const danger = pkg.targetEnvKeys.includes('prod')
+  // A simulation writes nothing, so PROD needs no danger styling for it.
+  const danger = pkg.targetEnvKeys.includes('prod') && !dryRun
   const envLabel = (key: string) => ENVIRONMENTS.find((e) => e.key === key)?.label ?? key
 
   // Parse-only validation in render (pure); the "must be in the future"
@@ -49,7 +51,10 @@ export function TransferRunDialog({ pkg, onQueue, onClose }: Props) {
     setBusy(true)
     setError(null)
     try {
-      await onQueue(mode === 'later' ? whenDate!.toISOString() : undefined)
+      await onQueue({
+        scheduledFor: mode === 'later' ? whenDate!.toISOString() : undefined,
+        dryRun,
+      })
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -78,13 +83,40 @@ export function TransferRunDialog({ pkg, onQueue, onClose }: Props) {
         </div>
 
         <p className="muted thub-run-dialog-summary">
-          The external executor will transport{' '}
+          The executor will {dryRun ? 'analyse' : 'transport'}{' '}
           <strong>
             {pkg.entryCount ?? '?'} entr{(pkg.entryCount ?? 0) === 1 ? 'y' : 'ies'}
           </strong>{' '}
-          into <strong>{pkg.targetEnvKeys.map(envLabel).join(', ')}</strong>. The
+          {dryRun ? 'against' : 'into'}{' '}
+          <strong>{pkg.targetEnvKeys.map(envLabel).join(', ')}</strong>. The
           target list is snapshotted onto the run.
         </p>
+
+        <div className="form-row">
+          <span className="form-label">Mode</span>
+          <div className="chips">
+            <button
+              className={`chip ${dryRun ? '' : 'chip--active'}`}
+              title="Create, update and delete records in the targets."
+              onClick={() => setDryRun(false)}
+            >
+              ✍ Transfer
+            </button>
+            <button
+              className={`chip ${dryRun ? 'chip--active' : ''}`}
+              title="Simulate only: the log shows what would happen, nothing is written."
+              onClick={() => setDryRun(true)}
+            >
+              🧪 Dry run
+            </button>
+          </div>
+          {dryRun && (
+            <span className="muted thub-hint">
+              Nothing is written — the run log reports what <em>would</em> be
+              created, updated, deactivated or deleted.
+            </span>
+          )}
+        </div>
 
         <div className="form-row">
           <span className="form-label">When</span>
@@ -133,7 +165,15 @@ export function TransferRunDialog({ pkg, onQueue, onClose }: Props) {
             onClick={() => void submit()}
             disabled={!canSubmit}
           >
-            {busy ? 'Queuing…' : mode === 'now' ? 'Queue run now' : 'Schedule run'}
+            {busy
+              ? 'Queuing…'
+              : mode === 'now'
+                ? dryRun
+                  ? 'Simulate now'
+                  : 'Queue run now'
+                : dryRun
+                  ? 'Schedule simulation'
+                  : 'Schedule run'}
           </button>
         </div>
       </div>
