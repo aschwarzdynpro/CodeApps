@@ -21,6 +21,7 @@ export type TransferRunStatus =
   | 'failed'
   | 'partial'
   | 'cancelled'
+  | 'scheduled'
 
 /** pro_querymode_opt option values. */
 export const QUERY_MODE_CODES: Record<TransferQueryMode, number> = {
@@ -49,6 +50,7 @@ export const RUN_STATUS_CODES: Record<TransferRunStatus, number> = {
   failed: 867520003,
   partial: 867520004,
   cancelled: 867520005,
+  scheduled: 867520006,
 }
 
 export function runStatusFromCode(code: number | null | undefined): TransferRunStatus {
@@ -163,6 +165,8 @@ export interface TransferRun {
   status: TransferRunStatus
   /** Target env keys snapshotted at request time (package may change later). */
   targetEnvKeys: string[]
+  /** ISO time a "Run later" is due (status scheduled); '' for immediate runs. */
+  scheduledFor: string
   requestedOn: string
   requestedBy: string
   startedOn: string

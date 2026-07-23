@@ -117,6 +117,7 @@ const RUN_SELECT: (keyof Pro_transferruns)[] = [
   'pro_name',
   'pro_status_opt',
   'pro_targetenvs_str',
+  'pro_scheduledfor_dat',
   'pro_startedon_dat',
   'pro_finishedon_dat',
   'pro_summary_str',
@@ -141,6 +142,7 @@ function toRun(row: Pro_transferruns): TransferRun {
     name: row.pro_name ?? '',
     status: runStatusFromCode(row.pro_status_opt),
     targetEnvKeys: parseCsvList(row.pro_targetenvs_str),
+    scheduledFor: row.pro_scheduledfor_dat ?? '',
     requestedOn: row.createdon ?? '',
     requestedBy: fv(row, '_createdby_value'),
     startedOn: row.pro_startedon_dat ?? '',
@@ -415,14 +417,16 @@ class DataverseTransferHubService implements TransferHubService {
 
   // ---- runs ---------------------------------------------------------------
 
-  async createRun(pkg: TransferPackage): Promise<TransferRun> {
+  async createRun(pkg: TransferPackage, scheduledFor?: string): Promise<TransferRun> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockTransferHubService.createRun(pkg)
+    if (mode !== 'power-platform') return mockTransferHubService.createRun(pkg, scheduledFor)
     const stamp = new Date().toISOString().replace('T', ' ').slice(0, 16)
     const record = {
       pro_name: `${pkg.name} — ${stamp} UTC`,
       'pro_package_ref@odata.bind': `/pro_transferpackages(${pkg.id})`,
-      pro_status_opt: RUN_STATUS_CODES.queued,
+      // Scheduled runs wait for the scheduler flow to flip them to Queued.
+      pro_status_opt: scheduledFor ? RUN_STATUS_CODES.scheduled : RUN_STATUS_CODES.queued,
+      pro_scheduledfor_dat: scheduledFor || null,
       // Target snapshot at request time — later package edits must not
       // change what an already-queued run does.
       pro_targetenvs_str: joinCsvList(pkg.targetEnvKeys) || null,
@@ -433,6 +437,19 @@ class DataverseTransferHubService implements TransferHubService {
       throw new Error(`Queuing a run for "${pkg.name}" failed.`)
     }
     return toRun(result.data)
+  }
+
+  async cancelRun(id: string): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return mockTransferHubService.cancelRun(id)
+    const changed = { pro_status_opt: RUN_STATUS_CODES.cancelled } as unknown as Partial<
+      Omit<Pro_transferrunsBase, 'pro_transferrunid'>
+    >
+    const result = await Pro_transferrunsService.update(id, changed)
+    if (!result.success) {
+      console.warn('[transfer] run cancel failed — result:', result)
+      throw new Error('Cancelling the run failed.')
+    }
   }
 
   async listRuns(packageId: string, top = 20): Promise<TransferRun[]> {

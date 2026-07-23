@@ -30,8 +30,9 @@ schedule unless you build that separately):
 |---|---|---|
 | `pro_name` | String(400) | Display name (`<package> — <utc timestamp>`). |
 | `pro_package_ref` | Lookup | The package to execute. |
-| `pro_status_opt` | Choice | 867520000 Queued / …001 Running / …002 Succeeded / …003 Failed / …004 Partially succeeded / …005 Cancelled. |
+| `pro_status_opt` | Choice | 867520000 Queued / …001 Running / …002 Succeeded / …003 Failed / …004 Partially succeeded / …005 Cancelled / …006 **Scheduled**. |
 | `pro_targetenvs_str` | String(400) | Target env keys **snapshotted at request time** — the executor uses THIS list, not the package's current one. |
+| `pro_scheduledfor_dat` | DateTime | "Run later" due time (status Scheduled). The **scheduler flow** (recurrence, every 5 min) promotes due Scheduled runs to Queued; the executor never reads this column. |
 | `pro_startedon_dat` / `pro_finishedon_dat` | DateTime | Written by the executor. |
 | `pro_summary_str` | String(1000) | One-line result written by the executor. |
 | `pro_log_txt` | Memo | Result JSON written by the executor (shown in the hub). |
@@ -40,8 +41,12 @@ schedule unless you build that separately):
 **Executor protocol:**
 
 1. Pick up rows with `pro_status_opt eq 867520000` (Queued), oldest first —
-   ideally via a Dataverse trigger ("row added", filter on status), else by
-   polling.
+   ideally via a Dataverse trigger ("row added **or modified**", filtering
+   attribute `pro_status_opt`, guard on status Queued), else by polling.
+   "Run later" rows arrive as **Scheduled** (867520006) with
+   `pro_scheduledfor_dat`; the companion scheduler flow flips them to Queued
+   once due, which fires the same trigger. Cancelled rows are never picked
+   up (the hub cancels Queued/Scheduled runs by setting status Cancelled).
 2. Immediately set `pro_status_opt = Running` + `pro_startedon_dat` (this is
    the claim — with a single executor instance no further locking is needed).
 3. Execute the run's package (semantics below) against the run's
@@ -176,9 +181,11 @@ Delete).
 ## Reference executor: `installer/deploy-executor-flow.ps1`
 
 The repo ships a working executor implementation of this contract as a cloud
-flow: template `installer/executor-flow.clientdata.json` (host URL is a
-`__HOST_URL__` placeholder), deployed create-or-update + activate by
-`installer/deploy-executor-flow.ps1`. It implements the full protocol —
+flow: template `installer/executor-flow.clientdata.json` (placeholders
+`__HOST_URL__` + `__CONNREF__`), plus the companion **scheduler flow**
+(`installer/scheduler-flow.clientdata.json`, recurrence every 5 min,
+promotes due Scheduled runs to Queued) — both deployed create-or-update +
+activate by `installer/deploy-executor-flow.ps1`. It implements the full protocol —
 claim (Running + startedon), per entry × target: source/target read via the
 entry's FetchXML snapshot, GUID- or column-matching (composite keys), create/
 update with a payload built from the entry's **column plan**

@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0.0.0",
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": { "connectionReferenceLogicalName": "__CONNREF__" },
+        "api": { "name": "shared_commondataserviceforapps" }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": { "defaultValue": {}, "type": "Object" },
+        "$authentication": { "defaultValue": {}, "type": "SecureObject" }
+      },
+      "triggers": {
+        "Every_5_minutes": {
+          "type": "Recurrence",
+          "recurrence": { "frequency": "Minute", "interval": 5 }
+        }
+      },
+      "actions": {
+        "Get_due_runs": {
+          "runAfter": {},
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "organization": "__HOST_URL__",
+              "entityName": "pro_transferruns",
+              "$select": "pro_transferrunid",
+              "$filter": "pro_status_opt eq 867520006 and pro_scheduledfor_dat le @{utcNow()}"
+            }
+          }
+        },
+        "For_due": {
+          "runAfter": { "Get_due_runs": ["Succeeded"] },
+          "type": "Foreach",
+          "foreach": "@body('Get_due_runs')?['value']",
+          "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
+          "actions": {
+            "Promote_to_queued": {
+              "runAfter": {},
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "organization": "__HOST_URL__",
+                  "entityName": "pro_transferruns",
+                  "recordId": "@items('For_due')?['pro_transferrunid']",
+                  "item/pro_status_opt": 867520000
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

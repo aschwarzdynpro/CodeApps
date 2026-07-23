@@ -6946,3 +6946,12 @@
   padding: 8px 10px;
   white-space: pre-wrap;
 }
+/* Transfer hub — scheduled runs */
+.thub-run-chip--scheduled {
+  color: #6d28d9;
+  background: #ede9fe;
+  border-color: #ddd6fe;
+}
+.thub-run-dialog-summary {
+  margin: 0 0 12px;
+}

@@ -46,13 +46,18 @@ export interface TransferHubService {
 
   // -- runs (host, native writes) ------------------------------------------
   /**
-   * Queue a run for the package: status Queued + the package's target envs
-   * snapshotted onto the record. An EXTERNAL executor picks it up and writes
-   * status/log back (docs/transfer-hub-contract.md) — the hub never executes.
+   * Queue a run for the package: the package's target envs are snapshotted
+   * onto the record. Without `scheduledFor` the run is Queued (executed
+   * immediately); with an ISO time it is Scheduled — the scheduler flow
+   * flips it to Queued once due. An EXTERNAL executor picks Queued runs up
+   * and writes status/log back (docs/transfer-hub-contract.md) — the hub
+   * never executes.
    */
-  createRun(pkg: TransferPackage): Promise<TransferRun>
+  createRun(pkg: TransferPackage, scheduledFor?: string): Promise<TransferRun>
   /** Latest runs of the package, newest first. */
   listRuns(packageId: string, top?: number): Promise<TransferRun[]>
+  /** Cancel a run that has not started yet (Queued or Scheduled). */
+  cancelRun(id: string): Promise<void>
 
   // -- source-environment reads (connector, cross-env) ---------------------
   listTables(envKey: string): Promise<TableRef[]>

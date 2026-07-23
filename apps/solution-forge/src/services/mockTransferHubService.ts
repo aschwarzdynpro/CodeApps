@@ -197,6 +197,7 @@ const runs: TransferRun[] = [
     name: 'Base configuration data — 2026-07-21 06:30 UTC',
     status: 'succeeded',
     targetEnvKeys: ['uat', 'prod'],
+    scheduledFor: '',
     requestedOn: '2026-07-21T06:30:00Z',
     requestedBy: 'Andy Schwarz',
     startedOn: '2026-07-21T06:31:12Z',
@@ -334,14 +335,15 @@ class MockTransferHubService implements TransferHubService {
     return { ...entry }
   }
 
-  async createRun(pkg: TransferPackage): Promise<TransferRun> {
+  async createRun(pkg: TransferPackage, scheduledFor?: string): Promise<TransferRun> {
     await delay(200)
     const run: TransferRun = {
       id: nextId('run'),
       packageId: pkg.id,
       name: `${pkg.name} — ${new Date().toISOString().replace('T', ' ').slice(0, 16)} UTC`,
-      status: 'queued',
+      status: scheduledFor ? 'scheduled' : 'queued',
       targetEnvKeys: [...pkg.targetEnvKeys],
+      scheduledFor: scheduledFor ?? '',
       requestedOn: new Date().toISOString(),
       requestedBy: 'You',
       startedOn: '',
@@ -351,6 +353,12 @@ class MockTransferHubService implements TransferHubService {
     }
     runs.unshift(run)
     return { ...run }
+  }
+
+  async cancelRun(id: string): Promise<void> {
+    await delay(100)
+    const run = runs.find((r) => r.id === id)
+    if (run && (run.status === 'queued' || run.status === 'scheduled')) run.status = 'cancelled'
   }
 
   async listRuns(packageId: string, top = 20): Promise<TransferRun[]> {

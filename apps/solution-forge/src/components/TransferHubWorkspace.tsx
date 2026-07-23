@@ -13,6 +13,7 @@ import { formatDateTime, formatRelative } from '../utils/format'
 import { ConfirmDialog } from './ConfirmDialog'
 import { TransferPackageDialog } from './TransferPackageDialog'
 import { TransferEntryDialog } from './TransferEntryDialog'
+import { TransferRunDialog } from './TransferRunDialog'
 
 /**
  * Configuration Data Transfer Hub (Manage, gated): author the transfer
@@ -45,7 +46,7 @@ type CountState = 'loading' | 'na' | number
 type PreviewState = 'loading' | { error: string } | PreviewResult
 
 const ENTRY_COLUMNS = 9
-const RUN_COLUMNS = 5
+const RUN_COLUMNS = 7
 
 const RUN_STATUS_LABELS: Record<TransferRunStatus, string> = {
   queued: 'Queued',
@@ -54,6 +55,7 @@ const RUN_STATUS_LABELS: Record<TransferRunStatus, string> = {
   failed: 'Failed',
   partial: 'Partial',
   cancelled: 'Cancelled',
+  scheduled: 'Scheduled',
 }
 
 export function TransferHubWorkspace() {
@@ -75,7 +77,6 @@ export function TransferHubWorkspace() {
   const [runs, setRuns] = useState<TransferRun[] | null>(null)
   const [runsError, setRunsError] = useState<string | null>(null)
   const [runConfirm, setRunConfirm] = useState<TransferPackage | null>(null)
-  const [runBusy, setRunBusy] = useState(false)
   const [expandedRunId, setExpandedRunId] = useState('')
 
   // On-demand data insights per entry id — kept across reloads (reorder,
@@ -216,18 +217,18 @@ export function TransferHubWorkspace() {
     setExpandedRunId('')
   }
 
-  const queueRun = async (pkg: TransferPackage) => {
-    setRunBusy(true)
+  const queueRun = async (pkg: TransferPackage, scheduledFor?: string) => {
+    await transferHubService.createRun(pkg, scheduledFor)
+    await loadRuns(pkg.id)
+  }
+
+  const cancelRun = async (runId: string) => {
     setActionError(null)
     try {
-      await transferHubService.createRun(pkg)
-      setRunConfirm(null)
-      await loadRuns(pkg.id)
+      await transferHubService.cancelRun(runId)
+      if (selectedId) await loadRuns(selectedId)
     } catch (err) {
       setActionError(err instanceof Error ? err.message : String(err))
-      setRunConfirm(null)
-    } finally {
-      setRunBusy(false)
     }
   }
 
@@ -666,9 +667,11 @@ export function TransferHubWorkspace() {
                         <tr>
                           <th>Status</th>
                           <th>Requested</th>
+                          <th>Scheduled for</th>
                           <th>Targets</th>
                           <th>Finished</th>
                           <th>Summary</th>
+                          <th></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -702,12 +705,35 @@ export function TransferHubWorkspace() {
                                 )}
                               </td>
                               <td className="nowrap">
+                                {run.scheduledFor ? (
+                                  <span title={formatDateTime(run.scheduledFor)}>
+                                    ⏰ {formatDateTime(run.scheduledFor)}
+                                  </span>
+                                ) : (
+                                  <span className="muted">–</span>
+                                )}
+                              </td>
+                              <td className="nowrap">
                                 {run.targetEnvKeys.map(envLabel).join(', ')}
                               </td>
                               <td className="nowrap" title={run.finishedOn ? formatDateTime(run.finishedOn) : undefined}>
                                 {run.finishedOn ? formatRelative(run.finishedOn) : '–'}
                               </td>
                               <td>{run.summary || <span className="muted">–</span>}</td>
+                              <td className="nowrap">
+                                {(run.status === 'scheduled' || run.status === 'queued') && (
+                                  <button
+                                    className="btn btn--small btn--danger"
+                                    title="Cancel this run before it starts"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      void cancelRun(run.id)
+                                    }}
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </td>
                             </tr>
                             {expandedRunId === run.id && run.log && (
                               <tr className="thub-preview-tr">
@@ -767,25 +793,10 @@ export function TransferHubWorkspace() {
       )}
 
       {runConfirm && (
-        <ConfirmDialog
-          title={`Queue a run for "${runConfirm.name}"?`}
-          message={
-            <>
-              The external executor will transport{' '}
-              <strong>
-                {runConfirm.entryCount ?? '?'} entr
-                {(runConfirm.entryCount ?? 0) === 1 ? 'y' : 'ies'}
-              </strong>{' '}
-              into{' '}
-              <strong>{runConfirm.targetEnvKeys.map(envLabel).join(', ')}</strong>.
-              The target list is snapshotted onto the run.
-            </>
-          }
-          confirmLabel="Queue run"
-          danger={runConfirm.targetEnvKeys.includes('prod')}
-          busy={runBusy}
-          onCancel={() => setRunConfirm(null)}
-          onConfirm={() => void queueRun(runConfirm)}
+        <TransferRunDialog
+          pkg={runConfirm}
+          onClose={() => setRunConfirm(null)}
+          onQueue={(scheduledFor) => queueRun(runConfirm, scheduledFor)}
         />
       )}
 

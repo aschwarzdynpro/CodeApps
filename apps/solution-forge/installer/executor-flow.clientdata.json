@@ -26,9 +26,10 @@
               "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
             },
             "parameters": {
-              "subscriptionRequest/message": 1,
+              "subscriptionRequest/message": 4,
               "subscriptionRequest/entityname": "pro_transferrun",
-              "subscriptionRequest/scope": 4
+              "subscriptionRequest/scope": 4,
+              "subscriptionRequest/filteringattributes": "pro_status_opt"
             }
           }
         }

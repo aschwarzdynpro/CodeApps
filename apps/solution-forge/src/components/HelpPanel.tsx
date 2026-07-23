@@ -713,11 +713,14 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               </li>
               <li>
                 <strong>▶ Run</strong> queues a <strong>Transfer Run</strong>{' '}
-                (<code>pro_transferrun</code>): status Queued + the package's
-                targets snapshotted. The external executor picks it up and
-                writes status, summary and a result log back — the Runs list
-                below the entries polls while a run is active; click a row to
-                see its log.
+                (<code>pro_transferrun</code>) — either <strong>Run now</strong>{' '}
+                (status Queued) or <strong>Run later</strong> with a date/time
+                (status Scheduled; a scheduler flow promotes due runs every few
+                minutes). The package's targets are snapshotted onto the run.
+                The executor writes status, summary and a result log back — the
+                Runs list below the entries shows the scheduled time, polls
+                while a run is active, lets you cancel Queued/Scheduled runs
+                (✕) and opens the log on row click.
               </li>
               <li>
                 The pipeline contract (tables, choice codes, run-queue

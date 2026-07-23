@@ -131,7 +131,8 @@ $orphanOpts    = @((New-DvOption 867520000 'Ignore'), (New-DvOption 867520001 'D
 $runStatusOpts = @(
   (New-DvOption 867520000 'Queued'), (New-DvOption 867520001 'Running'),
   (New-DvOption 867520002 'Succeeded'), (New-DvOption 867520003 'Failed'),
-  (New-DvOption 867520004 'Partially succeeded'), (New-DvOption 867520005 'Cancelled'))
+  (New-DvOption 867520004 'Partially succeeded'), (New-DvOption 867520005 'Cancelled'),
+  (New-DvOption 867520006 'Scheduled'))
 
 # ---- 3. Entities -----------------------------------------------------------
 # Each: SchemaName, primary attr (schema/max/req), ownership, set name, display
@@ -253,6 +254,7 @@ $columns = @{
   "${p}_transferrun" = @(
     (PickAttr "${p}_status_opt" 'ApplicationRequired' 'Status' $runStatusOpts),
     (StrAttr  "${p}_targetenvs_str" 400 'None' 'Target environment keys'),
+    (DateAttr "${p}_scheduledfor_dat" 'UserLocal' 'None' 'Scheduled for'),
     (DateAttr "${p}_startedon_dat" 'UserLocal' 'None' 'Started on'),
     (DateAttr "${p}_finishedon_dat" 'UserLocal' 'None' 'Finished on'),
     (StrAttr  "${p}_summary_str" 1000 'None' 'Summary'),
@@ -269,6 +271,23 @@ foreach ($tbl in $columns.Keys) {
     Write-Host "  + $ln" -ForegroundColor Green
   }
 }
+
+# ---- 4b. Option additions on existing choice columns (idempotent) ----------
+# New options on already-provisioned picklists are NOT covered by the column
+# loop above (it skips existing attributes) — insert them explicitly.
+function Add-OptionValue($table,$attr,$value,$label) {
+  $meta = Invoke-Dv -Method GET -Path "EntityDefinitions(LogicalName='$table')/Attributes(LogicalName='$attr')/Microsoft.Dynamics.CRM.PicklistAttributeMetadata?`$select=LogicalName&`$expand=OptionSet(`$select=Options)"
+  $existing = @($meta.OptionSet.Options | ForEach-Object { $_.Value })
+  if ($existing -contains $value) { Write-Host "  opt $attr/$value exists." -ForegroundColor DarkGray; return }
+  Invoke-Dv -Method POST -Path 'InsertOptionValue' -Body @{
+    EntityLogicalName    = $table
+    AttributeLogicalName = $attr
+    Value                = $value
+    Label                = (New-DvLabel $label)
+  } -Solution $SolutionUniqueName | Out-Null
+  Write-Host "  + opt $attr/$value ($label)" -ForegroundColor Green
+}
+Add-OptionValue "${p}_transferrun" "${p}_status_opt" 867520006 'Scheduled'
 
 # ---- 5. Lookups (one-to-many relationships) --------------------------------
 function New-Lookup($relSchema,$referenced,$referencedId,$referencing,$navProp,$lookupSchema,$req,$display,$deleteCascade='RemoveLink') {
