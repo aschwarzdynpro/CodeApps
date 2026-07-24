@@ -81,9 +81,11 @@ export function ProvisioningWizard({
   const [roleNames, setRoleNames] = useState<string[]>([])
   const [settings, setSettings] = useState<WizardSettings>(emptySettings)
   const [envRows, setEnvRows] = useState<WizardEnvRow[]>([])
-  // Per-row id-detection status (keyed by row index).
+  // Per-row id-detection status (keyed by row index). 'partial' = one id read
+  // but not the other (typically the org id came through, the environment id
+  // isn't exposed by that environment).
   const [resolveStatus, setResolveStatus] = useState<
-    Record<number, 'loading' | 'ok' | 'fail'>
+    Record<number, 'loading' | 'ok' | 'partial' | 'fail'>
   >({})
 
   useEffect(() => {
@@ -238,23 +240,31 @@ export function ProvisioningWizard({
     })
   }
 
-  // Read the chosen org's environment id + organization id from its
-  // `organization` row (via the connector) and fill both fields.
+  // Read the chosen org's ids and fill the fields. The organization id comes
+  // from the org's `organization` row (via the connector). The environment id
+  // is a Power Platform concept that Dataverse rarely stores, so it only comes
+  // through when `organization.microsoftflowenvironment` is populated; for the
+  // current (host) environment we fall back to the id from the Power Apps host
+  // context. Other environments' ids stay manual (see the status hint).
   const resolveIds = async (index: number) => {
     const row = envRows[index]
     if (!row || !isHttpUrl(row.url)) return
     setResolveStatus((s) => ({ ...s, [index]: 'loading' }))
     try {
       const ids = await solutionService.resolveEnvironmentIds(row.url)
-      if (ids && (ids.environmentId || ids.organizationId)) {
-        const patch: Partial<WizardEnvRow> = {}
-        if (ids.environmentId) patch.environmentId = ids.environmentId
-        if (ids.organizationId) patch.organizationId = ids.organizationId
-        updateRow(index, patch)
-        setResolveStatus((s) => ({ ...s, [index]: 'ok' }))
-      } else {
-        setResolveStatus((s) => ({ ...s, [index]: 'fail' }))
-      }
+      const patch: Partial<WizardEnvRow> = {}
+      if (ids?.organizationId) patch.organizationId = ids.organizationId
+      let envId = ids?.environmentId ?? ''
+      if (!envId && row.isCurrent && hostEnvironmentId) envId = hostEnvironmentId
+      if (envId) patch.environmentId = envId
+      if (Object.keys(patch).length > 0) updateRow(index, patch)
+      const status =
+        patch.environmentId && patch.organizationId
+          ? 'ok'
+          : patch.environmentId || patch.organizationId
+            ? 'partial'
+            : 'fail'
+      setResolveStatus((s) => ({ ...s, [index]: status }))
     } catch {
       setResolveStatus((s) => ({ ...s, [index]: 'fail' }))
     }
@@ -408,9 +418,10 @@ export function ProvisioningWizard({
             <h3>Environments</h3>
             <p className="muted">
               Pick the environments this app manages. After you choose an org URL
-              the wizard reads that environment’s <strong>environment id</strong>{' '}
-              and <strong>organization id</strong> automatically (from its
-              organization record) — use <em>⟲ Detect ids</em> to re-read them.
+              the wizard reads the <strong>organization id</strong> automatically
+              (<em>⟲ Detect ids</em> to re-read). The <strong>environment id</strong>{' '}
+              is filled for the current environment; other environments rarely
+              expose it, so paste it there if you want maker/portal deep links.
               Both stay editable.
             </p>
             {orgs.length > 0 && (
@@ -523,7 +534,22 @@ export function ProvisioningWizard({
                   </div>
                   {resolveStatus[i] === 'ok' && (
                     <p className="wizard-resolve-status wizard-resolve-status--ok">
-                      ✓ Ids read from the environment.
+                      ✓ Environment id and organization id read from the environment.
+                    </p>
+                  )}
+                  {resolveStatus[i] === 'partial' && (
+                    <p className="wizard-resolve-status wizard-resolve-status--warn">
+                      Organization id read. This environment doesn’t expose its
+                      environment id — copy it from{' '}
+                      <a
+                        href="https://admin.powerplatform.com/environments"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        admin.powerplatform.com
+                      </a>{' '}
+                      (Environments → your env → Environment ID) if you need
+                      maker/portal deep links.
                     </p>
                   )}
                   {resolveStatus[i] === 'fail' && (

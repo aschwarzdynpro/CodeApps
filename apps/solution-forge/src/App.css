@@ -7500,6 +7500,13 @@
 .wizard-resolve-status--ok {
   color: #2f9e6b;
 }
+.wizard-resolve-status--warn {
+  color: #9a6b00;
+  font-weight: 500;
+}
+.wizard-resolve-status--warn a {
+  color: var(--brand);
+}
 .wizard-resolve-status--fail {
   color: #b42318;
 }

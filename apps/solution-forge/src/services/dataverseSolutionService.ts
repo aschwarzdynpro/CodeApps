@@ -89,6 +89,7 @@ import {
   buildEnvironmentConfigRecords,
   buildWorkbenchSettingsCore,
   buildWorkbenchSettingsOptional,
+  isHttpUrl,
   normalizeUrl,
 } from '../utils/provisioning'
 import { odataQuery, rowStr } from './currentEnvQuery'
@@ -920,8 +921,12 @@ export class DataverseSolutionService implements SolutionService {
         Url?: string
         FriendlyName?: string
       }>
+      // GetOrganizations also returns a synthetic "current" alias (Url:
+      // "current", FriendlyName: "(Current)") for the host org — it isn't a real
+      // URL and just duplicates whichever real org is current, so drop it and
+      // keep only genuine https org URLs.
       return items
-        .filter((o) => typeof o.Url === 'string' && o.Url)
+        .filter((o) => typeof o.Url === 'string' && isHttpUrl(o.Url))
         .map((o) => ({ url: o.Url as string, name: o.FriendlyName ?? '' }))
     } catch (err) {
       console.warn('[provisioning] GetOrganizations failed:', err)

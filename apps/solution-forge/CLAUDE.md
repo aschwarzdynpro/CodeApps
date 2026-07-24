@@ -117,11 +117,17 @@ etwas leer, wird die ganze Shell durch den **hart blockierenden** Wizard ersetzt
 `applyRuntimeConfig` → `configVersion++` → `reload()` (kein Neuladen nötig).
 Schritte (Essentials Pflicht + Advanced optional): Environments (Auswahl aus
 `MicrosoftDataverseService.GetOrganizations()` = erreichbare Orgs des Connector-
-SP, nur URL+FriendlyName; **beide IDs werden nach URL-Wahl automatisch
-ausgelesen** — `resolveEnvironmentIds(orgUrl)` liest die `organization`-Zeile der
-Ziel-Org via Konnektor: `microsoftflowenvironment` = Power-Platform-Environment-
-ID (maker/portal-GUID), `organizationid` = Dataverse-Org-ID; on-blur + „⟲ Detect
-ids"-Button, beide Felder bleiben editierbar), Publisher (`listPublishers`/
+SP, nur URL+FriendlyName; der synthetische **„current"-Alias-Eintrag**
+(`Url:"current"`) wird in `listReachableOrganizations` per `isHttpUrl` gefiltert.
+Nach URL-Wahl liest `resolveEnvironmentIds(orgUrl)` die `organization`-Zeile der
+Ziel-Org via Konnektor: `organizationid` = Dataverse-Org-ID (**zuverlässig**),
+`microsoftflowenvironment` = Power-Platform-Environment-ID (**oft leer** — die
+Env-ID ist ein BAP-Konzept, das Dataverse selten materialisiert; `GetOrganizations`
+kennt sie intern, exponiert sie aber NICHT). Deshalb: **Org-ID auto überall**,
+**Env-ID auto nur für die Host-Env** (Fallback aus `usePower()` in `resolveIds`,
+wenn `microsoftflowenvironment` leer); andere Env-IDs bleiben manuell (Status
+„partial" mit admin.powerplatform.com-Hinweis). on-blur + „⟲ Detect ids"-Button,
+beide Felder editierbar), Publisher (`listPublishers`/
 `getDefaultPublisher`), Deployment-
 Manager-Rolle (`listRoleNames` = distinct `role.name`), ADO + Flow-Definition
 (einklappbar). Pure Funktionen `utils/provisioning.ts` (Vitest):
