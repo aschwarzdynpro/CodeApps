@@ -11,6 +11,7 @@ import type {
 import {
   ENV_KEYS,
   emptySettings,
+  isHttpUrl,
   suggestEnvRows,
   validateProvisioning,
 } from '../utils/provisioning'
@@ -80,6 +81,10 @@ export function ProvisioningWizard({
   const [roleNames, setRoleNames] = useState<string[]>([])
   const [settings, setSettings] = useState<WizardSettings>(emptySettings)
   const [envRows, setEnvRows] = useState<WizardEnvRow[]>([])
+  // Per-row id-detection status (keyed by row index).
+  const [resolveStatus, setResolveStatus] = useState<
+    Record<number, 'loading' | 'ok' | 'fail'>
+  >({})
 
   useEffect(() => {
     let cancelled = false
@@ -225,6 +230,34 @@ export function ProvisioningWizard({
       url,
       ...(match && labelIsDefault && match.name ? { label: match.name } : {}),
     })
+    // The URL changed → any previously detected ids are stale.
+    setResolveStatus((s) => {
+      const next = { ...s }
+      delete next[index]
+      return next
+    })
+  }
+
+  // Read the chosen org's environment id + organization id from its
+  // `organization` row (via the connector) and fill both fields.
+  const resolveIds = async (index: number) => {
+    const row = envRows[index]
+    if (!row || !isHttpUrl(row.url)) return
+    setResolveStatus((s) => ({ ...s, [index]: 'loading' }))
+    try {
+      const ids = await solutionService.resolveEnvironmentIds(row.url)
+      if (ids && (ids.environmentId || ids.organizationId)) {
+        const patch: Partial<WizardEnvRow> = {}
+        if (ids.environmentId) patch.environmentId = ids.environmentId
+        if (ids.organizationId) patch.organizationId = ids.organizationId
+        updateRow(index, patch)
+        setResolveStatus((s) => ({ ...s, [index]: 'ok' }))
+      } else {
+        setResolveStatus((s) => ({ ...s, [index]: 'fail' }))
+      }
+    } catch {
+      setResolveStatus((s) => ({ ...s, [index]: 'fail' }))
+    }
   }
 
   const handleSave = async () => {
@@ -374,9 +407,11 @@ export function ProvisioningWizard({
           <div className="wizard-panel">
             <h3>Environments</h3>
             <p className="muted">
-              Pick the environments this app manages. The current (host) one is
-              pre-selected with its environment id filled in; for the others the
-              id is optional (used only for maker/portal deep links).
+              Pick the environments this app manages. After you choose an org URL
+              the wizard reads that environment’s <strong>environment id</strong>{' '}
+              and <strong>organization id</strong> automatically (from its
+              organization record) — use <em>⟲ Detect ids</em> to re-read them.
+              Both stay editable.
             </p>
             {orgs.length > 0 && (
               <p className="muted">
@@ -395,7 +430,7 @@ export function ProvisioningWizard({
             <div className="wizard-env-rows">
               {envRows.map((row, i) => (
                 <div className="wizard-env-row" key={i}>
-                  <div className="wizard-env-grid">
+                  <div className="wizard-env-grid wizard-env-grid--top">
                     <label className="wizard-field wizard-field--current">
                       <span>Current</span>
                       <input
@@ -405,7 +440,7 @@ export function ProvisioningWizard({
                         onChange={() => makeCurrent(i)}
                       />
                     </label>
-                    <label className="wizard-field wizard-field--key">
+                    <label className="wizard-field">
                       <span>Key</span>
                       <select
                         value={row.key}
@@ -418,7 +453,7 @@ export function ProvisioningWizard({
                         ))}
                       </select>
                     </label>
-                    <label className="wizard-field wizard-field--label">
+                    <label className="wizard-field">
                       <span>Label</span>
                       <input
                         type="text"
@@ -427,17 +462,20 @@ export function ProvisioningWizard({
                         placeholder="e.g. UAT"
                       />
                     </label>
-                    <label className="wizard-field wizard-field--url">
+                    <label className="wizard-field">
                       <span>Org URL</span>
                       <input
                         type="text"
                         list="wizard-reachable-orgs"
                         value={row.url}
                         onChange={(e) => onPickUrl(i, e.target.value)}
+                        onBlur={() => void resolveIds(i)}
                         placeholder="https://org.crm4.dynamics.com"
                       />
                     </label>
-                    <label className="wizard-field wizard-field--envid">
+                  </div>
+                  <div className="wizard-env-grid wizard-env-grid--ids">
+                    <label className="wizard-field">
                       <span>
                         Environment id {row.isCurrent ? '' : '(optional)'}
                       </span>
@@ -445,9 +483,34 @@ export function ProvisioningWizard({
                         type="text"
                         value={row.environmentId}
                         onChange={(e) => updateRow(i, { environmentId: e.target.value })}
-                        placeholder={row.isCurrent ? 'auto' : 'from admin.powerplatform.com'}
+                        placeholder="detected from the URL"
                       />
                     </label>
+                    <label className="wizard-field">
+                      <span>Organization id (optional)</span>
+                      <input
+                        type="text"
+                        value={row.organizationId ?? ''}
+                        onChange={(e) =>
+                          updateRow(i, { organizationId: e.target.value })
+                        }
+                        placeholder="detected from the URL"
+                      />
+                    </label>
+                    <div className="wizard-field wizard-field--detect">
+                      <span aria-hidden="true">&nbsp;</span>
+                      <button
+                        type="button"
+                        className="wizard-detect-btn"
+                        onClick={() => void resolveIds(i)}
+                        disabled={
+                          !isHttpUrl(row.url) || resolveStatus[i] === 'loading'
+                        }
+                        title="Read the environment id and organization id from the chosen environment"
+                      >
+                        {resolveStatus[i] === 'loading' ? 'Detecting…' : '⟲ Detect ids'}
+                      </button>
+                    </div>
                     <button
                       className="wizard-env-remove"
                       onClick={() => removeRow(i)}
@@ -458,6 +521,17 @@ export function ProvisioningWizard({
                       ✕
                     </button>
                   </div>
+                  {resolveStatus[i] === 'ok' && (
+                    <p className="wizard-resolve-status wizard-resolve-status--ok">
+                      ✓ Ids read from the environment.
+                    </p>
+                  )}
+                  {resolveStatus[i] === 'fail' && (
+                    <p className="wizard-resolve-status wizard-resolve-status--fail">
+                      Could not read the ids from this environment — enter them
+                      manually.
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

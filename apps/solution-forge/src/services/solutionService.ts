@@ -62,6 +62,16 @@ export interface SolutionService {
    * environment picker. The connector only exposes URL + friendly name.
    */
   listReachableOrganizations(): Promise<ReachableOrg[]>
+  /**
+   * Reads a target org's ids from its `organization` row via the connector so
+   * the wizard can auto-fill them instead of asking the user to paste GUIDs:
+   * the Power Platform environment id (`microsoftflowenvironment`, the id used
+   * in maker/portal URLs) and the Dataverse organization id (`organizationid`).
+   * Null when the org can't be read.
+   */
+  resolveEnvironmentIds(
+    orgUrl: string,
+  ): Promise<{ environmentId: string; organizationId: string } | null>
   /** Distinct security-role names (for the deployment-manager-role picker). */
   listRoleNames(): Promise<string[]>
   /**

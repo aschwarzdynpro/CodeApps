@@ -163,6 +163,20 @@ export class MockSolutionService {
     ]
   }
 
+  async resolveEnvironmentIds(
+    orgUrl: string,
+  ): Promise<{ environmentId: string; organizationId: string } | null> {
+    await delay(300)
+    if (!orgUrl) return null
+    // Deterministic fake ids derived from the URL so the offline demo shows the
+    // auto-fill behaviour.
+    const seed = orgUrl.replace(/[^a-z0-9]/gi, '').toLowerCase().slice(-8).padStart(8, '0')
+    return {
+      environmentId: `${seed}-0000-4000-9000-0000000000e1`,
+      organizationId: `${seed}-0000-4000-9000-0000000000a2`,
+    }
+  }
+
   async listRoleNames(): Promise<string[]> {
     await delay(120)
     return [

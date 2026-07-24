@@ -117,8 +117,12 @@ etwas leer, wird die ganze Shell durch den **hart blockierenden** Wizard ersetzt
 `applyRuntimeConfig` → `configVersion++` → `reload()` (kein Neuladen nötig).
 Schritte (Essentials Pflicht + Advanced optional): Environments (Auswahl aus
 `MicrosoftDataverseService.GetOrganizations()` = erreichbare Orgs des Connector-
-SP, nur URL+FriendlyName; Env-ID der Host-Env auto aus `usePower()`, für andere
-optional), Publisher (`listPublishers`/`getDefaultPublisher`), Deployment-
+SP, nur URL+FriendlyName; **beide IDs werden nach URL-Wahl automatisch
+ausgelesen** — `resolveEnvironmentIds(orgUrl)` liest die `organization`-Zeile der
+Ziel-Org via Konnektor: `microsoftflowenvironment` = Power-Platform-Environment-
+ID (maker/portal-GUID), `organizationid` = Dataverse-Org-ID; on-blur + „⟲ Detect
+ids"-Button, beide Felder bleiben editierbar), Publisher (`listPublishers`/
+`getDefaultPublisher`), Deployment-
 Manager-Rolle (`listRoleNames` = distinct `role.name`), ADO + Flow-Definition
 (einklappbar). Pure Funktionen `utils/provisioning.ts` (Vitest):
 `suggestEnvRows`/`validateProvisioning`/`buildWorkbenchSettingsCore|Optional`/

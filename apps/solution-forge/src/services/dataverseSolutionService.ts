@@ -89,7 +89,9 @@ import {
   buildEnvironmentConfigRecords,
   buildWorkbenchSettingsCore,
   buildWorkbenchSettingsOptional,
+  normalizeUrl,
 } from '../utils/provisioning'
+import { odataQuery, rowStr } from './currentEnvQuery'
 
 /**
  * Real implementation of {@link SolutionService} backed by the Dataverse
@@ -924,6 +926,36 @@ export class DataverseSolutionService implements SolutionService {
     } catch (err) {
       console.warn('[provisioning] GetOrganizations failed:', err)
       return []
+    }
+  }
+
+  async resolveEnvironmentIds(
+    orgUrl: string,
+  ): Promise<{ environmentId: string; organizationId: string } | null> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.resolveEnvironmentIds(orgUrl)
+    const url = normalizeUrl(orgUrl)
+    if (!url) return null
+    try {
+      // Read the target org's own `organization` row via the connector.
+      // `microsoftflowenvironment` holds the Power Platform environment id (the
+      // GUID used in maker/portal URLs); `organizationid` is the Dataverse org
+      // id. Runs as the connector SP — it needs read on `organization` there.
+      const rows = await odataQuery(
+        'organizations',
+        'organizationid,microsoftflowenvironment',
+        { orgUrl: url },
+      )
+      const row = rows[0]
+      if (!row) return null
+      return {
+        environmentId: rowStr(row.microsoftflowenvironment),
+        organizationId: rowStr(row.organizationid),
+      }
+    } catch (err) {
+      console.warn('[provisioning] resolveEnvironmentIds failed:', err)
+      return null
     }
   }
 
