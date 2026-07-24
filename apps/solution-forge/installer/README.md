@@ -12,9 +12,9 @@ install is correct by construction (no per-customer prefix rewrite).
 | --- | --- |
 | `install.ps1` | **Interactive installer (start here).** Prereqs → device-code login → data model → connection → customer config → settings seed → `.env.local` → app push → checklist. |
 | `lib/Dataverse.ps1` | Shared helpers: token (cached Az context → device-code fallback), `Invoke-Dv` Web API wrapper, metadata label/option helpers. |
-| `provision-model.ps1` | Creates publisher + solution + the 4 `pro_` tables (columns, choices with pinned values, lookups). Idempotent. Called by `install.ps1`. |
+| `provision-model.ps1` | Creates publisher + solution + all `pro_` tables (columns, choices with pinned values, lookups). Idempotent. Called by `install.ps1`. |
 | `migrate-int11.ps1` | One-off: copies the legacy `ssid_`/`sst_` data on INT-11 into the `pro_` model (lookup remap, `createdon` preserved). Dry-run by default; `-Execute` writes. |
-| `package/DynamicsProSolutionAdminConsole_managed.zip` | Managed solution export of the `pro_` data model — for solution-import-based installs (`pac solution import`) instead of the script-based provisioning the wizard uses. |
+| `package/DynamicsProSolutionAdminConsole_managed.zip` | **Full-app managed solution export** (`pro_` tables + the transfer-executor cloud flows + the Code App) — for solution-import-based installs (`pac solution import`) instead of the script-based provisioning the wizard uses. Refreshed from playground alongside the versioned copies in [`../releases/`](../releases/); after import, bind the connection reference and activate the flows (see the releases README). |
 
 ## Usage
 

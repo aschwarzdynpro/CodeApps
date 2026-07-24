@@ -35,6 +35,6 @@ See `docs/transfer-hub-contract.md` for the executor internals and
 
 - These are **managed** exports — the target environment cannot customize the
   components in place; re-export from playground after authoring changes.
-- The data-model-only managed zip under `installer/package/` is an older,
-  narrower artifact (the `pro_` tables only) kept for the installer's
-  data-model-import path; it is **not** a full-app release.
+- `installer/package/DynamicsProSolutionAdminConsole_managed.zip` holds the
+  same full-app managed export under a stable, unversioned filename (kept in
+  sync with the newest release here) for the installer's import path.
