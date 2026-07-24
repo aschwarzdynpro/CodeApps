@@ -41,6 +41,5 @@ See `docs/transfer-hub-contract.md` for the executor internals and
 
 - These are **managed** exports — the target environment cannot customize the
   components in place; re-export from playground after authoring changes.
-- `installer/package/DynamicsProSolutionAdminConsole_managed.zip` holds the
-  same full-app managed export under a stable, unversioned filename (kept in
-  sync with the newest release here) for the installer's import path.
+- This folder is the **single home** for the managed export; the installer
+  (`installer/README.md`) points here instead of keeping its own copy.
