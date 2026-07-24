@@ -75,8 +75,21 @@ import { RolesService } from '../generated/services/RolesService'
 import type { Solutions, SolutionsBase } from '../generated/models/SolutionsModel'
 import type { Solutioncomponents } from '../generated/models/SolutioncomponentsModel'
 import type { Publishers } from '../generated/models/PublishersModel'
+import type { Roles } from '../generated/models/RolesModel'
+import type { Pro_workbenchsettingsesBase } from '../generated/models/Pro_workbenchsettingsesModel'
+import type { Pro_environmentconfigsBase } from '../generated/models/Pro_environmentconfigsModel'
 import type { IGetAllOptions } from '../generated/models/CommonModels'
 import type { IOperationResult } from '@microsoft/power-apps/data'
+import type {
+  ProvisioningInput,
+  ProvisioningState,
+  ReachableOrg,
+} from '../types/provisioning'
+import {
+  buildEnvironmentConfigRecords,
+  buildWorkbenchSettingsCore,
+  buildWorkbenchSettingsOptional,
+} from '../utils/provisioning'
 
 /**
  * Real implementation of {@link SolutionService} backed by the Dataverse
@@ -863,6 +876,165 @@ export class DataverseSolutionService implements SolutionService {
       console.warn('[config] environment config read failed:', err)
     }
     return cfg
+  }
+
+  async getProvisioningState(): Promise<ProvisioningState> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.getProvisioningState()
+    // Fail open: any read error is treated as "already present" so a transient
+    // hiccup never traps the user in the (hard-blocking) wizard.
+    let hasSettings = true
+    let hasEnvironments = true
+    try {
+      const s = await Pro_workbenchsettingsesService.getAll({
+        select: ['pro_workbenchsettingsid'],
+        top: 1,
+      })
+      hasSettings = (s.data?.length ?? 0) > 0
+    } catch (err) {
+      console.warn('[provisioning] settings probe failed (assumed present):', err)
+    }
+    try {
+      const e = await Pro_environmentconfigsService.getAll({
+        select: ['pro_environmentconfigid'],
+        top: 1,
+      })
+      hasEnvironments = (e.data?.length ?? 0) > 0
+    } catch (err) {
+      console.warn('[provisioning] environment probe failed (assumed present):', err)
+    }
+    return { hasSettings, hasEnvironments }
+  }
+
+  async listReachableOrganizations(): Promise<ReachableOrg[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.listReachableOrganizations()
+    try {
+      const result = await MicrosoftDataverseService.GetOrganizations()
+      if (!result.success) return []
+      const items = (result.data?.value ?? []) as Array<{
+        Url?: string
+        FriendlyName?: string
+      }>
+      return items
+        .filter((o) => typeof o.Url === 'string' && o.Url)
+        .map((o) => ({ url: o.Url as string, name: o.FriendlyName ?? '' }))
+    } catch (err) {
+      console.warn('[provisioning] GetOrganizations failed:', err)
+      return []
+    }
+  }
+
+  async listRoleNames(): Promise<string[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return mockSolutionService.listRoleNames()
+    try {
+      const rows = await fetchAll(
+        (o) => RolesService.getAll(o),
+        { select: ['name'], orderBy: ['name asc'] },
+      )
+      if (!rows) return []
+      const names = new Set<string>()
+      for (const r of rows as Roles[]) {
+        const n = (r.name ?? '').trim()
+        if (n) names.add(n)
+      }
+      return [...names].sort((a, b) => a.localeCompare(b))
+    } catch (err) {
+      console.warn('[provisioning] listRoleNames failed:', err)
+      return []
+    }
+  }
+
+  async saveProvisioning(input: ProvisioningInput): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockSolutionService.saveProvisioning(input)
+    // Idempotent upsert so the (blocking) first run, a re-run, and the
+    // "Environment Setup" edit entry all converge without duplicate records.
+
+    // 1) Workbench Settings — update the single record if present, else create.
+    //    Core columns are present on every provisioned model.
+    const core = buildWorkbenchSettingsCore(input.settings)
+    let settingsId: string | undefined
+    try {
+      const existing = await Pro_workbenchsettingsesService.getAll({
+        select: ['pro_workbenchsettingsid'],
+        top: 1,
+      })
+      settingsId = existing.data?.[0]?.pro_workbenchsettingsid
+    } catch (err) {
+      console.warn('[provisioning] existing-settings lookup failed:', err)
+    }
+    if (settingsId) {
+      const res = await Pro_workbenchsettingsesService.update(
+        settingsId,
+        core as Partial<Omit<Pro_workbenchsettingsesBase, 'pro_workbenchsettingsid'>>,
+      )
+      if (!res.success) {
+        console.warn('[provisioning] workbench settings update failed:', res)
+        throw new Error('Could not update the Workbench Settings record.')
+      }
+    } else {
+      const created = await Pro_workbenchsettingsesService.create(
+        core as unknown as Omit<Pro_workbenchsettingsesBase, 'pro_workbenchsettingsid'>,
+      )
+      if (!created.success || !created.data) {
+        console.warn('[provisioning] workbench settings create failed:', created)
+        throw new Error(
+          'Could not create the Workbench Settings record — check that the ' +
+            'pro_workbenchsettings table exists and you have create rights.',
+        )
+      }
+      settingsId = created.data.pro_workbenchsettingsid
+    }
+
+    // 2) Best-effort patch of the optional / newer (flow-definition) columns.
+    //    A target whose schema predates them must still provision, so a failure
+    //    here is logged, not thrown (mirrors the split reads in getRuntimeConfig).
+    const optional = buildWorkbenchSettingsOptional(input.settings)
+    if (settingsId && Object.keys(optional).length > 0) {
+      try {
+        await Pro_workbenchsettingsesService.update(
+          settingsId,
+          optional as Partial<Omit<Pro_workbenchsettingsesBase, 'pro_workbenchsettingsid'>>,
+        )
+      } catch (err) {
+        console.warn(
+          '[provisioning] flow-definition columns not written (may be absent):',
+          err,
+        )
+      }
+    }
+
+    // 3) Environment config — reconcile by clearing existing rows then creating
+    //    the current set (env config has no inbound references, so this is safe
+    //    and keeps a re-run from accumulating duplicates).
+    try {
+      const existingEnvs = await Pro_environmentconfigsService.getAll({
+        select: ['pro_environmentconfigid'],
+      })
+      for (const row of existingEnvs.data ?? []) {
+        const id = row.pro_environmentconfigid
+        if (id) await Pro_environmentconfigsService.delete(id)
+      }
+    } catch (err) {
+      console.warn('[provisioning] clearing existing environment rows failed:', err)
+    }
+    const envRecords = buildEnvironmentConfigRecords(input.environments)
+    for (const rec of envRecords) {
+      const res = await Pro_environmentconfigsService.create(
+        rec as unknown as Omit<Pro_environmentconfigsBase, 'pro_environmentconfigid'>,
+      )
+      if (!res.success) {
+        console.warn('[provisioning] environment-config create failed:', res, rec)
+        throw new Error(
+          `Could not create the environment record "${String(rec.pro_name)}".`,
+        )
+      }
+    }
   }
 
   async createWorkingSolution(

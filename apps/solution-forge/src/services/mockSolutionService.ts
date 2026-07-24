@@ -20,6 +20,11 @@ import type {
   LayerSection,
 } from '../types/layers'
 import { buildUniqueName } from '../utils/naming'
+import type {
+  ProvisioningInput,
+  ProvisioningState,
+  ReachableOrg,
+} from '../types/provisioning'
 import type { RuntimeConfig } from '../config'
 import { LAYER_IGNORED_TYPES } from './componentLayerNames'
 import {
@@ -137,6 +142,41 @@ export class MockSolutionService {
   async getRuntimeConfig(): Promise<RuntimeConfig> {
     // Offline/mock: keep the build-time defaults (config.ts) — no overrides.
     return {}
+  }
+
+  // In-memory provisioning state: null on first run so the wizard is
+  // demonstrable offline; set once saveProvisioning() runs.
+  private lastProvisioning: ProvisioningInput | null = null
+
+  async getProvisioningState(): Promise<ProvisioningState> {
+    await delay(120)
+    const done = this.lastProvisioning !== null
+    return { hasSettings: done, hasEnvironments: done }
+  }
+
+  async listReachableOrganizations(): Promise<ReachableOrg[]> {
+    await delay(200)
+    return [
+      { url: 'https://contoso-dev.crm4.dynamics.com', name: 'Contoso — DEV' },
+      { url: 'https://contoso-uat.crm4.dynamics.com', name: 'Contoso — UAT' },
+      { url: 'https://contoso-prod.crm4.dynamics.com', name: 'Contoso — PROD' },
+    ]
+  }
+
+  async listRoleNames(): Promise<string[]> {
+    await delay(120)
+    return [
+      'INT | Deployment Manager',
+      'System Administrator',
+      'System Customizer',
+      'Environment Maker',
+      'Basic User',
+    ]
+  }
+
+  async saveProvisioning(input: ProvisioningInput): Promise<void> {
+    await delay(500)
+    this.lastProvisioning = input
   }
 
   async createWorkingSolution(

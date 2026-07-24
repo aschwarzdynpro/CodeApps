@@ -14,6 +14,11 @@ import type {
 } from '../types/solution'
 import type { DependencyCheckResult } from '../types/dependency'
 import type { LayerInspectionResult, LayerSection } from '../types/layers'
+import type {
+  ProvisioningInput,
+  ProvisioningState,
+  ReachableOrg,
+} from '../types/provisioning'
 import type { RuntimeConfig } from '../config'
 import { dataverseSolutionService } from './dataverseSolutionService'
 
@@ -45,6 +50,26 @@ export interface SolutionService {
    * config is data-driven, not baked into the bundle. Missing values fall back.
    */
   getRuntimeConfig(): Promise<RuntimeConfig>
+  /**
+   * First-run provisioning state: whether the runtime-config records
+   * (`pro_workbenchsettings` / `pro_environmentconfig`) already exist. The app
+   * shows the Self-Provisioning Wizard when they don't. Reads fail open (any
+   * error reports "present") so a transient read hiccup never blocks the app.
+   */
+  getProvisioningState(): Promise<ProvisioningState>
+  /**
+   * Organizations the connector (service principal) can reach, for the wizard's
+   * environment picker. The connector only exposes URL + friendly name.
+   */
+  listReachableOrganizations(): Promise<ReachableOrg[]>
+  /** Distinct security-role names (for the deployment-manager-role picker). */
+  listRoleNames(): Promise<string[]>
+  /**
+   * Persists the wizard's configuration: one `pro_workbenchsettings` record
+   * (core fields, then optional/newer columns best-effort) plus one
+   * `pro_environmentconfig` record per configured environment.
+   */
+  saveProvisioning(input: ProvisioningInput): Promise<void>
   /** Publishers available for new working solutions. */
   listPublishers(): Promise<PublisherInfo[]>
   /**

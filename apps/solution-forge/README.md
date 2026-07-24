@@ -43,11 +43,24 @@ nach Typ.
 
 ## Features
 
+- **Self-Provisioning Wizard** (Reference › **Environment Setup**): geführtes
+  Erst-Setup für eine neue Umgebung. Startet die App ohne Konfiguration, blendet
+  der Wizard **hart blockierend** vor und legt die nötigen **Datensätze** an
+  (`pro_workbenchsettings` + je Umgebung `pro_environmentconfig`) — die Tabellen
+  selbst kommen aus der Managed Solution / `installer/provision-model.ps1`. Er
+  unterstützt den Anwender maximal: bietet die per Konnektor **erreichbaren
+  Environments** zur Auswahl (`GetOrganizations`), füllt die Environment-ID der
+  aktuellen Umgebung automatisch, schlägt Publisher (`getDefaultPublisher`) und
+  Deployment-Manager-Rolle vor und macht ADO/Flow-Definition optional. Pflicht:
+  Environments, Publisher, Rolle; alles andere überspringbar. Speichern ist ein
+  **idempotenter Upsert** (kein Duplikat bei Re-Run), lädt die Config live nach
+  (kein Reload) und dieselbe Ansicht dient im Edit-Modus zum Nachpflegen.
 - **Navigation**: linke Sidebar, gruppiert in **Manage** (Workbench, Merge,
   Merge Rules, Release Notes, Timeline, Data Transfer), **Validate**
   (Deployment Readiness, Analyze, Env Config, Audit Config, Dual-Write Maps,
   Import History, User Settings, Process Comparer, Plugin Comparer),
-  **Operate** (Plugin Traces) und **Reference** (Links). Gated-Einträge
+  **Operate** (Plugin Traces) und **Reference** (Links, Environment Setup).
+  Gated-Einträge
   (Schloss) brauchen die Rolle **„INT | Deployment Manager"**; Workbench,
   Merge, Release Notes, Timeline, Plugin Traces und Links stehen allen
   offen. Compare, Layer Inspector und App Sharing sind Tabs **innerhalb von

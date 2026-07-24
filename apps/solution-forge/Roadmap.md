@@ -153,8 +153,18 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
 - [x] **Merge-Historie als Tabelle** (statt nur „letzter Merge") — Grundlage
       für die Release Notes. *(Tabelle `pro_mergerun`, Detail-Panel der
       Release-Solution)*
-- [ ] **Steuertabelle ausbauen** (`pro_workbenchsetting`): Umgebungs-URLs,
-      Rollen-Name, Feature-Flags konfigurierbar statt hart in `config.ts`.
+- [x] **Self-Provisioning Wizard** (Reference › „Environment Setup"): geführtes
+      Erst-Setup, das beim Start ohne Konfiguration hart blockierend vorblendet
+      und die Steuer-Datensätze anlegt (`pro_workbenchsettings` + je Umgebung
+      `pro_environmentconfig`). Bietet die per Konnektor erreichbaren
+      Environments zur Auswahl (`GetOrganizations`), Publisher-/Rollen-Auswahl,
+      Defaults; ADO/Flow-Definition optional. Idempotenter Upsert, lädt die
+      Config live nach; derselbe Wizard im Edit-Modus zum Nachpflegen.
+      *(Pure Utils `utils/provisioning.ts`, Vitest.)*
+- [~] **Steuertabelle ausbauen** (`pro_workbenchsetting`): Umgebungs-URLs,
+      Rollen-Name, ADO/Flow-Definition sind jetzt über den Self-Provisioning
+      Wizard (Records statt `config.ts`) konfigurierbar. Offen: generische
+      Feature-Flags.
 - [x] **Rollen-Check um Team-Vererbung erweitern**: `hasRole` erkennt jetzt
       neben der direkten Zuweisung auch **team-vererbte** Rollen (Mitglied
       eines Teams, das die Rolle trägt) — zwei getrennte native `role`-Queries

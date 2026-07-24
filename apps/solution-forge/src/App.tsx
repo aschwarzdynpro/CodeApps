@@ -35,6 +35,7 @@ import { LinksWorkspace } from './components/LinksWorkspace'
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
 import { HelpPanel } from './components/HelpPanel'
 import { HowToPanel } from './components/HowToPanel'
+import { ProvisioningWizard } from './components/ProvisioningWizard'
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog'
 import { CompleteSolutionDialog } from './components/CompleteSolutionDialog'
 import { AssignDialog } from './components/AssignDialog'
@@ -77,6 +78,7 @@ type Tab =
   | 'jobs'
   | 'roles'
   | 'links'
+  | 'setup'
 
 interface NavItem {
   key: Tab
@@ -150,9 +152,14 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
   {
     // Static reference links (portals + per-environment deep links); no data
-    // load, no gating — derived from the environment configuration.
+    // load, no gating — derived from the environment configuration. "Environment
+    // Setup" reopens the provisioning wizard (edit mode) rather than switching
+    // the content tab (handled specially in the nav onClick).
     label: 'Reference',
-    items: [{ key: 'links', label: 'Links', icon: '🔗', gated: false }],
+    items: [
+      { key: 'links', label: 'Links', icon: '🔗', gated: false },
+      { key: 'setup', label: 'Environment Setup', icon: '⚙️', gated: false },
+    ],
   },
 ]
 
@@ -177,6 +184,7 @@ const TAB_TITLES: Record<Tab, string> = {
   jobs: '[PREVIEW] Async Job / Flow Monitor',
   roles: '[PREVIEW] Security Role Analyzer',
   links: 'Environment Links',
+  setup: 'Environment Setup',
 }
 
 /**
@@ -271,6 +279,13 @@ function App() {
   // Bumped once startup config is applied, so children re-read the (live-bound)
   // ENVIRONMENTS / role / ADO values from config.ts.
   const [, setConfigVersion] = useState(0)
+  // First-run provisioning: true once the startup probe finds no config records
+  // (pro_workbenchsettings / pro_environmentconfig). While true the whole app is
+  // replaced by the (hard-blocking) Self-Provisioning Wizard. Also true offline
+  // (mock) on first run so the wizard is demoable. `showSetup` reopens the same
+  // wizard in edit mode from the Reference › Environment Setup menu entry.
+  const [needsProvisioning, setNeedsProvisioning] = useState(false)
+  const [showSetup, setShowSetup] = useState(false)
 
   useEffect(() => {
     // Load runtime config (Compare targets, ADO, role) from Dataverse and apply
@@ -283,6 +298,16 @@ function App() {
         if (!cancelled) applyRuntimeConfig(cfg)
       } catch {
         /* keep build-time defaults */
+      }
+      // Detect a fresh (unconfigured) environment → show the wizard. Fails open
+      // inside the service (a read error reports "present"), so a hiccup never
+      // traps the user behind the blocking wizard.
+      try {
+        const state = await solutionService.getProvisioningState()
+        if (!cancelled && (!state.hasSettings || !state.hasEnvironments))
+          setNeedsProvisioning(true)
+      } catch {
+        /* treat as configured — never block on a detection error */
       }
       try {
         const granted = await solutionService.hasRole(DEPLOYMENT_MANAGER_ROLE)
@@ -302,6 +327,29 @@ function App() {
       cancelled = true
     }
   }, [])
+
+  // Called after the wizard saves: re-hydrate the runtime config from the new
+  // records, re-run the role probe (the role name may have changed), refresh the
+  // list, and dismiss the wizard.
+  const handleProvisioningComplete = async () => {
+    try {
+      const cfg = await solutionService.getRuntimeConfig()
+      applyRuntimeConfig(cfg)
+    } catch {
+      /* keep whatever we had */
+    }
+    try {
+      const granted = await solutionService.hasRole(DEPLOYMENT_MANAGER_ROLE)
+      setIsDeploymentManager(granted)
+    } catch {
+      /* leave gating as-is */
+    }
+    setConfigVersion((v) => v + 1)
+    setNeedsProvisioning(false)
+    setShowSetup(false)
+    reload()
+  }
+
   // Analyze sweep + Validate selection are lifted here so the run keeps
   // going (and the selection stays put) while navigating between tabs.
   const { run: analysisRun, start: startAnalysis } = useAnalysisRun()
@@ -952,6 +1000,18 @@ function App() {
     reload()
   }
 
+  // Fresh environment with no config records → the app is replaced by the
+  // hard-blocking Self-Provisioning Wizard until the setup is saved.
+  if (needsProvisioning) {
+    return (
+      <ProvisioningWizard
+        mode="provision"
+        hostEnvironmentId={environmentId}
+        onComplete={() => void handleProvisioningComplete()}
+      />
+    )
+  }
+
   return (
     <div className="app">
       <header className="app-topbar">
@@ -1039,7 +1099,14 @@ function App() {
                             : undefined
                       }
                       onClick={() => {
-                        if (!locked) setTab(item.key)
+                        if (locked) return
+                        // "Environment Setup" opens the wizard overlay instead
+                        // of switching the content tab.
+                        if (item.key === 'setup') {
+                          setShowSetup(true)
+                          return
+                        }
+                        setTab(item.key)
                       }}
                     >
                       <span className="nav-icon">{item.icon}</span>
@@ -1470,6 +1537,15 @@ function App() {
 
       {showHowTo && <HowToPanel onClose={() => setShowHowTo(false)} />}
       {showHelp && <HelpPanel onClose={() => setShowHelp(false)} />}
+
+      {showSetup && (
+        <ProvisioningWizard
+          mode="edit"
+          hostEnvironmentId={environmentId}
+          onClose={() => setShowSetup(false)}
+          onComplete={() => void handleProvisioningComplete()}
+        />
+      )}
 
       {confirmDelete && (
         <ConfirmDeleteDialog

@@ -957,6 +957,30 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>⚙️ Environment Setup (Reference)</h3>
+            <ul>
+              <li>
+                Opens the <strong>Self-Provisioning Wizard</strong> that creates
+                (or edits) the app’s configuration records —{' '}
+                <code>pro_workbenchsettings</code> and one{' '}
+                <code>pro_environmentconfig</code> row per environment. The same
+                wizard appears automatically, hard-blocking, the first time the
+                app starts in an environment that has no configuration yet.
+              </li>
+              <li>
+                It guides you through the <strong>environments</strong> (offering
+                the organizations the connector can reach), the{' '}
+                <strong>publisher</strong> for new working solutions, the{' '}
+                <strong>deployment-manager role</strong>, and optional{' '}
+                <strong>Azure DevOps</strong> / <strong>Flow-Comparer</strong>{' '}
+                settings. Defaults are pre-filled wherever possible; nothing is
+                written until the final step. Saving re-reads the config live —
+                no reload needed.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
             <h3>Chips at a glance</h3>
             <ul className="help-legend">
               <li>

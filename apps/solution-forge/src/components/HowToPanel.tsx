@@ -63,6 +63,23 @@ export function HowToPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>0 · First run — set up the environment</h3>
+            <p>
+              The very first time the app opens in a new environment it has no
+              configuration, so a <strong>setup wizard</strong> appears and walks
+              you through it: which Dataverse <strong>environments</strong> the
+              app manages (it offers the ones the connector can reach), the{' '}
+              <strong>publisher</strong> for new solutions, the{' '}
+              <strong>deployment-manager role</strong>, and optional Azure DevOps
+              / Flow-Comparer settings. It writes the configuration records
+              (<code>pro_workbenchsettings</code> +{' '}
+              <code>pro_environmentconfig</code>) for you — the tables themselves
+              come from the installed solution. You can reopen it any time from{' '}
+              <strong>Reference › Environment Setup</strong>.
+            </p>
+          </section>
+
+          <section className="help-section">
             <h3>1 · Create a working solution</h3>
             <ol>
               <li>

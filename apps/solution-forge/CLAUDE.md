@@ -104,6 +104,33 @@ phasenweise zu einem Severity-Report — kein eigener Datenpfad, daher auch
 ohne eigenen Mock (erbt die Mock-Fallbacks der genutzten Services). Caches
 (Komponenten, Suche-Index, Kollisionsradar, WorkItems) leben in `App.tsx`.
 
+**Self-Provisioning Wizard** (`components/ProvisioningWizard.tsx`, Menüpunkt
+Reference › „Environment Setup"): geführtes Erst-Setup, das die **Config-
+Datensätze** anlegt, die `getRuntimeConfig`/`applyRuntimeConfig` beim Start
+lesen — 1× `pro_workbenchsettings` + je Umgebung 1× `pro_environmentconfig`.
+Legt **nur Daten** an (Tabellen kommen aus Managed Solution /
+`installer/provision-model.ps1`). App-Detektion in `App.tsx`: Startup-Effekt
+ruft `solutionService.getProvisioningState()` (probet, ob je ≥1 Settings- und
+Env-Record da ist, **fail-open** — Lesefehler ⇒ „vorhanden", blockt nie); ist
+etwas leer, wird die ganze Shell durch den **hart blockierenden** Wizard ersetzt
+(`needsProvisioning`), bis gespeichert. Nach Save: `getRuntimeConfig` →
+`applyRuntimeConfig` → `configVersion++` → `reload()` (kein Neuladen nötig).
+Schritte (Essentials Pflicht + Advanced optional): Environments (Auswahl aus
+`MicrosoftDataverseService.GetOrganizations()` = erreichbare Orgs des Connector-
+SP, nur URL+FriendlyName; Env-ID der Host-Env auto aus `usePower()`, für andere
+optional), Publisher (`listPublishers`/`getDefaultPublisher`), Deployment-
+Manager-Rolle (`listRoleNames` = distinct `role.name`), ADO + Flow-Definition
+(einklappbar). Pure Funktionen `utils/provisioning.ts` (Vitest):
+`suggestEnvRows`/`validateProvisioning`/`buildWorkbenchSettingsCore|Optional`/
+`buildEnvironmentConfigRecords`. **Save = idempotenter Upsert**
+(`saveProvisioning`): Settings-Record update-if-present-else-create, danach die
+optionalen/neueren Flow-Def-Spalten per **best-effort Update in eigenem
+try/catch** (fehlt eine Spalte auf Alt-Schema, blockt das die Provisionierung
+NICHT — spiegelt die getrennten getRuntimeConfig-Reads), Env-Records
+delete-all-then-recreate (Env-Config hat keine eingehenden Refs). Derselbe
+Wizard dient im Edit-Modus (Menüpunkt) zum Nachpflegen; Mock: `getProvisioning-
+State` gibt Erst-Lauf `false`, nach Save `true` ⇒ **offline durchspielbar**.
+
 **Operate-Gruppe** (Menü „Operate": Plugin Traces / Job Monitor / Role
 Analyzer): je Feature ein eigenes Service-Paar nach demselben Muster —
 `traceService`/`jobMonitorService`/`roleAnalyzerService` (+ `dataverse…`/
