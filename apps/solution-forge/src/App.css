@@ -7256,7 +7256,7 @@
   overflow-y: auto;
 }
 .wizard-card {
-  width: min(900px, 96vw);
+  width: min(1060px, 96vw);
   max-height: calc(100vh - 48px);
   background: var(--surface);
   border-radius: 14px;
@@ -7413,6 +7413,7 @@
   gap: 4px;
   margin: 10px 0;
   font-size: 12.5px;
+  min-width: 0;
 }
 .wizard-field-block > span {
   font-weight: 600;
@@ -7428,6 +7429,8 @@
   font-size: 13px;
   background: var(--surface);
   color: var(--text);
+  box-sizing: border-box;
+  width: 100%;
 }
 .wizard-field-block input:focus,
 .wizard-field-block select:focus,
@@ -7456,7 +7459,7 @@
 }
 .wizard-env-grid {
   display: grid;
-  grid-template-columns: 64px 120px 1fr 1.4fr 1.2fr 28px;
+  grid-template-columns: 54px 112px minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1.2fr) 32px;
   gap: 10px;
   align-items: end;
 }
@@ -7465,10 +7468,22 @@
   flex-direction: column;
   gap: 3px;
   font-size: 11px;
+  min-width: 0;
 }
 .wizard-field > span {
   font-weight: 600;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Inputs/selects must be able to shrink inside their grid cell, otherwise their
+   intrinsic width overflows the row (horizontal scroll). */
+.wizard-field select,
+.wizard-field input[type='text'] {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .wizard-field--current {
   align-items: center;
