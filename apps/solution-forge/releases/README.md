@@ -10,6 +10,9 @@ Each file is a snapshot exported from the **playground** authoring environment
 (`ASC SFA CS Playground`), which is where the Code App is pushed into the
 solution via `pac code push --solutionName DynamicsProSolutionAdminConsole`.
 
+**Every release gets a short entry in [`CHANGELOG.md`](CHANGELOG.md)** (newest on
+top) — add one whenever you export a new version here.
+
 | File | Version | Exported | Contents |
 | --- | --- | --- | --- |
 | `DynamicsProSolutionAdminConsole_1.0.0.13_managed.zip` | 1.0.0.13 | 2026-07-24 | 8 `pro_` tables · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler) · Code App (chunk-split bundle, now incl. the first-run **Self-Provisioning Wizard**) · 1 security role |
