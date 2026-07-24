@@ -12,7 +12,10 @@ solution via `pac code push --solutionName DynamicsProSolutionAdminConsole`.
 
 | File | Version | Exported | Contents |
 | --- | --- | --- | --- |
-| `DynamicsProSolutionAdminConsole_1.0.0.12_managed.zip` | 1.0.0.12 | 2026-07-24 | 8 `pro_` tables · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler) · Code App (chunk-split bundle) · 1 security role |
+| `DynamicsProSolutionAdminConsole_1.0.0.13_managed.zip` | 1.0.0.13 | 2026-07-24 | 8 `pro_` tables · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler) · Code App (chunk-split bundle, now incl. the first-run **Self-Provisioning Wizard**) · 1 security role |
+
+Only the newest managed export is kept here (managed solutions upgrade
+cumulatively — an older versioned zip can't be imported over a newer one).
 
 ## Importing into a target environment
 
