@@ -1,4 +1,3 @@
-import type { EnvKey } from './comparison'
 import type { SolutionComponentInfo } from './solution'
 
 /**
@@ -61,7 +60,9 @@ export interface LayerSection {
 }
 
 export interface LayerInspectionResult {
-  envKey: Extract<EnvKey, 'uat' | 'prod'>
+  // The Deployment-Readiness / Compare features target the conventional uat/prod
+  // roles specifically (EnvKey itself is free-form).
+  envKey: 'uat' | 'prod'
   stacks: ComponentLayerStack[]
   /** Aggregated query problems (deduplicated, human-readable). */
   warnings: string[]

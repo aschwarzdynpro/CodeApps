@@ -27,9 +27,9 @@ describe('normalizeUrl / isHttpUrl', () => {
 
 describe('guessEnvKey', () => {
   it('classifies by host segments, uat/prod before dev', () => {
-    expect(guessEnvKey('https://operations-d365-schulz-uat-1-1.crm4.dynamics.com')).toBe('uat')
-    expect(guessEnvKey('https://operations-d365-schulz-prod.crm4.dynamics.com')).toBe('prod')
-    expect(guessEnvKey('https://operations-d365-schulz-int-11.crm4.dynamics.com')).toBe('dev')
+    expect(guessEnvKey('https://operations-d365-schulz-uat-1-1.crm4.dynamics.com')).toBe('UAT')
+    expect(guessEnvKey('https://operations-d365-schulz-prod.crm4.dynamics.com')).toBe('PROD')
+    expect(guessEnvKey('https://operations-d365-schulz-int-11.crm4.dynamics.com')).toBe('DEV')
     expect(guessEnvKey('https://contoso.crm.dynamics.com')).toBeNull()
   })
 })
@@ -41,18 +41,18 @@ describe('suggestEnvRows', () => {
     { url: 'https://schulz-prod.crm4.dynamics.com', name: 'PROD' },
   ]
 
-  it('marks the host org as the current dev row with its env id', () => {
+  it('marks the host org as the current DEV row with its env id', () => {
     const rows = suggestEnvRows(orgs, 'https://schulz-int-11.crm4.dynamics.com/', 'env-guid')
-    const dev = rows.find((r) => r.key === 'dev')!
+    const dev = rows.find((r) => r.key === 'DEV')!
     expect(dev.isCurrent).toBe(true)
     expect(dev.environmentId).toBe('env-guid')
     expect(dev.url).toBe('https://schulz-int-11.crm4.dynamics.com')
   })
 
-  it('slots the remaining orgs into uat/prod without an env id', () => {
+  it('slots the remaining orgs into UAT/PROD without an env id', () => {
     const rows = suggestEnvRows(orgs, 'https://schulz-int-11.crm4.dynamics.com', 'env-guid')
-    expect(rows.map((r) => r.key).sort()).toEqual(['dev', 'prod', 'uat'])
-    const uat = rows.find((r) => r.key === 'uat')!
+    expect(rows.map((r) => r.key).sort()).toEqual(['DEV', 'PROD', 'UAT'])
+    const uat = rows.find((r) => r.key === 'UAT')!
     expect(uat.isCurrent).toBe(false)
     expect(uat.environmentId).toBe('')
   })
@@ -71,7 +71,7 @@ describe('suggestEnvRows', () => {
     const shuffled = [orgs[2], orgs[1], orgs[0]] // prod, uat, int
     const rows = suggestEnvRows(shuffled, '', '')
     const current = rows.find((r) => r.isCurrent)!
-    expect(current.key).toBe('dev')
+    expect(current.key).toBe('DEV')
     expect(current.url).toBe('https://schulz-int-11.crm4.dynamics.com')
   })
 

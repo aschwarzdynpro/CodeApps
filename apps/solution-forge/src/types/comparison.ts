@@ -4,7 +4,15 @@
  * and compared — deviations point at deployment / ALM problems.
  */
 
-export type EnvKey = 'dev' | 'uat' | 'prod'
+/**
+ * Environment key — a short, free-form identifier for one configured
+ * environment (e.g. "dev", "uat", "prod", "qs", "int", "par"). Treated as an
+ * opaque lookup id across the app (Operate pickers, `envByKey`, maker links).
+ * The Deployment-Readiness / Compare features specifically target the
+ * conventional `uat` / `prod` roles (resolved case-insensitively by
+ * {@link envByKey}); those two keys keep their conventional meaning.
+ */
+export type EnvKey = string
 
 export interface EnvironmentDef {
   key: EnvKey

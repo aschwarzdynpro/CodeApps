@@ -857,12 +857,13 @@ export class DataverseSolutionService implements SolutionService {
         pro_iscurrent?: boolean
         pro_order_int?: number
       }>
-      const toKey = (k: string | undefined, current: boolean): EnvKey =>
-        k === 'dev' || k === 'uat' || k === 'prod'
-          ? k
-          : current
-            ? 'dev'
-            : 'uat'
+      // Keys are free-form (see EnvKey) — pass the stored value straight through
+      // so what the wizard saved is exactly what the app reads back; only fall
+      // back for a genuinely empty key.
+      const toKey = (k: string | undefined, current: boolean): EnvKey => {
+        const key = (k ?? '').trim()
+        return key || (current ? 'dev' : 'uat')
+      }
       const envs = rows
         .filter((r) => r.pro_url)
         .sort((a, b) => (a.pro_order_int ?? 0) - (b.pro_order_int ?? 0))

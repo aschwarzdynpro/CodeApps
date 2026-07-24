@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { solutionService } from '../services/solutionService'
 import { DEPLOYMENT_MANAGER_ROLE } from '../config'
 import type { PublisherInfo } from '../types/solution'
-import type { EnvKey } from '../types/comparison'
 import type {
   ReachableOrg,
   WizardEnvRow,
@@ -50,12 +49,6 @@ const STEPS = [
   { key: 'review', label: 'Review & create' },
 ] as const
 type StepKey = (typeof STEPS)[number]['key']
-
-const ENV_KEY_LABEL: Record<EnvKey, string> = {
-  dev: 'DEV / current',
-  uat: 'UAT',
-  prod: 'PROD',
-}
 
 function errMessage(err: unknown): string {
   const odata = (err as { error?: { message?: string } } | undefined)?.error
@@ -198,14 +191,14 @@ export function ProvisioningWizard({
             : r.environmentId,
       })),
     )
-  const usedKeys = new Set(envRows.map((r) => r.key))
   const addRow = () => {
-    const freeKey = ENV_KEYS.find((k) => !usedKeys.has(k)) ?? 'uat'
+    const used = new Set(envRows.map((r) => r.key.trim().toLowerCase()))
+    const freeKey = ENV_KEYS.find((k) => !used.has(k.toLowerCase())) ?? ''
     setEnvRows((rows) => [
       ...rows,
       {
         key: freeKey,
-        label: freeKey.toUpperCase(),
+        label: freeKey || 'Environment',
         url: '',
         environmentId: '',
         isCurrent: rows.length === 0,
@@ -437,6 +430,11 @@ export function ProvisioningWizard({
                 </option>
               ))}
             </datalist>
+            <datalist id="wizard-env-keys">
+              {ENV_KEYS.map((k) => (
+                <option key={k} value={k} />
+              ))}
+            </datalist>
 
             <div className="wizard-env-rows">
               {envRows.map((row, i) => (
@@ -444,25 +442,24 @@ export function ProvisioningWizard({
                   <div className="wizard-env-grid wizard-env-grid--top">
                     <label className="wizard-field wizard-field--current">
                       <span>Current</span>
-                      <input
-                        type="radio"
-                        name="wizard-current-env"
-                        checked={row.isCurrent}
-                        onChange={() => makeCurrent(i)}
-                      />
+                      <span className="wizard-radio-box">
+                        <input
+                          type="radio"
+                          name="wizard-current-env"
+                          checked={row.isCurrent}
+                          onChange={() => makeCurrent(i)}
+                        />
+                      </span>
                     </label>
                     <label className="wizard-field">
                       <span>Key</span>
-                      <select
+                      <input
+                        type="text"
+                        list="wizard-env-keys"
                         value={row.key}
-                        onChange={(e) => updateRow(i, { key: e.target.value as EnvKey })}
-                      >
-                        {ENV_KEYS.map((k) => (
-                          <option key={k} value={k}>
-                            {ENV_KEY_LABEL[k]}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(e) => updateRow(i, { key: e.target.value })}
+                        placeholder="e.g. UAT"
+                      />
                     </label>
                     <label className="wizard-field">
                       <span>Label</span>
@@ -562,11 +559,7 @@ export function ProvisioningWizard({
               ))}
             </div>
 
-            <button
-              className="btn wizard-add-env"
-              onClick={addRow}
-              disabled={envRows.length >= ENV_KEYS.length}
-            >
+            <button className="btn wizard-add-env" onClick={addRow}>
               + Add environment
             </button>
 

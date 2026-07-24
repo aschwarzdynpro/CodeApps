@@ -127,7 +127,13 @@ kennt sie intern, exponiert sie aber NICHT). Deshalb: **Org-ID auto überall**,
 **Env-ID auto nur für die Host-Env** (Fallback aus `usePower()` in `resolveIds`,
 wenn `microsoftflowenvironment` leer); andere Env-IDs bleiben manuell (Status
 „partial" mit admin.powerplatform.com-Hinweis). on-blur + „⟲ Detect ids"-Button,
-beide Felder editierbar), Publisher (`listPublishers`/
+beide Felder editierbar. **Key ist Freitext** (Input + Datalist-Vorschläge
+DEV/INT/PAR/PROD/QS/TEST/UAT): `EnvKey` ist app-weit auf **`string`** geöffnet
+(opaker Lookup-Key; `getRuntimeConfig` reicht `pro_key` unverändert durch, kein
+dev/uat/prod-Remapping mehr) — die Validate/Compare-Features zielen weiter auf die
+Rollen `uat`/`prod`, aufgelöst **case-insensitiv** über `envByKey`. `LayerInspectionResult.envKey`
+bleibt hart `'uat' | 'prod'` (nicht `Extract<EnvKey,…>`, das kollabiert bei
+`EnvKey=string` zu `never`)), Publisher (`listPublishers`/
 `getDefaultPublisher`), Deployment-
 Manager-Rolle (`listRoleNames` = distinct `role.name`), ADO + Flow-Definition
 (einklappbar). Pure Funktionen `utils/provisioning.ts` (Vitest):

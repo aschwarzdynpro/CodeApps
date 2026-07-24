@@ -1,4 +1,3 @@
-import type { EnvKey } from '../types/comparison'
 import type {
   ProvisioningInput,
   ProvisioningValidation,
@@ -17,13 +16,24 @@ import type {
  * to the generated create/update services.
  */
 
-/** The three environment keys the app's config model supports, in order. */
-export const ENV_KEYS: EnvKey[] = ['dev', 'uat', 'prod']
+/**
+ * Suggested environment keys for the wizard's key autocomplete (free text is
+ * still accepted), alphabetical. Keys are free-form (see {@link EnvKey}); the
+ * Compare/Validate features conventionally target "uat"/"prod".
+ */
+export const ENV_KEYS: string[] = [
+  'DEV',
+  'INT',
+  'PAR',
+  'PROD',
+  'QS',
+  'TEST',
+  'UAT',
+]
 
-const DEFAULT_LABELS: Record<EnvKey, string> = {
-  dev: 'DEV',
-  uat: 'UAT',
-  prod: 'PROD',
+/** A readable default label for a key (falls back to the upper-cased key). */
+function defaultLabelFor(key: string): string {
+  return key ? key.toUpperCase() : 'Environment'
 }
 
 /** Strip trailing slashes and surrounding whitespace from an org URL. */
@@ -41,11 +51,11 @@ export function isHttpUrl(url: string): boolean {
  * Order matters: check uat/test/qa before dev/int so "…-uat-…" doesn't match
  * a generic "dev" rule, and prod last as the catch-all production marker.
  */
-export function guessEnvKey(url: string): EnvKey | null {
+export function guessEnvKey(url: string): string | null {
   const u = url.toLowerCase()
-  if (/\b(uat|test|qa|staging|sandbox)\b|-uat-|uat\./.test(u)) return 'uat'
-  if (/\bprod(uction)?\b|-prod|prod\./.test(u)) return 'prod'
-  if (/\b(dev|int|develop)\b|-int-|-dev-|int\.|dev\./.test(u)) return 'dev'
+  if (/\b(uat|test|qa|staging|sandbox)\b|-uat-|uat\./.test(u)) return 'UAT'
+  if (/\bprod(uction)?\b|-prod|prod\./.test(u)) return 'PROD'
+  if (/\b(dev|int|develop)\b|-int-|-dev-|int\.|dev\./.test(u)) return 'DEV'
   return null
 }
 
@@ -98,23 +108,23 @@ export function suggestEnvRows(
         (o) => o.url.toLowerCase() === normalizedHost.toLowerCase(),
       )) ||
     (normalizedHost ? { url: normalizedHost, name: '' } : undefined) ||
-    cleaned.find((o) => guessEnvKey(o.url) === 'dev') ||
+    cleaned.find((o) => guessEnvKey(o.url) === 'DEV') ||
     cleaned[0]
 
   const rows: WizardEnvRow[] = []
-  const usedKeys = new Set<EnvKey>()
+  const usedKeys = new Set<string>()
   const usedUrls = new Set<string>()
 
   if (hostOrg) {
     rows.push({
-      key: 'dev',
-      label: hostOrg.name || DEFAULT_LABELS.dev,
+      key: 'DEV',
+      label: hostOrg.name || defaultLabelFor('DEV'),
       url: hostOrg.url,
       environmentId: hostEnvId ?? '',
       isCurrent: true,
       order: 0,
     })
-    usedKeys.add('dev')
+    usedKeys.add('DEV')
     usedUrls.add(hostOrg.url.toLowerCase())
   }
 
@@ -125,7 +135,7 @@ export function suggestEnvRows(
     if (!key) continue
     rows.push({
       key,
-      label: org.name || DEFAULT_LABELS[key],
+      label: org.name || defaultLabelFor(key),
       url: org.url,
       environmentId: '',
       isCurrent: false,
@@ -161,6 +171,9 @@ export function validateProvisioning(
   const seenKeys = new Set<string>()
   const seenUrls = new Set<string>()
   for (const e of envs) {
+    if (!e.key.trim()) {
+      environments.push(`Environment "${e.label || e.url || '?'}" needs a key.`)
+    }
     if (!isHttpUrl(e.url)) {
       environments.push(`Environment "${e.label || e.key}" needs a valid URL.`)
     }
@@ -169,10 +182,11 @@ export function validateProvisioning(
       environments.push(`Two environments point at ${e.url}.`)
     }
     seenUrls.add(urlKey)
-    if (seenKeys.has(e.key)) {
+    const keyNorm = e.key.trim().toLowerCase()
+    if (keyNorm && seenKeys.has(keyNorm)) {
       environments.push(`Environment key "${e.key}" is used more than once.`)
     }
-    seenKeys.add(e.key)
+    seenKeys.add(keyNorm)
   }
 
   if (!input.settings.publisherId.trim() || !input.settings.publisher.trim()) {

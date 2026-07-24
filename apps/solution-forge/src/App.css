@@ -7535,10 +7535,18 @@
 .wizard-field--current {
   align-items: center;
 }
-.wizard-field--current input {
+/* Box the radio at input height so it lines up with the Key/Label/URL inputs
+   (the grid bottom-aligns cells; the radio centres inside this box). */
+.wizard-radio-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+}
+.wizard-radio-box input[type='radio'] {
   width: 18px;
   height: 18px;
-  margin-top: 4px;
+  margin: 0;
 }
 .wizard-env-remove {
   background: transparent;

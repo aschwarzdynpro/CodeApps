@@ -89,9 +89,14 @@ export function currentEnvKey(): string {
   return currentEnv()?.key ?? 'dev'
 }
 
-/** Resolve an env def by key, falling back to the host env. */
+/** Resolve an env def by key (case-insensitive, since keys are free-form and
+ *  the Validate features look up the conventional "uat"/"prod" roles), falling
+ *  back to the host env. */
 export function envByKey(envKey: string): EnvironmentDef | undefined {
-  return ENVIRONMENTS.find((e) => e.key === envKey) ?? currentEnv()
+  const needle = (envKey ?? '').toLowerCase()
+  return (
+    ENVIRONMENTS.find((e) => e.key.toLowerCase() === needle) ?? currentEnv()
+  )
 }
 
 /** Org URL (no trailing slash) for a configured env key. */
