@@ -24,11 +24,23 @@ cumulatively — an older versioned zip can't be imported over a newer one).
 
 1. `pac solution import --path DynamicsProSolutionAdminConsole_<version>_managed.zip`
    (device-code auth, per the standing preference).
-2. **Bind the Dataverse connection reference** the executor flows use
-   (`pro_CRDataverse` / `pro_CR_SAC_Dataverse` depending on the install) to a
-   connection whose service principal can read/write every configured source
-   and target environment, then **activate the three transfer flows** — a
-   managed import leaves flows off until their connection reference is bound.
+2. **Bind the connection reference and activate the three transfer flows via
+   the script — NOT the Maker Portal "Turn on" button:**
+   ```powershell
+   pwsh installer/activate-flows.ps1 -EnvironmentUrl https://<org>.crm4.dynamics.com -TenantId <guid> `
+        -ConnectionReference pro_CR_SAC_Dataverse -ConnectionId <dataverse-connection-guid>
+   ```
+   The executor flows use dynamic `*WithOrganization` connector operations
+   (entity + target org are runtime expressions). The Maker "Turn on" button
+   and the designer resolve the connector schema at **design time**
+   (`GetMetadataForGetEntityWithOrganization`) against an unresolved
+   `organization`, which fails with `InvalidOpenApiFlow … 401 … "The response
+   is not in a JSON format."` — and renders the flow only partially in the
+   designer. That is cosmetic: the flows execute in full at runtime. The
+   script activates them with a plain `statecode` PATCH (the supported path,
+   same as the dev/host env) and never rewrites the managed definition, so no
+   unmanaged layer is created. The connection's service principal must
+   read/write every configured source and target environment.
 3. Assign the `pro_*` table privileges / the shipped security role to the
    users who operate the console.
 4. Add the Code App to the environment's app list if it is not surfaced

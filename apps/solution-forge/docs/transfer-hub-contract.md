@@ -305,6 +305,19 @@ product-default executor. Findings:
 **Hard-won engine findings (2026-07-23 performance probes — all empirically
 verified on INT-11, do not re-learn these):**
 
+- **These flows cannot be turned on from the Maker Portal, and render only
+  partially in the designer.** They use dynamic `*WithOrganization` connector
+  operations (the entity set and the target org URL are runtime expressions).
+  The Maker "Turn on" button and the designer resolve the connector schema at
+  **design time** via `GetMetadataForGetEntityWithOrganization`, which needs a
+  resolved `organization` — the runtime expression is empty then, so the call
+  fails with `InvalidOpenApiFlow / DynamicOperationRequestClientFailure … 401
+  … "The response is not in a JSON format."`, and the designer stops rendering
+  at the first such action (e.g. ~14 of 35 actions visible). This is cosmetic:
+  the flow executes in full at runtime. **Activate via a plain Dataverse
+  `statecode` PATCH instead** (`workflows(id) {statecode:1,statuscode:2}`) —
+  `deploy-executor-flow.ps1` (dev/host) and `activate-flows.ps1` (customer,
+  post managed-import) both do this. Never rely on the portal button.
 - **Nested `Foreach` loops ALWAYS run sequentially.** The
   `runtimeConfiguration.concurrency.repetitions` setting is honored only for
   top-level loops; any foreach nested inside another foreach (even one level,
