@@ -1,29 +1,30 @@
 <#
 .SYNOPSIS
-  Binds the Dataverse connection reference and ACTIVATES the three Transfer Run
-  cloud flows after a MANAGED solution import — without going through the Maker
-  Portal "Turn on" button.
+  Binds the Dataverse connection reference and activates the three Transfer Run
+  cloud flows after a MANAGED solution import. Headless convenience — the Maker
+  Portal "Turn on" button works too, once the connection reference is bound.
 
 .DESCRIPTION
-  The transfer executor flows are authored as raw clientdata (Web API) and use
-  dynamic `*WithOrganization` connector operations (the entity and the target
-  org URL are runtime expressions). The Maker Portal "Turn on" button — and the
-  designer — resolve the connector schema at design time via
-  `GetMetadataForGetEntityWithOrganization`; with a runtime-only `organization`
-  that call goes out unresolved and fails with
+  The transfer executor flows are authored as raw clientdata (Web API). Their
+  host-environment operations use the connector's `organization: "current"`
+  (the connection's own env), so the Maker Portal designer renders them and the
+  "Turn on" button validates cleanly once a connection is bound; only the
+  child's genuine cross-environment operations pass the source/target org URL as
+  a runtime expression.
 
-    InvalidOpenApiFlow / DynamicOperationRequestClientFailure … 401 Unauthorized
-    … "The response is not in a JSON format."
+  This script binds the connection reference (optional) and sets the flows'
+  operational state via a Dataverse `statecode` PATCH — handy for CI / silent
+  installs where you don't want to click through the portal. It never rewrites
+  the flow definition, so no unmanaged layer is created over the managed
+  components.
 
-  so the flows cannot be turned on from the portal (and render only partially in
-  the designer — this is cosmetic; the flows execute in full at runtime).
-
-  Activating via a direct Dataverse `statecode` PATCH bypasses that design-time
-  validation — which is exactly how the flows are activated on the dev/host env.
-  This script does the same at a customer AFTER a managed import: it only sets
-  the operational state (and, optionally, binds the connection reference); it
-  never rewrites the flow definition, so no unmanaged layer is created over the
-  managed components.
+  NOTE (historical): earlier builds baked the *host* environment's URL into
+  `organization` at export time; at a different customer that foreign URL was
+  unreachable and every activation failed with
+  `GetMetadataForGetEntityWithOrganization … 401 … "The response is not in a
+  JSON format."`. The `organization: "current"` wiring fixes that — if you
+  still see that 401, the flow definition predates the fix (re-export the
+  managed solution) or the connection reference is unbound.
 
   Prerequisites in the target environment:
     - the managed solution imported (flows present as managed components)
@@ -97,9 +98,9 @@ foreach ($name in $FlowNames) {
     Write-Host "Activated '$name'." -ForegroundColor Green
   } catch {
     Write-Warning "Could not activate '$name': $($_.Exception.Message)"
-    Write-Warning "  If this is a metadata/401 error, the connection reference is not bound to a working connection — bind it and re-run."
+    Write-Warning "  A metadata/401 here means the connection reference is unbound, OR the flow predates the organization:'current' fix (re-export the managed solution and re-import)."
   }
 }
 
 Write-Host ""
-Write-Host "Done. Do NOT use the Maker Portal 'Turn on' button for these flows — it validates the dynamic connector schema at design time and fails with a 401; this statecode activation is the supported path." -ForegroundColor Cyan
+Write-Host "Done. The Maker Portal 'Turn on' button works too once the connection reference is bound — this script is just the headless equivalent." -ForegroundColor Cyan

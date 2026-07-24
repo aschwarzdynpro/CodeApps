@@ -50,7 +50,7 @@
           "inputs": {
             "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
             "parameters": {
-              "organization": "__HOST_URL__",
+              "organization": "current",
               "entityName": "pro_transferruns",
               "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
               "item/pro_status_opt": 867520001,
@@ -66,7 +66,7 @@
           "inputs": {
             "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
             "parameters": {
-              "organization": "__HOST_URL__",
+              "organization": "current",
               "entityName": "pro_environmentconfigs",
               "$select": "pro_key,pro_url"
             }
@@ -84,7 +84,7 @@
               "inputs": {
                 "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
                 "parameters": {
-                  "organization": "__HOST_URL__",
+                  "organization": "current",
                   "entityName": "pro_transferruns",
                   "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
                   "item/pro_status_opt": 867520003,
@@ -103,7 +103,7 @@
           "inputs": {
             "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
             "parameters": {
-              "organization": "__HOST_URL__",
+              "organization": "current",
               "entityName": "pro_transferentries",
               "$select": "pro_transferentryid,pro_name,pro_sourceenv_str,pro_matchmode_opt,pro_matchcolumns_str,pro_primaryidattr_str,pro_order_int,pro_columnplan_txt",
               "$filter": "_pro_package_ref_value eq @{triggerOutputs()?['body/_pro_package_ref_value']} and statecode eq 0",
@@ -150,7 +150,7 @@
                   "inputs": {
                     "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
                     "parameters": {
-                      "organization": "__HOST_URL__",
+                      "organization": "current",
                       "entityName": "pro_transferruns",
                       "$select": "pro_log_txt",
                       "$filter": "pro_transferrunid eq @{triggerOutputs()?['body/pro_transferrunid']}"
@@ -163,7 +163,7 @@
                   "inputs": {
                     "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
                     "parameters": {
-                      "organization": "__HOST_URL__",
+                      "organization": "current",
                       "entityName": "pro_transferruns",
                       "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
                       "item/pro_log_txt": "@{if(equals(coalesce(first(body('Get_runlog_e')?['value'])?['pro_log_txt'],''),''), concat('[', concat('{\"entry\":', substring(string(createArray(items('For_entry')?['pro_name'])),1,sub(length(string(createArray(items('For_entry')?['pro_name']))),2)), ',\"error\":', substring(string(createArray(if(equals(length(body('Find_src')),0),'source environment key not found in pro_environmentconfig', if(greater(length(outputs('Keycols')),5),'more than 5 match columns are not supported','no column plan — re-save the entry in the hub')))),1,sub(length(string(createArray(if(equals(length(body('Find_src')),0),'source environment key not found in pro_environmentconfig', if(greater(length(outputs('Keycols')),5),'more than 5 match columns are not supported','no column plan — re-save the entry in the hub'))))),2)), ',\"errs\":1}'), ']'), concat(substring(first(body('Get_runlog_e')?['value'])?['pro_log_txt'], 0, sub(length(first(body('Get_runlog_e')?['value'])?['pro_log_txt']),1)), ',', concat('{\"entry\":', substring(string(createArray(items('For_entry')?['pro_name'])),1,sub(length(string(createArray(items('For_entry')?['pro_name']))),2)), ',\"error\":', substring(string(createArray(if(equals(length(body('Find_src')),0),'source environment key not found in pro_environmentconfig', if(greater(length(outputs('Keycols')),5),'more than 5 match columns are not supported','no column plan — re-save the entry in the hub')))),1,sub(length(string(createArray(if(equals(length(body('Find_src')),0),'source environment key not found in pro_environmentconfig', if(greater(length(outputs('Keycols')),5),'more than 5 match columns are not supported','no column plan — re-save the entry in the hub'))))),2)), ',\"errs\":1}'), ']'))}"
@@ -195,7 +195,7 @@
                             "inputs": {
                               "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
                               "parameters": {
-                                "organization": "__HOST_URL__",
+                                "organization": "current",
                                 "entityName": "pro_transferruns",
                                 "$select": "pro_log_txt",
                                 "$filter": "pro_transferrunid eq @{triggerOutputs()?['body/pro_transferrunid']}"
@@ -208,7 +208,7 @@
                             "inputs": {
                               "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
                               "parameters": {
-                                "organization": "__HOST_URL__",
+                                "organization": "current",
                                 "entityName": "pro_transferruns",
                                 "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
                                 "item/pro_log_txt": "@{if(equals(coalesce(first(body('Get_runlog_t')?['value'])?['pro_log_txt'],''),''), concat('[', concat('{\"entry\":', substring(string(createArray(items('For_entry')?['pro_name'])),1,sub(length(string(createArray(items('For_entry')?['pro_name']))),2)), ',\"target\":', substring(string(createArray(items('For_target'))),1,sub(length(string(createArray(items('For_target')))),2)), ',\"error\":\"target environment key not found in pro_environmentconfig\",\"errs\":1}'), ']'), concat(substring(first(body('Get_runlog_t')?['value'])?['pro_log_txt'], 0, sub(length(first(body('Get_runlog_t')?['value'])?['pro_log_txt']),1)), ',', concat('{\"entry\":', substring(string(createArray(items('For_entry')?['pro_name'])),1,sub(length(string(createArray(items('For_entry')?['pro_name']))),2)), ',\"target\":', substring(string(createArray(items('For_target'))),1,sub(length(string(createArray(items('For_target')))),2)), ',\"error\":\"target environment key not found in pro_environmentconfig\",\"errs\":1}'), ']'))}"
@@ -245,7 +245,7 @@
                               "inputs": {
                                 "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
                                 "parameters": {
-                                  "organization": "__HOST_URL__",
+                                  "organization": "current",
                                   "entityName": "pro_transferruns",
                                   "$select": "pro_log_txt",
                                   "$filter": "pro_transferrunid eq @{triggerOutputs()?['body/pro_transferrunid']}"
@@ -258,7 +258,7 @@
                               "inputs": {
                                 "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
                                 "parameters": {
-                                  "organization": "__HOST_URL__",
+                                  "organization": "current",
                                   "entityName": "pro_transferruns",
                                   "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
                                   "item/pro_log_txt": "@{if(equals(coalesce(first(body('Get_runlog_c')?['value'])?['pro_log_txt'],''),''), concat('[', outputs('Cell_from_child'), ']'), concat(substring(first(body('Get_runlog_c')?['value'])?['pro_log_txt'], 0, sub(length(first(body('Get_runlog_c')?['value'])?['pro_log_txt']),1)), ',', outputs('Cell_from_child'), ']'))}"
@@ -282,7 +282,7 @@
           "inputs": {
             "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
             "parameters": {
-              "organization": "__HOST_URL__",
+              "organization": "current",
               "entityName": "pro_transferruns",
               "$select": "pro_log_txt",
               "$filter": "pro_transferrunid eq @{triggerOutputs()?['body/pro_transferrunid']}"
@@ -311,7 +311,7 @@
           "inputs": {
             "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
             "parameters": {
-              "organization": "__HOST_URL__",
+              "organization": "current",
               "entityName": "pro_transferruns",
               "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
               "item/pro_status_opt": "@outputs('Final_status')",
@@ -326,7 +326,7 @@
           "inputs": {
             "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
             "parameters": {
-              "organization": "__HOST_URL__",
+              "organization": "current",
               "entityName": "pro_transferruns",
               "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
               "item/pro_status_opt": 867520003,

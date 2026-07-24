@@ -28,7 +28,7 @@
           "inputs": {
             "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
             "parameters": {
-              "organization": "__HOST_URL__",
+              "organization": "current",
               "entityName": "pro_transferruns",
               "$select": "pro_transferrunid",
               "$filter": "pro_status_opt eq 867520006 and pro_scheduledfor_dat le @{utcNow()}"
@@ -47,7 +47,7 @@
               "inputs": {
                 "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
                 "parameters": {
-                  "organization": "__HOST_URL__",
+                  "organization": "current",
                   "entityName": "pro_transferruns",
                   "recordId": "@items('For_due')?['pro_transferrunid']",
                   "item/pro_status_opt": 867520000
@@ -63,7 +63,7 @@
           "inputs": {
             "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
             "parameters": {
-              "organization": "__HOST_URL__",
+              "organization": "current",
               "entityName": "pro_transferpackages",
               "$select": "pro_transferpackageid,pro_name,pro_targetenvs_str,pro_recurrence_opt,pro_nextrun_dat",
               "$filter": "(pro_recurrence_opt eq 867520001 or pro_recurrence_opt eq 867520002) and statecode eq 0 and pro_nextrun_dat le @{utcNow()}"
@@ -82,7 +82,7 @@
               "inputs": {
                 "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
                 "parameters": {
-                  "organization": "__HOST_URL__",
+                  "organization": "current",
                   "entityName": "pro_transferruns",
                   "item/pro_name": "@{concat(items('For_pkg')?['pro_name'], ' — ', formatDateTime(utcNow(), 'yyyy-MM-dd HH:mm'), ' UTC (scheduled)')}",
                   "item/pro_package_ref@odata.bind": "@{concat('/pro_transferpackages(', items('For_pkg')?['pro_transferpackageid'], ')')}",
@@ -98,7 +98,7 @@
               "inputs": {
                 "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecordWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
                 "parameters": {
-                  "organization": "__HOST_URL__",
+                  "organization": "current",
                   "entityName": "pro_transferpackages",
                   "recordId": "@items('For_pkg')?['pro_transferpackageid']",
                   "item/pro_nextrun_dat": "@{addDays(items('For_pkg')?['pro_nextrun_dat'], mul(add(div(sub(ticks(utcNow()), ticks(items('For_pkg')?['pro_nextrun_dat'])), mul(if(equals(items('For_pkg')?['pro_recurrence_opt'], 867520002), 7, 1), 864000000000)), 1), if(equals(items('For_pkg')?['pro_recurrence_opt'], 867520002), 7, 1)))}"

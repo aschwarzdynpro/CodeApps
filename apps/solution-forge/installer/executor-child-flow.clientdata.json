@@ -41,7 +41,7 @@
           "inputs": {
             "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecordsWithOrganization", "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
             "parameters": {
-              "organization": "__HOST_URL__",
+              "organization": "current",
               "entityName": "pro_transferentries",
               "$select": "pro_name,pro_sourceentityset_str,pro_primaryidattr_str,pro_fetchxml_txt,pro_matchmode_opt,pro_matchcolumns_str,pro_orphanhandling_opt,pro_columnplan_txt",
               "$filter": "pro_transferentryid eq @{triggerBody()?['entryId']}"

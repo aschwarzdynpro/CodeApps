@@ -196,8 +196,9 @@ The repo ships a working executor implementation of this contract as a
 **pair of cloud flows** plus the scheduler:
 
 - **Parent** `PA | AUTO | Transfer Run | Execute Package`
-  (`installer/executor-flow.clientdata.json`, placeholders `__HOST_URL__`,
-  `__CONNREF__`, `__CHILD_ID__`): Dataverse-webhook trigger on
+  (`installer/executor-flow.clientdata.json`, placeholders `__CONNREF__`,
+  `__CHILD_ID__`; host-env operations use `organization: "current"` so the
+  flows stay portable and render in the designer): Dataverse-webhook trigger on
   `pro_transferrun` status changes, claims the run, resolves environments,
   validates entries, then dispatches **one child-flow call per entry × target
   cell** (`Workflow` action, sequential) and appends each returned cell log
@@ -305,19 +306,28 @@ product-default executor. Findings:
 **Hard-won engine findings (2026-07-23 performance probes — all empirically
 verified on INT-11, do not re-learn these):**
 
-- **These flows cannot be turned on from the Maker Portal, and render only
-  partially in the designer.** They use dynamic `*WithOrganization` connector
-  operations (the entity set and the target org URL are runtime expressions).
-  The Maker "Turn on" button and the designer resolve the connector schema at
-  **design time** via `GetMetadataForGetEntityWithOrganization`, which needs a
-  resolved `organization` — the runtime expression is empty then, so the call
-  fails with `InvalidOpenApiFlow / DynamicOperationRequestClientFailure … 401
-  … "The response is not in a JSON format."`, and the designer stops rendering
-  at the first such action (e.g. ~14 of 35 actions visible). This is cosmetic:
-  the flow executes in full at runtime. **Activate via a plain Dataverse
-  `statecode` PATCH instead** (`workflows(id) {statecode:1,statuscode:2}`) —
-  `deploy-executor-flow.ps1` (dev/host) and `activate-flows.ps1` (customer,
-  post managed-import) both do this. Never rely on the portal button.
+- **Host-env `*WithOrganization` operations MUST use `organization: "current"`,
+  never a literal env URL.** These ops resolve their connector schema at
+  **design time** (Maker "Turn on" + the designer) via
+  `GetMetadataForGetEntityWithOrganization`, which needs a resolvable
+  `organization`. A **literal** URL is *foldable*, so the check runs against
+  exactly that org — fine on the env whose URL it is, but after a managed
+  export the *host* URL is baked in, and at any OTHER environment it is
+  unreachable by that env's connection → `InvalidOpenApiFlow /
+  DynamicOperationRequestClientFailure … 401 … "The response is not in a JSON
+  format."`, and the designer stops rendering at the first such action (~14 of
+  35 visible). This was the real cause of the "cannot turn on at a customer"
+  failure — not the activation method. **Fix:** `organization: "current"`
+  resolves against the connection's own env everywhere, so the flows render in
+  the designer and the portal "Turn on" validates (once the connection
+  reference is bound). The child's genuine cross-env ops keep the runtime
+  `srcUrl`/`tgtUrl` expression: a **non-foldable runtime expression** skips the
+  design-time metadata call entirely (the same escape hatch noted for the
+  xMultiple messages below), so it neither breaks the designer nor blocks
+  turn-on. A `statecode` PATCH (`workflows(id) {statecode:1,statuscode:2}`)
+  still activates headlessly — `deploy-executor-flow.ps1` (dev/host) and
+  `activate-flows.ps1` (post managed-import) use it — but the portal button is
+  no longer off-limits.
 - **Nested `Foreach` loops ALWAYS run sequentially.** The
   `runtimeConfiguration.concurrency.repetitions` setting is honored only for
   top-level loops; any foreach nested inside another foreach (even one level,

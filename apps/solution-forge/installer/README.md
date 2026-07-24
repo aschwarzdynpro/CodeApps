@@ -15,7 +15,7 @@ install is correct by construction (no per-customer prefix rewrite).
 | `provision-model.ps1` | Creates publisher + solution + all `pro_` tables (columns, choices with pinned values, lookups). Idempotent. Called by `install.ps1`. |
 | `migrate-int11.ps1` | One-off: copies the legacy `ssid_`/`sst_` data on INT-11 into the `pro_` model (lookup remap, `createdon` preserved). Dry-run by default; `-Execute` writes. |
 | `deploy-executor-flow.ps1` | Deploys (create-or-update) + activates the transfer executor flows from the `*.clientdata.json` templates. For the **dev/host** env where the flows are authored. |
-| `activate-flows.ps1` | **After a MANAGED solution import at a customer:** binds the connection reference and activates the three transfer flows via a `statecode` PATCH (never the Maker "Turn on" button — that fails on the dynamic connector schema with a 401). Does not rewrite the managed definition. |
+| `activate-flows.ps1` | **After a MANAGED solution import at a customer:** binds the connection reference and activates the three transfer flows via a `statecode` PATCH — a headless equivalent of the Maker "Turn on" button (both work now that host operations use `organization: "current"`). Does not rewrite the managed definition. |
 | (managed solution zip) | The full-app managed solution export lives in [`../releases/`](../releases/) (versioned, single source of truth) — use it for solution-import-based installs (`pac solution import`) instead of the script-based provisioning the wizard uses. After import, bind the connection reference and activate the flows (see the releases README). |
 
 ## Usage

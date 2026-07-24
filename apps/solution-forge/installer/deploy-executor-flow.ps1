@@ -6,8 +6,10 @@
 
 .DESCRIPTION
   The flow definition lives in executor-flow.clientdata.json next to this
-  script (the __HOST_URL__ placeholder is replaced with the target
-  environment's URL). The flow is created via the Web API (workflows table,
+  script. Host-environment operations use organization "current" (the
+  connection's own env) so the flows stay portable across environments and
+  render in the designer; only __CONNREF__ (and the parent's __CHILD_ID__)
+  are substituted. The flow is created via the Web API (workflows table,
   category 5) inside the app solution, bound to the existing connection
   reference `pro_CRDataverse`, then activated. Re-runnable: an existing flow
   of the same name is deactivated, updated and reactivated.
@@ -47,7 +49,7 @@ if (-not $cr[0].connectionid) { Write-Warning "$ConnectionReference is UNBOUND â
 # Returns the workflowid (needed to wire the parent's child-flow reference).
 function Deploy-Flow($name, $templateFile, $description, $extraReplace = @{}) {
   $clientData = Get-Content (Join-Path $PSScriptRoot $templateFile) -Raw
-  $clientData = $clientData.Replace('__HOST_URL__', $hostUrl).Replace('__CONNREF__', $ConnectionReference)
+  $clientData = $clientData.Replace('__CONNREF__', $ConnectionReference)
   foreach ($k in $extraReplace.Keys) { $clientData = $clientData.Replace($k, $extraReplace[$k]) }
   $existing = (Invoke-Dv -Method GET -Path "workflows?`$select=workflowid,statecode&`$filter=name eq '$($name.Replace("'","''"))' and category eq 5").value
   if ($existing) {

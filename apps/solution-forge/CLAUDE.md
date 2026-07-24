@@ -578,7 +578,8 @@ Expand für Lookup-Ziele, kein Metadata-Cast nötig) das Write-Rezept
 Vitest) — Owner/polymorphe Lookups werden übersprungen. **Executor-Flow**
 (implementiert + shipbar, **v4 = Parent+Child, komplett variablenfrei**):
 Templates `installer/executor-flow.clientdata.json` (Parent, Platzhalter
-`__HOST_URL__`/`__CONNREF__`/`__CHILD_ID__`) +
+`__CONNREF__`/`__CHILD_ID__`; **Host-Ops nutzen `organization:"current"`** —
+portabel über Envs + im Designer lesbar, KEINE eingebackene Host-URL) +
 `installer/executor-child-flow.clientdata.json` (Child); Deploy
 create-or-update+activate via `installer/deploy-executor-flow.ps1` (**Child
 zuerst** — der Parent referenziert ihn per `Workflow`-Action mit

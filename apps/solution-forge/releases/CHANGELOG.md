@@ -6,6 +6,33 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.14 — 2026-07-25
+
+**Fix — Transfer-Executor-Flows sind beim Kunden aktivierbar und im Designer lesbar.**
+
+In 1.0.0.13 hatten die drei Executor-Flows (Execute Package / Execute Cell /
+Scheduler) die **Host-URL der Authoring-Umgebung fest im `organization`-Parameter
+eingebacken**. Beim Import in eine ANDERE Umgebung zeigte der Wert auf eine
+fremde, für die dortige Connection unerreichbare Org → Aktivierung (Maker
+„Turn on" wie auch Managed-Import) scheiterte an
+`GetMetadataForGetEntityWithOrganization … 401 … "The response is not in a JSON
+format."`, und der Designer rendere die Flows nur teilweise (~14 von 35 Actions).
+
+- **Host-Operationen nutzen jetzt `organization: "current"`** (löst gegen die
+  eigene Umgebung der gebundenen Connection auf) → portabel über Umgebungen,
+  Designer rendert vollständig, Turn-on validiert normal, Run-Only konfigurierbar.
+- Die echten cross-env-Operationen des Child-Flows (Quelle lesen, Ziel schreiben)
+  behalten die dynamische Ziel-URL als Runtime-Ausdruck — ein *non-foldable* Wert,
+  der den Design-Zeit-Schema-Check überspringt.
+- Verifiziert: Aktivierung + Dry-Run + echter Update-Write im Playground;
+  Managed-Import + Aktivierung in einer Fremd-Umgebung bestätigt.
+- Doku/Skripte nachgezogen (`activate-flows.ps1`, Release-README): der Maker-
+  „Turn on"-Button ist nicht mehr als gesperrt beschrieben.
+
+Sonst funktional identisch zu 1.0.0.13.
+
+---
+
 ## 1.0.0.13 — 2026-07-24
 
 Erster dokumentierter Release — **Gesamtstand, stark verkürzt.** Power Apps

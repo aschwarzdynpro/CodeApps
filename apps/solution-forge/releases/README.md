@@ -15,7 +15,7 @@ top) — add one whenever you export a new version here.
 
 | File | Version | Exported | Contents |
 | --- | --- | --- | --- |
-| `DynamicsProSolutionAdminConsole_1.0.0.13_managed.zip` | 1.0.0.13 | 2026-07-24 | 8 `pro_` tables · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler) · Code App (chunk-split bundle, now incl. the first-run **Self-Provisioning Wizard**) · 1 security role |
+| `DynamicsProSolutionAdminConsole_1.0.0.14_managed.zip` | 1.0.0.14 | 2026-07-25 | 8 `pro_` tables · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler), host operations now wired to `organization: "current"` so they render in the designer and activate normally at a customer · Code App (chunk-split bundle, incl. the first-run **Self-Provisioning Wizard**) · 1 security role |
 
 Only the newest managed export is kept here (managed solutions upgrade
 cumulatively — an older versioned zip can't be imported over a newer one).
@@ -24,23 +24,19 @@ cumulatively — an older versioned zip can't be imported over a newer one).
 
 1. `pac solution import --path DynamicsProSolutionAdminConsole_<version>_managed.zip`
    (device-code auth, per the standing preference).
-2. **Bind the connection reference and activate the three transfer flows via
-   the script — NOT the Maker Portal "Turn on" button:**
+2. **Bind the connection reference `pro_CR_SAC_Dataverse` to a Dataverse
+   connection, then turn the three transfer flows on.** Both the Maker Portal
+   "Turn on" button and the headless script work:
    ```powershell
    pwsh installer/activate-flows.ps1 -EnvironmentUrl https://<org>.crm4.dynamics.com -TenantId <guid> `
         -ConnectionReference pro_CR_SAC_Dataverse -ConnectionId <dataverse-connection-guid>
    ```
-   The executor flows use dynamic `*WithOrganization` connector operations
-   (entity + target org are runtime expressions). The Maker "Turn on" button
-   and the designer resolve the connector schema at **design time**
-   (`GetMetadataForGetEntityWithOrganization`) against an unresolved
-   `organization`, which fails with `InvalidOpenApiFlow … 401 … "The response
-   is not in a JSON format."` — and renders the flow only partially in the
-   designer. That is cosmetic: the flows execute in full at runtime. The
-   script activates them with a plain `statecode` PATCH (the supported path,
-   same as the dev/host env) and never rewrites the managed definition, so no
-   unmanaged layer is created. The connection's service principal must
-   read/write every configured source and target environment.
+   The flows' host-environment operations use `organization: "current"`, so the
+   designer renders them and activation validates cleanly once the connection is
+   bound; the child's genuine cross-environment operations pass the source/target
+   org URL as a runtime expression (a non-foldable value that skips the
+   design-time schema check). The connection's service principal must read/write
+   every configured source and target environment.
 3. Assign the `pro_*` table privileges / the shipped security role to the
    users who operate the console.
 4. Add the Code App to the environment's app list if it is not surfaced
