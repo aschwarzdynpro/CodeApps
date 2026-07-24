@@ -1,11 +1,14 @@
 # Configuration Data Transfer Hub — Pipeline Contract
 
 The Solution Administration Console (menu **Manage → Data Transfer**) authors
-*transfer packages*: declarative descriptions of which configuration data an
-**external pipeline** transports from a source Dataverse environment into one
-or more target environments. The app **never executes** a transfer — that is
-deliberately out of scope. This document is the contract the executor is built
-against.
+*transfer packages*: declarative descriptions of which configuration data is
+transported from a source Dataverse environment into one or more target
+environments. Execution is done by **cloud flows installed alongside the app**
+(executor parent + child + scheduler, see
+`installer/deploy-executor-flow.ps1`); the app itself **never executes** a
+transfer in-session. This document is the contract those flows are built
+against — it is written so a *different* executor (an external pipeline, an
+Azure Function, …) could implement the same protocol.
 
 ## Where the configuration lives
 
@@ -111,7 +114,7 @@ Failed with a note. Runs in status Cancelled are never picked up.
 | `pro_querymode_opt` | Choice | How the query was authored — informational; the executable query is always the snapshot below. |
 | `pro_viewid_str` / `pro_viewname_str` | String | Saved-view provenance (view mode). **Do not read `savedquery` at run time** — the view may have changed or been deleted since the snapshot; the snapshot is authoritative. |
 | `pro_viewsnapshotat_dat` | DateTime | When the view FetchXML was last snapshotted. |
-| `pro_fetchxml_txt` | Memo | **The executable query — always populated** (both modes). Carries no paging attributes; paging is the pipeline's job (inject `count`/`page` or use paging cookies). |
+| `pro_fetchxml_txt` | Memo | **The executable query — always populated** (both modes). A `top="N"` the author wrote is honored. An executor reading through the Dataverse connector gets **one 5000-row page** and no working way to page further (see the row-limit note below); a different executor may implement paging (`count`/`page` or paging cookies). The shipped cloud-flow executor refuses to write when a read hits the 5000-row cap. |
 | `pro_matchmode_opt` | Choice | Record matching, see below. `null` ⇒ GUID upsert. |
 | `pro_matchcolumns_str` | String(1000) | Comma-separated logical column names (columns mode). |
 | `pro_orphanhandling_opt` | Choice | What to do with orphaned target records. `null` ⇒ Ignore. |

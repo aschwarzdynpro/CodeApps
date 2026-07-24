@@ -499,10 +499,11 @@ sync (`formatRelative(loadedAt)`) + Refresh (re-run compare). ⚠ `set`-in-effec
 `flowBarHidden`-Reset via `// eslint-disable-next-line react-hooks/set-state-in-effect`.
 
 **Configuration Data Transfer Hub** (Manage-Gruppe, Menüpunkt „Data Transfer",
-gated): deklarative **Transfer-Pakete** für Konfigurationsdaten, die eine
-**externe Pipeline** ausführt (bewusst NICHT in-app — Contract in
-`docs/transfer-hub-contract.md`, dort Spalten-/Choice-Semantik; Choice-Codes
-gespiegelt in `types/transferHub.ts`). Datenmodell: `pro_transferpackage`
+gated): deklarative **Transfer-Pakete** für Konfigurationsdaten, die
+**mitinstallierte Cloud Flows** ausführen (Executor Parent+Child +
+Scheduler, `installer/deploy-executor-flow.ps1`) — NICHT in der App-Session
+selbst. Contract in `docs/transfer-hub-contract.md`, dort Spalten-/Choice-
+Semantik; Choice-Codes gespiegelt in `types/transferHub.ts`. Datenmodell: `pro_transferpackage`
 (Name, `pro_targetenvs_str` = Komma-Liste der ENVIRONMENTS-**Keys** — bewusst
 String statt Choice, Registry ist runtime-hydriert; `pro_order_int`) +
 `pro_transferentry` (Lookup `pro_package_ref` **Delete=Cascade**, Quell-Env-Key,
