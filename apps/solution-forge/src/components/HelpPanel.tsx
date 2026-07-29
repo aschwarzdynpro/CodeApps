@@ -722,6 +722,20 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               so it refuses rather than counting something else.
             </p>
             <p>
+              The query line <strong>completes as you type</strong> (
+              <kbd>Ctrl</kbd>+<kbd>Space</kbd> asks explicitly): entity sets —
+              searchable by display name, so “Firma” finds{' '}
+              <code>accounts</code> — columns per query option with lookups
+              offered as <code>_x_value</code>, sort directions, the operators
+              that fit the column's type, choice values with their labels, the{' '}
+              <code>Microsoft.Dynamics.CRM.*</code> functions with a signature
+              hint, and navigation properties for <code>$expand</code>. Below
+              it, <strong>check chips</strong> flag an unknown column, a lookup
+              selected without <code>_value</code> or a <code>$top</code> above
+              the 5,000 cap. They warn but never block — metadata can be stale,
+              and refusing a query the server would answer is worse.
+            </p>
+            <p>
               ⚠ <strong>Queries run as the connector service principal</strong>,
               not as you — results deliberately ignore your personal row-level
               and field-level security, which is why the menu item is

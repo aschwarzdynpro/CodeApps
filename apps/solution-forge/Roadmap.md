@@ -160,8 +160,15 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
         `$orderby`-Mehrfachsortierung (Shift-Klick); Count-Button über ein
         FetchXML-Aggregat; **editierbare Raw-Query-Zeile**, bidirektional
         gekoppelt — Raw gewinnt, unmodellierbare Ausdrücke bleiben wörtlich.
-  - [ ] **P3 IntelliSense** — `utils/odataSuggest.ts` + `QueryInput` auf allen
-        Feldern inkl. Raw-Zeile, Validierungs-Chips, Signatur-Hinweis.
+  - [x] **P3 IntelliSense** — pure Engine `utils/odataSuggest.ts` +
+        `QueryInput` auf der Raw-Zeile: Entity-Sets (auch über Anzeigenamen —
+        „Firma" findet `accounts`), Spalten je `$select`/`$orderby`/`$filter`
+        (Lookups als `_x_value`), Sortierrichtung, typrichtige Operatoren,
+        Choice-Werte mit Label, `Microsoft.Dynamics.CRM.*`-Funktionen inkl.
+        Spalten-Completion im `PropertyName`, Nav-Properties für `$expand`;
+        Signatur-Hinweis unter dem Feld, Strg+Space erzwingt Vorschläge.
+        Dazu `validateQuery` als nicht-blockierende Prüf-Chips (unbekannte
+        Spalte, Lookup ohne `_value`, nicht selektierbare Spalte, `$top`-Cap).
   - [ ] **P4 Records** — Einzelsatz-Ansicht, Lookup-Drill-through, verwandte
         Datensätze, `$expand`-Builder mit verschachteltem `$select`.
   - [ ] **P5 Komfort** — Historie, gespeicherte Queries, CSV/JSON-Export,

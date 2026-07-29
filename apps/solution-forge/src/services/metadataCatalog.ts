@@ -1,6 +1,7 @@
 import type {
   EntityMeta,
   EntityRef,
+  LookupRef,
   OptionLabel,
   RawAttribute,
 } from '../types/odataBrowser'
@@ -189,9 +190,57 @@ export async function getEntityMeta(
       .filter((a) => a.logicalName)
       .map(classifyColumn),
   )
-  const meta: EntityMeta = { ref, columns }
+  const meta: EntityMeta = {
+    ref,
+    columns,
+    lookups: await loadLookups(orgUrl, safe),
+  }
   perOrg.set(logicalName, meta)
   return meta
+}
+
+/**
+ * Single-valued navigation properties from `ManyToOneRelationships`.
+ *
+ * Deliberately a **separate, best-effort call** rather than a second `$expand`
+ * on the attributes query: piling expands onto one `EntityDefinitions` request
+ * is the part of the metadata read most likely to be refused, and losing the
+ * whole column list to get navigation names would be a bad trade. It is
+ * cached along with the rest of the entity metadata, so this costs one extra
+ * round trip per table per session.
+ */
+async function loadLookups(
+  orgUrl: string,
+  safeLogicalName: string,
+): Promise<LookupRef[]> {
+  try {
+    const rows = await odataQuery('EntityDefinitions', 'LogicalName', {
+      orgUrl,
+      filter: `LogicalName eq '${safeLogicalName}'`,
+      expand:
+        'ManyToOneRelationships($select=ReferencingAttribute,ReferencedEntity,ReferencingEntityNavigationPropertyName)',
+    })
+    const relationships =
+      (rows[0]?.ManyToOneRelationships as Array<Row> | undefined) ?? []
+    const out: LookupRef[] = []
+    const seen = new Set<string>()
+    for (const row of relationships) {
+      const navigationName = rowStr(row.ReferencingEntityNavigationPropertyName)
+      const attribute = rowStr(row.ReferencingAttribute)
+      const targetEntity = rowStr(row.ReferencedEntity)
+      if (!navigationName || !attribute || seen.has(navigationName)) continue
+      seen.add(navigationName)
+      out.push({
+        navigationName,
+        valueColumn: `_${attribute}_value`,
+        targetEntity,
+      })
+    }
+    return out.sort((a, b) => a.navigationName.localeCompare(b.navigationName))
+  } catch (err) {
+    console.warn('[odata] relationship metadata failed:', safeLogicalName, err)
+    return []
+  }
 }
 
 const optionsByKey = new Map<string, OptionLabel[]>()

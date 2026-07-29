@@ -8084,3 +8084,123 @@
   font-weight: 600;
   color: #a15c07;
 }
+
+/* Query input with completion (OData Browser raw query line) */
+.qinput {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.qinput-area {
+  width: 100%;
+  resize: vertical;
+  min-height: 48px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.qinput-area:focus {
+  outline: 2px solid var(--brand);
+  border-color: var(--brand);
+}
+.qinput-signature {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.qinput-signature code {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.qinput-popup {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(16, 24, 40, 0.16);
+}
+.qinput-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.qinput-item--active {
+  background: #eef0fb;
+}
+.qinput-icon {
+  flex: 0 0 14px;
+  color: var(--brand);
+  font-size: 11px;
+}
+.qinput-label {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.qinput-detail {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Static query checks */
+.odb-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.odb-check {
+  font-size: 11.5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid;
+}
+.odb-check--error {
+  color: #b02a37;
+  border-color: #f1aeb5;
+  background: #fdf2f3;
+}
+.odb-check--warn {
+  color: #7a5b12;
+  border-color: #f5d9a8;
+  background: #fdf6e7;
+}
+.odb-query-note kbd {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 10.5px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 4px;
+  background: var(--surface);
+  margin: 0 2px;
+}

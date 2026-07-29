@@ -2,6 +2,7 @@ import type {
   EntityMeta,
   EntityRef,
   FilterNode,
+  LookupRef,
   ODataQuery,
   OdataRow,
   OptionLabel,
@@ -53,6 +54,8 @@ function attr(
 interface TableSeed {
   ref: EntityRef
   attributes: RawAttribute[]
+  /** Navigation properties, so $expand suggestions work offline too. */
+  lookups: LookupRef[]
   rows: OdataRow[]
 }
 
@@ -195,6 +198,13 @@ const SEEDS: TableSeed[] = [
         attributeOf: 'revenue',
       }),
     ],
+    lookups: [
+      {
+        navigationName: 'primarycontactid',
+        valueColumn: '_primarycontactid_value',
+        targetEntity: 'contact',
+      },
+    ],
     rows: ACCOUNTS,
   },
   {
@@ -217,6 +227,13 @@ const SEEDS: TableSeed[] = [
       attr('statecode', 'Status', 'State'),
       attr('createdon', 'Created On', 'DateTime', { isValidForUpdate: false }),
       attr('parentcustomerid', 'Company Name', 'Customer'),
+    ],
+    lookups: [
+      {
+        navigationName: 'parentcustomerid_account',
+        valueColumn: '_parentcustomerid_value',
+        targetEntity: 'account',
+      },
     ],
     rows: CONTACTS,
   },
@@ -241,6 +258,7 @@ const SEEDS: TableSeed[] = [
       attr('statecode', 'Status', 'State'),
       attr('createdon', 'Created On', 'DateTime', { isValidForUpdate: false }),
     ],
+    lookups: [],
     rows: WORKING_SOLUTIONS,
   },
 ]
@@ -336,6 +354,7 @@ class MockOdataBrowserService implements OdataBrowserService {
     return {
       ref: seed.ref,
       columns: sortColumns(seed.attributes.map(classifyColumn)),
+      lookups: seed.lookups,
     }
   }
 

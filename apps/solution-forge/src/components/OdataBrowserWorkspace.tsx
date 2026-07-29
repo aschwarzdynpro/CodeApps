@@ -5,6 +5,7 @@ import type {
   EntityRef,
   ODataQuery,
   OdataRow,
+  OptionLabel,
   OrderBy,
 } from '../types/odataBrowser'
 import { odataBrowserService } from '../services/odataBrowserService'
@@ -20,9 +21,12 @@ import {
   parseQueryPath,
   toQueryPath,
   toWebApiUrl,
+  validateQuery,
 } from '../utils/odataQuery'
 import { buildCountFetchXml, filterToFetchXml, newGroup } from '../utils/odataFilter'
+import type { SuggestContext } from '../utils/odataSuggest'
 import { OdataFilterBuilder } from './OdataFilterBuilder'
+import { QueryInput } from './QueryInput'
 import { orgUrlForEnvKey } from '../config'
 import { OperateEnvPicker } from './OperateEnvPicker'
 import { SearchSelect, type SearchSelectOption } from './SearchSelect'
@@ -41,8 +45,11 @@ import { OdataResultGrid } from './OdataResultGrid'
  * The builder and the raw query line are two views of one `ODataQuery`. The
  * builder writes the structured filter; editing the raw line parses it back,
  * and anything the builder cannot model is kept verbatim (raw mode) instead of
- * being rewritten. Still to come per `docs/odata-browser-plan.md`: IntelliSense
- * (P3) and the record view with lookup drill-through (P4).
+ * being rewritten. The raw line has metadata-driven completion
+ * (`utils/odataSuggest`) and the query is statically checked before it is sent
+ * (`validateQuery`) — non-blocking, since the metadata can be stale. Still to
+ * come per `docs/odata-browser-plan.md`: the record view with lookup
+ * drill-through (P4).
  */
 interface Props {
   envKey: string
@@ -80,6 +87,14 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   /** Raw query line: null = mirroring the builder, string = being edited. */
   const [rawDraft, setRawDraft] = useState<string | null>(null)
   const [rawIssues, setRawIssues] = useState<string[]>([])
+
+  /**
+   * Choice labels per column, shared by the filter builder and the completion
+   * engine — both need "0 = Active", and loading them twice would be silly.
+   */
+  const [choiceOptions, setChoiceOptions] = useState<Map<string, OptionLabel[]>>(
+    new Map(),
+  )
 
   /** Count result plus the query path it was measured for (so it can go stale). */
   const [count, setCount] = useState<number | 'over-limit' | null>(null)
@@ -134,6 +149,8 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     setError(null)
     setHint(null)
     setQuery(emptyQuery(ref.entitySet))
+    // Option codes are per table — a stale map would label the wrong values.
+    setChoiceOptions(new Map())
     setMetaLoading(true)
     odataBrowserService
       .getEntityMeta(envKey, logicalName)
@@ -311,13 +328,27 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   }
 
   const loadOptions = useCallback(
-    (column: ColumnMeta) =>
-      odataBrowserService.listOptions(
+    async (column: ColumnMeta) => {
+      const loaded = await odataBrowserService.listOptions(
         envKey,
         meta?.ref.objectTypeCode ?? 0,
         column.logicalName,
-      ),
+      )
+      setChoiceOptions((prev) => new Map(prev).set(column.selectName, loaded))
+      return loaded
+    },
     [envKey, meta],
+  )
+
+  /** Everything the completion engine needs — metadata plus loaded options. */
+  const suggestContext: SuggestContext = useMemo(
+    () => ({ entities, meta, options: choiceOptions }),
+    [entities, meta, choiceOptions],
+  )
+
+  const issues = useMemo(
+    () => validateQuery(query, meta, entities),
+    [query, meta, entities],
   )
 
   /** Parse the edited raw line back into the query state. */
@@ -621,19 +652,13 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
           </div>
 
           <div className="odb-query">
-            <textarea
-              className="odb-query-text odb-query-input"
-              spellCheck={false}
-              rows={2}
+            <QueryInput
+              className="odb-query-text"
               value={rawDraft ?? queryPath}
-              onChange={(e) => setRawDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  applyRaw()
-                }
-              }}
-              aria-label="OData query"
+              onChange={setRawDraft}
+              onSubmit={applyRaw}
+              ctx={suggestContext}
+              ariaLabel="OData query"
             />
             <span className="odb-query-actions">
               <button
@@ -666,10 +691,23 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
               ))}
             </ul>
           )}
+          {issues.length > 0 && (
+            <div className="odb-checks">
+              {issues.map((issue) => (
+                <span
+                  key={issue.message}
+                  className={`odb-check odb-check--${issue.level}`}
+                >
+                  {issue.level === 'error' ? '✕' : '⚠'} {issue.message}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="muted odb-query-note">
-            Editable — the builder and this line are two views of the same
-            query. Anything the builder cannot model is kept verbatim rather
-            than rewritten.
+            Editable, with completion — <kbd>Ctrl</kbd>+<kbd>Space</kbd> to ask,
+            <kbd>Enter</kbd> to apply. The builder and this line are two views
+            of the same query; anything the builder cannot model is kept
+            verbatim rather than rewritten.
           </div>
         </div>
       )}

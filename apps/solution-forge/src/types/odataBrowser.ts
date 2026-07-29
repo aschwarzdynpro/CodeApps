@@ -82,10 +82,29 @@ export interface ColumnMeta extends RawAttribute {
   unselectableReason: string | null
 }
 
+/**
+ * A single-valued navigation property (the lookup side of an N:1). This is
+ * what `$expand` addresses — never the `_x_value` column, which is the same
+ * relationship seen from the `$select` side.
+ */
+export interface LookupRef {
+  /** Navigation property name, e.g. `primarycontactid`. */
+  navigationName: string
+  /** The `_x_value` column carrying the id. */
+  valueColumn: string
+  /** Logical name of the referenced table. */
+  targetEntity: string
+}
+
 /** A table with its columns (loaded lazily, cached per org). */
 export interface EntityMeta {
   ref: EntityRef
   columns: ColumnMeta[]
+  /**
+   * Single-valued navigation properties, for `$expand` suggestions. Loaded
+   * best-effort in a separate call — if it fails, only expand help is lost.
+   */
+  lookups: LookupRef[]
 }
 
 export interface OrderBy {

@@ -2,6 +2,7 @@ import type {
   ColumnKind,
   ColumnMeta,
   EntityMeta,
+  EntityRef,
   ODataQuery,
   OrderBy,
   RawAttribute,
@@ -279,6 +280,94 @@ export function toWebApiUrl(
     .join('&')
   const base = `${orgUrl.replace(/\/+$/, '')}/api/data/${API_VERSION}/${q.entitySet}`
   return query ? `${base}?${query}` : base
+}
+
+export interface QueryIssue {
+  level: 'error' | 'warn'
+  message: string
+}
+
+/**
+ * Static checks over a query before it is sent — these are exactly the
+ * mistakes Dataverse answers with an opaque fault, so catching them here is
+ * the difference between "Could not find a property named 'ownerid'" and
+ * "lookups must be selected as `_ownerid_value`".
+ *
+ * Non-blocking by design: everything is reported, nothing is prevented. The
+ * metadata may be stale or incomplete, and refusing to run a query the server
+ * would happily answer is worse than a wrong warning.
+ */
+export function validateQuery(
+  q: ODataQuery,
+  meta: EntityMeta | null,
+  entities: EntityRef[] = [],
+): QueryIssue[] {
+  const issues: QueryIssue[] = []
+  if (!q.entitySet) return issues
+
+  if (
+    entities.length > 0 &&
+    !entities.some((e) => e.entitySet === q.entitySet)
+  )
+    issues.push({
+      level: 'error',
+      message: `“${q.entitySet}” is not an entity set in this environment.`,
+    })
+
+  if (meta) {
+    const selectable = new Map(
+      meta.columns.filter((c) => c.selectable).map((c) => [c.selectName, c]),
+    )
+    const byLogicalName = new Map(meta.columns.map((c) => [c.logicalName, c]))
+    for (const name of q.select) {
+      if (selectable.has(name)) continue
+      const asLogical = byLogicalName.get(name)
+      if (asLogical?.kind === 'lookup')
+        issues.push({
+          level: 'error',
+          message: `“${name}” is a lookup — select it as \`${asLogical.selectName}\`.`,
+        })
+      else if (asLogical && !asLogical.selectable)
+        issues.push({
+          level: 'error',
+          message: `“${name}” cannot be selected (${asLogical.unselectableReason}).`,
+        })
+      else
+        issues.push({
+          level: 'error',
+          message: `“${name}” is not a column of ${meta.ref.logicalName}.`,
+        })
+    }
+    for (const order of q.orderBy)
+      if (!selectable.has(order.column))
+        issues.push({
+          level: 'error',
+          message: `Cannot sort by “${order.column}” — not a readable column of ${meta.ref.logicalName}.`,
+        })
+    for (const order of q.orderBy) {
+      const column = selectable.get(order.column)
+      if (column && !column.isValidForAdvancedFind)
+        issues.push({
+          level: 'warn',
+          message: `“${order.column}” is not marked as searchable — sorting on it may be rejected.`,
+        })
+    }
+  }
+
+  if (q.top !== null && q.top > MAX_TOP)
+    issues.push({
+      level: 'warn',
+      message: `$top is capped at ${MAX_TOP} by Dataverse — use “Load more” for the rest.`,
+    })
+
+  if (q.filter === null && q.filterRaw)
+    issues.push({
+      level: 'warn',
+      message:
+        'The filter is raw text and is sent unchecked — the builder could not model it.',
+    })
+
+  return issues
 }
 
 export interface ParsedQuery {

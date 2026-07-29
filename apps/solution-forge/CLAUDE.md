@@ -667,16 +667,16 @@ zurückbauen, sonst clippt das Source-Table-Dropdown im noch kurzen Formular.
 
 **OData Browser** (Operate-Gruppe, Menüpunkt „OData Browser", gated;
 Plan + Entscheidungen: `docs/odata-browser-plan.md`): freies Durchsehen der
-Web API **je Umgebung**. Stand: **P1 + P2 fertig** — Tabellen-/Spalten-
-Picker, `$top`/Seitengröße, Run, Grid, Paging, Copy-URL, **Filter-Builder,
-editierbare Raw-Query, Mehrfach-Sortierung, Count**. Offen laut Plan: P3
-IntelliSense, P4 Einzelsatz + Drill-through, P5 Komfort/FetchXML/Metadaten-
-Modus, P6 Write.
+Web API **je Umgebung**. Stand: **P1–P3 fertig** — Tabellen-/Spalten-
+Picker, `$top`/Seitengröße, Run, Grid, Paging, Copy-URL, Filter-Builder,
+editierbare Raw-Query, Mehrfach-Sortierung, Count, **IntelliSense +
+Query-Validierung**. Offen laut Plan: P4 Einzelsatz + Drill-through, P5
+Komfort/FetchXML/Metadaten-Modus, P6 Write.
 Dateien: `types/odataBrowser.ts`, `services/metadataCatalog.ts` (+ Service-Trio
 `odataBrowserService`/`dataverse…`/`mock…`), pure Utils
-`utils/odataQuery.ts`/`odataFilter.ts`/`odataFormat.ts`/`odataErrors.ts` (alle
-Vitest), `components/OdataBrowserWorkspace.tsx` + `OdataResultGrid.tsx` +
-`OdataFilterBuilder.tsx`.
+`utils/odataQuery.ts`/`odataFilter.ts`/`odataFormat.ts`/`odataErrors.ts`/
+`odataSuggest.ts` (alle Vitest), `components/OdataBrowserWorkspace.tsx` +
+`OdataResultGrid.tsx` + `OdataFilterBuilder.tsx` + `QueryInput.tsx`.
 **Alles über den vorhandenen Konnektor — KEINE neue Data Source.**
 Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
 - **Identität:** Reads laufen als Konnektor-SP (bei Schulz sysadmin), NICHT als
@@ -731,6 +731,20 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
 - Choice-Labels via `getOptionLabels` (stringmap) brauchen **`objecttypecode`
   in der Bedingung**, nicht nur `attributename`: `statecode` gibt es auf jeder
   Tabelle.
+- **IntelliSense = EINE pure Funktion** `odataSuggest.suggest(text, caret, ctx)`
+  → `Suggestion[]` mit `replaceFrom/replaceTo`; `QueryInput.tsx` ist bewusst
+  dumm (Caret tracken, Popup zeichnen, Range ersetzen). Deshalb ist die Logik
+  komplett Vitest-getestet, ohne DOM. `regionAt` bestimmt, in welchem
+  `$option` der Cursor steht — **gleiche `&`-Split-Regel wie `parseQueryPath`**
+  (nur trennen, wo ein `$option=` folgt), sonst zerlegt ein `&` im Wert die
+  Region falsch. **Kein Monaco/CodeMirror** (Gotcha #10 + Bundle).
+- `$expand`-Vorschläge brauchen `EntityMeta.lookups` aus
+  `ManyToOneRelationships`. Das läuft als **eigener best-effort-Call** in
+  `loadLookups`, NICHT als zweites `$expand` an der Attributs-Query — fällt es
+  aus, verliert man nur die Expand-Hilfe statt der ganzen Spaltenliste.
+- `validateQuery` ist **nie blockierend**: Metadaten können veraltet sein, und
+  eine Query zu verhindern, die der Server beantworten würde, wäre schlimmer
+  als eine falsche Warnung.
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 

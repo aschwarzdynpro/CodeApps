@@ -444,8 +444,16 @@ nach Typ.
     **⚠ Alle Reads laufen als Konnektor-SP**, nicht
     als angemeldeter User — die Ergebnisse ignorieren also bewusst die
     persönliche RLS/Field Security des Betrachters (deshalb gated, deshalb
-    der Banner). **Read-only**; IntelliSense und Einzelsatz-Ansicht folgen
-    laut [`docs/odata-browser-plan.md`](docs/odata-browser-plan.md).
+    der Banner). Die Query-Zeile hat **IntelliSense** (Strg+Space erzwingt sie):
+    Entity-Sets — auch über den Anzeigenamen, „Firma" findet `accounts` —,
+    Spalten je Query-Option (Lookups automatisch als `_x_value`),
+    Sortierrichtung, typrichtige Operatoren, Choice-Werte mit Label,
+    `Microsoft.Dynamics.CRM.*`-Funktionen samt Signatur-Hinweis und
+    Navigation Properties für `$expand`. Darunter **Prüf-Chips**
+    (unbekannte Spalte, Lookup ohne `_value`, `$top`-Cap) — sie warnen, sie
+    blockieren nicht, weil Metadaten veralten können. **Read-only**;
+    Einzelsatz-Ansicht folgt laut
+    [`docs/odata-browser-plan.md`](docs/odata-browser-plan.md).
   - **📡 Job Monitor** *(aus der App entfernt — Code im Repo)* — „Ist die Async-Verarbeitung gesund?" in < 10 s:
     **Health**-Kacheln (Failed 24 h, Waiting-Backlog + älteste wartende Op,
     Flow-Fehlerquote als gekennzeichnetes Sample, Watchdog-Ampeln; jede

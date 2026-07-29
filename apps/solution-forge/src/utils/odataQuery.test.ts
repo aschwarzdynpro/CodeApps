@@ -179,6 +179,7 @@ describe('defaultSelect', () => {
       classifyColumn(raw({ logicalName: 'ownerid', attributeType: 'Owner' })),
       classifyColumn(raw({ logicalName: 'unrelated' })),
     ],
+    lookups: [],
   }
 
   it('picks id, name and the usual system columns — lookups as _value', () => {
