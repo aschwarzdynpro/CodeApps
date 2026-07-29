@@ -3,6 +3,7 @@ import type {
   EntityRef,
   ODataQuery,
   OdataRow,
+  OptionLabel,
   QueryResult,
   RecordDraft,
   WriteResult,
@@ -16,12 +17,16 @@ import {
   cachedEntitySets,
   clearMetadataCache,
   getEntityMeta,
+  getOptionLabels,
   listEntities,
 } from './metadataCatalog'
+import { fetchXmlQuery } from './currentEnvQuery'
 import {
+  columnMap,
   preferHeader,
   renderQueryOptions,
   skipTokenFrom,
+  type Columns,
 } from '../utils/odataQuery'
 import { OdataQueryError, describeOdataFault } from '../utils/odataErrors'
 
@@ -91,7 +96,13 @@ class DataverseOdataBrowserService implements OdataBrowserService {
     if (!query.entitySet) throw new OdataQueryError('No table selected.')
 
     const orgUrl = orgUrlForEnvKey(envKey)
-    const opts = renderQueryOptions(query)
+    // The structured filter can only be rendered correctly with the column
+    // kinds at hand (a numeric column must not be quoted). Both reads below
+    // are cache hits after the table was picked.
+    const opts = renderQueryOptions(
+      query,
+      await this.columnsFor(envKey, query.entitySet),
+    )
     const started = performance.now()
     const result = await MicrosoftDataverseService.ListRecordsWithOrganization(
       orgUrl,
@@ -121,8 +132,77 @@ class DataverseOdataBrowserService implements OdataBrowserService {
     }
   }
 
+  async listOptions(
+    envKey: string,
+    objectTypeCode: number,
+    attributeLogicalName: string,
+  ): Promise<OptionLabel[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockOdataBrowserService.listOptions(
+        envKey,
+        objectTypeCode,
+        attributeLogicalName,
+      )
+    return getOptionLabels(
+      orgUrlForEnvKey(envKey),
+      objectTypeCode,
+      attributeLogicalName,
+    )
+  }
+
+  async countRows(
+    envKey: string,
+    entitySet: string,
+    fetchXml: string,
+  ): Promise<number | 'over-limit'> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockOdataBrowserService.countRows(envKey, entitySet, fetchXml)
+    try {
+      const rows = await fetchXmlQuery(
+        entitySet,
+        fetchXml,
+        orgUrlForEnvKey(envKey),
+      )
+      const value = rows[0]?.cnt
+      const count = typeof value === 'number' ? value : Number(value)
+      if (!Number.isFinite(count))
+        throw new OdataQueryError('The count query returned no result.')
+      return count
+    } catch (err) {
+      // Dataverse caps aggregates at 50 000 rows and fails the whole query
+      // rather than truncating — report the ceiling instead of a raw fault.
+      const message = describeOdataFault(err).message.toLowerCase()
+      if (
+        message.includes('aggregate') &&
+        (message.includes('limit') || message.includes('exceed'))
+      )
+        return 'over-limit'
+      throw this.toQueryError(err, envKey, entitySet)
+    }
+  }
+
   refreshMetadata(envKey: string): void {
     clearMetadataCache(orgUrlForEnvKey(envKey))
+  }
+
+  /**
+   * Column lookup for an entity set, from the metadata cache. Best-effort: an
+   * empty map only degrades literal quoting, it never blocks the query.
+   */
+  private async columnsFor(envKey: string, entitySet: string): Promise<Columns> {
+    try {
+      const orgUrl = orgUrlForEnvKey(envKey)
+      const ref = (await listEntities(orgUrl)).find(
+        (e) => e.entitySet === entitySet,
+      )
+      if (!ref) return new Map()
+      return columnMap(await getEntityMeta(orgUrl, ref.logicalName))
+    } catch (err) {
+      console.warn('[odata] column lookup for filter rendering failed:', err)
+      return new Map()
+    }
   }
 
   // --- write seams (disabled in v1) ---------------------------------------

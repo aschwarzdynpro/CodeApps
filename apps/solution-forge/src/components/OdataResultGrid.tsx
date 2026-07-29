@@ -27,7 +27,8 @@ interface Props {
   /** Show FormattedValue annotations instead of raw values. */
   formatted: boolean
   orderBy: OrderBy[]
-  onSort: (key: string) => void
+  /** `additive` (shift-click) appends to `$orderby` instead of replacing it. */
+  onSort: (key: string, additive: boolean) => void
 }
 
 export function OdataResultGrid({
@@ -60,16 +61,22 @@ export function OdataResultGrid({
                   <th key={key}>
                     <button
                       className="odb-th"
-                      onClick={() => onSort(key)}
+                      onClick={(e) => onSort(key, e.shiftKey)}
                       title={`${meta?.displayName ?? key} (${key})${
                         meta ? ` · ${meta.kind}` : ''
-                      } — click to sort`}
+                      } — click to sort, shift-click to add to the sort`}
                     >
                       <span className="odb-th-label">
                         {meta?.displayName ?? key}
                       </span>
                       <span className="odb-th-sort">
-                        {sort ? (sort.desc ? '▼' : '▲') : ''}
+                        {sort
+                          ? `${sort.desc ? '▼' : '▲'}${
+                              orderBy.length > 1
+                                ? String(orderBy.indexOf(sort) + 1)
+                                : ''
+                            }`
+                          : ''}
                       </span>
                     </button>
                     <code className="odb-th-logical">{key}</code>

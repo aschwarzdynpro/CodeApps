@@ -5,6 +5,7 @@ import type {
   EntityRef,
   ODataQuery,
   OdataRow,
+  OrderBy,
 } from '../types/odataBrowser'
 import { odataBrowserService } from '../services/odataBrowserService'
 import { OdataQueryError } from '../utils/odataErrors'
@@ -13,19 +14,23 @@ import {
   MAX_TOP,
   PAGE_SIZE_OPTIONS,
   clampTop,
+  columnMap,
   defaultSelect,
   emptyQuery,
+  parseQueryPath,
   toQueryPath,
   toWebApiUrl,
 } from '../utils/odataQuery'
+import { buildCountFetchXml, filterToFetchXml, newGroup } from '../utils/odataFilter'
+import { OdataFilterBuilder } from './OdataFilterBuilder'
 import { orgUrlForEnvKey } from '../config'
 import { OperateEnvPicker } from './OperateEnvPicker'
 import { SearchSelect, type SearchSelectOption } from './SearchSelect'
 import { OdataResultGrid } from './OdataResultGrid'
 
 /**
- * OData Browser (P1) — browse the Dataverse Web API of any configured
- * environment: pick a table, pick columns, run, read the grid.
+ * OData Browser — browse the Dataverse Web API of any configured environment:
+ * pick a table and columns, filter, sort, run, read the grid.
  *
  * Everything goes through the Dataverse connector, so **every query runs as
  * the connection's service principal**, not as the signed-in user. That is
@@ -33,10 +38,11 @@ import { OdataResultGrid } from './OdataResultGrid'
  * deployment-manager gated — results deliberately ignore the viewer's own
  * row-level and field-level security.
  *
- * What is not here yet, by plan (`docs/odata-browser-plan.md`): the filter
- * builder and the editable raw query line (P2), IntelliSense (P3) and the
- * record view with lookup drill-through (P4). The query preview below is
- * generated and read-only until P2 makes it editable in both directions.
+ * The builder and the raw query line are two views of one `ODataQuery`. The
+ * builder writes the structured filter; editing the raw line parses it back,
+ * and anything the builder cannot model is kept verbatim (raw mode) instead of
+ * being rewritten. Still to come per `docs/odata-browser-plan.md`: IntelliSense
+ * (P3) and the record view with lookup drill-through (P4).
  */
 interface Props {
   envKey: string
@@ -70,6 +76,15 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
   const [copied, setCopied] = useState(false)
+
+  /** Raw query line: null = mirroring the builder, string = being edited. */
+  const [rawDraft, setRawDraft] = useState<string | null>(null)
+  const [rawIssues, setRawIssues] = useState<string[]>([])
+
+  /** Count result plus the query path it was measured for (so it can go stale). */
+  const [count, setCount] = useState<number | 'over-limit' | null>(null)
+  const [countFor, setCountFor] = useState<string | null>(null)
+  const [counting, setCounting] = useState(false)
 
   /**
    * Two independent sequence guards, so a late response can never overwrite
@@ -153,7 +168,12 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
    * react-compiler rules).
    */
   const execute = useCallback(
-    async (q: ODataQuery, token: string | null, append: boolean) => {
+    async (
+      q: ODataQuery,
+      token: string | null,
+      append: boolean,
+      columns: Map<string, ColumnMeta>,
+    ) => {
       if (!q.entitySet) return
       const seq = ++runSeq.current
       setRunning(true)
@@ -167,7 +187,9 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
         )
         setSkipToken(result.skipToken)
         setDurationMs(result.durationMs)
-        setRanQuery(toQueryPath(q))
+        // Same column map as the displayed path, so the "query changed"
+        // marker compares like with like.
+        setRanQuery(toQueryPath(q, columns))
       } catch (err) {
         if (seq === runSeq.current) fail(err)
       } finally {
@@ -176,19 +198,6 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     },
     [envKey, fail],
   )
-
-  /** Header click cycles asc → desc → unsorted; P1 sorts by one column. */
-  const sortBy = (key: string) => {
-    const current = query.orderBy.find((o) => o.column === key)
-    const orderBy = !current
-      ? [{ column: key, desc: false }]
-      : !current.desc
-        ? [{ column: key, desc: true }]
-        : []
-    const next = { ...query, orderBy }
-    setQuery(next)
-    if (rows !== null) void execute(next, null, false)
-  }
 
   // --- derived -------------------------------------------------------------
 
@@ -205,17 +214,53 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     [entities, showSystemTables],
   )
 
-  const metaByKey = useMemo(() => {
-    const map = new Map<string, ColumnMeta>()
-    for (const column of meta?.columns ?? [])
-      if (column.selectable) map.set(column.selectName, column)
-    return map
-  }, [meta])
+  const metaByKey = useMemo(() => columnMap(meta), [meta])
+
+  /** Columns the filter builder may offer — the selectable ones. */
+  const filterColumns = useMemo(
+    () => (meta?.columns ?? []).filter((c) => c.selectable),
+    [meta],
+  )
 
   const gridKeys = useMemo(() => {
     if (query.select.length > 0) return query.select
     return rows ? dataKeys(rows) : []
   }, [query.select, rows])
+
+  /** Apply a new query, re-running it when a result is already on screen. */
+  const runQuery = (next: ODataQuery) => {
+    setQuery(next)
+    if (rows !== null) void execute(next, null, false, metaByKey)
+  }
+
+  /**
+   * Header click cycles asc → desc → unsorted for that column. A plain click
+   * sorts by it alone; shift-click adds it to the existing order, which is how
+   * multi-column `$orderby` is reachable without a separate dialog.
+   */
+  const sortBy = (key: string, additive: boolean) => {
+    const current = query.orderBy.find((o) => o.column === key)
+    let orderBy: OrderBy[]
+    if (!current) {
+      orderBy = additive
+        ? [...query.orderBy, { column: key, desc: false }]
+        : [{ column: key, desc: false }]
+    } else if (!current.desc) {
+      orderBy = query.orderBy.map((o) =>
+        o.column === key ? { column: key, desc: true } : o,
+      )
+    } else {
+      orderBy = query.orderBy.filter((o) => o.column !== key)
+    }
+    runQuery({ ...query, orderBy })
+  }
+
+  const removeSort = (key: string) =>
+    runQuery({
+      ...query,
+      orderBy: query.orderBy.filter((o) => o.column !== key),
+    })
+
 
   const visibleColumns = useMemo(() => {
     const q = columnSearch.trim().toLowerCase()
@@ -227,7 +272,62 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     )
   }, [meta, columnSearch])
 
-  const queryPath = toQueryPath(query)
+  const queryPath = toQueryPath(query, metaByKey)
+
+  /**
+   * The Count aggregate. The connector has no `$count`, so the row total comes
+   * from a FetchXML `countcolumn` — which means the filter has to be
+   * translatable. A raw filter (or an operator FetchXML has no equivalent for)
+   * yields null here and the button is disabled with the reason, rather than
+   * counting something other than what the grid shows.
+   */
+  const countFetchXml = useMemo(() => {
+    if (!meta || !query.filter) return null
+    const filterXml = filterToFetchXml(query.filter, metaByKey)
+    if (filterXml === null) return null
+    return buildCountFetchXml(
+      meta.ref.logicalName,
+      meta.ref.primaryIdAttribute,
+      filterXml,
+    )
+  }, [meta, query.filter, metaByKey])
+
+  const runCount = async () => {
+    if (!countFetchXml || !query.entitySet) return
+    setCounting(true)
+    try {
+      const result = await odataBrowserService.countRows(
+        envKey,
+        query.entitySet,
+        countFetchXml,
+      )
+      setCount(result)
+      setCountFor(queryPath)
+    } catch (err) {
+      fail(err)
+    } finally {
+      setCounting(false)
+    }
+  }
+
+  const loadOptions = useCallback(
+    (column: ColumnMeta) =>
+      odataBrowserService.listOptions(
+        envKey,
+        meta?.ref.objectTypeCode ?? 0,
+        column.logicalName,
+      ),
+    [envKey, meta],
+  )
+
+  /** Parse the edited raw line back into the query state. */
+  const applyRaw = () => {
+    if (rawDraft === null) return
+    const parsed = parseQueryPath(rawDraft, query, metaByKey)
+    setQuery(parsed.query)
+    setRawIssues(parsed.issues)
+    setRawDraft(null)
+  }
 
   const toggleColumn = (column: ColumnMeta) => {
     if (!column.selectable) return
@@ -240,7 +340,7 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   }
 
   const copyUrl = () => {
-    const url = toWebApiUrl(orgUrlForEnvKey(envKey), query)
+    const url = toWebApiUrl(orgUrlForEnvKey(envKey), query, metaByKey)
     if (!url) return
     void navigator.clipboard?.writeText(url)
     setCopied(true)
@@ -265,13 +365,34 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
       </div>
 
       <div className="card trace-toolbar odb-toolbar">
-        <SearchSelect
-          options={entityOptions}
-          value={table}
-          onChange={pickTable}
-          placeholder={entitiesLoading ? 'Loading tables…' : 'Select a table…'}
-          loading={entitiesLoading}
-        />
+        <div className="odb-toolbar-main">
+          <SearchSelect
+            options={entityOptions}
+            value={table}
+            onChange={pickTable}
+            placeholder={entitiesLoading ? 'Loading tables…' : 'Select a table…'}
+            loading={entitiesLoading}
+          />
+          <span className="odb-toolbar-actions">
+            <button
+              className="btn btn--small"
+              onClick={reloadMetadata}
+              disabled={entitiesLoading}
+              title="Drop the cached metadata of this environment and read it again"
+            >
+              ⟳ Metadata
+            </button>
+            <button
+              className="btn btn--primary btn--small"
+              onClick={() => void execute(query, null, false, metaByKey)}
+              disabled={!query.entitySet || running || metaLoading}
+            >
+              {running ? 'Running…' : '▶ Run'}
+            </button>
+          </span>
+        </div>
+
+        <div className="odb-toolbar-opts">
         <label className="trace-check">
           <input
             type="checkbox"
@@ -315,23 +436,7 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
             ))}
           </select>
         </label>
-        <span className="trace-toolbar-right">
-          <button
-            className="btn btn--small"
-            onClick={reloadMetadata}
-            disabled={entitiesLoading}
-            title="Drop the cached metadata of this environment and read it again"
-          >
-            ⟳ Metadata
-          </button>
-          <button
-            className="btn btn--primary btn--small"
-            onClick={() => void execute(query, null, false)}
-            disabled={!query.entitySet || running || metaLoading}
-          >
-            {running ? 'Running…' : '▶ Run'}
-          </button>
-        </span>
+        </div>
       </div>
 
       {table && (
@@ -452,17 +557,119 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
             </div>
           )}
 
+          <div className="odb-builder-row odb-builder-row--stack">
+            <span className="odb-builder-label">Filter</span>
+            {query.filter ? (
+              <OdataFilterBuilder
+                root={query.filter}
+                columns={filterColumns}
+                disabled={metaLoading || !meta}
+                loadOptions={loadOptions}
+                onChange={(next) =>
+                  setQuery((prev) => ({
+                    ...prev,
+                    filter: next,
+                    filterRaw: null,
+                  }))
+                }
+              />
+            ) : (
+              <div className="odb-rawfilter">
+                <span className="odb-rawfilter-tag">advanced filter</span>
+                <code>{query.filterRaw}</code>
+                <span className="muted">
+                  kept exactly as written — the builder cannot model it.
+                </span>
+                <button
+                  className="btn btn--small"
+                  onClick={() =>
+                    setQuery((prev) => ({
+                      ...prev,
+                      filter: newGroup('and'),
+                      filterRaw: null,
+                    }))
+                  }
+                  title="Discard the raw filter and go back to the guided builder"
+                >
+                  Use the builder
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="odb-builder-row">
+            <span className="odb-builder-label">Sort</span>
+            {query.orderBy.length === 0 ? (
+              <span className="muted">
+                none — click a column header to sort, shift-click to add a
+                second one
+              </span>
+            ) : (
+              <span className="odb-chiplist">
+                {query.orderBy.map((o) => (
+                  <button
+                    key={o.column}
+                    className="chip odb-chip"
+                    title="Remove from $orderby"
+                    onClick={() => removeSort(o.column)}
+                  >
+                    {o.column} {o.desc ? '▼' : '▲'} ✕
+                  </button>
+                ))}
+              </span>
+            )}
+          </div>
+
           <div className="odb-query">
-            <code className="odb-query-text">{queryPath}</code>
+            <textarea
+              className="odb-query-text odb-query-input"
+              spellCheck={false}
+              rows={2}
+              value={rawDraft ?? queryPath}
+              onChange={(e) => setRawDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  applyRaw()
+                }
+              }}
+              aria-label="OData query"
+            />
             <span className="odb-query-actions">
+              <button
+                className="btn btn--small"
+                onClick={applyRaw}
+                disabled={rawDraft === null}
+                title="Parse the edited query back into the builder (Enter)"
+              >
+                Apply
+              </button>
+              <button
+                className="btn btn--small"
+                onClick={() => {
+                  setRawDraft(null)
+                  setRawIssues([])
+                }}
+                disabled={rawDraft === null}
+              >
+                Revert
+              </button>
               <button className="btn btn--small" onClick={copyUrl}>
                 {copied ? '✓ Copied' : 'Copy URL'}
               </button>
             </span>
           </div>
+          {rawIssues.length > 0 && (
+            <ul className="odb-query-issues">
+              {rawIssues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          )}
           <div className="muted odb-query-note">
-            Generated from the builder — editing it directly (and everything
-            <code>$filter</code> needs) lands in the next step.
+            Editable — the builder and this line are two views of the same
+            query. Anything the builder cannot model is kept verbatim rather
+            than rewritten.
           </div>
         </div>
       )}
@@ -495,11 +702,30 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
               {rows.length} row{rows.length === 1 ? '' : 's'} · {durationMs} ms
               {skipToken ? ' · more available' : ''}
             </span>
+            {count !== null && countFor === queryPath && (
+              <span className="odb-count">
+                {count === 'over-limit'
+                  ? '≥ 50,000 matching rows'
+                  : `${count.toLocaleString()} matching row${count === 1 ? '' : 's'}`}
+              </span>
+            )}
             {ranQuery !== null && ranQuery !== queryPath && (
               <span className="odb-stale" title={`Shown: ${ranQuery}`}>
                 ⚠ query changed — press Run
               </span>
             )}
+            <button
+              className="btn btn--small"
+              onClick={() => void runCount()}
+              disabled={!countFetchXml || counting}
+              title={
+                countFetchXml
+                  ? 'Total matching rows via a FetchXML aggregate (capped at 50,000 by Dataverse)'
+                  : 'Counting needs a filter the builder understands — a raw filter cannot be translated to FetchXML'
+              }
+            >
+              {counting ? 'Counting…' : '∑ Count'}
+            </button>
             <label className="trace-check">
               <input
                 type="checkbox"
@@ -510,7 +736,7 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
             </label>
             <button
               className="btn btn--small"
-              onClick={() => void execute(query, skipToken, true)}
+              onClick={() => void execute(query, skipToken, true, metaByKey)}
               disabled={!skipToken || running}
             >
               {running ? 'Loading…' : 'Load more'}

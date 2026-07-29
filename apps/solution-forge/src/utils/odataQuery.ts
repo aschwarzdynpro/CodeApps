@@ -3,8 +3,10 @@ import type {
   ColumnMeta,
   EntityMeta,
   ODataQuery,
+  OrderBy,
   RawAttribute,
 } from '../types/odataBrowser'
+import { newGroup, parseFilter, renderRootFilter } from './odataFilter'
 
 /**
  * OData Browser — pure query helpers.
@@ -44,6 +46,7 @@ export function emptyQuery(entitySet = ''): ODataQuery {
     entitySet,
     select: [],
     orderBy: [],
+    filter: newGroup('and'),
     filterRaw: null,
     expandRaw: null,
     top: null,
@@ -185,11 +188,42 @@ export interface QueryOptions {
   top?: number
 }
 
+export type Columns = Map<string, ColumnMeta>
+
+/**
+ * Selectable columns keyed by their `$select` name — the lookup table the
+ * filter renderer needs to know each column's kind. Without it a numeric
+ * column would be quoted like a string and the query would fault.
+ */
+export function columnMap(meta: EntityMeta | null): Columns {
+  const map: Columns = new Map()
+  for (const column of meta?.columns ?? [])
+    if (column.selectable) map.set(column.selectName, column)
+  return map
+}
+
+/**
+ * The `$filter` text actually sent. The structured tree wins when present;
+ * `filterRaw` is the fallback holding an expression the builder could not
+ * model. Exactly one of the two is authoritative — see `ODataQuery`.
+ */
+export function effectiveFilter(
+  q: ODataQuery,
+  columns: Columns = new Map(),
+): string | null {
+  if (q.filter) return renderRootFilter(q.filter, columns)
+  const raw = q.filterRaw?.trim()
+  return raw ? raw : null
+}
+
 /** Query options as the connector wants them: raw, unencoded, empty omitted. */
-export function renderQueryOptions(q: ODataQuery): QueryOptions {
+export function renderQueryOptions(
+  q: ODataQuery,
+  columns: Columns = new Map(),
+): QueryOptions {
   const opts: QueryOptions = {}
   if (q.select.length > 0) opts.select = q.select.join(',')
-  const filter = q.filterRaw?.trim()
+  const filter = effectiveFilter(q, columns)
   if (filter) opts.filter = filter
   if (q.orderBy.length > 0)
     opts.orderby = q.orderBy
@@ -213,10 +247,10 @@ export function preferHeader(q: ODataQuery): string | undefined {
   return parts.length > 0 ? parts.join(',') : undefined
 }
 
-/** The query as a human-readable relative path — shown above the grid. */
-export function toQueryPath(q: ODataQuery): string {
+/** The query as a human-readable relative path — the editable raw line. */
+export function toQueryPath(q: ODataQuery, columns: Columns = new Map()): string {
   if (!q.entitySet) return ''
-  const opts = renderQueryOptions(q)
+  const opts = renderQueryOptions(q, columns)
   const parts: string[] = []
   if (opts.select) parts.push(`$select=${opts.select}`)
   if (opts.filter) parts.push(`$filter=${opts.filter}`)
@@ -227,9 +261,13 @@ export function toQueryPath(q: ODataQuery): string {
 }
 
 /** The full, percent-encoded Web API URL — for Copy / open in a browser tab. */
-export function toWebApiUrl(orgUrl: string, q: ODataQuery): string {
+export function toWebApiUrl(
+  orgUrl: string,
+  q: ODataQuery,
+  columns: Columns = new Map(),
+): string {
   if (!q.entitySet) return ''
-  const opts = renderQueryOptions(q)
+  const opts = renderQueryOptions(q, columns)
   const pairs: [string, string][] = []
   if (opts.select) pairs.push(['$select', opts.select])
   if (opts.filter) pairs.push(['$filter', opts.filter])
@@ -241,6 +279,105 @@ export function toWebApiUrl(orgUrl: string, q: ODataQuery): string {
     .join('&')
   const base = `${orgUrl.replace(/\/+$/, '')}/api/data/${API_VERSION}/${q.entitySet}`
   return query ? `${base}?${query}` : base
+}
+
+export interface ParsedQuery {
+  query: ODataQuery
+  /** Things worth telling the user, without refusing the edit. */
+  issues: string[]
+}
+
+/**
+ * Parse the raw query line back into the query state — the other half of the
+ * builder ⇄ raw coupling.
+ *
+ * Options are split on `&` **only where a `$option=` follows**, so an
+ * ampersand inside a value (`contains(name,'A & B')`) does not tear the query
+ * apart. A `$filter` that the builder cannot model is kept verbatim in
+ * `filterRaw` and reported as an issue rather than being dropped or mangled.
+ */
+export function parseQueryPath(
+  text: string,
+  base: ODataQuery,
+  columns: Columns = new Map(),
+): ParsedQuery {
+  const issues: string[] = []
+  const trimmed = text.trim().replace(/^\//, '')
+  const cut = trimmed.indexOf('?')
+  const entitySet = (cut === -1 ? trimmed : trimmed.slice(0, cut)).trim()
+  const rest = cut === -1 ? '' : trimmed.slice(cut + 1)
+
+  const query: ODataQuery = {
+    ...base,
+    entitySet: entitySet || base.entitySet,
+    select: [],
+    orderBy: [],
+    filter: newGroup('and'),
+    filterRaw: null,
+    expandRaw: null,
+    top: null,
+  }
+  if (!entitySet) issues.push('No entity set in the path.')
+
+  const parts = rest === '' ? [] : rest.split(/&(?=\$[a-zA-Z]+=)/)
+  for (const part of parts) {
+    const eq = part.indexOf('=')
+    if (eq === -1) {
+      issues.push(`Ignored “${part.trim()}” — not a $option=value pair.`)
+      continue
+    }
+    const key = part.slice(0, eq).trim().toLowerCase()
+    const value = part.slice(eq + 1).trim()
+    switch (key) {
+      case '$select':
+        query.select = value
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+        break
+      case '$orderby':
+        query.orderBy = parseOrderBy(value)
+        break
+      case '$expand':
+        query.expandRaw = value || null
+        break
+      case '$top': {
+        const top = Number(value)
+        if (Number.isFinite(top) && top > 0) query.top = clampTop(top)
+        else issues.push(`Ignored $top=${value} — not a positive number.`)
+        break
+      }
+      case '$filter': {
+        const parsed = parseFilter(value, columns)
+        if (parsed) {
+          query.filter = parsed
+          query.filterRaw = null
+        } else {
+          query.filter = null
+          query.filterRaw = value
+          issues.push(
+            'The filter is kept as raw text — the builder cannot model it (unknown column, or an expression beyond its grammar). It is sent exactly as written.',
+          )
+        }
+        break
+      }
+      default:
+        issues.push(`Ignored “${key}” — the connector does not support it.`)
+    }
+  }
+  return { query, issues }
+}
+
+function parseOrderBy(value: string): OrderBy[] {
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [column, direction] = entry.split(/\s+/)
+      return { column, desc: (direction ?? '').toLowerCase() === 'desc' }
+    })
+    .filter((o) => o.column)
 }
 
 /**

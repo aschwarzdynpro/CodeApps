@@ -93,15 +93,78 @@ export interface OrderBy {
   desc: boolean
 }
 
+/** A choice option with its label, read from `stringmap`. */
+export interface OptionLabel {
+  value: number
+  label: string
+}
+
 /**
- * The canonical query state. Both the guided builder and (from P2) the raw
- * query line write into this — `filterRaw` / `expandRaw` hold expression text
- * verbatim so an expert query is never rewritten by the builder.
+ * Filter operators offered by the builder. Beyond plain OData comparisons
+ * these include the Dataverse query functions (`Microsoft.Dynamics.CRM.*`),
+ * which is what makes date and user-context filtering usable at all.
+ */
+export type FilterOperator =
+  | 'eq'
+  | 'ne'
+  | 'gt'
+  | 'ge'
+  | 'lt'
+  | 'le'
+  | 'contains'
+  | 'notcontains'
+  | 'startswith'
+  | 'endswith'
+  | 'null'
+  | 'notnull'
+  | 'in'
+  | 'between'
+  | 'today'
+  | 'yesterday'
+  | 'thismonth'
+  | 'thisyear'
+  | 'lastxdays'
+  | 'nextxdays'
+  | 'olderthanxdays'
+  | 'equaluserid'
+  | 'equalbusinessid'
+  | 'containvalues'
+
+export interface FilterCondition {
+  kind: 'cond'
+  id: string
+  /** The `$select`-style column name (`_x_value` for lookups). */
+  column: string
+  operator: FilterOperator
+  /** Raw, unquoted user input — quoting happens at render time, per type. */
+  values: string[]
+}
+
+export interface FilterGroup {
+  kind: 'group'
+  id: string
+  op: 'and' | 'or'
+  children: FilterNode[]
+}
+
+export type FilterNode = FilterGroup | FilterCondition
+
+/**
+ * The canonical query state. Both the guided builder and the raw query line
+ * write into this.
+ *
+ * **The filter has two mutually exclusive representations.** `filter` holds
+ * the structured tree the builder edits; `filterRaw` holds expression text
+ * that could not be modelled (nested lambdas, hand-written functions). When
+ * `filter` is set it wins and `filterRaw` is ignored; when a raw edit fails to
+ * parse, `filter` becomes null and the text is kept verbatim in `filterRaw` —
+ * an expert query is never rewritten or silently dropped by the builder.
  */
 export interface ODataQuery {
   entitySet: string
   select: string[]
   orderBy: OrderBy[]
+  filter: FilterGroup | null
   filterRaw: string | null
   expandRaw: string | null
   /** `$top`; null = server default. */

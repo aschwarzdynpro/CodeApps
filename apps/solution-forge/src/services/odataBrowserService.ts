@@ -2,6 +2,7 @@ import type {
   EntityMeta,
   EntityRef,
   ODataQuery,
+  OptionLabel,
   QueryResult,
   RecordDraft,
   WriteResult,
@@ -36,6 +37,26 @@ export interface OdataBrowserService {
     query: ODataQuery,
     skipToken?: string | null,
   ): Promise<QueryResult>
+  /**
+   * Value→label pairs of a choice column, for the filter editor. Best-effort:
+   * an empty list means "no labels available", not an error.
+   */
+  listOptions(
+    envKey: string,
+    objectTypeCode: number,
+    attributeLogicalName: string,
+  ): Promise<OptionLabel[]>
+  /**
+   * Total row count for a filter, via a FetchXML aggregate — the connector
+   * exposes no `$count`. Returns `'over-limit'` when Dataverse refuses the
+   * aggregate (its 50 000-row ceiling), so the UI can say "≥ 50,000" instead
+   * of pretending to know.
+   */
+  countRows(
+    envKey: string,
+    entitySet: string,
+    fetchXml: string,
+  ): Promise<number | 'over-limit'>
   /** Forget cached metadata for an environment (the ⟳ metadata button). */
   refreshMetadata(envKey: string): void
 

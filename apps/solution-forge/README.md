@@ -424,13 +424,21 @@ nach Typ.
     (Choice-Labels, Lookup-Namen — umschaltbar auf die Rohwerte), Lookup-
     Zellen mit Zieltabellen-Chip, langen Werten im Overlay, **Load more**
     über den Paging-Cursor des Servers und **Copy URL** (echte
-    `/api/data/v9.2/…`-URL). Die Query-Zeile wird aus dem Builder generiert
-    und ist noch read-only. **⚠ Alle Reads laufen als Konnektor-SP**, nicht
+    `/api/data/v9.2/…`-URL). **Filter-Builder** mit typabhängigen Operatoren
+    (contains nur auf Text, `LastXDays` nur auf Datum, „is the current user"
+    nur auf Lookups), Choice-Werten als Label-Dropdown (aus `stringmap`) und
+    verschachtelten and/or-Gruppen; **Mehrfach-Sortierung** (Header-Klick,
+    Shift-Klick ergänzt); **∑ Count** über ein FetchXML-Aggregat (Dataverse
+    deckelt bei 50 000). Die **Query-Zeile ist editierbar** und bidirektional
+    an den Builder gekoppelt: was der Builder nicht modellieren kann (z. B.
+    Lambdas `roles/any(...)`), bleibt **wörtlich stehen** und wird als
+    „advanced filter" markiert statt umgeschrieben — Count schaltet sich dort
+    ab, weil es einen Raw-Filter nicht nach FetchXML übersetzen kann.
+    **⚠ Alle Reads laufen als Konnektor-SP**, nicht
     als angemeldeter User — die Ergebnisse ignorieren also bewusst die
     persönliche RLS/Field Security des Betrachters (deshalb gated, deshalb
-    der Banner). **Read-only**; Filter-Builder, editierbare Raw-Query,
-    IntelliSense und Einzelsatz-Ansicht folgen laut
-    [`docs/odata-browser-plan.md`](docs/odata-browser-plan.md).
+    der Banner). **Read-only**; IntelliSense und Einzelsatz-Ansicht folgen
+    laut [`docs/odata-browser-plan.md`](docs/odata-browser-plan.md).
   - **📡 Job Monitor** *(Preview, ausgeblendet)* — „Ist die Async-Verarbeitung gesund?" in < 10 s:
     **Health**-Kacheln (Failed 24 h, Waiting-Backlog + älteste wartende Op,
     Flow-Fehlerquote als gekennzeichnetes Sample, Watchdog-Ampeln; jede

@@ -700,13 +700,34 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <code>/api/data/v9.2/…</code> URL.
             </p>
             <p>
+              The <strong>filter builder</strong> offers only the operators that
+              fit each column's type — <em>contains</em> on text,{' '}
+              <em>in the last X days</em> on dates,{' '}
+              <em>is the current user</em> on lookups — and choice columns get a
+              dropdown of their real labels. Groups nest, so{' '}
+              <code>A and (B or C)</code> works. Sort by clicking a header,
+              shift-click to sort by a second column. <strong>∑ Count</strong>{' '}
+              gives the true total via an aggregate (Dataverse caps it at
+              50,000).
+            </p>
+            <p>
+              The <strong>query line is editable</strong> and is the same query
+              as the builder, seen from the other side: type into it, press
+              Enter, and it parses back into the builder. Anything the builder
+              cannot model — a lambda like{' '}
+              <code>roles/any(r:r/roleid eq …)</code> — is{' '}
+              <strong>kept exactly as written</strong> and marked{' '}
+              <em>advanced filter</em>, never rewritten. That is also why Count
+              switches off there: it cannot translate a raw filter to FetchXML,
+              so it refuses rather than counting something else.
+            </p>
+            <p>
               ⚠ <strong>Queries run as the connector service principal</strong>,
               not as you — results deliberately ignore your personal row-level
               and field-level security, which is why the menu item is
-              deployment-manager gated. <strong>Read-only.</strong> Filters, an
-              editable raw query line, IntelliSense and the single-record view
-              with lookup drill-through are the next steps (see{' '}
-              <code>docs/odata-browser-plan.md</code>).
+              deployment-manager gated. <strong>Read-only.</strong> IntelliSense
+              and the single-record view with lookup drill-through are the next
+              steps (see <code>docs/odata-browser-plan.md</code>).
             </p>
           </section>
 

@@ -154,9 +154,12 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
         `$top` + Seitengröße, Run, dichtes Grid mit Sortierung, Formatted-
         values-Umschalter, Lookup-Chips, Load-more über den Paging-Cursor,
         Copy-URL, Fehler-Hints. Metadaten-Cache pro Org.
-  - [ ] **P2 Query-Core** — Filter-Builder mit typabhängigen Operatoren/Value-
-        Editoren, `$orderby`-Mehrfachsortierung, Count-Button (FetchXML-
-        Aggregat), **editierbare Raw-Query-Zeile** bidirektional gekoppelt.
+  - [x] **P2 Query-Core** — Filter-Builder mit typabhängigen Operatoren
+        (inkl. `Microsoft.Dynamics.CRM.*`-Datums-/User-Funktionen), Choice-
+        Labels aus `stringmap`, verschachtelte and/or-Gruppen;
+        `$orderby`-Mehrfachsortierung (Shift-Klick); Count-Button über ein
+        FetchXML-Aggregat; **editierbare Raw-Query-Zeile**, bidirektional
+        gekoppelt — Raw gewinnt, unmodellierbare Ausdrücke bleiben wörtlich.
   - [ ] **P3 IntelliSense** — `utils/odataSuggest.ts` + `QueryInput` auf allen
         Feldern inkl. Raw-Zeile, Validierungs-Chips, Signatur-Hinweis.
   - [ ] **P4 Records** — Einzelsatz-Ansicht, Lookup-Drill-through, verwandte

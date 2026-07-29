@@ -1,6 +1,19 @@
-import type { EntityMeta, EntityRef, RawAttribute } from '../types/odataBrowser'
+import type {
+  EntityMeta,
+  EntityRef,
+  OptionLabel,
+  RawAttribute,
+} from '../types/odataBrowser'
 import { classifyColumn, sortColumns } from '../utils/odataQuery'
-import { odataQuery, rowNum, rowStr, type Row } from './currentEnvQuery'
+import {
+  fetchXmlAllPages,
+  fetchXmlEscape,
+  fetchXmlQuery,
+  odataQuery,
+  rowNum,
+  rowStr,
+  type Row,
+} from './currentEnvQuery'
 
 /**
  * Per-environment Dataverse metadata cache — the fuel for the OData Browser's
@@ -181,6 +194,84 @@ export async function getEntityMeta(
   return meta
 }
 
+const optionsByKey = new Map<string, OptionLabel[]>()
+const baseLanguageByOrg = new Map<string, number>()
+
+/** The environment's base language — the labels the maker shows. */
+async function baseLanguage(orgUrl: string): Promise<number> {
+  const cached = baseLanguageByOrg.get(orgUrl)
+  if (cached !== undefined) return cached
+  let code = 1033
+  try {
+    const rows = await fetchXmlQuery(
+      'organizations',
+      '<fetch top="1"><entity name="organization"><attribute name="languagecode" /></entity></fetch>',
+      orgUrl,
+    )
+    const value = rowNum(rows[0]?.languagecode)
+    if (value) code = value
+  } catch {
+    // Keep the 1033 default — labels are a nicety, not a blocker.
+  }
+  baseLanguageByOrg.set(orgUrl, code)
+  return code
+}
+
+/**
+ * Choice labels for one column, via **`stringmap`** — the same proven route
+ * the Flow Comparer uses for its area column. The connector does not return
+ * formatted values for a bare metadata read, so the option values would
+ * otherwise show up as naked numbers in the filter editor.
+ *
+ * Filtering on `attributename` alone is NOT enough here: `statecode`,
+ * `statuscode` and friends exist on every table, so the entity's
+ * `objecttypecode` must be in the condition too. Labels are picked in the base
+ * language first, then English, then anything. Best-effort — an empty list
+ * just means the filter editor falls back to a plain input.
+ */
+export async function getOptionLabels(
+  orgUrl: string,
+  objectTypeCode: number,
+  attributeLogicalName: string,
+): Promise<OptionLabel[]> {
+  const key = `${orgUrl}|${objectTypeCode}|${attributeLogicalName}`
+  const cached = optionsByKey.get(key)
+  if (cached) return cached
+
+  const out: OptionLabel[] = []
+  try {
+    const base = await baseLanguage(orgUrl)
+    const rank = (lang: number): number =>
+      lang === base ? 0 : lang === 1033 ? 1 : 2
+    const bestRank = new Map<number, number>()
+    const byValue = new Map<number, string>()
+    const fetch =
+      '<fetch><entity name="stringmap">' +
+      '<attribute name="attributevalue" /><attribute name="value" />' +
+      '<attribute name="langid" /><filter>' +
+      `<condition attribute="attributename" operator="eq" value="${fetchXmlEscape(attributeLogicalName)}" />` +
+      `<condition attribute="objecttypecode" operator="eq" value="${objectTypeCode}" />` +
+      '</filter></entity></fetch>'
+    for (const row of await fetchXmlAllPages('stringmaps', fetch, orgUrl)) {
+      const label = rowStr(row.value)
+      if (!label) continue
+      const value = rowNum(row.attributevalue)
+      const r = rank(rowNum(row.langid))
+      const current = bestRank.get(value)
+      if (current === undefined || r < current) {
+        bestRank.set(value, r)
+        byValue.set(value, label)
+      }
+    }
+    for (const [value, label] of byValue) out.push({ value, label })
+    out.sort((a, b) => a.label.localeCompare(b.label))
+  } catch (err) {
+    console.warn('[odata] stringmap option labels failed:', attributeLogicalName, err)
+  }
+  optionsByKey.set(key, out)
+  return out
+}
+
 /**
  * Entity-set names already in the cache, synchronously. Used by the error
  * mapper to suggest "did you mean `webresourceset`?" without turning fault
@@ -195,6 +286,9 @@ export function clearMetadataCache(orgUrl?: string): void {
   if (orgUrl) {
     entitiesByOrg.delete(orgUrl)
     entityMetaByOrg.delete(orgUrl)
+    baseLanguageByOrg.delete(orgUrl)
+    for (const key of [...optionsByKey.keys()])
+      if (key.startsWith(`${orgUrl}|`)) optionsByKey.delete(key)
     try {
       sessionStorage.removeItem(storageKey(orgUrl))
     } catch {
@@ -211,4 +305,6 @@ export function clearMetadataCache(orgUrl?: string): void {
   }
   entitiesByOrg.clear()
   entityMetaByOrg.clear()
+  baseLanguageByOrg.clear()
+  optionsByKey.clear()
 }

@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import type { EntityMeta, RawAttribute } from '../types/odataBrowser'
+import type {
+  ColumnMeta,
+  EntityMeta,
+  ODataQuery,
+  RawAttribute,
+} from '../types/odataBrowser'
 import {
   classifyColumn,
   clampTop,
   defaultSelect,
   emptyQuery,
+  parseQueryPath,
   preferHeader,
   renderQueryOptions,
   skipTokenFrom,
@@ -12,6 +18,7 @@ import {
   toQueryPath,
   toWebApiUrl,
 } from './odataQuery'
+import { newCondition, newGroup } from './odataFilter'
 
 function raw(overrides: Partial<RawAttribute> = {}): RawAttribute {
   return {
@@ -225,6 +232,8 @@ describe('renderQueryOptions', () => {
     const options = renderQueryOptions({
       ...emptyQuery('accounts'),
       select: ['name', '_primarycontactid_value'],
+      // filter: null puts the query in raw mode — see the precedence test below.
+      filter: null,
       filterRaw: "statecode eq 0 and contains(name,'Contoso')",
       expandRaw: 'primarycontactid($select=fullname)',
       orderBy: [
@@ -242,9 +251,23 @@ describe('renderQueryOptions', () => {
     })
   })
 
+  it('lets the structured filter win over leftover raw text', () => {
+    // Exactly one representation is authoritative; a stale filterRaw must not
+    // leak back into the query once the builder owns the filter again.
+    const options = renderQueryOptions({
+      ...emptyQuery('accounts'),
+      filter: newGroup('and', [
+        { ...newCondition('name', 'eq'), values: ['A'] },
+      ]),
+      filterRaw: 'this text is stale',
+    })
+    expect(options.filter).toBe("name eq 'A'")
+  })
+
   it('trims blank raw expressions instead of sending them', () => {
     const options = renderQueryOptions({
       ...emptyQuery('accounts'),
+      filter: null,
       filterRaw: '   ',
       expandRaw: '',
     })
@@ -288,9 +311,10 @@ describe('preferHeader', () => {
 })
 
 describe('toQueryPath / toWebApiUrl', () => {
-  const query = {
+  const query: ODataQuery = {
     ...emptyQuery('accounts'),
     select: ['name'],
+    filter: null,
     filterRaw: "contains(name,'A & B')",
     top: 10,
   }
@@ -311,6 +335,106 @@ describe('toQueryPath / toWebApiUrl', () => {
   it('is empty without a table', () => {
     expect(toQueryPath(emptyQuery())).toBe('')
     expect(toWebApiUrl('https://org.crm4.dynamics.com', emptyQuery())).toBe('')
+  })
+})
+
+describe('parseQueryPath', () => {
+  const base = emptyQuery('accounts')
+  const columns: Map<string, ColumnMeta> = new Map(
+    [
+      raw({ logicalName: 'name' }),
+      raw({ logicalName: 'revenue', attributeType: 'Money' }),
+      raw({ logicalName: 'statecode', attributeType: 'State' }),
+    ]
+      .map(classifyColumn)
+      .map((c) => [c.selectName, c] as const),
+  )
+
+  it('reads the entity set, select, orderby and top back', () => {
+    const { query, issues } = parseQueryPath(
+      '/contacts?$select=fullname,emailaddress1&$orderby=createdon desc,fullname&$top=25',
+      base,
+      columns,
+    )
+    expect(query.entitySet).toBe('contacts')
+    expect(query.select).toEqual(['fullname', 'emailaddress1'])
+    expect(query.orderBy).toEqual([
+      { column: 'createdon', desc: true },
+      { column: 'fullname', desc: false },
+    ])
+    expect(query.top).toBe(25)
+    expect(issues).toEqual([])
+  })
+
+  it('does not split on an ampersand inside a value', () => {
+    // A naive `split('&')` would tear this filter in half and lose $top.
+    const { query } = parseQueryPath(
+      "/accounts?$filter=contains(name,'A & B')&$top=5",
+      base,
+      columns,
+    )
+    expect(query.top).toBe(5)
+    expect(query.filter?.children).toHaveLength(1)
+    expect(toQueryPath(query, columns)).toBe(
+      "/accounts?$filter=contains(name,'A & B')&$top=5",
+    )
+  })
+
+  it('round-trips a builder query through the raw line unchanged', () => {
+    const query: ODataQuery = {
+      ...emptyQuery('accounts'),
+      select: ['name', 'revenue'],
+      orderBy: [{ column: 'name', desc: true }],
+      filter: newGroup('and', [
+        { ...newCondition('name', 'contains'), values: ['Con'] },
+        { ...newCondition('statecode', 'eq'), values: ['0'] },
+      ]),
+      top: 100,
+    }
+    const text = toQueryPath(query, columns)
+    const parsed = parseQueryPath(text, base, columns)
+    expect(parsed.issues).toEqual([])
+    expect(toQueryPath(parsed.query, columns)).toBe(text)
+  })
+
+  it('keeps an unmodellable filter verbatim and says so', () => {
+    const { query, issues } = parseQueryPath(
+      '/accounts?$filter=roles/any(r:r/roleid eq 1)',
+      base,
+      columns,
+    )
+    expect(query.filter).toBeNull()
+    expect(query.filterRaw).toBe('roles/any(r:r/roleid eq 1)')
+    expect(issues.join(' ')).toContain('raw text')
+  })
+
+  it('reports unsupported options rather than silently dropping them', () => {
+    const { issues } = parseQueryPath(
+      '/accounts?$count=true&$apply=groupby((name))',
+      base,
+      columns,
+    )
+    expect(issues).toHaveLength(2)
+    expect(issues.join(' ')).toContain('$count')
+    expect(issues.join(' ')).toContain('$apply')
+  })
+
+  it('clears options the edited line no longer contains', () => {
+    const withEverything: ODataQuery = {
+      ...emptyQuery('accounts'),
+      select: ['name'],
+      top: 10,
+      expandRaw: 'primarycontactid($select=fullname)',
+    }
+    const { query } = parseQueryPath('/accounts', withEverything, columns)
+    expect(query.select).toEqual([])
+    expect(query.top).toBeNull()
+    expect(query.expandRaw).toBeNull()
+  })
+
+  it('flags a missing entity set instead of running against nothing', () => {
+    const { issues } = parseQueryPath('?$top=5', base, columns)
+    expect(issues.join(' ')).toContain('No entity set')
   })
 })
 

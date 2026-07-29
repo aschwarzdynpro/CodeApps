@@ -87,12 +87,14 @@ src/services/metadataCatalog.ts      per-org metadata cache (entities, attribute
 src/services/odataBrowserService.ts  interface (read + write signatures)
 src/services/dataverseOdataBrowserService.ts
 src/services/mockOdataBrowserService.ts
-src/utils/odataQuery.ts   (+ .test.ts)  build/parse query, column classification, literal escaping
+src/utils/odataQuery.ts   (+ .test.ts)  build/parse query, column classification
+src/utils/odataFilter.ts  (+ .test.ts)  operator catalog, filter render/parse/FetchXML, tree edits
 src/utils/odataFormat.ts  (+ .test.ts)  annotations → displayable cell values
 src/utils/odataSuggest.ts (+ .test.ts)  IntelliSense engine (pure)
 src/utils/odataErrors.ts  (+ .test.ts)  fault → human hint
 src/utils/odataWrite.ts   (+ .test.ts)  diff → PATCH body (built in v1, unused until write mode)
 src/components/OdataBrowserWorkspace.tsx   shell: env picker, builder, raw line, results
+src/components/OdataFilterBuilder.tsx      guided $filter editor (groups, typed operators, choice labels)
 src/components/QueryInput.tsx              input + suggestion popup (one component, all fields)
 src/components/OdataResultGrid.tsx         result table, sort, cell rendering, drill-through
 src/components/OdataRecordPanel.tsx        single record + related-records navigation
@@ -355,7 +357,7 @@ updates HelpPanel / README / Roadmap / CLAUDE.md.
 | Phase | Content | Done when |
 | --- | --- | --- |
 | **P1 Skeleton** ✅ | nav entry (gated) + SP banner, env picker (`OperateEnvPicker`), entity picker over the catalog, column picker, `$top`, Run, plain grid. `metadataCatalog` + service pair + mock. | ✅ shipped — a table can be listed in every configured environment; sorting, formatted-value toggle, paging and Copy-URL came along |
-| **P2 Query core** | filter builder with typed operators/editors, `$orderby`, paging (maxpagesize + skiptoken, fallback keyset), Count button, **raw query line with build+parse coupling**, copy-as-URL | any query expressible in the builder round-trips through the raw line unchanged |
+| **P2 Query core** ✅ | filter builder with typed operators/editors, multi-column `$orderby`, Count button, **raw query line with build+parse coupling**, copy-as-URL | ✅ shipped — round-trip is a property test: every builder-expressible filter renders, parses and re-renders byte-identically |
 | **P3 IntelliSense** | `odataSuggest` + `QueryInput` on all inputs incl. the raw line, validation chips, signature strip, error hints | completions correct for select/filter/orderby/expand/raw; suggest-engine tests green |
 | **P4 Records** | single-record mode, record panel, lookup drill-through, related-record browsing, `$expand` builder with nested `$select` | you can click from an account to its contacts and back without typing |
 | **P5 Comfort** | query history + saved queries (localStorage per env), CSV/JSON export, **FetchXML mode** (paste/run, reuse `utils/transferConfig.parseFetchXml`), **metadata mode** (browse EntityDefinitions & friends in the same grid) | — |

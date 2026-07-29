@@ -649,14 +649,16 @@ zurückbauen, sonst clippt das Source-Table-Dropdown im noch kurzen Formular.
 
 **OData Browser** (Operate-Gruppe, Menüpunkt „OData Browser", gated;
 Plan + Entscheidungen: `docs/odata-browser-plan.md`): freies Durchsehen der
-Web API **je Umgebung**. Stand: **P1 (Skelett) fertig** — Tabellen-/Spalten-
-Picker, `$top`/Seitengröße, Run, Grid, Paging, Copy-URL. Offen laut Plan: P2
-Filter-Builder + editierbare Raw-Query, P3 IntelliSense, P4 Einzelsatz +
-Drill-through, P5 Komfort/FetchXML/Metadaten-Modus, P6 Write.
+Web API **je Umgebung**. Stand: **P1 + P2 fertig** — Tabellen-/Spalten-
+Picker, `$top`/Seitengröße, Run, Grid, Paging, Copy-URL, **Filter-Builder,
+editierbare Raw-Query, Mehrfach-Sortierung, Count**. Offen laut Plan: P3
+IntelliSense, P4 Einzelsatz + Drill-through, P5 Komfort/FetchXML/Metadaten-
+Modus, P6 Write.
 Dateien: `types/odataBrowser.ts`, `services/metadataCatalog.ts` (+ Service-Trio
 `odataBrowserService`/`dataverse…`/`mock…`), pure Utils
-`utils/odataQuery.ts`/`odataFormat.ts`/`odataErrors.ts` (alle Vitest),
-`components/OdataBrowserWorkspace.tsx` + `OdataResultGrid.tsx`.
+`utils/odataQuery.ts`/`odataFilter.ts`/`odataFormat.ts`/`odataErrors.ts` (alle
+Vitest), `components/OdataBrowserWorkspace.tsx` + `OdataResultGrid.tsx` +
+`OdataFilterBuilder.tsx`.
 **Alles über den vorhandenen Konnektor — KEINE neue Data Source.**
 Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
 - **Identität:** Reads laufen als Konnektor-SP (bei Schulz sysadmin), NICHT als
@@ -686,6 +688,31 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
 - Der Workspace hat **zwei getrennte Sequence-Guards** (`metaSeq`/`runSeq`) —
   ein gemeinsamer Zähler würde beim Run die noch fliegende Metadaten-Antwort
   verwerfen und den Spalten-Picker leer lassen.
+- **Filter: genau EINE Repräsentation ist maßgeblich.** `ODataQuery.filter`
+  (Baum, vom Builder) schlägt `filterRaw` (Text). `parseFilter` versteht NUR
+  die Grammatik, die `renderFilter` erzeugt, und gibt sonst `null` zurück ⇒
+  Raw-Modus, Text bleibt unangetastet. **Auch bei unbekannter Spalte gibt es
+  `null`** — ohne den Kind der Spalte könnte das Re-Rendern ein Literal anders
+  quoten und die Query still verändern.
+- **Verschachtelte Gruppen MÜSSEN geklammert werden** (`renderNode(nested)`):
+  ohne die Klammern würde `(a or b) and c` zu `a or b and c` flachfallen, was
+  OData als `a or (b and c)` liest — stille Bedeutungsänderung.
+- `in` rendert als **OR-Kette**, nicht als OData-`in`-Operator (auf jeder
+  Dataverse-Version sicher); `between` als `(x ge A and x le B)`. Beide kommen
+  beim Parsen als Gruppe zurück — Query-Text identisch, Builder zeigt zwei
+  Zeilen. Bewusst so.
+- **CRM-Funktionen wollen den Logical Name**: `EqualUserId(PropertyName=
+  'ownerid')`, NICHT `_ownerid_value` (`logicalNameOf` strippt). Dasselbe gilt
+  für FetchXML-Attribute im Count.
+- **Count geht nur mit strukturiertem Filter** (`filterToFetchXml`) — der
+  Konnektor kann kein `$count`, und ein Raw-Filter ist nicht nach FetchXML
+  übersetzbar. Button wird dann deaktiviert (mit Grund im Title) statt etwas
+  anderes zu zählen als das Grid zeigt. Aggregat-Limit 50 000 ⇒ `'over-limit'`.
+- Raw-Zeile wird an `&` nur dort getrennt, wo ein `$option=` folgt —
+  `contains(name,'A & B')` darf nicht zerrissen werden.
+- Choice-Labels via `getOptionLabels` (stringmap) brauchen **`objecttypecode`
+  in der Bedingung**, nicht nur `attributename`: `statecode` gibt es auf jeder
+  Tabelle.
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 

@@ -1,8 +1,10 @@
 import type {
   EntityMeta,
   EntityRef,
+  FilterNode,
   ODataQuery,
   OdataRow,
+  OptionLabel,
   QueryResult,
   RawAttribute,
   RecordDraft,
@@ -10,6 +12,7 @@ import type {
 } from '../types/odataBrowser'
 import type { OdataBrowserService } from './odataBrowserService'
 import { classifyColumn, sortColumns } from '../utils/odataQuery'
+import { operatorDef } from '../utils/odataFilter'
 import { OdataQueryError } from '../utils/odataErrors'
 
 /**
@@ -242,6 +245,64 @@ const SEEDS: TableSeed[] = [
   },
 ]
 
+/**
+ * Evaluate the structured filter against the seeded rows. The mock cannot
+ * interpret an OData expression, but it *can* walk the tree the builder
+ * produced — enough to make filtering genuinely work offline for the common
+ * operators. Anything else (raw filters, CRM date functions) is treated as
+ * "matches", so a demo never silently shows an empty grid.
+ */
+function matches(row: OdataRow, node: FilterNode): boolean {
+  if (node.kind === 'group') {
+    const children = node.children.filter((c) => renderable(c))
+    if (children.length === 0) return true
+    return node.op === 'and'
+      ? children.every((c) => matches(row, c))
+      : children.some((c) => matches(row, c))
+  }
+  const raw = row[node.column]
+  const text = raw === null || raw === undefined ? '' : String(raw)
+  const needle = (node.values[0] ?? '').trim()
+  switch (node.operator) {
+    case 'eq':
+      return text.toLowerCase() === needle.toLowerCase()
+    case 'ne':
+      return text.toLowerCase() !== needle.toLowerCase()
+    case 'contains':
+      return text.toLowerCase().includes(needle.toLowerCase())
+    case 'notcontains':
+      return !text.toLowerCase().includes(needle.toLowerCase())
+    case 'startswith':
+      return text.toLowerCase().startsWith(needle.toLowerCase())
+    case 'endswith':
+      return text.toLowerCase().endsWith(needle.toLowerCase())
+    case 'null':
+      return text === ''
+    case 'notnull':
+      return text !== ''
+    case 'gt':
+      return Number(text) > Number(needle)
+    case 'ge':
+      return Number(text) >= Number(needle)
+    case 'lt':
+      return Number(text) < Number(needle)
+    case 'le':
+      return Number(text) <= Number(needle)
+    default:
+      return true
+  }
+}
+
+/** A condition only counts once it carries what its operator needs. */
+function renderable(node: FilterNode): boolean {
+  if (node.kind === 'group') return node.children.some(renderable)
+  if (!node.column) return false
+  const def = operatorDef(node.operator)
+  if (!def) return false
+  if (def.arity === 0) return true
+  return node.values.some((v) => v.trim() !== '')
+}
+
 /** Keep only the selected columns (plus their annotations) on a row. */
 function project(row: OdataRow, select: string[]): OdataRow {
   if (select.length === 0) return row
@@ -291,10 +352,13 @@ class MockOdataBrowserService implements OdataBrowserService {
         `No HTTP resource was found that matches “${query.entitySet}”.`,
         'The mock only knows accounts, contacts and pro_workingsolutions.',
       )
-    // The mock ignores $filter (that is P2) but honours ordering, projection
-    // and paging so the grid, the "load more" path and the column picker all
-    // behave like the real thing.
-    let rows = [...seed.rows]
+    // Filtering, ordering, projection and paging all behave like the real
+    // thing, so the builder, the column picker and "load more" are genuinely
+    // demoable offline. Only a *raw* filter is beyond the mock (it would have
+    // to interpret OData text) — those rows come back unfiltered.
+    const rows = query.filter
+      ? seed.rows.filter((row) => matches(row, query.filter as FilterNode))
+      : [...seed.rows]
     for (const order of [...query.orderBy].reverse()) {
       rows.sort((a, b) => {
         const left = String(a[order.column] ?? '')
@@ -302,16 +366,45 @@ class MockOdataBrowserService implements OdataBrowserService {
         return order.desc ? right.localeCompare(left) : left.localeCompare(right)
       })
     }
+    const total = rows.length
     const offset = skipToken ? Number(skipToken) || 0 : 0
-    const size = Math.max(1, query.pageSize || rows.length)
+    const size = Math.max(1, query.pageSize || total)
     const page = rows.slice(offset, offset + size)
-    rows = page.map((row) => project(row, query.select))
     const nextOffset = offset + size
     return {
-      rows,
-      skipToken: nextOffset < seed.rows.length ? String(nextOffset) : null,
+      rows: page.map((row) => project(row, query.select)),
+      skipToken: nextOffset < total ? String(nextOffset) : null,
       durationMs: 220,
     }
+  }
+
+  async listOptions(
+    _envKey: string,
+    objectTypeCode: number,
+    attributeLogicalName: string,
+  ): Promise<OptionLabel[]> {
+    void _envKey
+    await delay(120)
+    if (attributeLogicalName !== 'statecode') return []
+    void objectTypeCode
+    return [
+      { value: 0, label: 'Active' },
+      { value: 1, label: 'Inactive' },
+    ]
+  }
+
+  async countRows(
+    _envKey: string,
+    entitySet: string,
+    _fetchXml: string,
+  ): Promise<number | 'over-limit'> {
+    void _envKey
+    void _fetchXml
+    await delay(160)
+    // The mock cannot run FetchXML — report the seeded size of the table so
+    // the button is demoable, without pretending the filter was applied.
+    const seed = SEEDS.find((s) => s.ref.entitySet === entitySet)
+    return seed ? seed.rows.length : 0
   }
 
   refreshMetadata(_envKey: string): void {
