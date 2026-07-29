@@ -46,10 +46,12 @@ import { PromptDialog } from './PromptDialog'
 import {
   addToHistory,
   loadHistory,
+  loadIdentityDismissed,
   loadSaved,
   newEntryId,
   removeById,
   saveHistory,
+  saveIdentityDismissed,
   saveSaved,
   upsertSaved,
   type StoredQuery,
@@ -171,6 +173,20 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   const [libraryOpen, setLibraryOpen] = useState(false)
   /** Open when naming a query to save. */
   const [savePromptOpen, setSavePromptOpen] = useState(false)
+
+  /**
+   * The service-principal notice can be collapsed to reclaim the space, but
+   * never removed — a shield toggle in the mode row brings it back, so the
+   * identity model stays one click away rather than being forgotten.
+   */
+  const [identityDismissed, setIdentityDismissed] = useState(
+    loadIdentityDismissed,
+  )
+  const toggleIdentity = () => {
+    const next = !identityDismissed
+    setIdentityDismissed(next)
+    saveIdentityDismissed(next)
+  }
 
   /** The record opened from the grid, if any. */
   const [recordAddress, setRecordAddress] = useState<RecordAddress | null>(null)
@@ -686,16 +702,26 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     <div>
       <OperateEnvPicker envKey={envKey} onChange={onEnvChange} />
 
-      <div className="odb-identity">
-        <span className="odb-identity-icon" aria-hidden="true">
-          🛡
-        </span>
-        <span>
-          Queries run as the <strong>connector service principal</strong>, not
-          as you — results ignore your personal row-level and field-level
-          security. Read-only.
-        </span>
-      </div>
+      {!identityDismissed && (
+        <div className="odb-identity">
+          <span className="odb-identity-icon" aria-hidden="true">
+            🛡
+          </span>
+          <span>
+            Queries run as the <strong>connector service principal</strong>, not
+            as you — results ignore your personal row-level and field-level
+            security. Read-only.
+          </span>
+          <button
+            className="odb-identity-close"
+            onClick={toggleIdentity}
+            title="Hide this note — the shield in the tab row brings it back"
+            aria-label="Hide the service principal note"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <div className="subtabs odb-modes">
         <button
@@ -709,6 +735,20 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
           onClick={() => setMode('fetchxml')}
         >
           FetchXML
+        </button>
+        <button
+          className={`odb-identity-toggle ${
+            identityDismissed ? '' : 'odb-identity-toggle--on'
+          }`}
+          onClick={toggleIdentity}
+          title={
+            identityDismissed
+              ? 'Show how these queries are authenticated'
+              : 'Hide the service principal note'
+          }
+          aria-pressed={!identityDismissed}
+        >
+          🛡 <span>runs as service principal</span>
         </button>
       </div>
 

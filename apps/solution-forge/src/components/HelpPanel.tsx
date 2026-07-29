@@ -766,7 +766,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               ⚠ <strong>Queries run as the connector service principal</strong>,
               not as you — results deliberately ignore your personal row-level
               and field-level security, which is why the menu item is
-              deployment-manager gated. <strong>Read-only.</strong> IntelliSense
+              deployment-manager gated. The note above the tabs can be
+              collapsed to save room; the <strong>🛡 shield</strong> next to
+              the tabs keeps saying so and brings it back. <strong>Read-only.</strong> IntelliSense
               and the single-record view with lookup drill-through are the next
               steps (see <code>docs/odata-browser-plan.md</code>).
             </p>

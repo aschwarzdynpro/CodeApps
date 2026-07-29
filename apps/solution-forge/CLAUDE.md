@@ -683,7 +683,11 @@ Dateien: `types/odataBrowser.ts`, `services/metadataCatalog.ts` (+ Service-Trio
 **Alles über den vorhandenen Konnektor — KEINE neue Data Source.**
 Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
 - **Identität:** Reads laufen als Konnektor-SP (bei Schulz sysadmin), NICHT als
-  angemeldeter User ⇒ `gated: true` **und** der Dauer-Banner `.odb-identity`.
+  angemeldeter User ⇒ `gated: true` **und** der Hinweis `.odb-identity`. Der ist
+  **einklappbar** (Merker global im localStorage, nicht pro Env — die Identität
+  hängt am Konnektor, nicht an der Umgebung), aber **nie entfernbar**: der
+  Shield-Toggle in der Modus-Zeile holt ihn zurück und zeigt eingeklappt
+  weiterhin „runs as service principal".
   Deshalb ist v1 bewusst read-only; die CRUD-Seams stehen (`WRITE_ENABLED =
   false` in `dataverseOdataBrowserService`, Interface deklariert
   `createRecord`/`updateRecord`/`deleteRecord`, die werfen).

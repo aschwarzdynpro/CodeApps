@@ -117,6 +117,33 @@ export function saveSaved(envKey: string, list: StoredQuery[]): void {
   write(savedKey(envKey), list)
 }
 
+const IDENTITY_DISMISSED_KEY = `sac.odb.${VERSION}.identityDismissed`
+
+/**
+ * Whether the service-principal notice has been dismissed.
+ *
+ * Deliberately **not** per environment: the identity model is a property of
+ * the connector, not of the environment, so acknowledging it once is enough.
+ * It is only ever collapsed, never removed — the workspace keeps a shield
+ * toggle to bring it back.
+ */
+export function loadIdentityDismissed(): boolean {
+  try {
+    return localStorage.getItem(IDENTITY_DISMISSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function saveIdentityDismissed(dismissed: boolean): void {
+  try {
+    if (dismissed) localStorage.setItem(IDENTITY_DISMISSED_KEY, '1')
+    else localStorage.removeItem(IDENTITY_DISMISSED_KEY)
+  } catch {
+    // Private mode — the choice just does not survive the session.
+  }
+}
+
 /** Ids only have to be unique within one browser — no need for a real uuid. */
 export function newEntryId(): string {
   return `q${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`

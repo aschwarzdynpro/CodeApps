@@ -8477,3 +8477,54 @@
   padding: 6px 10px;
   font-size: 12.5px;
 }
+
+/* Service-principal notice — collapsible, with a shield toggle in the tab row */
+.odb-identity {
+  position: relative;
+  padding-right: 34px;
+}
+.odb-identity-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1;
+  color: #7a5b12;
+  opacity: 0.7;
+}
+.odb-identity-close:hover {
+  opacity: 1;
+  background: rgba(122, 91, 18, 0.1);
+}
+.odb-modes {
+  display: flex;
+  align-items: center;
+}
+.odb-identity-toggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.odb-identity-toggle:hover {
+  border-color: #f5d9a8;
+  background: #fdf6e7;
+  color: #7a5b12;
+}
+.odb-identity-toggle--on {
+  color: #7a5b12;
+}
+.odb-identity-toggle--on span {
+  text-decoration: underline dotted;
+}
