@@ -7661,8 +7661,33 @@
   line-height: 1.3;
 }
 
+/* The table picker gets a row of its own: entity display names are long
+   ("(Veraltet) Compliance Settings") and sit next to a logical name chip, so
+   a 360px control truncated both into uselessness. Overrides the narrower
+   `.trace-toolbar .sselect` default — the remaining controls wrap below. */
 .odb-toolbar .sselect {
-  flex: 0 1 360px;
+  flex: 1 1 100%;
+  width: 100%;
+}
+/* Let the display name take the room and ellipsize last, instead of being
+   squeezed out by the nowrap logical-name chip next to it. */
+.odb-toolbar .sselect-option .sselect-title,
+.odb-toolbar .sselect-value .sselect-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.odb-toolbar .sselect-option code {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.odb-toolbar .sselect-option .muted {
+  flex: 0 0 auto;
+}
+/* No horizontal scrollbar in the dropdown — rows fit or ellipsize. */
+.odb-toolbar .sselect-options {
+  overflow-x: hidden;
 }
 .odb-top {
   width: 78px;
