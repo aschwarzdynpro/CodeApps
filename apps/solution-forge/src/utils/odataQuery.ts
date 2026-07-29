@@ -282,6 +282,41 @@ export function toWebApiUrl(
   return query ? `${base}?${query}` : base
 }
 
+/**
+ * Split `$expand` into its clauses. A plain `split(',')` would cut
+ * `primarycontactid($select=fullname,emailaddress1)` in half, so commas inside
+ * parentheses are ignored.
+ */
+export function splitExpand(text: string | null): string[] {
+  if (!text) return []
+  const parts: string[] = []
+  let depth = 0
+  let current = ''
+  for (const ch of text) {
+    if (ch === '(') depth++
+    else if (ch === ')') depth = Math.max(0, depth - 1)
+    if (ch === ',' && depth === 0) {
+      if (current.trim()) parts.push(current.trim())
+      current = ''
+      continue
+    }
+    current += ch
+  }
+  if (current.trim()) parts.push(current.trim())
+  return parts
+}
+
+export function joinExpand(parts: string[]): string | null {
+  const kept = parts.map((p) => p.trim()).filter(Boolean)
+  return kept.length > 0 ? kept.join(',') : null
+}
+
+/** The navigation property a clause addresses, without its nested options. */
+export function expandNavigationName(clause: string): string {
+  const paren = clause.indexOf('(')
+  return (paren === -1 ? clause : clause.slice(0, paren)).trim()
+}
+
 export interface QueryIssue {
   level: 'error' | 'warn'
   message: string

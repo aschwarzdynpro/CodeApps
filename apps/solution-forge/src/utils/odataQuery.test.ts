@@ -10,7 +10,10 @@ import {
   clampTop,
   defaultSelect,
   emptyQuery,
+  expandNavigationName,
+  joinExpand,
   parseQueryPath,
+  splitExpand,
   preferHeader,
   renderQueryOptions,
   skipTokenFrom,
@@ -336,6 +339,34 @@ describe('toQueryPath / toWebApiUrl', () => {
   it('is empty without a table', () => {
     expect(toQueryPath(emptyQuery())).toBe('')
     expect(toWebApiUrl('https://org.crm4.dynamics.com', emptyQuery())).toBe('')
+  })
+})
+
+describe('splitExpand / joinExpand', () => {
+  it('does not cut inside a nested option list', () => {
+    // A plain split(',') would tear this clause in half.
+    expect(
+      splitExpand(
+        'primarycontactid($select=fullname,emailaddress1),owninguser',
+      ),
+    ).toEqual([
+      'primarycontactid($select=fullname,emailaddress1)',
+      'owninguser',
+    ])
+  })
+
+  it('trims, drops blanks and round-trips', () => {
+    expect(splitExpand(' a , , b ')).toEqual(['a', 'b'])
+    expect(joinExpand(['a', ' ', 'b'])).toBe('a,b')
+    expect(joinExpand([])).toBeNull()
+    expect(splitExpand(null)).toEqual([])
+  })
+
+  it('reads the navigation name out of a clause', () => {
+    expect(expandNavigationName('primarycontactid($select=fullname)')).toBe(
+      'primarycontactid',
+    )
+    expect(expandNavigationName('owninguser')).toBe('owninguser')
   })
 })
 

@@ -1,4 +1,5 @@
 import type {
+  CollectionRef,
   EntityMeta,
   EntityRef,
   LookupRef,
@@ -330,6 +331,49 @@ export function cachedEntitySets(orgUrl: string): string[] {
   return (entitiesByOrg.get(orgUrl) ?? []).map((e) => e.entitySet)
 }
 
+const collectionsByKey = new Map<string, CollectionRef[]>()
+
+/**
+ * Collection-valued relationships (1:N) of a table — the "related records"
+ * list in the record panel.
+ *
+ * Loaded **only when someone opens the Related tab**, not with the rest of the
+ * entity metadata: the normal browse path never needs it, and it is another
+ * round trip per table. Best-effort, cached per (org, table).
+ */
+export async function getCollections(
+  orgUrl: string,
+  logicalName: string,
+): Promise<CollectionRef[]> {
+  const key = `${orgUrl}|${logicalName}`
+  const cached = collectionsByKey.get(key)
+  if (cached) return cached
+  let out: CollectionRef[] = []
+  try {
+    const safe = logicalName.replace(/'/g, "''")
+    const rows = await odataQuery('EntityDefinitions', 'LogicalName', {
+      orgUrl,
+      filter: `LogicalName eq '${safe}'`,
+      expand:
+        'OneToManyRelationships($select=SchemaName,ReferencingEntity,ReferencingAttribute)',
+    })
+    const relationships =
+      (rows[0]?.OneToManyRelationships as Array<Row> | undefined) ?? []
+    out = relationships
+      .map((row) => ({
+        schemaName: rowStr(row.SchemaName),
+        targetEntity: rowStr(row.ReferencingEntity),
+        referencingAttribute: rowStr(row.ReferencingAttribute),
+      }))
+      .filter((r) => r.targetEntity && r.referencingAttribute)
+      .sort((a, b) => a.targetEntity.localeCompare(b.targetEntity))
+  } catch (err) {
+    console.warn('[odata] 1:N relationship metadata failed:', logicalName, err)
+  }
+  collectionsByKey.set(key, out)
+  return out
+}
+
 /** Drop cached metadata — for one environment or all of them. */
 export function clearMetadataCache(orgUrl?: string): void {
   if (orgUrl) {
@@ -338,6 +382,8 @@ export function clearMetadataCache(orgUrl?: string): void {
     baseLanguageByOrg.delete(orgUrl)
     for (const key of [...optionsByKey.keys()])
       if (key.startsWith(`${orgUrl}|`)) optionsByKey.delete(key)
+    for (const key of [...collectionsByKey.keys()])
+      if (key.startsWith(`${orgUrl}|`)) collectionsByKey.delete(key)
     try {
       sessionStorage.removeItem(storageKey(orgUrl))
     } catch {
@@ -356,4 +402,5 @@ export function clearMetadataCache(orgUrl?: string): void {
   entityMetaByOrg.clear()
   baseLanguageByOrg.clear()
   optionsByKey.clear()
+  collectionsByKey.clear()
 }

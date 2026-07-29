@@ -667,16 +667,18 @@ zurückbauen, sonst clippt das Source-Table-Dropdown im noch kurzen Formular.
 
 **OData Browser** (Operate-Gruppe, Menüpunkt „OData Browser", gated;
 Plan + Entscheidungen: `docs/odata-browser-plan.md`): freies Durchsehen der
-Web API **je Umgebung**. Stand: **P1–P3 fertig** — Tabellen-/Spalten-
+Web API **je Umgebung**. Stand: **P1–P4 fertig** — Tabellen-/Spalten-
 Picker, `$top`/Seitengröße, Run, Grid, Paging, Copy-URL, Filter-Builder,
-editierbare Raw-Query, Mehrfach-Sortierung, Count, **IntelliSense +
-Query-Validierung**. Offen laut Plan: P4 Einzelsatz + Drill-through, P5
+editierbare Raw-Query, Mehrfach-Sortierung, Count, IntelliSense +
+Query-Validierung, **Einzelsatz-Panel mit Lookup-Drill-through, verwandten
+Datensätzen und `$expand`-Auswahl**. Offen laut Plan: P5
 Komfort/FetchXML/Metadaten-Modus, P6 Write.
 Dateien: `types/odataBrowser.ts`, `services/metadataCatalog.ts` (+ Service-Trio
 `odataBrowserService`/`dataverse…`/`mock…`), pure Utils
 `utils/odataQuery.ts`/`odataFilter.ts`/`odataFormat.ts`/`odataErrors.ts`/
 `odataSuggest.ts` (alle Vitest), `components/OdataBrowserWorkspace.tsx` +
-`OdataResultGrid.tsx` + `OdataFilterBuilder.tsx` + `QueryInput.tsx`.
+`OdataResultGrid.tsx` + `OdataFilterBuilder.tsx` + `QueryInput.tsx` +
+`OdataRecordPanel.tsx` (+ `utils/odataRecord.ts`).
 **Alles über den vorhandenen Konnektor — KEINE neue Data Source.**
 Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
 - **Identität:** Reads laufen als Konnektor-SP (bei Schulz sysadmin), NICHT als
@@ -745,6 +747,24 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
 - `validateQuery` ist **nie blockierend**: Metadaten können veraltet sein, und
   eine Query zu verhindern, die der Server beantworten würde, wäre schlimmer
   als eine falsche Warnung.
+- **Record-Panel liest OHNE `$select`** — es soll zeigen, was wirklich
+  gespeichert ist. `groupRecordFields` gruppiert deshalb **zeilengetrieben**,
+  nicht metadatengetrieben: ein Key, den der Schema-Cache (noch) nicht kennt,
+  erscheint trotzdem, nur ohne Anzeigename. Eine `_x_value`-Form gilt auch
+  ohne Metadaten als Lookup.
+- **Verwandte Datensätze gehen NICHT über `$expand`**, sondern als normale
+  Query gegen die Kindtabelle (`_<attr>_value eq <id>`) — die pagt, filtert und
+  sortiert wie jede andere, eine expandierte Collection nicht. 1:N-Metadaten
+  (`getCollections`) werden **erst beim Öffnen des Related-Tabs** geladen.
+- `GetItemWithOrganization` verlangt `prefer` und `accept` als **Pflicht**-
+  Parameter (nicht optional wie bei ListRecords) — ohne
+  `odata.include-annotations="*"` zeigt das Panel Codes statt Labels.
+- Im Grid öffnet ein Zeilenklick den Satz der Zeile, ein Lookup-Chip den Satz
+  des Ziels; der Chip macht `stopPropagation`, sonst feuern beide.
+- Der Panel-Trail (`goTo`/`goBack`) setzt Tab und Relationship-Liste **in den
+  Handlern** zurück, nicht in einem Effect auf `here` — `react-hooks/
+  set-state-in-effect` verbietet Letzteres, und die beiden Pfade sind die
+  einzigen, die den Trail ändern.
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 

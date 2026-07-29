@@ -169,8 +169,16 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
         Signatur-Hinweis unter dem Feld, Strg+Space erzwingt Vorschläge.
         Dazu `validateQuery` als nicht-blockierende Prüf-Chips (unbekannte
         Spalte, Lookup ohne `_value`, nicht selektierbare Spalte, `$top`-Cap).
-  - [ ] **P4 Records** — Einzelsatz-Ansicht, Lookup-Drill-through, verwandte
-        Datensätze, `$expand`-Builder mit verschachteltem `$select`.
+  - [x] **P4 Records** — Klick auf eine Zeile öffnet den **Datensatz** (alle
+        Spalten, ohne `$select`), gruppiert in Identity/Data/References/System
+        mit Formatted Values; **Lookups sind überall klickbar** (Grid-Chip und
+        Panel-Zeile) und führen zum Zielsatz, mit Zurück-Pfad. Tab **Related**
+        listet die 1:N-Beziehungen → „Browse" wechselt zur Kindtabelle,
+        vorgefiltert auf den Elternsatz (normale Query, kein `$expand`, damit
+        Paging/Filter/Sortierung erhalten bleiben). Tab **JSON** mit Copy.
+        Dazu eine `$expand`-Auswahl im Builder (Chips + Dropdown der
+        Navigation Properties; verschachteltes `$select` schreibt man in der
+        Query-Zeile, dort hilft die IntelliSense).
   - [ ] **P5 Komfort** — Historie, gespeicherte Queries, CSV/JSON-Export,
         FetchXML-Modus, Metadaten-Modus.
   - [ ] **P6 Write** *(eigene Entscheidung)* — `WRITE_ENABLED` scharfschalten.

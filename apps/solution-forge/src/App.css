@@ -8204,3 +8204,116 @@
   background: var(--surface);
   margin: 0 2px;
 }
+
+/* Record panel (OData Browser) */
+.odb-row {
+  cursor: pointer;
+}
+.odb-row:hover > td {
+  background: var(--bg);
+}
+.odb-lookup--link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--brand);
+  text-align: left;
+}
+.odb-lookup--link:hover .odb-lookup-name {
+  text-decoration: underline;
+}
+
+.odb-record {
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.odb-record .modal-header {
+  padding: 16px 20px 12px;
+}
+.odb-record-title {
+  min-width: 0;
+}
+.odb-record-title h2 {
+  font-size: 17px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.odb-record-title code {
+  display: block;
+  margin-top: 2px;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--muted);
+  word-break: break-all;
+}
+.odb-record-trail {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 10px;
+  font-size: 12px;
+}
+.odb-record-tabs {
+  padding: 0 20px;
+}
+.odb-record-body {
+  padding: 14px 20px 20px;
+  overflow-y: auto;
+}
+.odb-record-group {
+  margin-bottom: 18px;
+}
+.odb-record-group h3 {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+}
+.odb-record-table td {
+  vertical-align: top;
+}
+.odb-record-label {
+  width: 40%;
+  max-width: 320px;
+}
+.odb-record-label code,
+.odb-record-sub {
+  display: block;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  word-break: break-all;
+}
+.odb-record-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--brand);
+  text-align: left;
+}
+.odb-record-link:hover {
+  text-decoration: underline;
+}
+.odb-record-link code {
+  font-size: 10.5px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+.odb-record-jsonbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}

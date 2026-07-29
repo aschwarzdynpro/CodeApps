@@ -90,6 +90,7 @@ src/services/mockOdataBrowserService.ts
 src/utils/odataQuery.ts   (+ .test.ts)  build/parse query, column classification
 src/utils/odataFilter.ts  (+ .test.ts)  operator catalog, filter render/parse/FetchXML, tree edits
 src/utils/odataFormat.ts  (+ .test.ts)  annotations → displayable cell values
+src/utils/odataRecord.ts  (+ .test.ts)  grouping a single record for reading
 src/utils/odataSuggest.ts (+ .test.ts)  IntelliSense engine (pure)
 src/utils/odataErrors.ts  (+ .test.ts)  fault → human hint
 src/utils/odataWrite.ts   (+ .test.ts)  diff → PATCH body (built in v1, unused until write mode)
@@ -359,7 +360,7 @@ updates HelpPanel / README / Roadmap / CLAUDE.md.
 | **P1 Skeleton** ✅ | nav entry (gated) + SP banner, env picker (`OperateEnvPicker`), entity picker over the catalog, column picker, `$top`, Run, plain grid. `metadataCatalog` + service pair + mock. | ✅ shipped — a table can be listed in every configured environment; sorting, formatted-value toggle, paging and Copy-URL came along |
 | **P2 Query core** ✅ | filter builder with typed operators/editors, multi-column `$orderby`, Count button, **raw query line with build+parse coupling**, copy-as-URL | ✅ shipped — round-trip is a property test: every builder-expressible filter renders, parses and re-renders byte-identically |
 | **P3 IntelliSense** ✅ | `odataSuggest` + `QueryInput` on the raw line, validation chips, signature strip, error hints | ✅ shipped — 30 engine tests cover path/select/orderby/filter/expand and the caret-region rules; the builder's own inputs stay dropdowns, where completion would add nothing |
-| **P4 Records** | single-record mode, record panel, lookup drill-through, related-record browsing, `$expand` builder with nested `$select` | you can click from an account to its contacts and back without typing |
+| **P4 Records** ✅ | single-record mode, record panel, lookup drill-through, related-record browsing, `$expand` picker | ✅ shipped — account → its contacts and back without typing. Related records go through a normal filtered query on the child table, not `$expand`, so they page and sort like anything else; nested `$select` stays a query-line job (with completion) |
 | **P5 Comfort** | query history + saved queries (localStorage per env), CSV/JSON export, **FetchXML mode** (paste/run, reuse `utils/transferConfig.parseFetchXml`), **metadata mode** (browse EntityDefinitions & friends in the same grid) | — |
 | **P6 Write (deferred)** | flip `WRITE_ENABLED`, implement `updateRecord` → `createRecord` → `deleteRecord`, confirm dialogs, PROD danger, per-field diff preview | separate decision |
 

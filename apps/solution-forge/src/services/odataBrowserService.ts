@@ -1,7 +1,9 @@
 import type {
+  CollectionRef,
   EntityMeta,
   EntityRef,
   ODataQuery,
+  OdataRow,
   OptionLabel,
   QueryResult,
   RecordDraft,
@@ -57,6 +59,21 @@ export interface OdataBrowserService {
     entitySet: string,
     fetchXml: string,
   ): Promise<number | 'over-limit'>
+  /**
+   * One record with every column. No `$select` on purpose — the record panel
+   * exists to show what is actually stored, and guessing a column list would
+   * defeat that.
+   */
+  getRecord(
+    envKey: string,
+    entitySet: string,
+    recordId: string,
+  ): Promise<OdataRow>
+  /**
+   * 1:N relationships of a table, for the record panel's Related tab. Loaded
+   * on demand — the browse path never needs them.
+   */
+  listCollections(envKey: string, logicalName: string): Promise<CollectionRef[]>
   /** Forget cached metadata for an environment (the ⟳ metadata button). */
   refreshMetadata(envKey: string): void
 

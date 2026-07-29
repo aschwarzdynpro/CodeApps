@@ -451,8 +451,15 @@ nach Typ.
     `Microsoft.Dynamics.CRM.*`-Funktionen samt Signatur-Hinweis und
     Navigation Properties für `$expand`. Darunter **Prüf-Chips**
     (unbekannte Spalte, Lookup ohne `_value`, `$top`-Cap) — sie warnen, sie
-    blockieren nicht, weil Metadaten veralten können. **Read-only**;
-    Einzelsatz-Ansicht folgt laut
+    blockieren nicht, weil Metadaten veralten können.
+    **Klick auf eine Zeile öffnet den Datensatz** (alle Spalten, ohne
+    `$select` — das Panel soll zeigen, was wirklich gespeichert ist),
+    gruppiert in Identity/Data/References/System. **Lookups sind überall
+    klickbar** und führen zum Zielsatz, mit Zurück-Pfad; der Tab **Related**
+    listet die 1:N-Beziehungen und springt per „Browse" in die Kindtabelle,
+    vorgefiltert auf den Elternsatz — als **normale Query**, nicht per
+    `$expand`, damit Paging, Filter und Sortierung erhalten bleiben. Tab
+    **JSON** mit Copy. **Read-only**; weitere Ausbaustufen laut
     [`docs/odata-browser-plan.md`](docs/odata-browser-plan.md).
   - **📡 Job Monitor** *(aus der App entfernt — Code im Repo)* — „Ist die Async-Verarbeitung gesund?" in < 10 s:
     **Health**-Kacheln (Failed 24 h, Waiting-Backlog + älteste wartende Op,

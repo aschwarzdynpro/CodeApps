@@ -96,6 +96,22 @@ export interface LookupRef {
   targetEntity: string
 }
 
+/**
+ * A collection-valued relationship (1:N) — the children of a record.
+ *
+ * Browsing them does **not** go through `$expand`: it is far more robust to
+ * query the child table directly with `_<referencingAttribute>_value eq <id>`,
+ * which pages, filters and sorts like any other query instead of being capped
+ * inside a parent response.
+ */
+export interface CollectionRef {
+  schemaName: string
+  /** The child table's logical name. */
+  targetEntity: string
+  /** The lookup column on the child pointing back at the parent. */
+  referencingAttribute: string
+}
+
 /** A table with its columns (loaded lazily, cached per org). */
 export interface EntityMeta {
   ref: EntityRef

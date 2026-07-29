@@ -10,9 +10,10 @@ import { cellValue, lookupTarget, rawText } from '../utils/odataFormat'
  * value be opened in an overlay instead of wrecking the row height. Sorting is
  * delegated upwards — `$orderby` belongs to the query, not to the grid.
  *
- * Lookup cells already carry their target table (from the
- * `lookuplogicalname` annotation) and are rendered as chips; making them
- * clickable is P4 (record view + drill-through).
+ * Lookup cells carry their target table (from the `lookuplogicalname`
+ * annotation) and are clickable chips that open that record; clicking anywhere
+ * else on a row opens the row's own record. The chip stops propagation so the
+ * two never fire together.
  */
 
 /** Longer cell values get truncated with an expander. */
@@ -29,6 +30,12 @@ interface Props {
   orderBy: OrderBy[]
   /** `additive` (shift-click) appends to `$orderby` instead of replacing it. */
   onSort: (key: string, additive: boolean) => void
+  /** Primary id column of the table — needed to address a row. */
+  primaryIdAttribute: string
+  /** Open the row's own record. */
+  onOpenRecord: (recordId: string) => void
+  /** Follow a lookup cell into the record it points at. */
+  onOpenLookup: (targetLogicalName: string, recordId: string) => void
 }
 
 export function OdataResultGrid({
@@ -38,6 +45,9 @@ export function OdataResultGrid({
   formatted,
   orderBy,
   onSort,
+  primaryIdAttribute,
+  onOpenRecord,
+  onOpenLookup,
 }: Props) {
   const [detail, setDetail] = useState<{ title: string; value: string } | null>(
     null,
@@ -86,8 +96,16 @@ export function OdataResultGrid({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => (
-              <tr key={rowKey(row, index)}>
+            {rows.map((row, index) => {
+              const id = row[primaryIdAttribute]
+              const openable = typeof id === 'string' && id !== ''
+              return (
+              <tr
+                key={rowKey(row, index)}
+                className={openable ? 'odb-row' : undefined}
+                onClick={openable ? () => onOpenRecord(id) : undefined}
+                title={openable ? 'Open this record' : undefined}
+              >
                 {keys.map((key) => {
                   const cell = cellValue(row, key)
                   const text = formatted ? cell.text : rawText(cell.raw)
@@ -98,18 +116,26 @@ export function OdataResultGrid({
                         —
                       </td>
                     )
-                  if (target)
+                  if (target) {
+                    const targetId = rawText(cell.raw)
                     return (
                       <td key={key} className="odb-cell">
-                        <span
-                          className="odb-lookup"
-                          title={`${target} · ${rawText(cell.raw)}`}
+                        <button
+                          className="odb-lookup odb-lookup--link"
+                          title={`Open this ${target} record`}
+                          // The row itself opens the *row's* record — a lookup
+                          // cell must not trigger both.
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onOpenLookup(target, targetId)
+                          }}
                         >
                           <span className="odb-lookup-name">{text}</span>
                           <code className="odb-lookup-target">{target}</code>
-                        </span>
+                        </button>
                       </td>
                     )
+                  }
                   const long = text.length > MAX_CELL_CHARS
                   return (
                     <td
@@ -139,7 +165,8 @@ export function OdataResultGrid({
                   )
                 })}
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

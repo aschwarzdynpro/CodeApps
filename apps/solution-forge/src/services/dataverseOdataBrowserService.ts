@@ -1,4 +1,5 @@
 import type {
+  CollectionRef,
   EntityMeta,
   EntityRef,
   ODataQuery,
@@ -16,6 +17,7 @@ import { envByKey, orgUrlForEnvKey } from '../config'
 import {
   cachedEntitySets,
   clearMetadataCache,
+  getCollections,
   getEntityMeta,
   getOptionLabels,
   listEntities,
@@ -181,6 +183,37 @@ class DataverseOdataBrowserService implements OdataBrowserService {
         return 'over-limit'
       throw this.toQueryError(err, envKey, entitySet)
     }
+  }
+
+  async getRecord(
+    envKey: string,
+    entitySet: string,
+    recordId: string,
+  ): Promise<OdataRow> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockOdataBrowserService.getRecord(envKey, entitySet, recordId)
+    const result = await MicrosoftDataverseService.GetItemWithOrganization(
+      // `prefer` and `accept` are required by the generated signature; the
+      // annotations are what make the panel show labels instead of codes.
+      'odata.include-annotations="*"',
+      'application/json',
+      orgUrlForEnvKey(envKey),
+      entitySet,
+      recordId,
+    )
+    if (!result.success) throw this.toQueryError(result, envKey, entitySet)
+    return (result.data ?? {}) as OdataRow
+  }
+
+  async listCollections(
+    envKey: string,
+    logicalName: string,
+  ): Promise<CollectionRef[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockOdataBrowserService.listCollections(envKey, logicalName)
+    return getCollections(orgUrlForEnvKey(envKey), logicalName)
   }
 
   refreshMetadata(envKey: string): void {

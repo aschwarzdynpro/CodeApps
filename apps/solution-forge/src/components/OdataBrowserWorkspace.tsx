@@ -3,6 +3,7 @@ import type {
   ColumnMeta,
   EntityMeta,
   EntityRef,
+  FilterGroup,
   ODataQuery,
   OdataRow,
   OptionLabel,
@@ -18,12 +19,20 @@ import {
   columnMap,
   defaultSelect,
   emptyQuery,
+  expandNavigationName,
+  joinExpand,
   parseQueryPath,
+  splitExpand,
   toQueryPath,
   toWebApiUrl,
   validateQuery,
 } from '../utils/odataQuery'
-import { buildCountFetchXml, filterToFetchXml, newGroup } from '../utils/odataFilter'
+import {
+  buildCountFetchXml,
+  filterToFetchXml,
+  newCondition,
+  newGroup,
+} from '../utils/odataFilter'
 import type { SuggestContext } from '../utils/odataSuggest'
 import { OdataFilterBuilder } from './OdataFilterBuilder'
 import { QueryInput } from './QueryInput'
@@ -31,6 +40,10 @@ import { orgUrlForEnvKey } from '../config'
 import { OperateEnvPicker } from './OperateEnvPicker'
 import { SearchSelect, type SearchSelectOption } from './SearchSelect'
 import { OdataResultGrid } from './OdataResultGrid'
+import {
+  OdataRecordPanel,
+  type RecordAddress,
+} from './OdataRecordPanel'
 
 /**
  * OData Browser — browse the Dataverse Web API of any configured environment:
@@ -96,6 +109,9 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     new Map(),
   )
 
+  /** The record opened from the grid, if any. */
+  const [recordAddress, setRecordAddress] = useState<RecordAddress | null>(null)
+
   /** Count result plus the query path it was measured for (so it can go stale). */
   const [count, setCount] = useState<number | 'over-limit' | null>(null)
   const [countFor, setCountFor] = useState<string | null>(null)
@@ -136,7 +152,15 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     return () => window.clearTimeout(t)
   }, [loadEntities])
 
-  const pickTable = (logicalName: string) => {
+  /**
+   * Switch to a table. `filter` seeds the query (used when browsing a
+   * record's children) and `autoRun` fires it as soon as the metadata is in —
+   * the column defaults are only known then, so it cannot run any earlier.
+   */
+  const openTable = (
+    logicalName: string,
+    opts: { filter?: FilterGroup; autoRun?: boolean } = {},
+  ) => {
     const ref = entities.find((e) => e.logicalName === logicalName)
     if (!ref) return
     const seq = ++metaSeq.current
@@ -148,7 +172,14 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     setSkipToken(null)
     setError(null)
     setHint(null)
-    setQuery(emptyQuery(ref.entitySet))
+    setRawDraft(null)
+    setRawIssues([])
+    setCount(null)
+    const base: ODataQuery = {
+      ...emptyQuery(ref.entitySet),
+      ...(opts.filter ? { filter: opts.filter } : {}),
+    }
+    setQuery(base)
     // Option codes are per table — a stale map would label the wrong values.
     setChoiceOptions(new Map())
     setMetaLoading(true)
@@ -157,7 +188,9 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
       .then((loaded) => {
         if (seq !== metaSeq.current) return
         setMeta(loaded)
-        setQuery((prev) => ({ ...prev, select: defaultSelect(loaded) }))
+        const next = { ...base, select: defaultSelect(loaded) }
+        setQuery(next)
+        if (opts.autoRun) void execute(next, null, false, columnMap(loaded))
       })
       .catch((err: unknown) => {
         if (seq === metaSeq.current) fail(err)
@@ -165,6 +198,43 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
       .finally(() => {
         if (seq === metaSeq.current) setMetaLoading(false)
       })
+  }
+
+  const pickTable = (logicalName: string) => openTable(logicalName)
+
+  /** Open a record from the grid (its own row, or a lookup's target). */
+  const openRecord = (logicalName: string, id: string) => {
+    const ref = entities.find((e) => e.logicalName === logicalName)
+    if (!ref) {
+      fail(
+        new OdataQueryError(
+          `“${logicalName}” is not an addressable table in this environment.`,
+        ),
+      )
+      return
+    }
+    setRecordAddress({
+      entitySet: ref.entitySet,
+      recordId: id,
+      logicalName: ref.logicalName,
+    })
+  }
+
+  /** Browse a record's children: switch table, filter by the parent, run. */
+  const browseRelated = (
+    _childEntitySet: string,
+    childLogicalName: string,
+    filterColumn: string,
+    parentId: string,
+  ) => {
+    void _childEntitySet
+    setRecordAddress(null)
+    openTable(childLogicalName, {
+      filter: newGroup('and', [
+        { ...newCondition(filterColumn, 'eq'), values: [parentId] },
+      ]),
+      autoRun: true,
+    })
   }
 
   const reloadMetadata = () => {
@@ -290,6 +360,10 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   }, [meta, columnSearch])
 
   const queryPath = toQueryPath(query, metaByKey)
+  const expandClauses = useMemo(
+    () => splitExpand(query.expandRaw),
+    [query.expandRaw],
+  )
 
   /**
    * The Count aggregate. The connector has no `$count`, so the row total comes
@@ -629,6 +703,62 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
           </div>
 
           <div className="odb-builder-row">
+            <span className="odb-builder-label">Expand</span>
+            {expandClauses.length > 0 && (
+              <span className="odb-chiplist">
+                {expandClauses.map((clause) => (
+                  <button
+                    key={clause}
+                    className="chip odb-chip"
+                    title="Remove from $expand"
+                    onClick={() =>
+                      setQuery((prev) => ({
+                        ...prev,
+                        expandRaw: joinExpand(
+                          splitExpand(prev.expandRaw).filter((c) => c !== clause),
+                        ),
+                      }))
+                    }
+                  >
+                    {clause} ✕
+                  </button>
+                ))}
+              </span>
+            )}
+            <select
+              value=""
+              disabled={metaLoading || (meta?.lookups.length ?? 0) === 0}
+              onChange={(e) => {
+                const nav = e.target.value
+                if (!nav) return
+                setQuery((prev) => ({
+                  ...prev,
+                  expandRaw: joinExpand([...splitExpand(prev.expandRaw), nav]),
+                }))
+              }}
+            >
+              <option value="">
+                {(meta?.lookups.length ?? 0) === 0
+                  ? 'no navigation properties'
+                  : 'Add a related table…'}
+              </option>
+              {(meta?.lookups ?? [])
+                .filter(
+                  (l) => !expandClauses.some((c) => expandNavigationName(c) === l.navigationName),
+                )
+                .map((l) => (
+                  <option key={l.navigationName} value={l.navigationName}>
+                    {l.navigationName} → {l.targetEntity}
+                  </option>
+                ))}
+            </select>
+            <span className="muted">
+              adds the related row's columns; narrow them with{' '}
+              <code>($select=…)</code> in the query line
+            </span>
+          </div>
+
+          <div className="odb-builder-row">
             <span className="odb-builder-label">Sort</span>
             {query.orderBy.length === 0 ? (
               <span className="muted">
@@ -725,6 +855,17 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
         </div>
       )}
 
+      {recordAddress && (
+        <OdataRecordPanel
+          envKey={envKey}
+          address={recordAddress}
+          entities={entities}
+          currentMeta={meta}
+          onClose={() => setRecordAddress(null)}
+          onBrowseRelated={browseRelated}
+        />
+      )}
+
       {rows !== null && (
         <div className="card trace-list odb-result">
           <OdataResultGrid
@@ -734,6 +875,9 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
             formatted={formatted}
             orderBy={query.orderBy}
             onSort={sortBy}
+            primaryIdAttribute={meta?.ref.primaryIdAttribute ?? ''}
+            onOpenRecord={(id) => openRecord(table, id)}
+            onOpenLookup={openRecord}
           />
           <div className="odb-footer">
             <span className="muted">

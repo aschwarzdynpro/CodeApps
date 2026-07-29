@@ -736,6 +736,17 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               and refusing a query the server would answer is worse.
             </p>
             <p>
+              <strong>Click a row to open the record</strong> — every column,
+              with no <code>$select</code>, grouped into Identity, Data,
+              References and System. Lookups are clickable everywhere (grid
+              chip and panel row) and take you to the target record, with a{' '}
+              <strong>← Back</strong> trail so you can walk the way you came.
+              The <strong>Related</strong> tab lists the child relationships;{' '}
+              <em>Browse</em> switches the grid to that child table already
+              filtered to the record — a normal query, so it still pages,
+              filters and sorts. <strong>JSON</strong> shows the raw row.
+            </p>
+            <p>
               ⚠ <strong>Queries run as the connector service principal</strong>,
               not as you — results deliberately ignore your personal row-level
               and field-level security, which is why the menu item is

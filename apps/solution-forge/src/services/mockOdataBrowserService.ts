@@ -1,4 +1,5 @@
 import type {
+  CollectionRef,
   EntityMeta,
   EntityRef,
   FilterNode,
@@ -424,6 +425,38 @@ class MockOdataBrowserService implements OdataBrowserService {
     // the button is demoable, without pretending the filter was applied.
     const seed = SEEDS.find((s) => s.ref.entitySet === entitySet)
     return seed ? seed.rows.length : 0
+  }
+
+  async getRecord(
+    _envKey: string,
+    entitySet: string,
+    recordId: string,
+  ): Promise<OdataRow> {
+    void _envKey
+    await delay(180)
+    const seed = SEEDS.find((s) => s.ref.entitySet === entitySet)
+    const row = seed?.rows.find(
+      (r) => r[seed.ref.primaryIdAttribute] === recordId,
+    )
+    if (!row) throw new OdataQueryError(`Record ${recordId} not found.`)
+    return row
+  }
+
+  async listCollections(
+    _envKey: string,
+    logicalName: string,
+  ): Promise<CollectionRef[]> {
+    void _envKey
+    await delay(140)
+    if (logicalName === 'account')
+      return [
+        {
+          schemaName: 'contact_customer_accounts',
+          targetEntity: 'contact',
+          referencingAttribute: 'parentcustomerid',
+        },
+      ]
+    return []
   }
 
   refreshMetadata(_envKey: string): void {
