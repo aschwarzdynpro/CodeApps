@@ -42,6 +42,7 @@ import { OperateEnvPicker } from './OperateEnvPicker'
 import { SearchSelect, type SearchSelectOption } from './SearchSelect'
 import { OdataResultGrid } from './OdataResultGrid'
 import { OdataQueryLibrary } from './OdataQueryLibrary'
+import { PromptDialog } from './PromptDialog'
 import {
   addToHistory,
   loadHistory,
@@ -79,9 +80,10 @@ import {
  * and anything the builder cannot model is kept verbatim (raw mode) instead of
  * being rewritten. The raw line has metadata-driven completion
  * (`utils/odataSuggest`) and the query is statically checked before it is sent
- * (`validateQuery`) — non-blocking, since the metadata can be stale. Still to
- * come per `docs/odata-browser-plan.md`: the record view with lookup
- * drill-through (P4).
+ * (`validateQuery`) — non-blocking, since the metadata can be stale. Rows open
+ * into a record panel with lookup drill-through, and the workspace also hosts
+ * the FetchXML path, the query library and the exports. Read-only: the write
+ * seams exist but are switched off (`docs/odata-browser-plan.md` §12).
  */
 /**
  * Metadata sets, offered next to the real tables. They are addressable like
@@ -167,6 +169,8 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   )
   const [saved, setSaved] = useState<StoredQuery[]>(() => loadSaved(envKey))
   const [libraryOpen, setLibraryOpen] = useState(false)
+  /** Open when naming a query to save. */
+  const [savePromptOpen, setSavePromptOpen] = useState(false)
 
   /** The record opened from the grid, if any. */
   const [recordAddress, setRecordAddress] = useState<RecordAddress | null>(null)
@@ -462,6 +466,24 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     [query.expandRaw],
   )
 
+  /** Navigation properties not already expanded. */
+  const expandOptions: SearchSelectOption[] = useMemo(
+    () =>
+      (meta?.lookups ?? [])
+        .filter(
+          (l) =>
+            !expandClauses.some(
+              (clause) => expandNavigationName(clause) === l.navigationName,
+            ),
+        )
+        .map((l) => ({
+          id: l.navigationName,
+          label: l.navigationName,
+          sub: `→ ${l.targetEntity}`,
+        })),
+    [meta, expandClauses],
+  )
+
   /**
    * The Count aggregate. The connector has no `$count`, so the row total comes
    * from a FetchXML `countcolumn` — which means the filter has to be
@@ -550,14 +572,13 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     setRawDraft(null)
   }
 
-  const saveCurrent = () => {
+  const saveCurrent = (name: string) => {
+    setSavePromptOpen(false)
     if (!queryPath) return
-    const name = window.prompt('Save this query as:', table)
-    if (!name?.trim()) return
     setSaved((prev) => {
       const next = upsertSaved(prev, {
         id: newEntryId(),
-        name: name.trim(),
+        name,
         path: queryPath,
         table,
         at: Date.now(),
@@ -998,33 +1019,22 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
                 ))}
               </span>
             )}
-            <select
+            <SearchSelect
+              options={expandOptions}
               value=""
-              disabled={metaLoading || (meta?.lookups.length ?? 0) === 0}
-              onChange={(e) => {
-                const nav = e.target.value
-                if (!nav) return
+              placeholder={
+                expandOptions.length === 0
+                  ? 'No navigation properties'
+                  : 'Add a related table…'
+              }
+              disabled={metaLoading || expandOptions.length === 0}
+              onChange={(nav) =>
                 setQuery((prev) => ({
                   ...prev,
                   expandRaw: joinExpand([...splitExpand(prev.expandRaw), nav]),
                 }))
-              }}
-            >
-              <option value="">
-                {(meta?.lookups.length ?? 0) === 0
-                  ? 'no navigation properties'
-                  : 'Add a related table…'}
-              </option>
-              {(meta?.lookups ?? [])
-                .filter(
-                  (l) => !expandClauses.some((c) => expandNavigationName(c) === l.navigationName),
-                )
-                .map((l) => (
-                  <option key={l.navigationName} value={l.navigationName}>
-                    {l.navigationName} → {l.targetEntity}
-                  </option>
-                ))}
-            </select>
+              }
+            />
             <span className="muted">
               adds the related row's columns; narrow them with{' '}
               <code>($select=…)</code> in the query line
@@ -1084,7 +1094,7 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
               </button>
               <button
                 className="btn btn--small"
-                onClick={saveCurrent}
+                onClick={() => setSavePromptOpen(true)}
                 disabled={!queryPath}
                 title="Save this query under a name (this environment only)"
               >
@@ -1134,6 +1144,33 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
         <div className="state">
           Pick a table to start browsing this environment.
         </div>
+      )}
+
+      {savePromptOpen && (
+        <PromptDialog
+          title="Save query"
+          label="Name"
+          initialValue={table}
+          placeholder="e.g. Open accounts with revenue"
+          confirmLabel="Save"
+          hint={
+            <>
+              Stored in this browser for <strong>{envKey}</strong> only — a
+              query fits the schema it was written for.
+            </>
+          }
+          validate={(value) =>
+            saved.some(
+              (entry) =>
+                (entry.name ?? '').trim().toLowerCase() ===
+                value.trim().toLowerCase(),
+            )
+              ? 'A saved query with this name will be replaced.'
+              : null
+          }
+          onConfirm={saveCurrent}
+          onCancel={() => setSavePromptOpen(false)}
+        />
       )}
 
       {recordAddress && (

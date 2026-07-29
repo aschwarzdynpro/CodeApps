@@ -8425,3 +8425,55 @@
   color: #b02a37;
   border-color: #f1aeb5;
 }
+
+/* Prompt dialog (text input sibling of the confirm dialog) */
+.prompt-dialog .confirm-icon {
+  color: var(--brand);
+  background: #eef0fb;
+}
+.prompt-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+}
+.prompt-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+}
+.prompt-input:focus {
+  outline: 2px solid var(--brand);
+  border-color: var(--brand);
+}
+.prompt-hint,
+.prompt-error {
+  margin-top: 8px;
+  font-size: 12px;
+}
+.prompt-hint {
+  color: var(--muted);
+}
+.prompt-error {
+  color: #7a5b12;
+  font-weight: 600;
+}
+
+/* The builder's pickers use the app dropdown, not the browser default. */
+.odb-builder-row .sselect {
+  width: auto;
+  flex: 0 1 340px;
+  min-width: 220px;
+}
+.odb-builder-row .sselect-trigger {
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
