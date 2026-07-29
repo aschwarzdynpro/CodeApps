@@ -747,6 +747,22 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               filters and sorts. <strong>JSON</strong> shows the raw row.
             </p>
             <p>
+              <strong>☰ Queries</strong> keeps the last 25 queries you ran plus
+              the ones you gave a name with <strong>☆ Save</strong> — both per
+              environment, because a query only fits the schema it was written
+              for. The footer exports the loaded rows as <strong>CSV</strong>{' '}
+              (UTF-8 with a BOM, so Excel reads umlauts correctly) or{' '}
+              <strong>JSON</strong> (annotations included). The{' '}
+              <strong>FetchXML</strong> tab runs a pasted query directly — the
+              table comes from <code>&lt;entity name&gt;</code>, and it returns
+              one page of at most 5,000 rows because the connector does not
+              page FetchXML. Finally, the table picker also lists the{' '}
+              <strong>metadata sets</strong> (<code>EntityDefinitions</code> and
+              friends) so the schema itself can be browsed with the same grid;
+              they have no column list, so the grid takes its columns from the
+              response.
+            </p>
+            <p>
               ⚠ <strong>Queries run as the connector service principal</strong>,
               not as you — results deliberately ignore your personal row-level
               and field-level security, which is why the menu item is

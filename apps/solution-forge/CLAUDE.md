@@ -667,18 +667,19 @@ zurückbauen, sonst clippt das Source-Table-Dropdown im noch kurzen Formular.
 
 **OData Browser** (Operate-Gruppe, Menüpunkt „OData Browser", gated;
 Plan + Entscheidungen: `docs/odata-browser-plan.md`): freies Durchsehen der
-Web API **je Umgebung**. Stand: **P1–P4 fertig** — Tabellen-/Spalten-
+Web API **je Umgebung**. Stand: **P1–P5 fertig** — Tabellen-/Spalten-
 Picker, `$top`/Seitengröße, Run, Grid, Paging, Copy-URL, Filter-Builder,
 editierbare Raw-Query, Mehrfach-Sortierung, Count, IntelliSense +
 Query-Validierung, **Einzelsatz-Panel mit Lookup-Drill-through, verwandten
-Datensätzen und `$expand`-Auswahl**. Offen laut Plan: P5
-Komfort/FetchXML/Metadaten-Modus, P6 Write.
+Datensätzen und `$expand`-Auswahl, **Historie/gespeicherte Queries, CSV-/
+JSON-Export, FetchXML-Modus, Metadaten-Sets**. Offen laut Plan: P6 Write.
 Dateien: `types/odataBrowser.ts`, `services/metadataCatalog.ts` (+ Service-Trio
 `odataBrowserService`/`dataverse…`/`mock…`), pure Utils
 `utils/odataQuery.ts`/`odataFilter.ts`/`odataFormat.ts`/`odataErrors.ts`/
 `odataSuggest.ts` (alle Vitest), `components/OdataBrowserWorkspace.tsx` +
 `OdataResultGrid.tsx` + `OdataFilterBuilder.tsx` + `QueryInput.tsx` +
-`OdataRecordPanel.tsx` (+ `utils/odataRecord.ts`).
+`OdataRecordPanel.tsx` + `OdataQueryLibrary.tsx` (+ `utils/odataRecord.ts`/
+`odataStore.ts`/`odataExport.ts`).
 **Alles über den vorhandenen Konnektor — KEINE neue Data Source.**
 Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
 - **Identität:** Reads laufen als Konnektor-SP (bei Schulz sysadmin), NICHT als
@@ -765,6 +766,23 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
   Handlern** zurück, nicht in einem Effect auf `here` — `react-hooks/
   set-state-in-effect` verbietet Letzteres, und die beiden Pfade sind die
   einzigen, die den Trail ändern.
+- **Historie/Saved liegen pro Environment** im `localStorage`
+  (`sac.odb.v1.history|saved.<envKey>`) — ein Query-Pfad gilt nur gegen das
+  Schema, für das er geschrieben wurde. Listen-Operationen sind pure Funktionen
+  in `odataStore.ts` (Vitest), der Storage-Zugriff ist defensiv (Private Mode /
+  Quota / kaputter Eintrag ⇒ leere Liste statt Absturz).
+- **CSV wird mit UTF-8-BOM geschrieben**, sonst liest Excel die lokale
+  Codepage und zerlegt jeden Umlaut. Quoting nach RFC 4180, Zeilenenden CRLF.
+- **FetchXML-Modus ist ein eigener Pfad** (`runFetchXml` → `fetchXmlQuery`),
+  kein `$select`, kein Filter-Builder, **eine Seite à max. 5000 Zeilen** —
+  die paginationPolicy des Konnektors wirkt dort nicht (Transfer-Hub-Befund),
+  deshalb gibt es dort bewusst kein „Load more". Tabelle kommt aus
+  `<entity name>` via `parseFetchXml` (aus `utils/transferConfig.ts`).
+- **Metadaten-Sets** (`EntityDefinitions`, `GlobalOptionSetDefinitions`,
+  `RelationshipDefinitions`) stehen im Tabellen-Picker, haben aber **keine
+  EntityDefinitions-Zeile** ⇒ `meta = null`: kein Spalten-Picker, kein
+  Filter-Builder, Grid-Spalten aus `dataKeys`. `validateQuery` bekommt für sie
+  ein leeres `entities`-Array, sonst meldete es „kein Entity-Set".
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 

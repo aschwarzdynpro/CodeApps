@@ -185,6 +185,35 @@ class DataverseOdataBrowserService implements OdataBrowserService {
     }
   }
 
+  async runFetchXml(
+    envKey: string,
+    entitySet: string,
+    fetchXml: string,
+  ): Promise<QueryResult> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockOdataBrowserService.runFetchXml(envKey, entitySet, fetchXml)
+    if (!entitySet) throw new OdataQueryError('No entity set for this FetchXML.')
+    const started = performance.now()
+    try {
+      const rows = await fetchXmlQuery(
+        entitySet,
+        fetchXml,
+        orgUrlForEnvKey(envKey),
+      )
+      return {
+        rows,
+        // FetchXML through this connector is capped at one 5000-row page and
+        // the pagination policy does not apply (see CLAUDE.md) — there is no
+        // continuation token to hand back.
+        skipToken: null,
+        durationMs: Math.round(performance.now() - started),
+      }
+    } catch (err) {
+      throw this.toQueryError(err, envKey, entitySet)
+    }
+  }
+
   async getRecord(
     envKey: string,
     entitySet: string,

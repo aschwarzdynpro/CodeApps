@@ -36,10 +36,29 @@ import {
 import type { SuggestContext } from '../utils/odataSuggest'
 import { OdataFilterBuilder } from './OdataFilterBuilder'
 import { QueryInput } from './QueryInput'
+import { parseFetchXml } from '../utils/transferConfig'
 import { orgUrlForEnvKey } from '../config'
 import { OperateEnvPicker } from './OperateEnvPicker'
 import { SearchSelect, type SearchSelectOption } from './SearchSelect'
 import { OdataResultGrid } from './OdataResultGrid'
+import { OdataQueryLibrary } from './OdataQueryLibrary'
+import {
+  addToHistory,
+  loadHistory,
+  loadSaved,
+  newEntryId,
+  removeById,
+  saveHistory,
+  saveSaved,
+  upsertSaved,
+  type StoredQuery,
+} from '../utils/odataStore'
+import {
+  downloadText,
+  exportFileName,
+  toCsv,
+  toJson,
+} from '../utils/odataExport'
 import {
   OdataRecordPanel,
   type RecordAddress,
@@ -64,6 +83,36 @@ import {
  * come per `docs/odata-browser-plan.md`: the record view with lookup
  * drill-through (P4).
  */
+/**
+ * Metadata sets, offered next to the real tables. They are addressable like
+ * any entity set but have no `EntityDefinitions` row of their own, so there is
+ * no column list for them: the grid derives its columns from the response and
+ * the column picker / filter builder stay empty. That is the honest trade for
+ * being able to browse the schema with the same tool.
+ */
+const METADATA_SETS: { entitySet: string; label: string }[] = [
+  { entitySet: 'EntityDefinitions', label: 'Tables (EntityDefinitions)' },
+  {
+    entitySet: 'GlobalOptionSetDefinitions',
+    label: 'Global choices (GlobalOptionSetDefinitions)',
+  },
+  {
+    entitySet: 'RelationshipDefinitions',
+    label: 'Relationships (RelationshipDefinitions)',
+  },
+]
+
+const FETCHXML_PLACEHOLDER = [
+  '<fetch top="50">',
+  '  <entity name="account">',
+  '    <attribute name="name" />',
+  '  </entity>',
+  '</fetch>',
+].join('\n')
+
+const isMetadataSet = (entitySet: string): boolean =>
+  METADATA_SETS.some((m) => m.entitySet === entitySet)
+
 interface Props {
   envKey: string
   onEnvChange: (envKey: string) => void
@@ -108,6 +157,16 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   const [choiceOptions, setChoiceOptions] = useState<Map<string, OptionLabel[]>>(
     new Map(),
   )
+
+  /** OData builder vs. raw FetchXML — two different query paths. */
+  const [mode, setMode] = useState<'odata' | 'fetchxml'>('odata')
+  const [fetchXml, setFetchXml] = useState('')
+
+  const [history, setHistory] = useState<StoredQuery[]>(() =>
+    loadHistory(envKey),
+  )
+  const [saved, setSaved] = useState<StoredQuery[]>(() => loadSaved(envKey))
+  const [libraryOpen, setLibraryOpen] = useState(false)
 
   /** The record opened from the grid, if any. */
   const [recordAddress, setRecordAddress] = useState<RecordAddress | null>(null)
@@ -161,6 +220,25 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     logicalName: string,
     opts: { filter?: FilterGroup; autoRun?: boolean } = {},
   ) => {
+    // Metadata sets have no EntityDefinitions row — address them directly and
+    // let the grid derive its columns from the response.
+    if (isMetadataSet(logicalName)) {
+      runSeq.current++
+      metaSeq.current++
+      setTable(logicalName)
+      setMeta(null)
+      setRows(null)
+      setSkipToken(null)
+      setError(null)
+      setHint(null)
+      setRawDraft(null)
+      setRawIssues([])
+      setCount(null)
+      setChoiceOptions(new Map())
+      setMetaLoading(false)
+      setQuery(emptyQuery(logicalName))
+      return
+    }
     const ref = entities.find((e) => e.logicalName === logicalName)
     if (!ref) return
     const seq = ++metaSeq.current
@@ -276,7 +354,19 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
         setDurationMs(result.durationMs)
         // Same column map as the displayed path, so the "query changed"
         // marker compares like with like.
-        setRanQuery(toQueryPath(q, columns))
+        const path = toQueryPath(q, columns)
+        setRanQuery(path)
+        if (!append && path)
+          setHistory((prev) => {
+            const next = addToHistory(prev, {
+              id: newEntryId(),
+              path,
+              table: q.entitySet,
+              at: Date.now(),
+            })
+            saveHistory(envKey, next)
+            return next
+          })
       } catch (err) {
         if (seq === runSeq.current) fail(err)
       } finally {
@@ -289,8 +379,14 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   // --- derived -------------------------------------------------------------
 
   const entityOptions: SearchSelectOption[] = useMemo(
-    () =>
-      entities
+    () => [
+      ...METADATA_SETS.map((m) => ({
+        id: m.entitySet,
+        label: m.label,
+        sub: m.entitySet,
+        hint: 'metadata',
+      })),
+      ...entities
         .filter((e) => showSystemTables || !e.isPrivate)
         .map((e) => ({
           id: e.logicalName,
@@ -298,6 +394,7 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
           sub: e.entitySet,
           hint: e.isCustomEntity ? 'custom' : undefined,
         })),
+    ],
     [entities, showSystemTables],
   )
 
@@ -421,9 +518,119 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   )
 
   const issues = useMemo(
-    () => validateQuery(query, meta, entities),
+    // A metadata set is addressable but has no EntityDefinitions row, so the
+    // "is this an entity set" check must not be applied to it. The $top and
+    // raw-filter checks still are.
+    () =>
+      validateQuery(
+        query,
+        meta,
+        isMetadataSet(query.entitySet) ? [] : entities,
+      ),
     [query, meta, entities],
   )
+
+  /** Load a stored query back into the builder (and run it). */
+  const applyStored = (entry: StoredQuery) => {
+    setLibraryOpen(false)
+    const parsed = parseQueryPath(entry.path, query, metaByKey)
+    const target = entities.find((e) => e.entitySet === parsed.query.entitySet)
+    // A stored query may point at a table that is not the one on screen —
+    // switch to it first so the metadata (and with it the column kinds) match.
+    if (target && target.logicalName !== table) {
+      openTable(target.logicalName)
+      window.setTimeout(() => {
+        setQuery(parsed.query)
+        setRawIssues(parsed.issues)
+      }, 0)
+      return
+    }
+    setQuery(parsed.query)
+    setRawIssues(parsed.issues)
+    setRawDraft(null)
+  }
+
+  const saveCurrent = () => {
+    if (!queryPath) return
+    const name = window.prompt('Save this query as:', table)
+    if (!name?.trim()) return
+    setSaved((prev) => {
+      const next = upsertSaved(prev, {
+        id: newEntryId(),
+        name: name.trim(),
+        path: queryPath,
+        table,
+        at: Date.now(),
+      })
+      saveSaved(envKey, next)
+      return next
+    })
+  }
+
+  const deleteSaved = (id: string) =>
+    setSaved((prev) => {
+      const next = removeById(prev, id)
+      saveSaved(envKey, next)
+      return next
+    })
+
+  const clearHistory = () => {
+    setHistory([])
+    saveHistory(envKey, [])
+  }
+
+  const exportRows = (format: 'csv' | 'json') => {
+    if (!rows || rows.length === 0) return
+    const name = exportFileName(table || query.entitySet, format, new Date())
+    if (format === 'json') {
+      downloadText(name, 'application/json', toJson(rows))
+      return
+    }
+    // BOM so Excel reads it as UTF-8 instead of the local codepage.
+    downloadText(name, 'text/csv', toCsv(rows, gridKeys, { formatted }), true)
+  }
+
+  /** Run raw FetchXML — a separate path, sharing only the grid. */
+  const runFetch = async () => {
+    const xml = fetchXml.trim()
+    if (!xml) return
+    const parsed = parseFetchXml(xml)
+    if (!parsed.ok) {
+      fail(new OdataQueryError(parsed.error ?? 'The FetchXML could not be parsed.'))
+      return
+    }
+    const ref = entities.find((e) => e.logicalName === parsed.entity)
+    if (!ref) {
+      fail(
+        new OdataQueryError(
+          `“${parsed.entity}” is not a table in this environment.`,
+          'The entity name in <entity name="…"> must be the logical name.',
+        ),
+      )
+      return
+    }
+    const seq = ++runSeq.current
+    setRunning(true)
+    setError(null)
+    setHint(null)
+    try {
+      const result = await odataBrowserService.runFetchXml(
+        envKey,
+        ref.entitySet,
+        xml,
+      )
+      if (seq !== runSeq.current) return
+      setRows(result.rows)
+      setSkipToken(null)
+      setDurationMs(result.durationMs)
+      setRanQuery(null)
+      setTable(parsed.entity)
+    } catch (err) {
+      if (seq === runSeq.current) fail(err)
+    } finally {
+      if (seq === runSeq.current) setRunning(false)
+    }
+  }
 
   /** Parse the edited raw line back into the query state. */
   const applyRaw = () => {
@@ -469,6 +676,53 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
         </span>
       </div>
 
+      <div className="subtabs odb-modes">
+        <button
+          className={`subtab ${mode === 'odata' ? 'subtab--active' : ''}`}
+          onClick={() => setMode('odata')}
+        >
+          OData query
+        </button>
+        <button
+          className={`subtab ${mode === 'fetchxml' ? 'subtab--active' : ''}`}
+          onClick={() => setMode('fetchxml')}
+        >
+          FetchXML
+        </button>
+      </div>
+
+      {mode === 'fetchxml' && (
+        <div className="card odb-fetch">
+          <div className="odb-builder-row">
+            <span className="odb-builder-label">FetchXML</span>
+            <span className="muted">
+              Paste a query — the table comes from{' '}
+              <code>&lt;entity name="…"&gt;</code>. One page of at most 5000
+              rows; the connector will not page further here, so narrow the
+              query rather than expecting “load more”.
+            </span>
+          </div>
+          <textarea
+            className="odb-fetch-input"
+            spellCheck={false}
+            rows={8}
+            value={fetchXml}
+            placeholder={FETCHXML_PLACEHOLDER}
+            onChange={(e) => setFetchXml(e.target.value)}
+          />
+          <div className="odb-fetch-actions">
+            <button
+              className="btn btn--primary btn--small"
+              onClick={() => void runFetch()}
+              disabled={running || !fetchXml.trim()}
+            >
+              {running ? 'Running…' : '▶ Run FetchXML'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mode === 'odata' && (
       <div className="card trace-toolbar odb-toolbar">
         <div className="odb-toolbar-main">
           <SearchSelect
@@ -479,6 +733,13 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
             loading={entitiesLoading}
           />
           <span className="odb-toolbar-actions">
+            <button
+              className="btn btn--small"
+              onClick={() => setLibraryOpen((v) => !v)}
+              title="Recent and saved queries for this environment"
+            >
+              ☰ Queries
+            </button>
             <button
               className="btn btn--small"
               onClick={reloadMetadata}
@@ -543,8 +804,20 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
         </label>
         </div>
       </div>
+      )}
 
-      {table && (
+      {libraryOpen && (
+        <OdataQueryLibrary
+          history={history}
+          saved={saved}
+          onPick={applyStored}
+          onDeleteSaved={deleteSaved}
+          onClearHistory={clearHistory}
+          onClose={() => setLibraryOpen(false)}
+        />
+      )}
+
+      {mode === 'odata' && table && (
         <div className="card odb-builder">
           <div className="odb-builder-row">
             <span className="odb-builder-label">Columns</span>
@@ -809,6 +1082,14 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
               >
                 Revert
               </button>
+              <button
+                className="btn btn--small"
+                onClick={saveCurrent}
+                disabled={!queryPath}
+                title="Save this query under a name (this environment only)"
+              >
+                ☆ Save
+              </button>
               <button className="btn btn--small" onClick={copyUrl}>
                 {copied ? '✓ Copied' : 'Copy URL'}
               </button>
@@ -849,7 +1130,7 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
         </div>
       )}
 
-      {!table && !entitiesLoading && !error && (
+      {mode === 'odata' && !table && !entitiesLoading && !error && (
         <div className="state">
           Pick a table to start browsing this environment.
         </div>
@@ -896,6 +1177,7 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
                 ⚠ query changed — press Run
               </span>
             )}
+            {mode === 'odata' && (
             <button
               className="btn btn--small"
               onClick={() => void runCount()}
@@ -908,6 +1190,7 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
             >
               {counting ? 'Counting…' : '∑ Count'}
             </button>
+            )}
             <label className="trace-check">
               <input
                 type="checkbox"
@@ -916,6 +1199,20 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
               />
               formatted values
             </label>
+            <button
+              className="btn btn--small"
+              onClick={() => exportRows('csv')}
+              title="Download the loaded rows as CSV (UTF-8 with BOM, for Excel)"
+            >
+              ⤓ CSV
+            </button>
+            <button
+              className="btn btn--small"
+              onClick={() => exportRows('json')}
+              title="Download the loaded rows as JSON, annotations included"
+            >
+              ⤓ JSON
+            </button>
             <button
               className="btn btn--small"
               onClick={() => void execute(query, skipToken, true, metaByKey)}

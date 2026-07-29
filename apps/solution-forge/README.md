@@ -459,7 +459,14 @@ nach Typ.
     listet die 1:N-Beziehungen und springt per „Browse" in die Kindtabelle,
     vorgefiltert auf den Elternsatz — als **normale Query**, nicht per
     `$expand`, damit Paging, Filter und Sortierung erhalten bleiben. Tab
-    **JSON** mit Copy. **Read-only**; weitere Ausbaustufen laut
+    **JSON** mit Copy. **Historie** (letzte 25 je Umgebung) und **gespeicherte
+    Queries** mit Namen liegen pro Umgebung im Browser; **Export** als CSV
+    (RFC 4180, UTF-8-BOM für Excel) oder JSON. Ein zweiter Reiter fährt
+    **FetchXML** direkt (Tabelle aus `<entity name>`, eine Seite à max. 5000
+    Zeilen — der Konnektor pagt dort nicht), und die **Metadaten-Sets**
+    (`EntityDefinitions`, `GlobalOptionSetDefinitions`,
+    `RelationshipDefinitions`) stehen im Tabellen-Picker, um das Schema selbst
+    zu durchsuchen. **Read-only**; Details laut
     [`docs/odata-browser-plan.md`](docs/odata-browser-plan.md).
   - **📡 Job Monitor** *(aus der App entfernt — Code im Repo)* — „Ist die Async-Verarbeitung gesund?" in < 10 s:
     **Health**-Kacheln (Failed 24 h, Waiting-Backlog + älteste wartende Op,

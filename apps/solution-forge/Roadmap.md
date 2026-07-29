@@ -179,8 +179,15 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
         Dazu eine `$expand`-Auswahl im Builder (Chips + Dropdown der
         Navigation Properties; verschachteltes `$select` schreibt man in der
         Query-Zeile, dort hilft die IntelliSense).
-  - [ ] **P5 Komfort** — Historie, gespeicherte Queries, CSV/JSON-Export,
-        FetchXML-Modus, Metadaten-Modus.
+  - [x] **P5 Komfort** — **Historie** (letzte 25 je Umgebung, Wiederholung
+        rückt nach oben statt zu duplizieren) und **gespeicherte Queries** mit
+        Namen, beides pro Umgebung im `localStorage`; **CSV-Export** (RFC 4180,
+        UTF-8-BOM für Excel, respektiert den Formatted-values-Schalter) und
+        **JSON-Export** (mit Annotationen); **FetchXML-Modus** als eigener
+        Reiter (Tabelle aus `<entity name>`, eine Seite à max. 5000 Zeilen —
+        der Konnektor pagt dort nicht); **Metadaten-Sets** (`EntityDefinitions`,
+        `GlobalOptionSetDefinitions`, `RelationshipDefinitions`) im
+        Tabellen-Picker, Grid-Spalten aus der Antwort abgeleitet.
   - [ ] **P6 Write** *(eigene Entscheidung)* — `WRITE_ENABLED` scharfschalten.
 - [x] **Environment-Links (Referenz)**: eigener Menüpunkt mit den ständig
       gebrauchten URLs — **je Umgebung** (System-App, OData/Web API,

@@ -60,6 +60,16 @@ export interface OdataBrowserService {
     fetchXml: string,
   ): Promise<number | 'over-limit'>
   /**
+   * Run raw FetchXML against an entity set. Separate from `runQuery` because
+   * it shares nothing with the OData path: no `$select`, no structured filter,
+   * and a hard 5000-row page the connector will not page past.
+   */
+  runFetchXml(
+    envKey: string,
+    entitySet: string,
+    fetchXml: string,
+  ): Promise<QueryResult>
+  /**
    * One record with every column. No `$select` on purpose — the record panel
    * exists to show what is actually stored, and guessing a column list would
    * defeat that.

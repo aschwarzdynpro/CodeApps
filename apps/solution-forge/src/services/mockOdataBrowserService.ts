@@ -427,6 +427,24 @@ class MockOdataBrowserService implements OdataBrowserService {
     return seed ? seed.rows.length : 0
   }
 
+  async runFetchXml(
+    _envKey: string,
+    entitySet: string,
+    _fetchXml: string,
+  ): Promise<QueryResult> {
+    void _envKey
+    void _fetchXml
+    await delay(200)
+    const seed = SEEDS.find((s) => s.ref.entitySet === entitySet)
+    if (!seed)
+      throw new OdataQueryError(
+        `No HTTP resource was found that matches “${entitySet}”.`,
+      )
+    // The mock cannot interpret FetchXML — it returns the seeded rows so the
+    // mode is demoable, without pretending the query was applied.
+    return { rows: seed.rows, skipToken: null, durationMs: 200 }
+  }
+
   async getRecord(
     _envKey: string,
     entitySet: string,
