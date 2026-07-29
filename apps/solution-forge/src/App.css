@@ -7638,3 +7638,264 @@
   display: flex;
   gap: 10px;
 }
+
+/* ================= OData Browser (Operate) =================
+   A data explorer over the Web API of any configured environment. The grid is
+   deliberately dense and horizontally scrollable — a $select of 20 columns is
+   normal here, wrapping cells would make it unreadable. */
+
+.odb-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  border: 1px solid #f5d9a8;
+  background: #fdf6e7;
+  border-radius: var(--radius);
+  font-size: 12.5px;
+  color: #7a5b12;
+}
+.odb-identity-icon {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.odb-toolbar .sselect {
+  flex: 0 1 360px;
+}
+.odb-top {
+  width: 78px;
+  margin-left: 6px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12.5px;
+  font-family: inherit;
+}
+.odb-top:focus {
+  outline: none;
+  border-color: var(--brand);
+}
+
+.odb-builder {
+  padding: 12px 14px;
+}
+.odb-builder-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.odb-builder-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.odb-chiplist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.odb-chip {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 11.5px;
+  padding: 3px 8px;
+}
+
+.odb-picker {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.odb-picker-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.odb-picker-head .search {
+  flex: 1 1 auto;
+  min-width: 120px;
+}
+.odb-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.odb-picker-item {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) minmax(140px, 1.2fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.odb-picker-item:hover {
+  background: var(--surface);
+}
+.odb-picker-item--off {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.odb-picker-item code {
+  font-size: 11.5px;
+  color: var(--muted);
+  word-break: break-all;
+}
+.odb-picker-kind {
+  font-size: 11px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.odb-query {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.odb-query-text {
+  flex: 1 1 auto;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--text);
+}
+.odb-query-actions {
+  flex: 0 0 auto;
+}
+.odb-query-note {
+  margin-top: 6px;
+  font-size: 11.5px;
+}
+.odb-query-note code {
+  font-size: 11.5px;
+}
+
+.odb-error-hint {
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.odb-result {
+  padding: 0;
+}
+.odb-grid-scroll {
+  overflow-x: auto;
+  max-height: 62vh;
+  overflow-y: auto;
+}
+.odb-grid th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  vertical-align: top;
+  padding-bottom: 4px;
+}
+.odb-th {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+.odb-th:hover .odb-th-label {
+  color: var(--brand);
+}
+.odb-th-sort {
+  font-size: 9px;
+  color: var(--brand);
+}
+.odb-th-logical {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+.odb-cell {
+  max-width: 420px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.odb-cell--empty {
+  color: var(--muted);
+}
+.odb-cell--raw {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 11.5px;
+}
+.odb-lookup {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.odb-lookup-name {
+  font-weight: 600;
+}
+.odb-lookup-target {
+  font-size: 10.5px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+.odb-more {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--brand);
+  text-decoration: underline;
+}
+.odb-footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+}
+.odb-footer .btn {
+  margin-left: auto;
+}
+.odb-value-modal {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.odb-value-pre {
+  margin: 0;
+  padding: 14px 18px;
+  overflow: auto;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.odb-stale {
+  font-size: 12px;
+  font-weight: 600;
+  color: #a15c07;
+}

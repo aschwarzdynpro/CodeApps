@@ -647,6 +647,46 @@ Ablehnung Toggle verstecken), (c) SP braucht Leserechte auf Quelltabellen +
 **feste Höhe** (`.thub-entry-modal`, 88vh) — nicht auf max-height
 zurückbauen, sonst clippt das Source-Table-Dropdown im noch kurzen Formular.
 
+**OData Browser** (Operate-Gruppe, Menüpunkt „OData Browser", gated;
+Plan + Entscheidungen: `docs/odata-browser-plan.md`): freies Durchsehen der
+Web API **je Umgebung**. Stand: **P1 (Skelett) fertig** — Tabellen-/Spalten-
+Picker, `$top`/Seitengröße, Run, Grid, Paging, Copy-URL. Offen laut Plan: P2
+Filter-Builder + editierbare Raw-Query, P3 IntelliSense, P4 Einzelsatz +
+Drill-through, P5 Komfort/FetchXML/Metadaten-Modus, P6 Write.
+Dateien: `types/odataBrowser.ts`, `services/metadataCatalog.ts` (+ Service-Trio
+`odataBrowserService`/`dataverse…`/`mock…`), pure Utils
+`utils/odataQuery.ts`/`odataFormat.ts`/`odataErrors.ts` (alle Vitest),
+`components/OdataBrowserWorkspace.tsx` + `OdataResultGrid.tsx`.
+**Alles über den vorhandenen Konnektor — KEINE neue Data Source.**
+Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
+- **Identität:** Reads laufen als Konnektor-SP (bei Schulz sysadmin), NICHT als
+  angemeldeter User ⇒ `gated: true` **und** der Dauer-Banner `.odb-identity`.
+  Deshalb ist v1 bewusst read-only; die CRUD-Seams stehen (`WRITE_ENABLED =
+  false` in `dataverseOdataBrowserService`, Interface deklariert
+  `createRecord`/`updateRecord`/`deleteRecord`, die werfen).
+- **`prefer`-Header ist der Hebel:** `odata.include-annotations="*"` liefert
+  FormattedValue + `lookuplogicalname` (sonst zeigt das Grid Codes und GUIDs),
+  `odata.maxpagesize=<n>` erzeugt erst den `@odata.nextLink`, aus dem
+  `skipTokenFrom` den Cursor zieht. Beides **verify-on-first-run** (Plan §10);
+  Fallback ohne Cursor = Keyset-Paging über den Primary Key.
+- **Der Konnektor kann kein `$count`/`$apply`/`$search`/`$batch`** (nur
+  `$select/$filter/$orderby/$expand/$top/$skiptoken/fetchXml`) ⇒ Zeilenzahl
+  später per FetchXML-Aggregat, nicht per `$count`.
+- **Zeilen holen wir über OData, NICHT FetchXML** — dort greift die
+  Pagination-Policy des Konnektors nicht (Transfer-Hub-Erkenntnis, 5000er-Cap).
+- **`$select`-Fallen** in `classifyColumn` kodiert: Lookups nur als
+  `_x_value`; `AttributeOf != null` (abgeleitete Geschwister wie `*_base`),
+  `IsValidForRead=false`, PartyList, File/Image und übrige `Virtual` sind
+  **nicht selektierbar** — ABER MultiSelect-Choice meldet `AttributeType:
+  'Virtual'` und muss über `AttributeTypeName === 'MultiSelectPicklistType'`
+  gerettet werden, sonst verschwindet sie.
+- Metadaten-Cache liegt pro **orgUrl** in `metadataCatalog` (Map +
+  sessionStorage, Key `sac.odb.v1.entities.<orgUrl>`); der „⟳ Metadata"-Button
+  ist der einzige Invalidierungsweg (kein Ablauf).
+- Der Workspace hat **zwei getrennte Sequence-Guards** (`metaSeq`/`runSeq`) —
+  ein gemeinsamer Zähler würde beim Run die noch fliegende Metadaten-Antwort
+  verwerfen und den Spalten-Picker leer lassen.
+
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
 0. **Merge muss über die rohe `solutioncomponent`-Mitgliedschaft laufen, NICHT

@@ -142,6 +142,28 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
 
 ## Team & Komfort
 
+- [~] ⭐ **OData Browser** (Menüpunkt „OData Browser", Operate-Gruppe, gated):
+      je Umgebung durch die Datenbank browsen. Läuft komplett über den
+      vorhandenen Konnektor — keine neuen Data Sources. **v1 read-only**, die
+      CRUD-Architektur (Interface, `WRITE_ENABLED`-Flag, Seams) ist mitgebaut.
+      Plan + Entscheidungen: [`docs/odata-browser-plan.md`](docs/odata-browser-plan.md).
+  - [x] **P1 Skelett** — Zielumgebungs-Picker, SP-Identitäts-Banner,
+        Tabellen-Picker (Suche über Display-/Logical-/Set-Name, Systemtabellen
+        zuschaltbar), Spalten-Picker aus Live-Metadaten (nicht selektierbare
+        Spalten ausgegraut mit Grund, Lookups automatisch als `_x_value`),
+        `$top` + Seitengröße, Run, dichtes Grid mit Sortierung, Formatted-
+        values-Umschalter, Lookup-Chips, Load-more über den Paging-Cursor,
+        Copy-URL, Fehler-Hints. Metadaten-Cache pro Org.
+  - [ ] **P2 Query-Core** — Filter-Builder mit typabhängigen Operatoren/Value-
+        Editoren, `$orderby`-Mehrfachsortierung, Count-Button (FetchXML-
+        Aggregat), **editierbare Raw-Query-Zeile** bidirektional gekoppelt.
+  - [ ] **P3 IntelliSense** — `utils/odataSuggest.ts` + `QueryInput` auf allen
+        Feldern inkl. Raw-Zeile, Validierungs-Chips, Signatur-Hinweis.
+  - [ ] **P4 Records** — Einzelsatz-Ansicht, Lookup-Drill-through, verwandte
+        Datensätze, `$expand`-Builder mit verschachteltem `$select`.
+  - [ ] **P5 Komfort** — Historie, gespeicherte Queries, CSV/JSON-Export,
+        FetchXML-Modus, Metadaten-Modus.
+  - [ ] **P6 Write** *(eigene Entscheidung)* — `WRITE_ENABLED` scharfschalten.
 - [x] **Environment-Links (Referenz)**: eigener Menüpunkt mit den ständig
       gebrauchten URLs — **je Umgebung** (System-App, OData/Web API,
       Diagnostics, classic Advanced Settings/Rollen/Systemaufträge, Maker &

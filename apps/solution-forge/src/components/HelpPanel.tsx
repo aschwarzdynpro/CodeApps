@@ -685,6 +685,32 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🗄️ OData Browser (Operate)</h3>
+            <p>
+              Browse the <strong>Dataverse Web API of any configured
+              environment</strong>: pick a table, pick the columns, run, read
+              the grid. The table list and the column list come from live
+              metadata — the picker greys out what <code>$select</code> cannot
+              return (derived, virtual, file/image columns) and selects lookups
+              as <code>_x_value</code> for you. Column headers sort, values are
+              shown <strong>formatted</strong> (choices as labels, lookups as
+              names) with a toggle for the raw payload, and{' '}
+              <strong>Load more</strong> follows the server's paging cursor.{' '}
+              <strong>Copy URL</strong> yields the real
+              <code>/api/data/v9.2/…</code> URL.
+            </p>
+            <p>
+              ⚠ <strong>Queries run as the connector service principal</strong>,
+              not as you — results deliberately ignore your personal row-level
+              and field-level security, which is why the menu item is
+              deployment-manager gated. <strong>Read-only.</strong> Filters, an
+              editable raw query line, IntelliSense and the single-record view
+              with lookup drill-through are the next steps (see{' '}
+              <code>docs/odata-browser-plan.md</code>).
+            </p>
+          </section>
+
+          <section className="help-section">
             <h3>🔍 Audit Config (Validate)</h3>
             <p>
               The <strong>Audit Configuration Analyzer</strong> shows a chosen

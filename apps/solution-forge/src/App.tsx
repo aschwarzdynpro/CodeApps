@@ -28,6 +28,7 @@ import { UserSettingsWorkspace } from './components/UserSettingsWorkspace'
 import { FlowComparerWorkspace } from './components/FlowComparerWorkspace'
 import { PluginComparerWorkspace } from './components/PluginComparerWorkspace'
 import { TraceExplorer } from './components/TraceExplorer'
+import { OdataBrowserWorkspace } from './components/OdataBrowserWorkspace'
 import { JobMonitor } from './components/JobMonitor'
 import { RoleAnalyzer } from './components/RoleAnalyzer'
 import { LinksWorkspace } from './components/LinksWorkspace'
@@ -75,6 +76,7 @@ type Tab =
   | 'flowCompare'
   | 'pluginCompare'
   | 'traces'
+  | 'odata'
   | 'jobs'
   | 'roles'
   | 'links'
@@ -144,6 +146,9 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'Operate',
     items: [
       { key: 'traces', label: 'Plugin Traces', icon: '🧵', gated: false },
+      // Reads any table of any configured environment through the connector,
+      // i.e. as the service principal — gated, and the workspace says so.
+      { key: 'odata', label: 'OData Browser', icon: '🗄️', gated: true },
       // Temporarily hidden while their scope is reconsidered — the tabs,
       // titles and render blocks stay, so re-enable by restoring these two.
       // { key: 'jobs', label: '[PREVIEW] Job Monitor', icon: '📡', gated: false },
@@ -181,6 +186,7 @@ const TAB_TITLES: Record<Tab, string> = {
   flowCompare: 'Process Comparer',
   pluginCompare: 'Plugin Comparer',
   traces: 'Plugin Trace Explorer',
+  odata: 'OData Browser',
   jobs: '[PREVIEW] Async Job / Flow Monitor',
   roles: '[PREVIEW] Security Role Analyzer',
   links: 'Environment Links',
@@ -251,6 +257,9 @@ function App() {
   const [userSettingsEnvKey, setUserSettingsEnvKey] = useState<string>(() =>
     currentEnvKey(),
   )
+  // OData Browser — its own target environment (browsing UAT/PROD data is the
+  // normal case, so it must not drag the Operate selection along).
+  const [odataEnvKey, setOdataEnvKey] = useState<string>(() => currentEnvKey())
   // Sidebar collapse (icon-only) — remembered across sessions.
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
@@ -1504,6 +1513,17 @@ function App() {
           canManageTraceLevel={isDeploymentManager}
           envKey={operateEnvKey}
           onEnvChange={setOperateEnvKey}
+        />
+      )}
+
+      {/* The OData Browser remounts on env change — table, columns and result
+          all belong to one environment's schema, so a reset is the honest
+          behaviour rather than carrying a stale query across. */}
+      {!error && tab === 'odata' && isDeploymentManager && (
+        <OdataBrowserWorkspace
+          key={odataEnvKey}
+          envKey={odataEnvKey}
+          onEnvChange={setOdataEnvKey}
         />
       )}
 

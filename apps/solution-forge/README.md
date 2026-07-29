@@ -7,7 +7,8 @@ Release Notes und Timeline pflegen, Releases prüfen (**Deployment
 Readiness** vor dem Import, **Analyze** mit Compare / Layer Inspector /
 App Sharing danach), Konfigurations-Cockpits (Env Config, Audit Config,
 Dual-Write Maps, Import History, User Settings, Process- &
-Plugin-Comparer, Plugin Traces) — plus der **Configuration Data Transfer
+Plugin-Comparer, Plugin Traces), ein **OData Browser** zum freien Durchsehen
+der Datenbank je Umgebung — plus der **Configuration Data Transfer
 Hub**, der Konfigurationsdaten über mitinstallierte Executor-Cloud-Flows
 zwischen Umgebungen transportiert.
 
@@ -59,7 +60,8 @@ nach Typ.
   Merge Rules, Release Notes, Timeline, Data Transfer), **Validate**
   (Deployment Readiness, Analyze, Env Config, Audit Config, Dual-Write Maps,
   Import History, User Settings, Process Comparer, Plugin Comparer),
-  **Operate** (Plugin Traces) und **Reference** (Links, Environment Setup).
+  **Operate** (Plugin Traces, OData Browser) und **Reference** (Links,
+  Environment Setup).
   Gated-Einträge
   (Schloss) brauchen die Rolle **„INT | Deployment Manager"**; Workbench,
   Merge, Release Notes, Timeline, Plugin Traces und Links stehen allen
@@ -391,9 +393,9 @@ nach Typ.
   Lookup-Fehler). Kompakter als die Einzelseiten — für die volle Tiefe den
   jeweiligen Feature-Tab öffnen. Der Detective orchestriert nur die
   vorhandenen Services (kein eigener Datenpfad).
-- **Operate-Gruppe** (Betriebssicht; im Menü aktuell nur **Plugin Traces** —
-  Job Monitor und Role Analyzer sind als Preview ausgeblendet, Code bleibt
-  erhalten). **Zielumgebung wählbar:** oben sitzt ein **Target-Environment-
+- **Operate-Gruppe** (Betriebssicht; im Menü aktuell **Plugin Traces** und
+  **OData Browser** — Job Monitor und Role Analyzer sind als Preview
+  ausgeblendet, Code bleibt erhalten). **Zielumgebung wählbar:** oben sitzt ein **Target-Environment-
   Picker**, der aus dem konfigurierten `ENVIRONMENTS`-Set wählt (dev/uat/prod
   bzw. was der Installer nach `pro_environmentconfig` schreibt) — Default ist
   die Host-Umgebung. **Reads laufen cross-env** über den Konnektor; **native
@@ -412,6 +414,23 @@ nach Typ.
     (`organization.plugintracelogsetting`, 0/1/2) mit Confirm-Warnung bei
     „All" — Umschalten nur für Deployment Manager, läuft als angemeldeter
     User (natives `organization`-Update).
+  - **🗄️ OData Browser** *(gated)* — freies Durchsehen der Datenbank je
+    Umgebung über die Dataverse Web API: Tabelle wählen (Liste + Suche aus
+    `EntityDefinitions`, Systemtabellen zuschaltbar), Spalten per Picker
+    (nicht selektierbare Spalten sind ausgegraut samt Grund — abgeleitet,
+    virtuell, Datei/Bild; **Lookups werden automatisch als `_x_value`**
+    gewählt), `$top` und Seitengröße setzen, **▶ Run**. Ergebnis als
+    dichtes Grid mit **Sortierung per Spaltenkopf**, **Formatted values**
+    (Choice-Labels, Lookup-Namen — umschaltbar auf die Rohwerte), Lookup-
+    Zellen mit Zieltabellen-Chip, langen Werten im Overlay, **Load more**
+    über den Paging-Cursor des Servers und **Copy URL** (echte
+    `/api/data/v9.2/…`-URL). Die Query-Zeile wird aus dem Builder generiert
+    und ist noch read-only. **⚠ Alle Reads laufen als Konnektor-SP**, nicht
+    als angemeldeter User — die Ergebnisse ignorieren also bewusst die
+    persönliche RLS/Field Security des Betrachters (deshalb gated, deshalb
+    der Banner). **Read-only**; Filter-Builder, editierbare Raw-Query,
+    IntelliSense und Einzelsatz-Ansicht folgen laut
+    [`docs/odata-browser-plan.md`](docs/odata-browser-plan.md).
   - **📡 Job Monitor** *(Preview, ausgeblendet)* — „Ist die Async-Verarbeitung gesund?" in < 10 s:
     **Health**-Kacheln (Failed 24 h, Waiting-Backlog + älteste wartende Op,
     Flow-Fehlerquote als gekennzeichnetes Sample, Watchdog-Ampeln; jede
