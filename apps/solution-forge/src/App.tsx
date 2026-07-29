@@ -29,8 +29,6 @@ import { FlowComparerWorkspace } from './components/FlowComparerWorkspace'
 import { PluginComparerWorkspace } from './components/PluginComparerWorkspace'
 import { TraceExplorer } from './components/TraceExplorer'
 import { OdataBrowserWorkspace } from './components/OdataBrowserWorkspace'
-import { JobMonitor } from './components/JobMonitor'
-import { RoleAnalyzer } from './components/RoleAnalyzer'
 import { LinksWorkspace } from './components/LinksWorkspace'
 // ALM Detective is temporarily hidden from the UI — component + service
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
@@ -77,8 +75,6 @@ type Tab =
   | 'pluginCompare'
   | 'traces'
   | 'odata'
-  | 'jobs'
-  | 'roles'
   | 'links'
   | 'setup'
 
@@ -138,21 +134,22 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    // Operations views over the current environment (traces, async jobs,
-    // security roles). Trace Explorer and Job Monitor are open to everyone
-    // (their destructive actions are additionally deployment-manager-gated
-    // inside the workspace); the Role Analyzer exposes the whole security
-    // model and is gated as a whole.
+    // Operations views over a chosen environment. Trace Explorer is open to
+    // everyone (its destructive actions are deployment-manager-gated inside
+    // the workspace); the OData Browser is gated as a whole because it reads
+    // as the connector service principal.
+    //
+    // Job Monitor and Role Analyzer used to live here as hidden previews.
+    // They are now fully unwired — their components and services still exist
+    // on disk but nothing imports them, so they no longer ship in the bundle.
+    // Re-enabling means restoring the import, the Tab union member, the
+    // TAB_TITLES entry, the render block and a nav item.
     label: 'Operate',
     items: [
       { key: 'traces', label: 'Plugin Traces', icon: '🧵', gated: false },
       // Reads any table of any configured environment through the connector,
       // i.e. as the service principal — gated, and the workspace says so.
       { key: 'odata', label: 'OData Browser', icon: '🗄️', gated: true },
-      // Temporarily hidden while their scope is reconsidered — the tabs,
-      // titles and render blocks stay, so re-enable by restoring these two.
-      // { key: 'jobs', label: '[PREVIEW] Job Monitor', icon: '📡', gated: false },
-      // { key: 'roles', label: '[PREVIEW] Role Analyzer', icon: '🛡', gated: true },
     ],
   },
   {
@@ -187,8 +184,6 @@ const TAB_TITLES: Record<Tab, string> = {
   pluginCompare: 'Plugin Comparer',
   traces: 'Plugin Trace Explorer',
   odata: 'OData Browser',
-  jobs: '[PREVIEW] Async Job / Flow Monitor',
-  roles: '[PREVIEW] Security Role Analyzer',
   links: 'Environment Links',
   setup: 'Environment Setup',
 }
@@ -1524,29 +1519,6 @@ function App() {
           key={odataEnvKey}
           envKey={odataEnvKey}
           onEnvChange={setOdataEnvKey}
-        />
-      )}
-
-      {/* Job Monitor and Role Analyzer remount on env change (key) so their
-          internal state resets and refetches cleanly against the new target;
-          the Trace Explorer reloads in place to keep its filters. */}
-      {!error && tab === 'jobs' && (
-        <JobMonitor
-          key={operateEnvKey}
-          canManageJobs={isDeploymentManager}
-          envKey={operateEnvKey}
-          onEnvChange={setOperateEnvKey}
-          solutions={allSolutions}
-        />
-      )}
-
-      {!error && tab === 'roles' && isDeploymentManager && (
-        <RoleAnalyzer
-          key={operateEnvKey}
-          envKey={operateEnvKey}
-          onEnvChange={setOperateEnvKey}
-          solutions={allSolutions}
-          canManage={isDeploymentManager}
         />
       )}
 

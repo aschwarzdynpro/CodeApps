@@ -393,9 +393,16 @@ nach Typ.
   Lookup-Fehler). Kompakter als die Einzelseiten — für die volle Tiefe den
   jeweiligen Feature-Tab öffnen. Der Detective orchestriert nur die
   vorhandenen Services (kein eigener Datenpfad).
-- **Operate-Gruppe** (Betriebssicht; im Menü aktuell **Plugin Traces** und
-  **OData Browser** — Job Monitor und Role Analyzer sind als Preview
-  ausgeblendet, Code bleibt erhalten). **Zielumgebung wählbar:** oben sitzt ein **Target-Environment-
+- **Operate-Gruppe** (Betriebssicht; im Menü **Plugin Traces** und
+  **OData Browser**). **Job Monitor und Role Analyzer sind aus der App
+  entfernt** — sie waren länger als Preview ausgeblendet und wurden deshalb
+  komplett abgeklemmt (kein Import, kein Render-Block), was den App-Chunk um
+  ~120 kB verkleinert hat. Ihr Code liegt unverändert im Repo
+  (`JobMonitor.tsx`, `RoleAnalyzer.tsx`, `TeamBuMap.tsx`,
+  `FieldSecurityWorkspace.tsx` + zugehörige Services/Utils, letztere weiterhin
+  Vitest-getestet); wie man sie wieder anschließt, steht als Kommentar an der
+  `Operate`-Gruppe in `App.tsx`. Die beiden Abschnitte unten sind daher
+  **Doku für den Wiederanschluss**, nicht für den aktuellen Funktionsumfang. **Zielumgebung wählbar:** oben sitzt ein **Target-Environment-
   Picker**, der aus dem konfigurierten `ENVIRONMENTS`-Set wählt (dev/uat/prod
   bzw. was der Installer nach `pro_environmentconfig` schreibt) — Default ist
   die Host-Umgebung. **Reads laufen cross-env** über den Konnektor; **native
@@ -439,7 +446,7 @@ nach Typ.
     persönliche RLS/Field Security des Betrachters (deshalb gated, deshalb
     der Banner). **Read-only**; IntelliSense und Einzelsatz-Ansicht folgen
     laut [`docs/odata-browser-plan.md`](docs/odata-browser-plan.md).
-  - **📡 Job Monitor** *(Preview, ausgeblendet)* — „Ist die Async-Verarbeitung gesund?" in < 10 s:
+  - **📡 Job Monitor** *(aus der App entfernt — Code im Repo)* — „Ist die Async-Verarbeitung gesund?" in < 10 s:
     **Health**-Kacheln (Failed 24 h, Waiting-Backlog + älteste wartende Op,
     Flow-Fehlerquote als gekennzeichnetes Sample, Watchdog-Ampeln; jede
     Kachel klickt in ihren Detail-Tab), **System jobs**
@@ -453,7 +460,7 @@ nach Typ.
     (Heartbeat-Soll/Ist je Definition, pure function `evaluateHeartbeat`,
     Tabellen konfigurierbar via `config.ts → WATCHDOG_TABLES`) und
     **Trends** (Failed-Jobs/Tag 7/30 d, serverseitige Aggregate).
-  - **🛡 Role Analyzer** *(Preview, ausgeblendet; gated)* — arbeitet auf einem ~15 min gecachten
+  - **🛡 Role Analyzer** *(aus der App entfernt — Code im Repo)* — arbeitet auf einem ~15 min gecachten
     Snapshot des Security-Modells, Rollen aggregiert auf `parentrootroleid`
     (BU-Kopien kollabieren): **Matrix** (Rolle × Tabelle × Privileg mit
     Depth-Badges U/BU/P/O), **Diff** (zwei Rollen, nur Deltas, Export

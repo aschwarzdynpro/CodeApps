@@ -241,7 +241,14 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
 ## Umgesetzt
 
 - [x] ⭐ **Operate-Gruppe** (Ideen aus `docs/Ideas_v2.md`, je eigener
-      Menüpunkt): **Plugin Trace Explorer** (Stream + Correlation-Timeline +
+      Menüpunkt). **Achtung:** von den dreien ist nur der **Plugin Trace
+      Explorer** noch in der App — **Job Monitor und Role Analyzer wurden am
+      2026-07-29 abgeklemmt** (waren lange ausgeblendete Previews, lagen aber
+      weiter im Bundle; −120 kB App-Chunk). Code bleibt im Repo,
+      Wiederanschluss siehe Kommentar an der `Operate`-Gruppe in `App.tsx`.
+      Damit sind auch die Role-Analyzer-Unterfeatures (Core Role Extractor,
+      Team & BU Map, Field-Level Security) aktuell **nicht erreichbar**.
+      **Plugin Trace Explorer** (Stream + Correlation-Timeline +
       Performance-Aggregate + Trace-Level-Switch), **Async Job / Flow
       Monitor** (Health-Kacheln, asyncoperation-Explorer mit Bulk-
       Cancel/Retry, Flow-Runs mit Portal-Deep-Link, Watchdog-Board, Trends)

@@ -2,8 +2,8 @@
  * Feature guide, opened via the "?" icon in the header. Static content —
  * sections follow the sidebar menu structure (Manage → Validate → Operate →
  * Reference); keep them in sync with the README when features change.
- * Features hidden from the menu (ALM Detective, Job Monitor, Role Analyzer)
- * are deliberately not documented here.
+ * Features that are not reachable from the menu (ALM Detective, and the
+ * unwired Job Monitor / Role Analyzer) are deliberately not documented here.
  */
 export function HelpPanel({ onClose }: { onClose: () => void }) {
   return (

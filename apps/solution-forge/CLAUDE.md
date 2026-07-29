@@ -147,8 +147,26 @@ delete-all-then-recreate (Env-Config hat keine eingehenden Refs). Derselbe
 Wizard dient im Edit-Modus (Menüpunkt) zum Nachpflegen; Mock: `getProvisioning-
 State` gibt Erst-Lauf `false`, nach Save `true` ⇒ **offline durchspielbar**.
 
-**Operate-Gruppe** (Menü „Operate": Plugin Traces / Job Monitor / Role
-Analyzer): je Feature ein eigenes Service-Paar nach demselben Muster —
+**Operate-Gruppe** — im Menü stehen nur noch **Plugin Traces** und **OData
+Browser**. **Job Monitor und Role Analyzer sind abgeklemmt** (2026-07-29): sie
+waren lange als Preview ausgeblendet, wurden aber weiter importiert und lagen
+damit voll im Bundle (~120 kB). Jetzt referenziert sie **nichts** mehr, also
+bündelt Rollup sie auch nicht — die Dateien (`JobMonitor.tsx`,
+`RoleAnalyzer.tsx`, `TeamBuMap.tsx`, `FieldSecurityWorkspace.tsx`, die
+Service-Trios `jobMonitorService`/`roleAnalyzerService`/`fieldSecurityService`
+und die Utils `heartbeat`/`privileges`/`coreRoles`/`orgTree`/`fieldSecurity`)
+liegen unverändert im Repo und ihre Vitest-Tests laufen weiter. Wiederanschluss:
+Import + `Tab`-Union + `TAB_TITLES` + Render-Block + Nav-Eintrag in `App.tsx`
+(Kommentar steht dort). Ebenfalls entfernt: das **PenaltyGame/GameOverlay**-
+Easter-Egg, das der Comparer während Bulk-Läufen einblendete — Fortschritt
+zeigen weiterhin die Inline-Progressbar (`.cmp-bulkbar`) und die `ActivityBar`.
+⚠ Das **CSS der entfernten Features steht noch in `App.css`** (eine Datei für
+alles); nicht blind purgen, `.ops-table` & Co. teilen sich Traces/Import
+History/OData Browser.
+
+Der folgende Abschnitt beschreibt die abgeklemmten Features **für den
+Wiederanschluss**, nicht den aktuellen Funktionsumfang: je Feature ein eigenes
+Service-Paar nach demselben Muster —
 `traceService`/`jobMonitorService`/`roleAnalyzerService` (+ `dataverse…`/
 `mock…`). **Reads ausschließlich über den Konnektor** als FetchXML-
 Passthrough gegen die aktuelle Umgebung (`currentEnvQuery.ts`: `fetchXmlQuery`,
