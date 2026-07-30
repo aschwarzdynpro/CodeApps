@@ -19,6 +19,7 @@ import {
   columnMap,
   defaultSelect,
   emptyQuery,
+  entitySetOf,
   expandNavigationName,
   joinExpand,
   parseQueryPath,
@@ -232,13 +233,27 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   }, [loadEntities])
 
   /**
-   * Switch to a table. `filter` seeds the query (used when browsing a
-   * record's children) and `autoRun` fires it as soon as the metadata is in —
-   * the column defaults are only known then, so it cannot run any earlier.
+   * Switch to a table.
+   *
+   * `filter` seeds the query (browsing a record's children), `restorePath`
+   * replays a stored query, and `autoRun` fires the result as soon as the
+   * metadata is in — the column defaults are only known then, so nothing can
+   * run any earlier.
+   *
+   * **`restorePath` is deliberately parsed inside the metadata callback.**
+   * Parsing it up front would use the previous table's columns, so a `$filter`
+   * for another table would fail to match and silently degrade to raw text;
+   * and applying it before the callback would let the callback's own
+   * `setQuery` overwrite it. Both were real bugs — doing it here means there
+   * is only ever one `setQuery`, with the right columns in hand.
    */
   const openTable = (
     logicalName: string,
-    opts: { filter?: FilterGroup; autoRun?: boolean } = {},
+    opts: {
+      filter?: FilterGroup
+      autoRun?: boolean
+      restorePath?: string
+    } = {},
   ) => {
     // Metadata sets have no EntityDefinitions row — address them directly and
     // let the grid derive its columns from the response.
@@ -256,7 +271,15 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
       setCount(null)
       setChoiceOptions(new Map())
       setMetaLoading(false)
-      setQuery(emptyQuery(logicalName))
+      // Metadata sets have no column metadata, so an empty map is not a
+      // degradation here — it is the whole truth about them.
+      const restored = opts.restorePath
+        ? parseQueryPath(opts.restorePath, emptyQuery(logicalName), new Map())
+        : null
+      const next = restored?.query ?? emptyQuery(logicalName)
+      setQuery(next)
+      if (restored) setRawIssues(restored.issues)
+      if (opts.autoRun) void execute(next, null, false, new Map())
       return
     }
     const ref = entities.find((e) => e.logicalName === logicalName)
@@ -286,9 +309,17 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
       .then((loaded) => {
         if (seq !== metaSeq.current) return
         setMeta(loaded)
-        const next = { ...base, select: defaultSelect(loaded) }
+        const columns = columnMap(loaded)
+        let next: ODataQuery
+        if (opts.restorePath) {
+          const restored = parseQueryPath(opts.restorePath, base, columns)
+          next = restored.query
+          setRawIssues(restored.issues)
+        } else {
+          next = { ...base, select: defaultSelect(loaded) }
+        }
         setQuery(next)
-        if (opts.autoRun) void execute(next, null, false, columnMap(loaded))
+        if (opts.autoRun) void execute(next, null, false, columns)
       })
       .catch((err: unknown) => {
         if (seq === metaSeq.current) fail(err)
@@ -568,24 +599,37 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     [query, meta, entities],
   )
 
-  /** Load a stored query back into the builder (and run it). */
+  /** Load a stored query back into the builder and run it. */
   const applyStored = (entry: StoredQuery) => {
     setLibraryOpen(false)
-    const parsed = parseQueryPath(entry.path, query, metaByKey)
-    const target = entities.find((e) => e.entitySet === parsed.query.entitySet)
-    // A stored query may point at a table that is not the one on screen —
-    // switch to it first so the metadata (and with it the column kinds) match.
-    if (target && target.logicalName !== table) {
-      openTable(target.logicalName)
-      window.setTimeout(() => {
-        setQuery(parsed.query)
-        setRawIssues(parsed.issues)
-      }, 0)
+    setRawDraft(null)
+    // Read the table from the path alone — its columns (and therefore its
+    // filter) can only be parsed once that table's metadata is loaded.
+    const entitySet = entitySetOf(entry.path)
+    const target = entities.find((e) => e.entitySet === entitySet)
+
+    if (isMetadataSet(entitySet)) {
+      openTable(entitySet, { restorePath: entry.path, autoRun: true })
       return
     }
+    if (!target) {
+      fail(
+        new OdataQueryError(
+          `The saved query targets “${entitySet}”, which is not a table in this environment.`,
+          'Saved queries are stored per environment, but a table can still be removed or renamed.',
+        ),
+      )
+      return
+    }
+    if (target.logicalName !== table || !meta) {
+      openTable(target.logicalName, { restorePath: entry.path, autoRun: true })
+      return
+    }
+    // Same table, metadata already in hand — parse straight away.
+    const parsed = parseQueryPath(entry.path, query, metaByKey)
     setQuery(parsed.query)
     setRawIssues(parsed.issues)
-    setRawDraft(null)
+    void execute(parsed.query, null, false, metaByKey)
   }
 
   const saveCurrent = (name: string) => {

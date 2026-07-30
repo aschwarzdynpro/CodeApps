@@ -10,6 +10,7 @@ import {
   clampTop,
   defaultSelect,
   emptyQuery,
+  entitySetOf,
   expandNavigationName,
   joinExpand,
   parseQueryPath,
@@ -339,6 +340,59 @@ describe('toQueryPath / toWebApiUrl', () => {
   it('is empty without a table', () => {
     expect(toQueryPath(emptyQuery())).toBe('')
     expect(toWebApiUrl('https://org.crm4.dynamics.com', emptyQuery())).toBe('')
+  })
+})
+
+describe('entitySetOf', () => {
+  it('reads the table without touching the options', () => {
+    expect(entitySetOf('/accounts?$select=name&$top=5')).toBe('accounts')
+    expect(entitySetOf('accounts')).toBe('accounts')
+    expect(entitySetOf('  /contacts?$filter=a eq 1 ')).toBe('contacts')
+    expect(entitySetOf('/EntityDefinitions')).toBe('EntityDefinitions')
+  })
+
+  it('is empty when there is no path', () => {
+    expect(entitySetOf('')).toBe('')
+    expect(entitySetOf('?$top=5')).toBe('')
+  })
+
+  it('agrees with the full parser', () => {
+    // The restore path depends on both answering the same — the table is read
+    // first (to load its metadata), the options only afterwards.
+    const path = "/contacts?$filter=contains(fullname,'A & B')&$top=5"
+    const base = emptyQuery('accounts')
+    expect(entitySetOf(path)).toBe(
+      parseQueryPath(path, base, new Map()).query.entitySet,
+    )
+  })
+})
+
+describe('parseQueryPath — restoring a stored query', () => {
+  const columns: Map<string, ColumnMeta> = new Map(
+    [
+      raw({ logicalName: 'fullname' }),
+      raw({ logicalName: 'statecode', attributeType: 'State' }),
+    ]
+      .map(classifyColumn)
+      .map((c) => [c.selectName, c] as const),
+  )
+
+  const path = "/contacts?$select=fullname&$filter=contains(fullname,'Ada')"
+
+  it('restores a structured filter when parsed with the target columns', () => {
+    const parsed = parseQueryPath(path, emptyQuery('contacts'), columns)
+    expect(parsed.query.entitySet).toBe('contacts')
+    expect(parsed.query.filter?.children).toHaveLength(1)
+    expect(parsed.query.filterRaw).toBeNull()
+    expect(parsed.issues).toEqual([])
+  })
+
+  it('falls back to raw text when parsed with the WRONG table columns', () => {
+    // This is why the restore has to wait for the target table's metadata:
+    // parsing against whatever table happens to be open loses the structure.
+    const parsed = parseQueryPath(path, emptyQuery('contacts'), new Map())
+    expect(parsed.query.filter).toBeNull()
+    expect(parsed.query.filterRaw).toBe("contains(fullname,'Ada')")
   })
 })
 

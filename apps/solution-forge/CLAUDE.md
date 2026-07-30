@@ -770,6 +770,15 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
   Handlern** zurück, nicht in einem Effect auf `here` — `react-hooks/
   set-state-in-effect` verbietet Letzteres, und die beiden Pfade sind die
   einzigen, die den Trail ändern.
+- **Restore einer gespeicherten Query läuft über `openTable(…, {restorePath})`
+  und wird ERST im Metadaten-Callback geparst.** Zwei Fehler steckten hier
+  (2026-07-30 gefixt): vorher geparst nutzt es die Spalten der noch offenen
+  Tabelle ⇒ ein `$filter` für eine andere Tabelle matcht nicht und fällt still
+  in den Raw-Modus; vorher *angewendet* überschreibt der `.then` des
+  Metadaten-Loads die Query wieder mit den Defaults. Ein `setTimeout(…,0)`
+  löst das NICHT — der Netzwerk-Callback kommt später. Regel: **genau ein
+  `setQuery` pro Tabellenwechsel**, im Callback, mit den richtigen Spalten.
+  `entitySetOf(path)` liest die Zieltabelle vorab ohne Optionen zu parsen.
 - **Historie/Saved liegen pro Environment** im `localStorage`
   (`sac.odb.v1.history|saved.<envKey>`) — ein Query-Pfad gilt nur gegen das
   Schema, für das er geschrieben wurde. Listen-Operationen sind pure Funktionen

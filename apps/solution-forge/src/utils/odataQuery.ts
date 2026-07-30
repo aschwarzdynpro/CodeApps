@@ -412,6 +412,20 @@ export interface ParsedQuery {
 }
 
 /**
+ * The entity set a query path addresses, without touching its options.
+ *
+ * Needed before the options can be parsed at all: a stored query may belong to
+ * another table, and its `$filter` can only be understood once *that* table's
+ * column kinds are loaded. So the table is read first, the metadata fetched,
+ * and only then is the rest parsed.
+ */
+export function entitySetOf(path: string): string {
+  const trimmed = path.trim().replace(/^\//, '')
+  const cut = trimmed.indexOf('?')
+  return (cut === -1 ? trimmed : trimmed.slice(0, cut)).trim()
+}
+
+/**
  * Parse the raw query line back into the query state — the other half of the
  * builder ⇄ raw coupling.
  *
@@ -428,7 +442,7 @@ export function parseQueryPath(
   const issues: string[] = []
   const trimmed = text.trim().replace(/^\//, '')
   const cut = trimmed.indexOf('?')
-  const entitySet = (cut === -1 ? trimmed : trimmed.slice(0, cut)).trim()
+  const entitySet = entitySetOf(text)
   const rest = cut === -1 ? '' : trimmed.slice(cut + 1)
 
   const query: ODataQuery = {
