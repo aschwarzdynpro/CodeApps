@@ -20,6 +20,7 @@ import type {
   LayerSection,
 } from '../types/layers'
 import { buildUniqueName } from '../utils/naming'
+import { decideMergeAction } from '../utils/mergePlan'
 import type {
   ProvisioningInput,
   ProvisioningState,
@@ -549,7 +550,11 @@ export class MockSolutionService {
     )
     if (!target) throw new Error(`Unknown target solution ${targetUniqueName}`)
     const targetComponents = this.components.get(target.id) ?? []
-    const existing = new Set(targetComponents.map((c) => c.objectId))
+    // Mirrors the real service: objectId → rootBehavior, because a table
+    // already present as a shell can still be widened (see mergePlan.ts).
+    const targetBehavior = new Map<string, number | undefined>(
+      targetComponents.map((c) => [c.objectId.toLowerCase(), c.rootBehavior]),
+    )
 
     const queue = sourceSolutionIds.flatMap(
       (id) => this.components.get(id) ?? [],
@@ -558,20 +563,38 @@ export class MockSolutionService {
     const excluded = target.excludedMergeTypes ?? []
     const isAllowed = (tc: number) =>
       (allowed.length === 0 || allowed.includes(tc)) && !excluded.includes(tc)
-    const result: MergeResult = { added: 0, skipped: 0, excluded: 0, errors: [] }
+    const result: MergeResult = {
+      added: 0,
+      skipped: 0,
+      widened: 0,
+      excluded: 0,
+      errors: [],
+    }
     const added: MergeRunComponent[] = []
     let done = 0
     for (const component of queue) {
       await delay(120)
-      if (!isAllowed(component.typeCode)) {
+      const action = decideMergeAction(component, targetBehavior, isAllowed)
+      if (action === 'excluded') {
         result.excluded++
-      } else if (existing.has(component.objectId)) {
+      } else if (action === 'skip') {
         result.skipped++
       } else {
-        existing.add(component.objectId)
-        targetComponents.push({ ...component, id: `c-merged-${++mockIdCounter}` })
+        const key = component.objectId.toLowerCase()
+        if (action === 'widen') {
+          // Upgrade in place — no new row, but the table now carries its
+          // subcomponents.
+          const row = targetComponents.find(
+            (c) => c.objectId.toLowerCase() === key,
+          )
+          if (row) row.rootBehavior = component.rootBehavior
+          result.widened++
+        } else {
+          targetComponents.push({ ...component, id: `c-merged-${++mockIdCounter}` })
+          result.added++
+        }
+        targetBehavior.set(key, component.rootBehavior)
         added.push({ t: component.typeName, n: component.displayName })
-        result.added++
       }
       onProgress?.(++done, queue.length, component.displayName || component.typeName)
     }
@@ -585,13 +608,16 @@ export class MockSolutionService {
       }
     }
     // …and the merge-run history row on the target.
-    if (target.recordId && (result.added > 0 || result.skipped > 0)) {
+    if (
+      target.recordId &&
+      (result.added > 0 || result.widened > 0 || result.skipped > 0)
+    ) {
       const runs = this.mergeRuns.get(target.recordId) ?? []
       runs.unshift({
         id: `mr-${++mockIdCounter}`,
         createdOn: new Date().toISOString(),
         createdBy: 'Marie Curie',
-        added: result.added,
+        added: result.added + result.widened,
         skipped: result.skipped,
         errors: result.errors.length,
         sources: this.solutions

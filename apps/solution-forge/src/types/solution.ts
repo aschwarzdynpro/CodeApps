@@ -229,6 +229,13 @@ export interface MergePlanItem {
 export interface MergeResult {
   added: number
   skipped: number
+  /**
+   * Tables already present in the target that the merge upgraded from
+   * "shell only" / "no subcomponents" to "include all subcomponents", because
+   * a source carried the full table. Counted apart from {@link added}: no new
+   * row appears in the target, but its columns/forms/views do.
+   */
+  widened: number
   /** Components dropped because their type isn't in the target's allow-list. */
   excluded: number
   errors: string[]

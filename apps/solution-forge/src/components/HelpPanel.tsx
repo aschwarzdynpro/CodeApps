@@ -253,6 +253,16 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 “excluded by merge rules”.
               </li>
               <li>
+                One exception to “already in the target is skipped”:{' '}
+                <strong>tables</strong> also carry a subcomponent behavior. If
+                the target holds a table as a <em>shell</em> but a source
+                carries it with <em>all subcomponents</em>, the merge upgrades
+                the existing entry instead of skipping it — otherwise that
+                source's columns, forms and views would be dropped silently.
+                The result reports these as “tables upgraded to include all
+                subcomponents”.
+              </li>
+              <li>
                 After a merge the source records get the “Merged into
                 Deployment Solution” status and a timestamp automatically.
               </li>

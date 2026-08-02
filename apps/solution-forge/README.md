@@ -613,6 +613,16 @@ Der Merge nutzt die Dataverse-Action **AddSolutionComponent**
 Shell bzw. ohne Subkomponenten in der Feature-Solution stecken, landen
 genauso im Deployment-Ziel.
 
+Eine Komponente, die im Ziel schon liegt, wird übersprungen — **außer** die
+Quelle trägt mehr als das Ziel: Führt das Ziel eine Tabelle als Shell und
+die Quelle sie mit allen Subkomponenten, wird der vorhandene Eintrag
+**hochgestuft** statt übersprungen (`MergeResult.widened`, im Banner als
+„tables upgraded to include all subcomponents"). Ohne das gingen die
+Spalten, Formulare und Views dieser Quelle still verloren. Die Regel steht
+als pure function in `utils/mergePlan.ts` (`decideMergeAction`, Vitest);
+aufgeweitet wird nur, nie verengt — Dataverse degradiert eine bestehende
+Zeile ohnehin nicht.
+
 ### Azure DevOps anbinden
 
 Die Detail-Ansicht zeigt pro Solution ein Work-Item-Panel (Status,

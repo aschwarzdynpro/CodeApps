@@ -1179,6 +1179,11 @@ function App() {
             <strong>{mergeBanner.result.added}</strong> component
             {mergeBanner.result.added === 1 ? '' : 's'} added into{' '}
             <strong>{mergeBanner.title}</strong>
+            {mergeBanner.result.widened > 0
+              ? `, ${mergeBanner.result.widened} table${
+                  mergeBanner.result.widened === 1 ? '' : 's'
+                } upgraded to include all subcomponents`
+              : ''}
             {mergeBanner.result.skipped > 0
               ? `, ${mergeBanner.result.skipped} already in target`
               : ''}

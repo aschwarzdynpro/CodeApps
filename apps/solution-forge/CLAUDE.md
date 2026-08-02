@@ -810,6 +810,32 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
    `rootcomponentbehavior` (0 = alle Subkomponenten via
    `DoNotIncludeSubcomponents=false`; explizite Subs sind eigene Zeilen).
    `listComponents()` (Summary) bleibt nur für die Anzeige.
+   **⚠ Die Dedupe gegen das Ziel darf NICHT über die objectId allein laufen.**
+   Eine Tabellen-Zeile ist erst durch `objectId + rootcomponentbehavior`
+   bestimmt: Führt das Ziel die Tabelle als Shell (1/2) und die Quelle mit
+   allen Subkomponenten (0), ist ein `skip` **stiller Datenverlust** — sämtliche
+   Spalten/Formulare/Views der Quelle fehlen im Release, ohne Fehlermeldung.
+   Genau das war der Live-Bug (empirisch an INT-11 verifiziert 2026-08-01; in
+   der Merge-Historie getroffen: `sst_roundedtimeentries` → `SSTCoreV2`).
+   Entscheidung liegt jetzt in der pure function `utils/mergePlan.ts →
+   decideMergeAction` (Vitest) mit vier Ausgängen `add | widen | skip |
+   excluded`; das Ziel wird als `Map<objectId, rootBehavior>` geführt, nicht
+   als Set. **`widen`** = erneutes `AddSolutionComponent` mit
+   `DoNotIncludeSubcomponents=false`, das die vorhandene Zeile in-place
+   hochstuft (kein Duplikat). Zählt eigenständig als `MergeResult.widened`.
+   **Live geprüfte AddSolutionComponent-Semantik:** beh 2→0 und 1→0 werden
+   hochgestuft; der umgekehrte Aufruf **degradiert nie** (beh 0 bleibt 0) ⇒
+   ein Re-Add ist risikofrei, deshalb wird nur aufgeweitet, nie verengt. Eine
+   Spalte auf einer beh-0-Tabelle wird absorbiert (keine eigene Zeile); eine
+   Spalte allein in eine leere Solution legt die Tabelle automatisch als beh 2
+   an. `pro_mergerun.pro_added_int` = `added + widened` (die Historie hat
+   keine eigene Spalte dafür).
+   **⚠ Nach einem `widen` SINKT die Zeilenzahl des Ziels** (live gesehen:
+   3 Zeilen — Shell + 2 explizite Spalten — wurden zu 1 Zeile mit beh 0):
+   Dataverse absorbiert die expliziten Subkomponenten-Zeilen in die nun
+   vollständige Tabellen-Zeile. Weniger Zeilen = **mehr** Inhalt. Wer
+   Komponenten-Counts als Erfolgssignal benutzt (Plan, Analyze, Diff), darf
+   daraus keinen Verlust ableiten.
 
 1. **Generator-Bug:** Jedes `pac code add-data-source` bricht an
    `AddSolutionComponent.Schema.json` ab UND wirft die handgepflegten

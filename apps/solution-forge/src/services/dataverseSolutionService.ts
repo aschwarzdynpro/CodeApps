@@ -45,6 +45,7 @@ import type {
   LayerInspectionResult,
   LayerSection,
 } from '../types/layers'
+import { decideMergeAction } from '../utils/mergePlan'
 import { SolutionsService } from '../generated/services/SolutionsService'
 import { PublishersService } from '../generated/services/PublishersService'
 import { SolutioncomponentsService } from '../generated/services/SolutioncomponentsService'
@@ -2823,15 +2824,14 @@ export class DataverseSolutionService implements SolutionService {
       )
 
     // Resolve target id + the components already present, so re-merges skip
-    // instead of failing.
+    // instead of failing. Keyed by objectId → rootBehavior: for tables, mere
+    // presence is not enough to decide (see decideMergeAction).
     const solutions = await this.listSolutions()
     const target = solutions.find((s) => s.uniqueName === targetUniqueName)
     if (!target) throw new Error(`Unknown target solution ${targetUniqueName}`)
-    const existing = new Set(
-      (await this.listMergeComponents(target.id)).map((c) =>
-        c.objectId.toLowerCase(),
-      ),
-    )
+    const targetBehavior = new Map<string, number | undefined>()
+    for (const c of await this.listMergeComponents(target.id))
+      targetBehavior.set(c.objectId.toLowerCase(), c.rootBehavior)
 
     const queue: SolutionComponentInfo[] = []
     for (const id of sourceSolutionIds) {
@@ -2846,21 +2846,30 @@ export class DataverseSolutionService implements SolutionService {
       (allowed.length === 0 || allowed.includes(typeCode)) &&
       !excluded.includes(typeCode)
 
-    const result: MergeResult = { added: 0, skipped: 0, excluded: 0, errors: [] }
-    // The concrete components actually added in this run — logged to the
+    const result: MergeResult = {
+      added: 0,
+      skipped: 0,
+      widened: 0,
+      excluded: 0,
+      errors: [],
+    }
+    // The concrete components actually contributed in this run — logged to the
     // merge-run row so the history can show what each merge contributed.
     const added: SolutionComponentInfo[] = []
     let done = 0
     for (const component of queue) {
-      if (!isAllowed(component.typeCode)) {
+      const action = decideMergeAction(component, targetBehavior, isAllowed)
+      if (action === 'excluded') {
         result.excluded++
-      } else if (existing.has(component.objectId.toLowerCase())) {
+      } else if (action === 'skip') {
         result.skipped++
       } else {
         try {
           // Carry the source's subcomponent behavior over to the target:
           // 0 = include subcomponents, 1 = do not include, 2 = shell only
-          // (signalled by an empty IncludedComponentSettingsValues).
+          // (signalled by an empty IncludedComponentSettingsValues). On
+          // 'widen' the source behavior is 0, so this is the plain
+          // DoNotIncludeSubcomponents=false call that upgrades the row.
           const doNotIncludeSubcomponents =
             component.rootBehavior === 1 || component.rootBehavior === 2
           const res = await AddSolutionComponentService.AddSolutionComponent(
@@ -2872,9 +2881,13 @@ export class DataverseSolutionService implements SolutionService {
             component.rootBehavior === 2 ? [] : undefined,
           )
           if (res.success) {
-            existing.add(component.objectId.toLowerCase())
+            targetBehavior.set(
+              component.objectId.toLowerCase(),
+              component.rootBehavior,
+            )
             added.push(component)
-            result.added++
+            if (action === 'widen') result.widened++
+            else result.added++
           } else {
             console.warn('[solutions] AddSolutionComponent failed:', res)
             result.errors.push(
@@ -2896,7 +2909,7 @@ export class DataverseSolutionService implements SolutionService {
 
     // Log the merge on the source rows' presentation records — the table
     // carries dedicated fields for exactly this.
-    if (result.added > 0 || result.skipped > 0) {
+    if (result.added > 0 || result.widened > 0 || result.skipped > 0) {
       const mergedAt = new Date().toISOString()
       const sourceSolutions = solutions.filter((s) =>
         sourceSolutionIds.includes(s.id),
@@ -2947,7 +2960,9 @@ export class DataverseSolutionService implements SolutionService {
     }))
     const record = {
       pro_name_str: `${target.title} · ${mergedAt.slice(0, 10)}`,
-      pro_added_int: result.added,
+      // Widened tables are contributions too and ride along in `added` — the
+      // history schema has no separate column for them.
+      pro_added_int: result.added + result.widened,
       pro_skipped_int: result.skipped,
       pro_errors_int: result.errors.length,
       pro_sources_txt: sourceSolutions.map((s) => s.title).join('\n'),
