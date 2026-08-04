@@ -61,8 +61,15 @@ nach Typ.
   (Deployment Readiness, Analyze, Env Config, Audit Config, Dual-Write Maps,
   Import History, User Settings, Process Comparer, Plugin Comparer,
   Role Comparer),
-  **Operate** (Plugin Traces, OData Browser) und **Reference** (Links,
-  Environment Setup).
+  **Operate** (Plugin Traces, OData Browser, Role Analyzer) und **Reference**
+  (Links, Environment Setup). Die Gruppen sind **aufklappbar und es ist immer
+  genau eine offen** — 21 Einträge passen sonst nicht auf einen
+  Notebook-Bildschirm. Welche offen ist, folgt automatisch dem aktiven
+  Menüpunkt (auch bei Sprüngen aus der ActivityBar); ein Klick auf einen
+  Gruppen-Header schaut in eine andere Gruppe hinein, ein Klick auf einen
+  Eintrag lässt die Auswahl wieder dem aktiven Punkt folgen. Zugeklappte
+  Gruppen zeigen die Anzahl ihrer Einträge. Im **Icon-Modus** (☰) sind alle
+  Einträge sichtbar — dort gibt es keine Header zum Aufklappen.
   Gated-Einträge
   (Schloss) brauchen die Rolle **„INT | Deployment Manager"**; Workbench,
   Merge, Release Notes, Timeline, Plugin Traces und Links stehen allen

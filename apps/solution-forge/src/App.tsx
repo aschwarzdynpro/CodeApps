@@ -293,6 +293,33 @@ function App() {
   }, [defaultPublisher, publishers])
 
   const [tab, setTab] = useState<Tab>('workbench')
+  /**
+   * Sidebar accordion — 21 entries in four groups do not fit a laptop viewport,
+   * so only one group is open at a time.
+   *
+   * `null` means "follow the active tab", which is why there is no effect and
+   * no persistence: the open group is DERIVED from where you are, and on
+   * reload the active tab decides again. An explicit '' is the one case the
+   * derivation cannot express — the user collapsed the active group on purpose.
+   */
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
+  const activeGroupLabel = useMemo(
+    () =>
+      NAV_GROUPS.find((g) => g.items.some((i) => i.key === tab))?.label ?? '',
+    [tab],
+  )
+  const openGroup = expandedGroup ?? activeGroupLabel
+
+  /**
+   * Switch content tab and let the accordion follow. Every tab change goes
+   * through here — a bare setTab would leave a previously expanded group open
+   * while the active entry sits in a collapsed one.
+   */
+  const goToTab = (next: Tab) => {
+    setTab(next)
+    setExpandedGroup(null)
+  }
+
   /** ⓘ next to the page title, registered by the mounted workspace. */
   const headerInfo = useHeaderInfo()
   // Shared target environment for the Operate features (Traces / Jobs /
@@ -533,7 +560,7 @@ function App() {
   const [mergeSeedId, setMergeSeedId] = useState<string | null>(null)
   const handleMergeFromList = (s: WorkingSolution) => {
     setMergeSeedId(s.id)
-    setTab('merge')
+    goToTab('merge')
   }
   const [pendingDeletes, setPendingDeletes] = useState<
     { key: string; solution: WorkingSolution; mode: 'delete' | 'complete' }[]
@@ -1175,12 +1202,35 @@ function App() {
             ☰
           </button>
           <nav className="sidebar-nav">
-            {NAV_GROUPS.map((group) => (
+            {NAV_GROUPS.map((group) => {
+              const items = group.items.filter(
+                (item) => item.key !== 'dualWrite' || dualWriteInstalled,
+              )
+              // Icon-only mode has no group header to click, so nothing may be
+              // collapsed there — the items are the only way in.
+              const open = sidebarCollapsed || openGroup === group.label
+              return (
               <div className="nav-group" key={group.label}>
-                <span className="nav-group-label">{group.label}</span>
-                {group.items
-                  .filter((item) => item.key !== 'dualWrite' || dualWriteInstalled)
-                  .map((item) => {
+                <button
+                  type="button"
+                  className={`nav-group-toggle ${open ? 'nav-group-toggle--open' : ''}`}
+                  aria-expanded={open}
+                  onClick={() =>
+                    setExpandedGroup(
+                      openGroup === group.label ? '' : group.label,
+                    )
+                  }
+                >
+                  <span className="nav-group-chevron" aria-hidden="true">
+                    ▸
+                  </span>
+                  <span className="nav-group-label">{group.label}</span>
+                  {!open && (
+                    <span className="nav-group-count">{items.length}</span>
+                  )}
+                </button>
+                {open &&
+                  items.map((item) => {
                   const locked = item.gated && !isDeploymentManager
                   return (
                     <button
@@ -1201,7 +1251,7 @@ function App() {
                           setShowSetup(true)
                           return
                         }
-                        setTab(item.key)
+                        goToTab(item.key)
                       }}
                     >
                       <span className="nav-icon">{item.icon}</span>
@@ -1211,7 +1261,8 @@ function App() {
                   )
                 })}
               </div>
-            ))}
+              )
+            })}
           </nav>
         </aside>
 
@@ -1763,7 +1814,7 @@ function App() {
                 onView={() => {
                   setValidateSolutionId(analysisRun.solutionId)
                   setValidateEnvKey(analysisRun.envKey)
-                  setTab('analyze')
+                  goToTab('analyze')
                 }}
                 onClose={
                   analysisRun.running
@@ -1831,7 +1882,7 @@ function App() {
                 onView={() => {
                   setReadinessSolutionId(readinessRun.solutionId)
                   setReadinessEnvKey(readinessRun.envKey)
-                  setTab('readiness')
+                  goToTab('readiness')
                 }}
                 onClose={
                   readinessRun.running
@@ -1884,7 +1935,7 @@ function App() {
               <ActivityBar
                 key="flow"
                 state={flowRun.error ? 'error' : running ? 'running' : 'done'}
-                onView={() => setTab('flowCompare')}
+                onView={() => goToTab('flowCompare')}
                 onClose={running ? undefined : () => setFlowBarHidden(true)}
               >
                 {flowRun.comparing ? (

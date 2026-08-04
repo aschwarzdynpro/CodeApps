@@ -1103,6 +1103,19 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
     mit Mode-Badge + How-To/Help-Icons) über `.app-body` (sticky `.sidebar`
     full-height + `.content`). Höhen/Breiten als CSS-Vars in `index.css`
     (`--topbar-h`, `--sidebar-w`, `--topbar-bg`).
+    **Sidebar = Akkordeon:** 21 Einträge in 4 Gruppen passen nicht auf einen
+    Notebook-Viewport (~950 px gegen ~660 px verfügbar), deshalb ist **genau
+    eine Gruppe offen**. Die offene Gruppe ist **abgeleitet**
+    (`expandedGroup ?? activeGroupLabel`) — kein Effekt, keine Persistenz: sie
+    folgt dem aktiven Tab, und nach Reload entscheidet der Default-Tab neu.
+    `expandedGroup === ''` ist der einzige Fall, den die Ableitung nicht
+    ausdrücken kann (User hat die aktive Gruppe bewusst zugeklappt). **Jeder
+    Tab-Wechsel MUSS über `goToTab()`** laufen (setzt `expandedGroup` zurück) —
+    ein blankes `setTab` ließe den aktiven Eintrag in einer zugeklappten Gruppe
+    verschwinden (betrifft auch die ActivityBar-Sprünge). Im **Icon-Modus** sind
+    alle Gruppen offen und die Header ausgeblendet, sonst käme man nirgends hin.
+    ⚠ Der Icon-Modus spart nur **Breite, keine Höhe** (Zeilen werden dort sogar
+    höher: `padding: 10px 0`) — er ist keine Lösung fürs Überlaufen.
     **UI-Konsistenz (Refurbish-Pass in App.css):** native `<select>`s in
     Toolbars/Pickern werden ZENTRAL gestylt (`.trace-toolbar/.subtabs/
     .compare-controls/.operate-env/.validate-toolbar select` — Radius,

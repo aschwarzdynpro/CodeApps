@@ -162,7 +162,43 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
-  padding: 4px 10px;
+}
+/* Accordion header — the group label became a button so only one group's
+   items are on screen at a time (21 entries do not fit a laptop viewport). */
+.nav-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 10px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+.nav-group-toggle:hover {
+  background: var(--bg);
+}
+.nav-group-chevron {
+  flex: none;
+  font-size: 9px;
+  color: var(--muted);
+  transition: transform 0.12s ease;
+}
+.nav-group-toggle--open .nav-group-chevron {
+  transform: rotate(90deg);
+}
+.nav-group-count {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+}
+/* Icon-only mode shows every item (no header to expand from), so the header
+   itself would only take space. */
+.sidebar--collapsed .nav-group-toggle {
+  display: none;
 }
 .nav-item {
   display: flex;
