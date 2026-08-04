@@ -8667,6 +8667,16 @@
 .scdoc-summary {
   font-size: 12px;
 }
+.scdoc-envs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.scdoc-envs-note {
+  font-size: 12px;
+}
 .scdoc-body {
   margin: 0;
   padding: 16px 18px;

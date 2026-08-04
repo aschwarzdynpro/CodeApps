@@ -426,9 +426,16 @@ since …"** VOR dem Inventar (`diffBaselines`/`diffRoleGrants`, Zeilen
 `+ entity Action (Tiefe)` / `− …` / `~ … : alt → neu`). **Nichts wird
 geschrieben** — das Dokument ist aus dem Snapshot reproduzierbar (Builder ist
 pure, `generatedAt` wird übergeben), ein eigener Record wäre Duplikat.
-Die Matrix wird nur für die **Referenz-Umgebung** (`envKeys[0]`, = Host)
-gerendert, abweichende Umgebungen erscheinen als Zähler — sonst verdreifacht
-sich das Dokument. ⚠ Der Baseline enthält **nur Rollen + Privilegien**; das
+Die Matrix wird nur für die **Referenz-Umgebung** (`envKeys[0]`) gerendert,
+abweichende Umgebungen erscheinen als Zähler — sonst verdreifacht sich das
+Dokument. **Umgebungen sind per Chips abwählbar** (Panel führt `excluded`
+statt einer Auswahl, damit ein Baseline-Wechsel keinen Reset-Effekt braucht);
+die erste verbliebene ist die Referenz. Die Auswahl zieht **durch den ganzen
+Builder**: Rollen, die nur in einer abgewählten Umgebung leben, verschwinden,
+und `diffBaselines` bekommt die Auswahl übergeben — sonst meldete ein Dokument
+ohne PROD trotzdem PRODs Änderungen. Ist die Auswahl enger als der Baseline,
+**nennt das Dokument die ausgelassenen Umgebungen** (`allEnvKeys`) — gleiches
+Prinzip wie beim Nicht-Abgedeckten. ⚠ Der Baseline enthält **nur Rollen + Privilegien**; das
 Dokument sagt das explizit, damit „nicht enthalten" nicht als „unauffällig"
 gelesen wird.
 Dateien: `types/roleComparer.ts`, `utils/roleCompare.ts` (pure, Vitest),

@@ -223,6 +223,65 @@ describe('buildSecurityConcept', () => {
     )
   })
 
+  it('documents only the selected environments', () => {
+    const doc = buildSecurityConcept(payload, { ...META, envKeys: ['dev'] })
+    expect(doc.markdown).toContain('| DEV *(reference)* |')
+    expect(doc.markdown).not.toContain('| UAT |')
+    // With UAT out of scope there is nothing left to deviate.
+    expect(doc.markdown).not.toContain('Differs from the reference')
+    expect(doc.summary).toBe('1 environment · 2 roles')
+  })
+
+  it('names the environments it deliberately left out', () => {
+    const doc = buildSecurityConcept(payload, {
+      ...META,
+      envKeys: ['dev'],
+      allEnvKeys: ['dev', 'uat'],
+    })
+    expect(doc.markdown).toContain('also covers UAT')
+    expect(doc.markdown).toMatch(/left out/i)
+  })
+
+  it('drops roles that live only in an excluded environment', () => {
+    const withUatOnly = baseline({
+      dev: model([{ id: 'a', name: 'Shared' }]),
+      uat: model([
+        { id: 'a', name: 'Shared' },
+        { id: 'u', name: 'Nur in UAT' },
+      ]),
+    })
+    const all = buildSecurityConcept(withUatOnly, META)
+    expect(all.markdown).toContain('### Nur in UAT')
+    const devOnly = buildSecurityConcept(withUatOnly, {
+      ...META,
+      envKeys: ['dev'],
+    })
+    expect(devOnly.markdown).not.toContain('Nur in UAT')
+  })
+
+  it('keeps the changes chapter inside the selected environments', () => {
+    const before = baseline({
+      dev: model([{ id: 'a', name: 'Sales', spec: { account: { Read: 2 } } }]),
+      uat: model([{ id: 'a', name: 'Sales', spec: { account: { Read: 2 } } }]),
+    })
+    const after = baseline({
+      dev: model([{ id: 'a', name: 'Sales', spec: { account: { Read: 2 } } }]),
+      // Only UAT moved.
+      uat: model([{ id: 'a', name: 'Sales', spec: { account: { Read: 8 } } }]),
+    })
+    const devOnly = buildSecurityConcept(
+      after,
+      { ...META, envKeys: ['dev'] },
+      { payload: before, name: 'Q1' },
+    )
+    expect(devOnly.markdown).toContain('No role or privilege changed.')
+    const both = buildSecurityConcept(after, META, {
+      payload: before,
+      name: 'Q1',
+    })
+    expect(both.markdown).toContain('~ account Read: Business Unit → Organization')
+  })
+
   it('is deterministic', () => {
     const a = buildSecurityConcept(payload, META)
     const b = buildSecurityConcept(payload, META)

@@ -40,6 +40,12 @@ export function SecurityConceptPanel({ baselines }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [raw, setRaw] = useState(false)
   const [copied, setCopied] = useState(false)
+  /**
+   * Environments left OUT of the document. Tracked as exclusions rather than a
+   * selection so switching baselines needs no effect to reset it — anything
+   * not excluded is documented, whatever the new baseline happens to contain.
+   */
+  const [excluded, setExcluded] = useState<Set<string>>(new Set())
 
   const load = async (id: string): Promise<string | null> => {
     if (!id) return null
@@ -68,10 +74,17 @@ export function SecurityConceptPanel({ baselines }: Props) {
 
   const summaryOf = (id: string) => baselines.find((b) => b.id === id) ?? null
 
+  const primaryMeta = summaryOf(primaryId)
+  const documentedEnvs = (primaryMeta?.envKeys ?? []).filter(
+    (key) => !excluded.has(key),
+  )
+
   const doc = useMemo(() => {
     const meta = summaryOf(primaryId)
     const payload = parseBaseline(primary)
     if (!meta || !payload) return null
+    const envKeys = meta.envKeys.filter((key) => !excluded.has(key))
+    if (!envKeys.length) return null
     const prevMeta = summaryOf(previousId)
     const prevPayload = parseBaseline(previous)
     return buildSecurityConcept(
@@ -79,7 +92,8 @@ export function SecurityConceptPanel({ baselines }: Props) {
       {
         name: meta.name,
         scope: meta.scope || '—',
-        envKeys: meta.envKeys,
+        envKeys,
+        allEnvKeys: meta.envKeys,
         envLabel: (key) => envByKey(key)?.label ?? key,
         frozenOn: meta.frozenOn,
         frozenBy: meta.frozenBy,
@@ -94,7 +108,7 @@ export function SecurityConceptPanel({ baselines }: Props) {
         : null,
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [primary, previous, primaryId, previousId, baselines])
+  }, [primary, previous, primaryId, previousId, baselines, excluded])
 
   return (
     <div className="scdoc">
@@ -187,6 +201,42 @@ export function SecurityConceptPanel({ baselines }: Props) {
         )}
       </div>
 
+      {primaryMeta && primaryMeta.envKeys.length > 1 && (
+        <div className="validate-toolbar scdoc-envs">
+          <span className="scdoc-label">Environments</span>
+          {primaryMeta.envKeys.map((key, index) => {
+            const on = !excluded.has(key)
+            return (
+              <button
+                key={key}
+                type="button"
+                className={`chip ${on ? 'chip--active' : ''}`}
+                title={
+                  index === 0
+                    ? 'First included environment is the reference for the privilege matrix'
+                    : undefined
+                }
+                onClick={() =>
+                  setExcluded((prev) => {
+                    const next = new Set(prev)
+                    if (on) next.add(key)
+                    else next.delete(key)
+                    return next
+                  })
+                }
+              >
+                {envByKey(key)?.label ?? key}
+              </button>
+            )
+          })}
+          <span className="muted scdoc-envs-note">
+            {documentedEnvs.length
+              ? `Reference: ${envByKey(documentedEnvs[0])?.label ?? documentedEnvs[0]} — its matrix is the one printed, the others appear as deviations.`
+              : 'Select at least one environment.'}
+          </span>
+        </div>
+      )}
+
       {loading && <div className="state">Loading baseline…</div>}
       {error && <div className="state state--error">{error}</div>}
       {!loading && !error && !primaryId && (
@@ -194,6 +244,11 @@ export function SecurityConceptPanel({ baselines }: Props) {
           Pick a frozen baseline to render it as a document. Choosing a second
           one adds a <strong>“what changed since”</strong> chapter — that is the
           part a reviewer reads first.
+        </div>
+      )}
+      {primaryId && !loading && !error && !documentedEnvs.length && (
+        <div className="state state--error">
+          No environment selected — pick at least one above.
         </div>
       )}
       {doc && <pre className="scdoc-body">{raw ? doc.text : doc.markdown}</pre>}

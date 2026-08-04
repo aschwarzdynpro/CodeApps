@@ -226,9 +226,14 @@ nach Typ.
   entfernte Rollen sowie je Umgebung jedes verschobene Privileg mit alter und
   neuer Tiefe — der Audit-Nachweis. Markdown/Raw, Copy, Download. Es wird
   **nichts gespeichert**; das Dokument ist jederzeit aus dem Snapshot
-  reproduzierbar. Das Dokument benennt selbst, was ein Baseline **nicht**
-  abdeckt (BU-Baum, Teams, Field Security, Audit-Konfig), damit „fehlt" nicht
-  als „unauffällig" gelesen wird.
+  reproduzierbar. **Die dokumentierten Umgebungen sind per Chips wählbar** —
+  die erste verbliebene ist die Referenz, deren Matrix gedruckt wird; die
+  Auswahl greift überall (Rollen, die nur in einer abgewählten Umgebung
+  existieren, fallen raus, und das Änderungs-Kapitel meldet keine Änderungen
+  aus abgewählten Umgebungen). Das Dokument benennt selbst, was ein Baseline
+  **nicht** abdeckt (BU-Baum, Teams, Field Security, Audit-Konfig) **und
+  welche Umgebungen bewusst ausgelassen wurden**, damit „fehlt" nicht als
+  „unauffällig" gelesen wird.
   **Der Scope entscheidet, was geladen wird:** der Vergleich läuft zweiphasig
   — erst je Umgebung die billige Rollenliste, dann der teure Privilegien-Sweep
   **nur für die Rollen im Scope** (bei 286 Rollen, von denen wenige custom

@@ -1103,9 +1103,12 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 added or removed, and every privilege that moved, with old and
                 new depth. Markdown or raw, copy or download. Nothing is
                 written — the document is reproducible from the snapshot at any
-                time. It also states what a baseline does <em>not</em> cover
-                (business units, teams, field security, audit settings), so an
-                absence is not misread as an all-clear.
+                time. <strong>Pick the environments</strong> it should cover;
+                the first one left in is the reference whose matrix gets
+                printed, the others show up as deviations. It also states what
+                a baseline does <em>not</em> cover (business units, teams,
+                field security, audit settings) and which environments you left
+                out, so an absence is not misread as an all-clear.
               </li>
               <li>
                 <strong>Read-only by design.</strong> Editing a role directly

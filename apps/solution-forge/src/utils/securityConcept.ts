@@ -33,8 +33,17 @@ export interface SecurityConceptMeta {
   /** Baseline name. */
   name: string
   scope: string
-  /** Environment keys, reference environment first (as the comparer stores). */
+  /**
+   * Environments to document, reference environment first. May be a subset of
+   * what the baseline captured — see {@link allEnvKeys}.
+   */
   envKeys: string[]
+  /**
+   * Everything the baseline captured. When it is wider than {@link envKeys},
+   * the document names the omitted environments: a reader must be able to see
+   * that PROD was left out rather than assume it had nothing to report.
+   */
+  allEnvKeys?: string[]
   envLabel: (envKey: string) => string
   frozenOn?: string
   frozenBy?: string
@@ -99,14 +108,24 @@ export function diffRoleGrants(
   return lines
 }
 
-/** Compare two baselines role by role, environment by environment. */
+/**
+ * Compare two baselines role by role, environment by environment.
+ *
+ * `onlyEnvKeys` restricts the comparison to the documented environments — a
+ * document that leaves PROD out must not report PROD's changes, and a role
+ * that exists only there must not show up as "added".
+ */
 export function diffBaselines(
   before: BaselinePayload,
   after: BaselinePayload,
+  onlyEnvKeys?: string[],
 ): BaselineDiff {
   const b = decodeBaseline(before)
   const a = decodeBaseline(after)
-  const envKeys = [...new Set([...b.keys(), ...a.keys()])]
+  const wanted = onlyEnvKeys ? new Set(onlyEnvKeys) : null
+  const envKeys = [...new Set([...b.keys(), ...a.keys()])].filter(
+    (key) => !wanted || wanted.has(key),
+  )
 
   const names = new Map<string, string>()
   const inBefore = new Set<string>()
@@ -115,7 +134,8 @@ export function diffBaselines(
     [before, inBefore],
     [after, inAfter],
   ] as const) {
-    for (const roles of Object.values(payload.envs ?? {})) {
+    for (const [envKey, roles] of Object.entries(payload.envs ?? {})) {
+      if (wanted && !wanted.has(envKey)) continue
       for (const role of roles ?? []) {
         const key = role.n.trim().toLowerCase().replace(/\s+/g, ' ')
         target.add(key)
@@ -181,20 +201,26 @@ export function buildSecurityConcept(
   const referenceKey = envKeys[0] ?? ''
   const reference = decoded.get(referenceKey) ?? new Map<string, BaselineGrants>()
 
+  // Only roles that live in a DOCUMENTED environment — otherwise excluding an
+  // environment would still list the roles that exist only there.
   const roleKeys = new Set<string>()
-  for (const byRole of decoded.values())
-    for (const key of byRole.keys()) roleKeys.add(key)
+  for (const envKey of envKeys)
+    for (const key of decoded.get(envKey)?.keys() ?? []) roleKeys.add(key)
   const roleNames = new Map<string, string>()
-  for (const roles of Object.values(payload.envs ?? {}))
+  for (const [envKey, roles] of Object.entries(payload.envs ?? {})) {
+    if (!envKeys.includes(envKey)) continue
     for (const role of roles ?? []) {
       const key = role.n.trim().toLowerCase().replace(/\s+/g, ' ')
       if (!roleNames.has(key)) roleNames.set(key, role.n)
     }
+  }
   const sortedRoles = [...roleKeys].sort((x, y) =>
     (roleNames.get(x) ?? x).localeCompare(roleNames.get(y) ?? y),
   )
 
-  const diff = previous ? diffBaselines(previous.payload, payload) : null
+  const diff = previous
+    ? diffBaselines(previous.payload, payload, envKeys)
+    : null
   const changedCount = diff
     ? diff.added.length + diff.removed.length + diff.changed.length
     : 0
@@ -217,6 +243,16 @@ export function buildSecurityConcept(
     '> Covers security roles and their privileges. Business units, team assignments, field-level security and audit settings are **not** part of this baseline — their absence here is not a statement about them.',
     'NOTE: Covers security roles and their privileges. Business units, team assignments, field-level security and audit settings are NOT part of this baseline — their absence here is not a statement about them.',
   )
+  const omitted = (meta.allEnvKeys ?? []).filter(
+    (key) => !envKeys.includes(key),
+  )
+  if (omitted.length) {
+    both('')
+    both(
+      `> ⚠ The baseline also covers ${omitted.map(meta.envLabel).join(', ')} — deliberately **left out** of this document.`,
+      `NOTE: The baseline also covers ${omitted.map(meta.envLabel).join(', ')} — deliberately left out of this document.`,
+    )
+  }
   both('')
 
   // --- Overview -------------------------------------------------------------
