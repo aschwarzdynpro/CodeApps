@@ -235,9 +235,17 @@ nach Typ.
   Auswahl greift überall (Rollen, die nur in einer abgewählten Umgebung
   existieren, fallen raus, und das Änderungs-Kapitel meldet keine Änderungen
   aus abgewählten Umgebungen). Das Dokument benennt selbst, was ein Baseline
-  **nicht** abdeckt (BU-Baum, Teams, Field Security, Audit-Konfig) **und
-  welche Umgebungen bewusst ausgelassen wurden**, damit „fehlt" nicht als
-  „unauffällig" gelesen wird.
+  **nicht** abdeckt **und welche Umgebungen bewusst ausgelassen wurden**,
+  damit „fehlt" nicht als „unauffällig" gelesen wird.
+  **Der Baseline erfasst seit v2 mehr als Rollen:** zusätzlich **BU-Baum +
+  Teams** (mit vergebenen Rollen und Mitgliederzahl), **Field Security**
+  (Profile, gesicherte Spalten, Zuweisungen — Profile ohne Prinzipale werden
+  markiert) und die **Audit-Konfiguration** (Org-Schalter, Retention,
+  auditierte Tabellen; ist Auditing org-weit aus, sagt das Dokument, dass die
+  konfigurierten Tabellen nichts schreiben). Das Einfrieren zieht dafür
+  bewusst die schweren Reads. Konnte eine Sektion nicht gelesen werden, fehlt
+  sie und wird als **„not captured"** ausgewiesen — der Disclaimer nennt genau
+  die fehlenden Kapitel und entfällt, wenn alles erfasst wurde.
   **Der Scope entscheidet, was geladen wird:** der Vergleich läuft zweiphasig
   — erst je Umgebung die billige Rollenliste, dann der teure Privilegien-Sweep
   **nur für die Rollen im Scope** (bei 286 Rollen, von denen wenige custom

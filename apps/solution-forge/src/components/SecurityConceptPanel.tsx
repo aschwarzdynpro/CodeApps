@@ -200,6 +200,133 @@ function ConceptDocView({ doc }: { doc: ConceptDoc }) {
       ))}
 
       <p className="muted scdoc-legend">Depth: {doc.legend}</p>
+
+      {doc.org.map((chapter) => (
+        <section key={chapter.envLabel}>
+          <h3 className="scdoc-h">Business units &amp; teams — {chapter.envLabel}</h3>
+          <ul className="scdoc-bu-tree">
+            {chapter.bus.map((bu) => (
+              <li
+                key={bu.name}
+                style={{ paddingLeft: `${bu.depth * 18}px` }}
+              >
+                <strong>{bu.name}</strong>{' '}
+                <span className="muted">
+                  ({bu.users} user{bu.users === 1 ? '' : 's'})
+                </span>
+              </li>
+            ))}
+          </ul>
+          {chapter.teams.length === 0 ? (
+            <p className="muted">No teams.</p>
+          ) : (
+            <div className="scdoc-grants-scroll">
+              <table className="ops-table scdoc-table">
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th>Business unit</th>
+                    <th>Type</th>
+                    <th>Roles granted</th>
+                    <th>Members</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {chapter.teams.map((team) => (
+                    <tr key={`${team.bu}/${team.name}`}>
+                      <td>{team.name}</td>
+                      <td>{team.bu || <span className="muted">—</span>}</td>
+                      <td className="nowrap">{team.type}</td>
+                      <td>
+                        {team.roles.join(', ') || <span className="muted">—</span>}
+                      </td>
+                      <td>{team.members}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      ))}
+
+      {doc.fieldSecurity.map((chapter) => (
+        <section key={chapter.envLabel}>
+          <h3 className="scdoc-h">Field security — {chapter.envLabel}</h3>
+          {chapter.profiles.length === 0 ? (
+            <p className="muted">No field-security profiles.</p>
+          ) : (
+            <>
+              <table className="ops-table scdoc-table">
+                <thead>
+                  <tr>
+                    <th>Profile</th>
+                    <th>Managed</th>
+                    <th>Secured columns</th>
+                    <th>Users</th>
+                    <th>Teams</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {chapter.profiles.map((profile) => (
+                    <tr key={profile.name}>
+                      <td>
+                        {profile.name}
+                        {profile.unassigned && (
+                          <span
+                            className="scdoc-warn"
+                            title="Assigned to no user and no team — it secures columns for nobody"
+                          >
+                            {' '}
+                            ⚠
+                          </span>
+                        )}
+                      </td>
+                      <td>{profile.managed ? 'yes' : 'no'}</td>
+                      <td>{profile.columns}</td>
+                      <td>{profile.users}</td>
+                      <td>{profile.teams}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="scdoc-misc">
+                Secured columns ({chapter.securedColumns.length}):{' '}
+                {chapter.securedColumns.map((c) => (
+                  <code key={c}>{c}</code>
+                ))}
+              </p>
+            </>
+          )}
+        </section>
+      ))}
+
+      {doc.audit.map((chapter) => (
+        <section key={chapter.envLabel}>
+          <h3 className="scdoc-h">Audit configuration — {chapter.envLabel}</h3>
+          <p>
+            Organisation auditing: <strong>{chapter.enabled ? 'on' : 'off'}</strong>{' '}
+            · Retention: {chapter.retention}
+          </p>
+          {!chapter.enabled && (
+            <p className="scdoc-deviation">
+              ⚠ Auditing is off org-wide — the tables below are configured but
+              nothing is written.
+            </p>
+          )}
+          <p className="scdoc-misc">
+            Audited tables: {chapter.auditedTables.length} of{' '}
+            {chapter.totalTables}
+          </p>
+          {chapter.auditedTables.length > 0 && (
+            <p className="scdoc-misc">
+              {chapter.auditedTables.map((t) => (
+                <code key={t}>{t}</code>
+              ))}
+            </p>
+          )}
+        </section>
+      ))}
     </article>
   )
 }

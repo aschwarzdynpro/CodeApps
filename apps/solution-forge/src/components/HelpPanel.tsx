@@ -1108,10 +1108,12 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 written — the document is reproducible from the snapshot at any
                 time. <strong>Pick the environments</strong> it should cover;
                 the first one left in is the reference whose matrix gets
-                printed, the others show up as deviations. It also states what
-                a baseline does <em>not</em> cover (business units, teams,
-                field security, audit settings) and which environments you left
-                out, so an absence is not misread as an all-clear.
+                printed, the others show up as deviations. Besides the roles a
+                baseline also captures the <strong>business-unit and team
+                structure</strong>, <strong>field security</strong> and the{' '}
+                <strong>audit configuration</strong>. Anything that could not
+                be captured is named as such, as are environments you left out
+                — an absence is never presented as an all-clear.
               </li>
               <li>
                 <strong>Read-only by design.</strong> Editing a role directly

@@ -284,10 +284,15 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       Audit-Nachweis. Markdown/Raw-Umschalter, Copy, Download. Reiner Builder
       `utils/securityConcept.ts` (Vitest), nichts wird geschrieben — das
       Dokument ist jederzeit aus dem Snapshot reproduzierbar.
-      **Offen:** der Baseline erfasst bislang nur Rollen + Privilegien; für
-      BU-Baum, Team-Zuweisungen, FLS und Audit-Konfig müsste das Payload
-      erweitert werden (Version-Feld ist da). Das Dokument sagt selbst, was es
-      NICHT abdeckt, damit „fehlt" nicht als „unauffällig" gelesen wird.
+      **Payload v2 (2026-08-04)** erfasst zusätzlich **BU-Baum + Teams**
+      (`getOrgStructure`), **Field Security** (Profile, gesicherte Spalten,
+      Zuweisungszahlen) und die **Audit-Konfiguration** (Org-Schalter,
+      Retention, auditierte Tabellen) — je Umgebung, best-effort beim
+      Einfrieren (`services/baselineCapture.ts`). Eine Sektion, die nicht
+      gelesen werden konnte, fehlt im Payload und wird im Dokument als
+      **„not captured"** benannt, nie als „keine". Der Disclaimer ist
+      dynamisch: er nennt genau die Kapitel, die fehlen. v1-Baselines lesen
+      sich weiterhin.
 - [ ] **Access Review / Rezertifizierung**: aus einem Snapshot eine Kampagne
       erzeugen (je User × Rolle eine Zeile, Reviewer bestätigt/entzieht),
       Abschluss als unveränderlicher Nachweis. Braucht eine zweite, leichtere
