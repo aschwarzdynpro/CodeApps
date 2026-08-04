@@ -105,6 +105,23 @@ interface CachedModel {
 const cache = new Map<string, CachedModel>()
 const loadInFlight = new Map<string, Promise<CachedModel>>()
 
+/**
+ * Caches for the LIGHT path used by the Role Comparer: the role list on its
+ * own (one cheap query) and privilege matrices for a subset of roles. Kept
+ * apart from the full snapshot cache above — a reduced model must never be
+ * handed to the Role Analyzer, which needs every role and the assignment
+ * graph.
+ */
+const roleListCache = new Map<string, { roles: RoleSummary[]; at: number }>()
+const privilegeMetaCache = new Map<
+  string,
+  { meta: Map<string, PrivilegeMeta>; at: number }
+>()
+const matrixCache = new Map<string, { model: SecurityModel; at: number }>()
+
+const fresh = (at: number, force: boolean) =>
+  !force && Date.now() - at < MODEL_STALE_MS
+
 /** role copy id → root role id, filled while loading roles. */
 function rootOf(row: Row): string {
   return (
@@ -563,6 +580,74 @@ class DataverseRoleAnalyzerService implements RoleAnalyzerService {
     if (mode !== 'power-platform')
       return mockRoleAnalyzerService.loadModel(envKey, onProgress, force)
     return (await this.snapshot(envKey, onProgress, force)).model
+  }
+
+  async listRoleSummaries(envKey: string, force = false): Promise<RoleSummary[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockRoleAnalyzerService.listRoleSummaries(envKey, force)
+    const orgUrl = orgUrlForEnvKey(envKey)
+    // A full snapshot already has the list — no reason to ask again.
+    const full = cache.get(orgUrl)
+    if (full && fresh(full.at, force)) return full.model.roles
+    const cached = roleListCache.get(orgUrl)
+    if (cached && fresh(cached.at, force)) return cached.roles
+    const { roles } = await loadRoles(orgUrl)
+    roleListCache.set(orgUrl, { roles, at: Date.now() })
+    return roles
+  }
+
+  async loadRoleMatrix(
+    envKey: string,
+    rootRoleIds: string[] | null,
+    onProgress?: (message: string) => void,
+    force = false,
+  ): Promise<SecurityModel> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockRoleAnalyzerService.loadRoleMatrix(
+        envKey,
+        rootRoleIds,
+        onProgress,
+        force,
+      )
+    const orgUrl = orgUrlForEnvKey(envKey)
+    // A full snapshot is a superset — reuse it rather than re-querying.
+    const full = cache.get(orgUrl)
+    if (full && fresh(full.at, force)) return full.model
+
+    const scopeKey = `${orgUrl}|${rootRoleIds ? [...rootRoleIds].sort().join(',') : 'ALL'}`
+    const cachedMatrix = matrixCache.get(scopeKey)
+    if (cachedMatrix && fresh(cachedMatrix.at, force)) return cachedMatrix.model
+
+    const allRoles = await this.listRoleSummaries(envKey, force)
+    const wanted = rootRoleIds ? new Set(rootRoleIds) : null
+    const roles = wanted
+      ? allRoles.filter((r) => wanted.has(r.rootRoleId))
+      : allRoles
+
+    onProgress?.('Loading privilege metadata…')
+    let privilegeMeta = privilegeMetaCache.get(orgUrl)
+    if (!privilegeMeta || !fresh(privilegeMeta.at, force)) {
+      privilegeMeta = { meta: await loadPrivilegeMeta(orgUrl), at: Date.now() }
+      privilegeMetaCache.set(orgUrl, privilegeMeta)
+    }
+
+    const { matrices, miscPrivileges, entities } = await loadRolePrivileges(
+      roles.map((r) => r.rootRoleId),
+      privilegeMeta.meta,
+      orgUrl,
+      onProgress,
+    )
+    const model: SecurityModel = {
+      roles,
+      entities,
+      matrices,
+      miscPrivileges,
+      loadedAt: new Date(),
+    }
+    matrixCache.set(scopeKey, { model, at: Date.now() })
+    return model
   }
 
   async searchUsers(query: string, envKey: string): Promise<PrincipalRef[]> {

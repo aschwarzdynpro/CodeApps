@@ -7,6 +7,7 @@ import type {
   ReverseLookupHit,
   RoleAssignmentPath,
   RoleHygieneReport,
+  RoleSummary,
   SecurityModel,
 } from '../types/roles'
 import type { OrgStructure } from '../types/orgStructure'
@@ -43,6 +44,29 @@ export interface RoleAnalyzerService {
    */
   loadModel(
     envKey: string,
+    onProgress?: (message: string) => void,
+    force?: boolean,
+  ): Promise<SecurityModel>
+  /**
+   * The role LIST of an environment without any privileges — one cheap query.
+   * Lets a caller decide which roles are worth the expensive privilege sweep
+   * before paying for it.
+   */
+  listRoleSummaries(envKey: string, force?: boolean): Promise<RoleSummary[]>
+  /**
+   * Roles + their privilege matrices, WITHOUT the assignment graph (users,
+   * teams, business units) and optionally limited to the given root role ids.
+   *
+   * This is the Role Comparer's path: it needs the matrices and nothing else,
+   * and on a tenant with ~286 roles of which a handful are custom, sweeping
+   * privileges for all of them costs eight round-trips per environment for
+   * data that is then filtered away. A cached FULL snapshot is a superset and
+   * gets reused when one exists, so opening the Role Analyzer first still
+   * makes the comparison free.
+   */
+  loadRoleMatrix(
+    envKey: string,
+    rootRoleIds: string[] | null,
     onProgress?: (message: string) => void,
     force?: boolean,
   ): Promise<SecurityModel>

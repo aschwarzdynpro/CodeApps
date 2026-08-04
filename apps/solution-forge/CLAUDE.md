@@ -304,12 +304,34 @@ speichert kombinierte Liste).
 
 **Role Comparer** (Validate-Gruppe, Menüpunkt „Role Comparer", gated, **lazy**):
 Cross-env-Drift der Sicherheitsrollen. **Kein eigener Datenpfad und kein
-eigener Mock** — `roleComparerService` orchestriert nur
-`roleAnalyzerService.loadModel(envKey)` je Umgebung (Muster **ALM Detective**)
-und nutzt dessen ~15-min-Cache; alle Reads laufen damit als Konnektor-SP.
-Umgebungen werden **sequenziell** geladen (aussagekräftiger Fortschritt, keine
-drei parallelen Sweeps auf einem Konnektor); eine fehlschlagende Umgebung
-landet in `envErrors` und macht den Lauf NICHT kaputt.
+eigener Mock** — `roleComparerService` orchestriert `roleAnalyzerService`
+(Muster **ALM Detective**); alle Reads laufen als Konnektor-SP. Umgebungen
+werden **sequenziell** geladen (aussagekräftiger Fortschritt, keine drei
+parallelen Sweeps auf einem Konnektor); eine fehlschlagende Umgebung landet in
+`envErrors` und macht den Lauf NICHT kaputt.
+
+**Der Vergleich läuft ZWEIPHASIG, weil der Scope entscheidet, was überhaupt
+geladen wird** (bei Schulz: 286 Rollen, davon eine Handvoll custom):
+1. `listRoleSummaries(envKey)` je Umgebung — **eine billige Query**, nur die
+   Rollenliste ohne Privilegien.
+2. `loadRoleMatrix(envKey, rootRoleIds)` — der teure `roleprivileges`-Sweep
+   **nur für die Rollen im Scope** (statt 8 Chunks à 40 nur noch ~1), und
+   **ohne den Assignment-Graph** (User/Teams/BUs), den der Comparer nie
+   anfasst.
+⚠ **„Custom" wird über ALLE Umgebungen entschieden**, nicht je Umgebung: eine
+Rolle, die in DEV managed und in PROD unmanaged ist, ist für uns custom. Würde
+man je Umgebung filtern, fiele sie in DEV raus und der Managed-State-Befund
+verwandelte sich in ein Phantom-„missing in DEV".
+Solution-Scope kommt als **Host-Rollen-IDs** herein und wird in Phase 1 über
+die Host-Rollenliste auf Namen aufgelöst (Namen sind der Match-Schlüssel).
+Ein **vorhandener voller Snapshot ist eine Obermenge und wird wiederverwendet**
+— wer erst den Role Analyzer öffnet, bekommt den Vergleich geschenkt. Eigene
+Caches (`roleListCache`/`privilegeMetaCache`/`matrixCache`) liegen **neben**
+dem Snapshot-Cache; ein reduziertes Modell darf NIE im Snapshot-Cache landen,
+der Role Analyzer braucht alle Rollen + Assignments. Ändert sich der Scope
+nach einem Lauf, markiert die UI das Ergebnis als **stale** (Hinweis „compare
+again") statt nur neu zu filtern — die fehlenden Rollen sind gar nicht
+geladen.
 **Scope-Vorauswahl** (analog Process Comparer): oben `SolutionSelect` über die
 Release-Solutions + Checkbox „Include system (managed) roles". Default =
 **nur Custom-Rollen** (`isCustomRow` = in ≥ 1 Umgebung unmanaged — bewusst

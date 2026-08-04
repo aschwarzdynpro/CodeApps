@@ -210,7 +210,14 @@ nach Typ.
   Baseline nicht erfasste Umgebung erscheint als „not in baseline", nie als
   unverändert. Der Payload liegt als kompaktes JSON in einer Spalte; passt er
   nicht, wird das Einfrieren **abgelehnt** (mit Hinweis, den Scope zu
-  verkleinern) statt gekürzt zu speichern. Kein eigener Datenpfad
+  verkleinern) statt gekürzt zu speichern.
+  **Der Scope entscheidet, was geladen wird:** der Vergleich läuft zweiphasig
+  — erst je Umgebung die billige Rollenliste, dann der teure Privilegien-Sweep
+  **nur für die Rollen im Scope** (bei 286 Rollen, von denen wenige custom
+  sind, spart das den Großteil der Abfragen; der Assignment-Graph aus
+  User/Teams/BUs wird gar nicht erst geladen). Ändert man den Scope nach einem
+  Lauf, weist ein Hinweis darauf hin, dass neu verglichen werden muss — die
+  übrigen Rollen sind nicht geladen. Kein eigener Datenpfad
   — orchestriert `roleAnalyzerService.loadModel` je Umgebung (Muster ALM
   Detective) und nutzt dessen ~15-Minuten-Cache; die Logik liegt in der pure
   function `utils/roleCompare.ts` (Vitest).

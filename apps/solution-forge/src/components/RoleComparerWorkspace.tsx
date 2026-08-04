@@ -132,6 +132,8 @@ export function RoleComparerWorkspace({ solutions, canManage }: Props) {
     [solutions],
   )
   const [scopeSolutionId, setScopeSolutionId] = useState('')
+  /** Scope signature the current result was loaded with (see runCompare). */
+  const [loadedScope, setLoadedScope] = useState<string | null>(null)
   const [includeSystem, setIncludeSystem] = useState(false)
   const [solutionRoleIds, setSolutionRoleIds] = useState<string[] | null>(null)
   const [scopeError, setScopeError] = useState<string | null>(null)
@@ -198,12 +200,21 @@ export function RoleComparerWorkspace({ solutions, canManage }: Props) {
       setComparing(true)
       setError(null)
       setProgress('Starting…')
+      // The scope now decides what gets LOADED, so it is captured with the
+      // result — changing it afterwards makes the result stale rather than
+      // just re-filtering it.
+      const scopeSignature = `${includeSystem ? 'sys' : 'custom'}|${scopeSolutionId}`
       try {
         const next = await roleComparerService.compare(
           envKeys,
+          {
+            includeSystem,
+            limitToRoleIds: solutionRoleIds,
+          },
           setProgress,
           force,
         )
+        setLoadedScope(scopeSignature)
         setResult(next)
         // Loaded here rather than in a mount effect: a baseline is only
         // meaningful once the current models exist, and the react-compiler
@@ -216,8 +227,11 @@ export function RoleComparerWorkspace({ solutions, canManage }: Props) {
         setProgress('')
       }
     },
-    [envKeys, baselines, loadBaselines],
+    [envKeys, baselines, loadBaselines, includeSystem, scopeSolutionId, solutionRoleIds],
   )
+
+  const scopeSignature = `${includeSystem ? 'sys' : 'custom'}|${scopeSolutionId}`
+  const scopeStale = !!result && loadedScope !== null && loadedScope !== scopeSignature
 
   /**
    * Solution membership is expressed as role ids, so it can only be turned
@@ -421,6 +435,13 @@ export function RoleComparerWorkspace({ solutions, canManage }: Props) {
 
       {comparing && <div className="state">{progress || 'Comparing…'}</div>}
       {error && <div className="state state--error">{error}</div>}
+      {scopeStale && !comparing && (
+        <div className="state">
+          <strong>The scope changed since the last comparison.</strong> The
+          scope decides which roles are loaded at all, so the table below still
+          shows the previous selection — run <em>Compare roles</em> again.
+        </div>
+      )}
       {scopeError && (
         <div className="state state--error">
           Could not read the solution’s components: {scopeError}

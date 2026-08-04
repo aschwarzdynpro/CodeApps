@@ -343,6 +343,30 @@ class MockRoleAnalyzerService implements RoleAnalyzerService {
     return variantFor(envKey)
   }
 
+  async listRoleSummaries(
+    envKey: string,
+    force?: boolean,
+  ): Promise<RoleSummary[]> {
+    void force
+    await delay(120)
+    return variantFor(envKey).roles
+  }
+
+  async loadRoleMatrix(
+    envKey: string,
+    rootRoleIds: string[] | null,
+    onProgress?: (message: string) => void,
+    force?: boolean,
+  ): Promise<SecurityModel> {
+    void force
+    onProgress?.('Loading role privileges…')
+    await delay(250)
+    const model = variantFor(envKey)
+    if (!rootRoleIds) return model
+    const wanted = new Set(rootRoleIds)
+    return { ...model, roles: model.roles.filter((r) => wanted.has(r.rootRoleId)) }
+  }
+
   async searchUsers(query: string, _envKey: string): Promise<PrincipalRef[]> {
     void _envKey
     await delay(120)

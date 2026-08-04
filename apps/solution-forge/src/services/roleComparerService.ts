@@ -24,21 +24,39 @@
  */
 
 import { ENVIRONMENTS, currentEnvKey } from '../config'
-import type { SecurityModel } from '../types/roles'
+import type { RoleSummary, SecurityModel } from '../types/roles'
 import type { RoleComparerResult } from '../types/roleComparer'
-import { buildRoleComparison } from '../utils/roleCompare'
+import { buildRoleComparison, roleMatchKey } from '../utils/roleCompare'
 import { roleAnalyzerService } from './roleAnalyzerService'
 import { solutionService } from './solutionService'
 
+/** What the caller wants compared — decided BEFORE the expensive load. */
+export interface RoleCompareScope {
+  /** Include roles that are managed in every environment (the OOB ones). */
+  includeSystem: boolean
+  /**
+   * Root role ids of the selected solution's role components, or null for no
+   * solution scope. These are HOST ids; the service resolves them to names via
+   * the host role list, because names are what matches across environments.
+   */
+  limitToRoleIds?: string[] | null
+}
+
 export interface RoleComparerService {
   /**
-   * Load the security model of every given environment and build the
+   * Load the privilege matrices of every given environment and build the
    * comparison. A single environment failing does NOT fail the run — it lands
    * in `envErrors` and its column stays "unknown", because reporting an
    * unreadable environment as "identical" would be a false all-clear.
+   *
+   * TWO PHASES, because the scope decides what is worth loading:
+   *  1. the role LIST of every environment (one cheap query each),
+   *  2. privileges for the roles the scope keeps — typically a few dozen of
+   *     ~286, i.e. one chunked sweep instead of eight.
    */
   compare(
     envKeys: string[],
+    scope: RoleCompareScope,
     onProgress?: (message: string) => void,
     force?: boolean,
   ): Promise<RoleComparerResult>
@@ -86,15 +104,86 @@ export const roleComparerService: RoleComparerService = {
       .map((c) => c.objectId)
   },
 
-  async compare(envKeys, onProgress, force) {
+  async compare(envKeys, scope, onProgress, force) {
     const models: Record<string, SecurityModel | null> = {}
     const envErrors: Record<string, string> = {}
 
+    // --- Phase 1: the role lists (cheap) -----------------------------------
+    const summaries = new Map<string, RoleSummary[]>()
     for (const envKey of envKeys) {
       try {
-        onProgress?.(`Loading security model — ${envKey}…`)
-        models[envKey] = await roleAnalyzerService.loadModel(
+        onProgress?.(`Listing roles — ${envKey}…`)
+        summaries.set(
           envKey,
+          await roleAnalyzerService.listRoleSummaries(envKey, force),
+        )
+      } catch (error) {
+        envErrors[envKey] =
+          error instanceof Error ? error.message : String(error)
+        console.warn('[roleCompare] listing roles failed', envKey, error)
+      }
+    }
+
+    // Solution membership arrives as HOST role ids; names are what matches
+    // across environments, so resolve them here — phase 1 already has the list.
+    let solutionKeys: Set<string> | null = null
+    if (scope.limitToRoleIds) {
+      const hostKey = currentEnvKey()
+      const byId = new Map(
+        (summaries.get(hostKey) ?? []).map((role) => [
+          role.rootRoleId.toLowerCase(),
+          roleMatchKey(role.name),
+        ]),
+      )
+      solutionKeys = new Set(
+        scope.limitToRoleIds
+          .map((id) => byId.get(id.toLowerCase()))
+          .filter((key): key is string => !!key),
+      )
+    }
+
+    /*
+     * Which role NAMES are worth the privilege sweep. "Custom" is decided
+     * across ALL environments: a role managed in DEV but unmanaged in PROD is
+     * custom for our purposes, and deciding per environment would drop it from
+     * DEV — turning a managed-state finding into a phantom "missing in DEV".
+     */
+    const wantedKeys = new Set<string>()
+    for (const roles of summaries.values()) {
+      for (const role of roles) {
+        const key = roleMatchKey(role.name)
+        if (solutionKeys && !solutionKeys.has(key)) continue
+        if (!scope.includeSystem && role.isManaged) continue
+        wantedKeys.add(key)
+      }
+    }
+    if (scope.includeSystem) {
+      for (const roles of summaries.values()) {
+        for (const role of roles) {
+          const key = roleMatchKey(role.name)
+          if (solutionKeys && !solutionKeys.has(key)) continue
+          wantedKeys.add(key)
+        }
+      }
+    }
+    onProgress?.(`Comparing ${wantedKeys.size} role(s)…`)
+
+    // --- Phase 2: privileges, per environment, only for those roles --------
+    for (const envKey of envKeys) {
+      if (envErrors[envKey]) {
+        models[envKey] = null
+        continue
+      }
+      try {
+        onProgress?.(`Loading role privileges — ${envKey}…`)
+        // Ids are per environment: the same role name carries a different id
+        // in an environment where it was rebuilt rather than transported.
+        const ids = (summaries.get(envKey) ?? [])
+          .filter((role) => wantedKeys.has(roleMatchKey(role.name)))
+          .map((role) => role.rootRoleId)
+        models[envKey] = await roleAnalyzerService.loadRoleMatrix(
+          envKey,
+          ids,
           (message) => onProgress?.(`${envKey}: ${message}`),
           force,
         )
