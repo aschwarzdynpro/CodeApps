@@ -1054,6 +1054,22 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
 6. **Komponenten-Namen** aus `msdyn_solutioncomponentsummary` (Quelle des
    Maker-Portals); `rootcomponentbehavior` nur aus `solutioncomponent`;
    rohe Typ-Schlüssel via `prettifyTypeName()` („Customization.Type_X").
+6a. **Content-Drift wird auf dem NORMALISIERTEN Text entschieden**, nicht auf
+   den rohen Bytes (`utils/contentNormalize.ts`, Vitest). Empirisch an Schulz
+   belegt (2026-08-04): `sst_/Scripts/Form/booking.js` liegt in INT-11 mit
+   **LF** (`… 3b 0a 69 66`) und in PROD mit **CRLF** (`… 3b 0d 0a 69 66`) —
+   sonst byte-identisch. Ohne Normalisierung unterscheidet sich **jede** Zeile
+   um ein `\r`: der Side-by-side-Diff färbt die ganze Datei als geändert und
+   der Hash meldet „content drift" für eine Datei, die niemand angefasst hat.
+   ⚠ Der Hash lief zudem über das **rohe Base64** der Web Resource, der Diff
+   über den **dekodierten Text** — zwei verschiedene Repräsentationen, die
+   auseinanderlaufen konnten. Beide dekodieren jetzt zuerst (`base64`-Flag am
+   `ContentSpec`, `webresourcetype` per `extraSelect` für die Binär-Erkennung)
+   und normalisieren dann. **Binäre** Web Resources haben keinen Text zum
+   Normalisieren — deren Base64 wird weiter roh gehasht. Bewusst NICHT
+   normalisiert: Trailing Spaces, Leerzeilen, Einrückung — das sind Edits,
+   auch wenn sie kosmetisch sind; gefaltet wird nur, was ein Speicher-
+   Roundtrip von allein ändert (BOM, Zeilenenden).
 7. **Cross-Env-Identität:** GUIDs sind nur bei sauberem Solution-Transport
    stabil. EnvVars/ConnRefs/WebResources/CanvasApps werden beim Import per
    **Name** gematcht (`matchField` in `DEPENDENCY_SPECS`) — IDs können je

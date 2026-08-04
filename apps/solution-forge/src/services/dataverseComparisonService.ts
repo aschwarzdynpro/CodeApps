@@ -14,6 +14,7 @@ import type { ComparisonService } from './comparisonService'
 import { mockComparisonService } from './mockComparisonService'
 import { powerModeReady } from '../PowerProvider'
 import { ENVIRONMENTS } from '../config'
+import { normalizeContent } from '../utils/contentNormalize'
 import { SolutioncomponentsService } from '../generated/services/SolutioncomponentsService'
 import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
 
@@ -142,6 +143,14 @@ interface ContentSpec {
   entitySet: string
   idField: string
   fields: string[]
+  /**
+   * The payload is base64 (web resources) and must be decoded before it can
+   * be normalised — hashing the raw base64 makes a pure line-ending
+   * difference look like content drift.
+   */
+  base64?: boolean
+  /** Columns needed for the decision, but not part of the payload itself. */
+  extraSelect?: string[]
 }
 const CONTENT_SPECS: Partial<Record<AlmComponentKind, ContentSpec>> = {
   cloudflow: {
@@ -163,6 +172,8 @@ const CONTENT_SPECS: Partial<Record<AlmComponentKind, ContentSpec>> = {
     entitySet: 'webresourceset',
     idField: 'webresourceid',
     fields: ['content'],
+    base64: true,
+    extraSelect: ['webresourcetype'],
   },
 }
 
@@ -171,6 +182,11 @@ const BINARY_WEBRESOURCE_TYPES = new Set([5, 6, 7, 8, 10])
 /** webresourcetype codes whose text is XML-flavoured. */
 const XML_WEBRESOURCE_TYPES = new Set([4, 9, 11, 12])
 
+/**
+ * Content drift is decided on the NORMALISED text (see
+ * {@link file://../utils/contentNormalize}) — the same file stored with LF in
+ * one environment and CRLF in another is not drift.
+ */
 /** Lowercase hex SHA-256 of a string (Web Crypto, available in the host). */
 async function sha256Hex(text: string): Promise<string> {
   const bytes = new TextEncoder().encode(text)
@@ -462,7 +478,11 @@ export class DataverseComparisonService implements ComparisonService {
         idsByEntitySet.set(spec.entitySet, entry)
       }
       for (const { spec, ids } of idsByEntitySet.values()) {
-        const select = [spec.idField, ...spec.fields].join(',')
+        const select = [
+          spec.idField,
+          ...spec.fields,
+          ...(spec.extraSelect ?? []),
+        ].join(',')
         // Content fields are large — keep the chunks small.
         for (const chunk of chunks(ids, 10)) {
           const filter = chunk
@@ -483,10 +503,37 @@ export class DataverseComparisonService implements ComparisonService {
           for (const id of chunk) {
             const row = byId.get(id.toLowerCase())
             if (row) {
-              const payload = spec.fields.map((f) => str(row[f])).find((v) => v !== '') ?? ''
+              const payload =
+                spec.fields.map((f) => str(row[f])).find((v) => v !== '') ?? ''
+              /*
+               * Hash what the two environments MEAN, not the bytes they
+               * happen to store: base64 is decoded first, and the text is
+               * normalised (BOM, line endings). Hashing the raw payload
+               * reported drift for a script that differed only in LF vs CRLF
+               * — verified at Schulz, see utils/contentNormalize.
+               * Binary web resources have no text to normalise, so their
+               * base64 is hashed as-is.
+               */
+              let hashable = payload
+              let size = payload.length
+              if (spec.base64 && payload) {
+                const binary = BINARY_WEBRESOURCE_TYPES.has(
+                  Number(row.webresourcetype ?? 0),
+                )
+                try {
+                  const decoded = decodeBase64Utf8(payload)
+                  size = decoded.bytes
+                  if (!binary) hashable = normalizeContent(decoded.text)
+                } catch {
+                  // Undecodable payload — fall back to the raw string rather
+                  // than losing the row from the comparison entirely.
+                }
+              } else if (payload) {
+                hashable = normalizeContent(payload)
+              }
               contentByKey.set(`${env.key}:${id.toLowerCase()}`, {
-                hash: await sha256Hex(payload),
-                size: payload.length,
+                hash: await sha256Hex(hashable),
+                size,
               })
             }
             done++
@@ -560,7 +607,9 @@ export class DataverseComparisonService implements ComparisonService {
       }
       const { text, bytes } = decodeBase64Utf8(b64)
       return {
-        side: { text, present: true, size: bytes },
+        // Normalised like the hash — otherwise a CRLF/LF pair paints every
+        // single line as changed in the side-by-side view.
+        side: { text: normalizeContent(text), present: true, size: bytes },
         language: XML_WEBRESOURCE_TYPES.has(type) ? 'xml' : 'text',
       }
     }
@@ -575,13 +624,13 @@ export class DataverseComparisonService implements ComparisonService {
         // leave as-is when it isn't valid JSON
       }
       return {
-        side: { text: pretty, present: true, size: clientdata.length },
+        side: { text: normalizeContent(pretty), present: true, size: clientdata.length },
         language: 'json',
       }
     }
     const xaml = str(row.xaml)
     return {
-      side: { text: xaml, present: true, size: xaml.length },
+      side: { text: normalizeContent(xaml), present: true, size: xaml.length },
       language: 'xml',
     }
   }
