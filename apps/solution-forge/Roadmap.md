@@ -284,15 +284,18 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       Audit-Nachweis. Markdown/Raw-Umschalter, Copy, Download. Reiner Builder
       `utils/securityConcept.ts` (Vitest), nichts wird geschrieben — das
       Dokument ist jederzeit aus dem Snapshot reproduzierbar.
-      **Payload v2 (2026-08-04)** erfasst zusätzlich **BU-Baum + Teams**
-      (`getOrgStructure`), **Field Security** (Profile, gesicherte Spalten,
-      Zuweisungszahlen) und die **Audit-Konfiguration** (Org-Schalter,
-      Retention, auditierte Tabellen) — je Umgebung, best-effort beim
-      Einfrieren (`services/baselineCapture.ts`). Eine Sektion, die nicht
-      gelesen werden konnte, fehlt im Payload und wird im Dokument als
-      **„not captured"** benannt, nie als „keine". Der Disclaimer ist
-      dynamisch: er nennt genau die Kapitel, die fehlen. v1-Baselines lesen
-      sich weiterhin.
+      Der Baseline erfasst **nur Rollen + Privilegien**; das Dokument sagt
+      selbst, was es NICHT abdeckt, damit „fehlt" nicht als „unauffällig"
+      gelesen wird.
+      **⛔ BU-Baum / Teams / FLS / Audit-Konfig NICHT nachrüsten.** Genau das
+      war am 2026-08-04 als Payload v2 gebaut (`3c5ab77`) und am selben Tag
+      wieder **revertiert** (`services/baselineCapture.ts` samt der drei
+      Kapitel): das Erfassen braucht `getOrgStructure` und damit den **vollen
+      Security-Snapshot**, den der Role Comparer bewusst vermeidet — das
+      Einfrieren dauerte deutlich zu lange für den gewonnenen Informationswert
+      (Produktentscheidung). Wer es doch wieder will, braucht zuerst einen
+      leichteren Weg an BU/Team-Daten, nicht einen zweiten Anlauf über
+      denselben Snapshot.
 - [ ] **Access Review / Rezertifizierung**: aus einem Snapshot eine Kampagne
       erzeugen (je User × Rolle eine Zeile, Reviewer bestätigt/entzieht),
       Abschluss als unveränderlicher Nachweis. Braucht eine zweite, leichtere

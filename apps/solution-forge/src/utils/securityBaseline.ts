@@ -33,13 +33,8 @@ import type {
 } from '../types/roleComparer'
 import { countPrivilegeDifferences, roleMatchKey } from './roleCompare'
 
-/**
- * Payload version. v2 added the org / field-security / audit sections. They
- * are OPTIONAL and read defensively, so a v1 baseline still decodes — the
- * document then reports those chapters as "not captured", which is not the
- * same as "nothing to report".
- */
-export const BASELINE_VERSION = 2
+/** Payload version — bumped if the encoding ever changes shape. */
+export const BASELINE_VERSION = 1
 
 /**
  * Dataverse multiline columns hold 1,048,576 characters; we refuse a little
@@ -62,78 +57,12 @@ export interface BaselineRole {
   x: string[]
 }
 
-/** One business unit in the frozen org tree. Parents are stored by NAME —
- *  ids mean nothing in a document and nothing across environments. */
-export interface BaselineBu {
-  n: string
-  /** Parent BU name; '' for the root. */
-  p: string
-  /** Users whose owning BU this is. */
-  u: number
-}
-
-export interface BaselineTeam {
-  n: string
-  /** Owning business-unit name. */
-  bu: string
-  /** team.teamtype. */
-  t: number
-  /** Names of the security roles the team grants. */
-  r: string[]
-  /** Member count (names are not frozen — a review looks at roles). */
-  m: number
-}
-
-export interface BaselineOrg {
-  bus: BaselineBu[]
-  teams: BaselineTeam[]
-}
-
-/** One field-security profile: which columns it secures and who holds it. */
-export interface BaselineFlsProfile {
-  n: string
-  m: 0 | 1
-  /** Secured columns: entity, attribute, read/create/update/unmasked. */
-  c: { e: string; a: string; r: 0 | 1; w: 0 | 1; u: 0 | 1; x: 0 | 1 }[]
-  /** Assigned user / team counts. */
-  au: number
-  at: number
-}
-
-export interface BaselineAudit {
-  /** Org-wide master switch. */
-  on: 0 | 1
-  /** Retention in days; -1 = forever. */
-  ret: number
-  /** Logical names of the tables with auditing enabled. */
-  tables: string[]
-  /** Tables inspected in total, so "12 of 480" is expressible. */
-  total: number
-}
-
 export interface BaselinePayload {
   v: number
   /** Entity dictionary — grants reference entities by index. */
   e: string[]
   /** Roles per environment key. */
   envs: Record<string, BaselineRole[]>
-  /** Business units + teams per environment (v2). */
-  org?: Record<string, BaselineOrg>
-  /** Field-security profiles per environment (v2). */
-  fls?: Record<string, BaselineFlsProfile[]>
-  /** Audit configuration per environment (v2). */
-  audit?: Record<string, BaselineAudit>
-}
-
-/**
- * The non-role material captured alongside the roles. Sections are optional
- * per environment: a read that failed is left OUT rather than stored empty,
- * because an empty section reads as "there is none".
- */
-export interface BaselineExtras {
-  org?: BaselineOrg
-  fls?: BaselineFlsProfile[]
-  audit?: BaselineAudit
 }
 
 /** A role's rights in one environment, in the shape the comparer counts on. */
@@ -154,8 +83,6 @@ export function encodeBaseline(
   models: Record<string, SecurityModel | null>,
   envKeys: string[],
   includeKeys: Set<string> | null,
-  /** Org / field-security / audit material per environment, when captured. */
-  extras?: Record<string, BaselineExtras>,
 ): BaselinePayload {
   const entityIndex = new Map<string, number>()
   const entities: string[] = []
@@ -204,24 +131,7 @@ export function encodeBaseline(
     envs[envKey] = roles
   }
 
-  const payload: BaselinePayload = { v: BASELINE_VERSION, e: entities, envs }
-
-  // Sections are only written when they were actually captured — see
-  // BaselineExtras on why an absent section beats an empty one.
-  const org: Record<string, BaselineOrg> = {}
-  const fls: Record<string, BaselineFlsProfile[]> = {}
-  const audit: Record<string, BaselineAudit> = {}
-  for (const envKey of envKeys) {
-    const extra = extras?.[envKey]
-    if (!extra) continue
-    if (extra.org) org[envKey] = extra.org
-    if (extra.fls) fls[envKey] = extra.fls
-    if (extra.audit) audit[envKey] = extra.audit
-  }
-  if (Object.keys(org).length) payload.org = org
-  if (Object.keys(fls).length) payload.fls = fls
-  if (Object.keys(audit).length) payload.audit = audit
-  return payload
+  return { v: BASELINE_VERSION, e: entities, envs }
 }
 
 export function serializeBaseline(payload: BaselinePayload): string {
@@ -260,17 +170,10 @@ export function parseBaseline(json: string | undefined | null): BaselinePayload 
     const candidate = parsed as Partial<BaselinePayload>
     if (!Array.isArray(candidate.e) || !candidate.envs) return null
     if (typeof candidate.envs !== 'object') return null
-    const section = <T,>(value: unknown): Record<string, T> | undefined =>
-      value && typeof value === 'object' ? (value as Record<string, T>) : undefined
     return {
       v: typeof candidate.v === 'number' ? candidate.v : 0,
       e: candidate.e.filter((x): x is string => typeof x === 'string'),
       envs: candidate.envs as Record<string, BaselineRole[]>,
-      // Absent on v1 payloads — the document reports those chapters as
-      // "not captured" rather than pretending they were empty.
-      org: section<BaselineOrg>(candidate.org),
-      fls: section<BaselineFlsProfile[]>(candidate.fls),
-      audit: section<BaselineAudit>(candidate.audit),
     }
   } catch {
     return null

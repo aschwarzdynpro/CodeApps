@@ -397,18 +397,6 @@ Scope** — nicht alle 286. Entscheidungen:
   Soll-Definition wie beim Flow Comparer. Für Rollen ist die
   Governance-Frage Drift über die **Zeit**; das ist auch der Diff, den ein
   Security-Konzept-Dokument später braucht.
-- **Payload v2** erfasst neben den Rollen auch **BU-Baum + Teams**, **Field
-  Security** und die **Audit-Konfiguration** je Umgebung. Erfasst wird das
-  beim Einfrieren durch `services/baselineCapture.ts` (orchestriert
-  `roleAnalyzerService.getOrgStructure` + `fieldSecurityService` +
-  `auditConfigService`). **Bewusst teuer:** ein Freeze ist selten und
-  absichtlich, deshalb zieht er hier den vollen Snapshot — anders als der
-  Comparer, der genau das vermeidet. Jede Sektion läuft in eigenem try/catch;
-  eine fehlgeschlagene Sektion wird **weggelassen, nicht leer gespeichert**
-  (leer läse sich als „es gibt keine") und im Dokument als „not captured"
-  benannt. Der Disclaimer ist **dynamisch** — er nennt genau die fehlenden
-  Kapitel und verschwindet, wenn alles erfasst wurde. **v1-Payloads bleiben
-  lesbar** (Sektionen optional, defensiv geparst).
 - **Payload = eine Spalte, kein Kind-Tabellen-Baum** (`pro_payload_txt`,
   Muster `pro_mergerun.pro_addedcomponents_txt`): Entity-Dictionary +
   `[entityIdx, actionIdx, depth]`-Tripel je Grant. `baselineSizeVerdict`

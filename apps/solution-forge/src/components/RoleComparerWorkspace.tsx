@@ -40,7 +40,6 @@ import {
   serializeBaseline,
 } from '../utils/securityBaseline'
 import { securityBaselineService } from '../services/securityBaselineService'
-import { captureBaselineExtras } from '../services/baselineCapture'
 import { RolePrivilegeDiffModal } from './RolePrivilegeDiffModal'
 import { SecurityConceptPanel } from './SecurityConceptPanel'
 import { SolutionSelect } from './SolutionSelect'
@@ -379,14 +378,6 @@ export function RoleComparerWorkspace({ solutions, canManage }: Props) {
     setBaselineBusy(true)
     setBaselineError(null)
     try {
-      /*
-       * A freeze is rare and deliberate, so unlike a comparison it pays for
-       * the heavy reads: business units and teams, field security and the
-       * audit configuration. Sections that fail are left out and reported —
-       * an absent chapter reads as "not captured", never as "none".
-       */
-      setProgress('Capturing org, field security and audit…')
-      const captured = await captureBaselineExtras(result.envKeys, setProgress)
       // Freeze exactly what is scoped in — not all ~286 roles. Smaller, and
       // it matches what the user was actually looking at.
       const payload = serializeBaseline(
@@ -394,15 +385,8 @@ export function RoleComparerWorkspace({ solutions, canManage }: Props) {
           roleComparerService.lastModels(),
           result.envKeys,
           new Set(scoped.map((r) => r.key)),
-          captured.extras,
         ),
       )
-      if (captured.errors.length)
-        setBaselineError(
-          `Frozen, but some sections could not be read: ${captured.errors
-            .map((e) => `${e.envKey} — ${e.section}`)
-            .join('; ')}. The document reports them as “not captured”.`,
-        )
       const saved = await securityBaselineService.save({
         name: freezeName.trim() || `Baseline ${new Date().toLocaleDateString()}`,
         scope: scopeDescription,
@@ -417,7 +401,6 @@ export function RoleComparerWorkspace({ solutions, canManage }: Props) {
       setBaselineError(err instanceof Error ? err.message : String(err))
     } finally {
       setBaselineBusy(false)
-      setProgress('')
     }
   }, [result, scoped, freezeName, scopeDescription])
 
