@@ -105,10 +105,13 @@ export function RoleAnalyzer({
 }: Props) {
   const [subTab, setSubTab] = useState<SubTab>('matrix')
   const [model, setModel] = useState<SecurityModel | null>(null)
-  // Starts in the loading state — the mount effect kicks off the first load.
-  const [progress, setProgress] = useState<string | null>(
-    'Loading security model…',
-  )
+  /**
+   * Nothing loads until Analyze is pressed. Loading on mount meant the
+   * snapshot of the CURRENT environment was already on its way before you
+   * could pick the one you actually came for — an expensive read of the wrong
+   * target, and a wait before the right one could even start.
+   */
+  const [progress, setProgress] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const load = (force = false) => {
@@ -122,27 +125,6 @@ export function RoleAnalyzer({
       )
       .finally(() => setProgress(null))
   }
-
-  useEffect(() => {
-    let cancelled = false
-    roleAnalyzerService
-      .loadModel(envKey, (message) => {
-        if (!cancelled) setProgress(message)
-      })
-      .then((m) => {
-        if (!cancelled) setModel(m)
-      })
-      .catch((err) => {
-        if (!cancelled)
-          setError(err instanceof Error ? err.message : String(err))
-      })
-      .finally(() => {
-        if (!cancelled) setProgress(null)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [envKey])
 
   // --- matrix -------------------------------------------------------------
   const [matrixRoleId, setMatrixRoleId] = useState('')
@@ -224,7 +206,9 @@ export function RoleAnalyzer({
   const [effectiveLoading, setEffectiveLoading] = useState(false)
 
   useEffect(() => {
-    if (subTab !== 'user') return
+    // `searchUsers` reads the same snapshot, so without the model guard the
+    // user search would quietly trigger the very load Analyze exists to defer.
+    if (subTab !== 'user' || !model) return
     const t = window.setTimeout(() => {
       roleAnalyzerService
         .searchUsers(userQuery, envKey)
@@ -232,7 +216,7 @@ export function RoleAnalyzer({
         .catch(() => setUserHits([]))
     }, 250)
     return () => window.clearTimeout(t)
-  }, [subTab, userQuery, envKey])
+  }, [subTab, userQuery, envKey, model])
 
   const openUser = (user: PrincipalRef) => {
     setSelectedUser(user)
@@ -381,16 +365,24 @@ export function RoleAnalyzer({
             </span>
           )}
           <button
-            className="btn btn--small"
-            onClick={() => load(true)}
+            className={`btn btn--small ${model ? '' : 'btn--primary'}`}
+            onClick={() => load(!!model)}
             disabled={!!progress}
           >
-            ⟳ Reload model
+            {model ? '⟳ Reload model' : '▶ Analyze'}
           </button>
         </span>
       </nav>
 
       {error && <div className="state state--error">{error}</div>}
+      {!model && !progress && !error && (
+        <div className="state">
+          Pick the <strong>target environment</strong> above, then{' '}
+          <strong>Analyze</strong>. The security model is not loaded
+          automatically — on a tenant with hundreds of roles that would mean a
+          heavy read of whichever environment happened to be selected.
+        </div>
+      )}
       {progress && (
         <div className="sharing-progress" aria-live="polite">
           <span className="sharing-progress-spinner" />

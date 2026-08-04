@@ -25,7 +25,7 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       versionierte Snapshots (`pro_releasenote`, nur Deployment Manager),
       **History**-Tab zum Wiederabruf.
 - [x] **Configuration Data Transfer Hub** (Menüpunkt „Data Transfer",
-      Manage-Gruppe, gated): deklarative Transfer-Pakete für
+      Operate-Gruppe, gated): deklarative Transfer-Pakete für
       Konfigurationsdaten — Quell-Env → Tabelle → Filter/Spalten per
       System-View-Snapshot oder FetchXML (Validierung, Spalten-Picker,
       Preview), Record-Matching (GUID/Match-Spalten, max. 5), Orphan-Handling,

@@ -743,7 +743,7 @@ Schritt** (`bulk.label`: „Activating …"/„Deactivating …"/„Assigning ow
 sync (`formatRelative(loadedAt)`) + Refresh (re-run compare). ⚠ `set`-in-effect für
 `flowBarHidden`-Reset via `// eslint-disable-next-line react-hooks/set-state-in-effect`.
 
-**Configuration Data Transfer Hub** (Manage-Gruppe, Menüpunkt „Data Transfer",
+**Configuration Data Transfer Hub** (**Operate**-Gruppe, Menüpunkt „Data Transfer",
 gated): deklarative **Transfer-Pakete** für Konfigurationsdaten, die
 **mitinstallierte Cloud Flows** ausführen (Executor Parent+Child +
 Scheduler, `installer/deploy-executor-flow.ps1`) — NICHT in der App-Session

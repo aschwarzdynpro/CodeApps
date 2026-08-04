@@ -141,7 +141,6 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { key: 'mergeRules', label: 'Merge Rules', icon: '⚙', gated: true },
       { key: 'releaseNotes', label: 'Release Notes', icon: '📝', gated: false },
       { key: 'timeline', label: 'Timeline', icon: '🕘', gated: false },
-      { key: 'transferHub', label: 'Data Transfer', icon: '🚚', gated: true },
     ],
   },
   {
@@ -205,6 +204,9 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       // i.e. as the service principal — gated, and the workspace says so.
       { key: 'odata', label: 'OData Browser', icon: '🗄️', gated: true },
       { key: 'roles', label: 'Role Analyzer', icon: '🛡', gated: true },
+      // Moves configuration data BETWEEN environments — that is an operations
+      // job, not part of building a release, which is what Manage is about.
+      { key: 'transferHub', label: 'Data Transfer', icon: '🚚', gated: true },
     ],
   },
   {

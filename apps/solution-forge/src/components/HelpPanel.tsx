@@ -339,7 +339,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
-            <h3>🚚 Data Transfer (Manage)</h3>
+            <h3>🚚 Data Transfer (Operate)</h3>
             <p>
               The <strong>Configuration Data Transfer Hub</strong> authors
               declarative <strong>transfer packages</strong> for configuration
@@ -1129,9 +1129,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <h3>🛡 Role Analyzer (Operate)</h3>
             <ul>
               <li>
-                Works on a <strong>snapshot of the security model</strong> of
-                the selected target environment (cached ~15 min, “Reload”
-                refreshes it). Roles are aggregated on their{' '}
+                <strong>Pick the target environment first, then Analyze</strong>{' '}
+                — nothing loads on its own, so opening the page never starts a
+                heavy read of the wrong environment. Works on a{' '}
+                <strong>snapshot of the security model</strong> (cached ~15 min,
+                “Reload model” refreshes it). Roles are aggregated on their{' '}
                 <strong>root copy</strong> — Dataverse clones every role per
                 business unit, and the copies share one privilege set, so the
                 BU copies collapse into one row.

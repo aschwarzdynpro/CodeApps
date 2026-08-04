@@ -57,12 +57,12 @@ nach Typ.
   **idempotenter Upsert** (kein Duplikat bei Re-Run), lädt die Config live nach
   (kein Reload) und dieselbe Ansicht dient im Edit-Modus zum Nachpflegen.
 - **Navigation**: linke Sidebar, gruppiert in **Manage** (Workbench, Merge,
-  Merge Rules, Release Notes, Timeline, Data Transfer), **Validate**
+  Merge Rules, Release Notes, Timeline), **Validate**
   (Deployment Readiness, Analyze, Env Config, Audit Config, Dual-Write Maps,
   Import History, User Settings, Process Comparer, Plugin Comparer,
   Role Comparer),
-  **Operate** (Plugin Traces, OData Browser, Role Analyzer) und **Reference**
-  (Links, Environment Setup). Die Gruppen sind **aufklappbar und es ist immer
+  **Operate** (Plugin Traces, OData Browser, Role Analyzer, Data Transfer) und
+  **Reference** (Links, Environment Setup). Die Gruppen sind **aufklappbar und es ist immer
   genau eine offen** — 21 Einträge passen sonst nicht auf einen
   Notebook-Bildschirm. Welche offen ist, folgt automatisch dem aktiven
   Menüpunkt (auch bei Sprüngen aus der ActivityBar); ein Klick auf einen
@@ -266,7 +266,7 @@ nach Typ.
   degradieren zu einem Hinweis statt die Timeline zu blocken. Reine
   Visualisierung vorhandener Daten (Builder `buildReleaseTimeline` als pure
   function mit Tests) — kein neuer Datenpfad.
-- **Data Transfer** (Manage, gated) — **Configuration Data Transfer Hub**:
+- **Data Transfer** (Operate, gated) — **Configuration Data Transfer Hub**:
   deklarative **Transfer-Pakete** für Konfigurationsdaten, ausgeführt von
   **mitinstallierten Cloud Flows** (Executor Parent+Child + Scheduler,
   `installer/deploy-executor-flow.ps1`) — nie in der App-Session selbst.

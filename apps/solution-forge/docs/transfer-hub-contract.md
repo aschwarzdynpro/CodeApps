@@ -1,6 +1,6 @@
 # Configuration Data Transfer Hub — Pipeline Contract
 
-The Solution Administration Console (menu **Manage → Data Transfer**) authors
+The Solution Administration Console (menu **Operate → Data Transfer**) authors
 *transfer packages*: declarative descriptions of which configuration data is
 transported from a source Dataverse environment into one or more target
 environments. Execution is done by **cloud flows installed alongside the app**
