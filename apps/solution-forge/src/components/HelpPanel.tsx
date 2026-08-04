@@ -1101,7 +1101,10 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 environment deviates. Picking a second baseline puts a{' '}
                 <strong>“changes since”</strong> chapter in front of it: roles
                 added or removed, and every privilege that moved, with old and
-                new depth. Markdown or raw, copy or download. Nothing is
+                new depth. It is shown as a rendered document; the{' '}
+                <strong>Markdown</strong> and <strong>Text</strong> switches
+                show the export formats that Copy and Download produce. Nothing
+                is
                 written — the document is reproducible from the snapshot at any
                 time. <strong>Pick the environments</strong> it should cover;
                 the first one left in is the reference whose matrix gets

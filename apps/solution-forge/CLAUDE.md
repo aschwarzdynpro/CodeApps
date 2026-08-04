@@ -420,8 +420,15 @@ Scope** — nicht alle 286. Entscheidungen:
   offline vorführbar sind.
 **Sub-Tab „Document"** (`SecurityConceptPanel` + pure builder
 `utils/securityConcept.ts`, Vitest): rendert einen Baseline als
-Security-Konzept-Dokument (Markdown/Raw, Copy, Download) — Zwilling von
-`services/releaseNotes.ts`. Zweiter Baseline wählbar ⇒ Kapitel **„Changes
+Security-Konzept-Dokument — Zwilling von `services/releaseNotes.ts`.
+**Der Builder erzeugt zuerst ein STRUKTURIERTES Modell** (`ConceptDoc`), aus
+dem `renderConceptMarkdown`/`renderConceptText` die Export-Formate ableiten und
+das die UI als **echtes HTML** darstellt (Überschriften, Tabellen,
+Depth-Badges). Das war anfangs anders — der Builder schrieb direkt Strings, und
+beide Ansicht-Schalter zeigten deshalb Quelltext in einem `<pre>`; „Markdown"
+sah aus wie eine Pipe-Wüste. Ansicht-Umschalter jetzt **Document | Markdown |
+Text**, Copy/Download liefern weiter die Export-Formate. Ein Modell ⇒ die drei
+Repräsentationen können nicht auseinanderlaufen. Zweiter Baseline wählbar ⇒ Kapitel **„Changes
 since …"** VOR dem Inventar (`diffBaselines`/`diffRoleGrants`, Zeilen
 `+ entity Action (Tiefe)` / `− …` / `~ … : alt → neu`). **Nichts wird
 geschrieben** — das Dokument ist aus dem Snapshot reproduzierbar (Builder ist

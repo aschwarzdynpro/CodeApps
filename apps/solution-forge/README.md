@@ -224,7 +224,9 @@ nach Typ.
   Hinweis, welche Umgebung wie stark abweicht. Wählt man einen **zweiten
   Baseline**, steht davor das Kapitel **„Changes since …"**: hinzugekommene und
   entfernte Rollen sowie je Umgebung jedes verschobene Privileg mit alter und
-  neuer Tiefe — der Audit-Nachweis. Markdown/Raw, Copy, Download. Es wird
+  neuer Tiefe — der Audit-Nachweis. Angezeigt wird ein **gerendertes Dokument**
+  (Überschriften, echte Tabellen, Depth-Badges); die Umschalter **Markdown**
+  und **Text** zeigen die Export-Formate, die auch Copy und Download liefern. Es wird
   **nichts gespeichert**; das Dokument ist jederzeit aus dem Snapshot
   reproduzierbar. **Die dokumentierten Umgebungen sind per Chips wählbar** —
   die erste verbliebene ist die Referenz, deren Matrix gedruckt wird; die

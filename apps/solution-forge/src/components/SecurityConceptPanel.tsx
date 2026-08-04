@@ -13,7 +13,196 @@ import { envByKey } from '../config'
 import { securityBaselineService } from '../services/securityBaselineService'
 import type { SecuritySnapshotSummary } from '../types/roleComparer'
 import { parseBaseline } from '../utils/securityBaseline'
-import { buildSecurityConcept } from '../utils/securityConcept'
+import { buildSecurityConcept, type ConceptDoc } from '../utils/securityConcept'
+import { PRIVILEGE_ACTIONS } from '../types/roles'
+
+/** Depth short code → the badge class the Role Analyzer already uses. */
+const DEPTH_CLASS: Record<string, string> = {
+  U: 'roles-depth--user',
+  BU: 'roles-depth--bu',
+  P: 'roles-depth--parent',
+  O: 'roles-depth--org',
+}
+
+/** A changed-privilege line, coloured by its leading +/−/~ marker. */
+function ChangeLine({ line }: { line: string }) {
+  const kind = line.startsWith('+')
+    ? 'add'
+    : line.startsWith('−')
+      ? 'remove'
+      : 'move'
+  return <li className={`scdoc-change scdoc-change--${kind}`}>{line}</li>
+}
+
+/** The document itself, rendered as a document rather than as source. */
+function ConceptDocView({ doc }: { doc: ConceptDoc }) {
+  return (
+    <article className="scdoc-doc">
+      <h2 className="scdoc-title">{doc.title}</h2>
+      <p className="scdoc-subtitle muted">
+        Frozen {doc.frozenOn ? new Date(doc.frozenOn).toLocaleString() : 'unknown'}
+        {doc.frozenBy ? ` by ${doc.frozenBy}` : ''} · Scope: {doc.scope} ·
+        Generated {doc.generatedAt.toLocaleString()}
+      </p>
+
+      {doc.disclaimers.map((line) => (
+        <p key={line} className="scdoc-note">
+          {line}
+        </p>
+      ))}
+
+      <h3 className="scdoc-h">Environments</h3>
+      <table className="ops-table scdoc-table">
+        <thead>
+          <tr>
+            <th>Environment</th>
+            <th>Roles</th>
+            <th>Custom</th>
+            <th>Managed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {doc.environments.map((env) => (
+            <tr key={env.label}>
+              <td>
+                {env.label}
+                {env.isReference && (
+                  <span className="scdoc-ref"> reference</span>
+                )}
+              </td>
+              <td>{env.roles}</td>
+              <td>{env.custom}</td>
+              <td>{env.managed}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {doc.changes && (
+        <>
+          <h3 className="scdoc-h">
+            Changes since “{doc.changes.previousName}”
+            {doc.changes.previousOn
+              ? ` (${new Date(doc.changes.previousOn).toLocaleDateString()})`
+              : ''}
+          </h3>
+          {!doc.changes.added.length &&
+            !doc.changes.removed.length &&
+            !doc.changes.changed.length && (
+              <p className="muted">No role or privilege changed.</p>
+            )}
+          {doc.changes.added.length > 0 && (
+            <>
+              <h4 className="scdoc-h4">Roles added</h4>
+              <ul className="scdoc-list">
+                {doc.changes.added.map((name) => (
+                  <li key={name}>{name}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          {doc.changes.removed.length > 0 && (
+            <>
+              <h4 className="scdoc-h4">Roles removed</h4>
+              <ul className="scdoc-list">
+                {doc.changes.removed.map((name) => (
+                  <li key={name}>{name}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          {doc.changes.changed.length > 0 && (
+            <>
+              <h4 className="scdoc-h4">Privileges changed</h4>
+              {doc.changes.changed.map((role) => (
+                <div key={role.name} className="scdoc-changed-role">
+                  <strong>{role.name}</strong>
+                  {role.byEnv.map((env) => (
+                    <div key={env.label}>
+                      <span className="muted">{env.label}</span>
+                      <ul className="scdoc-list">
+                        {env.lines.map((line) => (
+                          <ChangeLine key={line} line={line} />
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </>
+          )}
+        </>
+      )}
+
+      <h3 className="scdoc-h">Roles</h3>
+      {doc.roles.map((role) => (
+        <section key={role.name} className="scdoc-role">
+          <h4 className="scdoc-role-name">{role.name}</h4>
+          <p className="muted scdoc-role-meta">
+            {role.managed ? 'Managed' : 'Custom (unmanaged)'} · present in{' '}
+            {role.presentIn.join(', ') || '—'}
+          </p>
+          {role.grants.length === 0 ? (
+            <p className="muted">No table privileges in the reference environment.</p>
+          ) : (
+            <div className="scdoc-grants-scroll">
+              <table className="ops-table scdoc-table">
+                <thead>
+                  <tr>
+                    <th>Table</th>
+                    {PRIVILEGE_ACTIONS.map((action) => (
+                      <th key={action}>{action}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {role.grants.map((row) => (
+                    <tr key={row.entity}>
+                      <td>
+                        <code>{row.entity}</code>
+                      </td>
+                      {row.depths.map((depth, i) => (
+                        <td key={PRIVILEGE_ACTIONS[i]}>
+                          {depth ? (
+                            <span
+                              className={`roles-depth ${DEPTH_CLASS[depth] ?? ''}`}
+                            >
+                              {depth}
+                            </span>
+                          ) : (
+                            <span className="muted">·</span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {role.misc.length > 0 && (
+            <p className="scdoc-misc">
+              Other privileges:{' '}
+              {role.misc.map((m) => (
+                <code key={m}>{m}</code>
+              ))}
+            </p>
+          )}
+          {role.deviations.length > 0 && (
+            <p className="scdoc-deviation">
+              ⚠ Differs from the reference:{' '}
+              {role.deviations
+                .map((d) => `${d.label} (${d.count})`)
+                .join(', ')}
+            </p>
+          )}
+        </section>
+      ))}
+
+      <p className="muted scdoc-legend">Depth: {doc.legend}</p>
+    </article>
+  )
+}
 
 interface Props {
   baselines: SecuritySnapshotSummary[]
@@ -38,7 +227,12 @@ export function SecurityConceptPanel({ baselines }: Props) {
   const [previous, setPrevious] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [raw, setRaw] = useState(false)
+  /**
+   * `document` renders the model; the other two show the export source, which
+   * is what Copy/Download produce. Previously both toggle positions showed
+   * source, which is why neither looked like a document.
+   */
+  const [view, setView] = useState<'document' | 'markdown' | 'text'>('document')
   const [copied, setCopied] = useState(false)
   /**
    * Environments left OUT of the document. Tracked as exclusions rather than a
@@ -158,25 +352,32 @@ export function SecurityConceptPanel({ baselines }: Props) {
         {doc && (
           <span className="scdoc-actions">
             <span className="muted scdoc-summary">{doc.summary}</span>
-            <button
-              type="button"
-              className={`chip ${raw ? '' : 'chip--active'}`}
-              onClick={() => setRaw(false)}
-            >
-              Markdown
-            </button>
-            <button
-              type="button"
-              className={`chip ${raw ? 'chip--active' : ''}`}
-              onClick={() => setRaw(true)}
-            >
-              Raw
-            </button>
+            {(['document', 'markdown', 'text'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={`chip ${view === mode ? 'chip--active' : ''}`}
+                onClick={() => setView(mode)}
+              >
+                {mode === 'document'
+                  ? 'Document'
+                  : mode === 'markdown'
+                    ? 'Markdown'
+                    : 'Text'}
+              </button>
+            ))}
             <button
               type="button"
               className="btn btn--small"
+              title={
+                view === 'text'
+                  ? 'Copy as plain text'
+                  : 'Copy as Markdown'
+              }
               onClick={() => {
-                void navigator.clipboard.writeText(raw ? doc.text : doc.markdown)
+                void navigator.clipboard.writeText(
+                  view === 'text' ? doc.text : doc.markdown,
+                )
                 setCopied(true)
               }}
             >
@@ -251,7 +452,16 @@ export function SecurityConceptPanel({ baselines }: Props) {
           No environment selected — pick at least one above.
         </div>
       )}
-      {doc && <pre className="scdoc-body">{raw ? doc.text : doc.markdown}</pre>}
+      {doc &&
+        (view === 'document' ? (
+          <div className="scdoc-body scdoc-body--rendered">
+            <ConceptDocView doc={doc.model} />
+          </div>
+        ) : (
+          <pre className="scdoc-body">
+            {view === 'text' ? doc.text : doc.markdown}
+          </pre>
+        ))}
     </div>
   )
 }
