@@ -8533,8 +8533,44 @@
    Reuses the comparer cell language (.cmp-cell and its modifiers) and the
    depth badges (.roles-depth*) from the Role Analyzer, so only the pieces
    specific to this workspace live here. */
-.rcmp-intro {
-  margin-bottom: 12px;
+/* ⓘ button + click-popover, reusable (components/InfoTip.tsx). */
+.infotip {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.infotip-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--muted);
+  border-radius: 50%;
+}
+.infotip-btn:hover,
+.infotip-btn--on {
+  color: var(--brand);
+}
+.infotip-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  width: min(520px, 80vw);
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
 }
 .rcmp-scope {
   display: flex;

@@ -40,6 +40,7 @@ import {
   serializeBaseline,
 } from '../utils/securityBaseline'
 import { securityBaselineService } from '../services/securityBaselineService'
+import { InfoTip } from './InfoTip'
 import { RolePrivilegeDiffModal } from './RolePrivilegeDiffModal'
 import { SolutionSelect } from './SolutionSelect'
 
@@ -368,18 +369,17 @@ export function RoleComparerWorkspace({ solutions, canManage }: Props) {
 
   return (
     <div className="rcmp">
-      <div className="state rcmp-intro">
-        Compares security roles across the configured environments, matched{' '}
-        <strong>by name</strong> — a role id only survives clean solution
-        transport, so a role that was rebuilt by hand carries a different one
-        (reported as <em>rebuilt</em>). By default only{' '}
-        <strong>custom roles</strong> are shown; pick a release solution to
-        narrow it to the roles that solution contains. Reads run as the
-        connector service principal. <strong>Read-only:</strong> a drifting
-        role is fixed by transporting it, not by editing the target.
-      </div>
-
       <div className="validate-toolbar rcmp-scope">
+        <InfoTip label="About the Role Comparer">
+          Compares security roles across the configured environments, matched{' '}
+          <strong>by name</strong> — a role id only survives clean solution
+          transport, so a role that was rebuilt by hand carries a different one
+          (reported as <em>rebuilt</em>). By default only{' '}
+          <strong>custom roles</strong> are loaded; pick a release solution to
+          narrow it to the roles that solution contains. Reads run as the
+          connector service principal. <strong>Read-only:</strong> a drifting
+          role is fixed by transporting it, not by editing the target.
+        </InfoTip>
         <SolutionSelect
           options={releases}
           value={scopeSolutionId}
