@@ -40,9 +40,27 @@ import {
   serializeBaseline,
 } from '../utils/securityBaseline'
 import { securityBaselineService } from '../services/securityBaselineService'
-import { InfoTip } from './InfoTip'
 import { RolePrivilegeDiffModal } from './RolePrivilegeDiffModal'
 import { SolutionSelect } from './SolutionSelect'
+import { useProvideHeaderInfo } from '../hooks/useHeaderInfo'
+
+/**
+ * Shown behind the ⓘ next to the page title. Declared at MODULE scope so its
+ * identity is stable — inline JSX would re-register on every render (see
+ * hooks/useHeaderInfo).
+ */
+const HEADER_INFO = (
+  <>
+    Compares security roles across the configured environments, matched{' '}
+    <strong>by name</strong> — a role id only survives clean solution
+    transport, so a role that was rebuilt by hand carries a different one
+    (reported as <em>rebuilt</em>). By default only{' '}
+    <strong>custom roles</strong> are loaded; pick a release solution to narrow
+    it to the roles that solution contains. Reads run as the connector service
+    principal. <strong>Read-only:</strong> a drifting role is fixed by
+    transporting it, not by editing the target.
+  </>
+)
 
 interface Props {
   /** Release solutions offered as the scope, as in the Process Comparer. */
@@ -112,6 +130,7 @@ function RowBadges({ row }: { row: RoleComparerRow }) {
 }
 
 export function RoleComparerWorkspace({ solutions, canManage }: Props) {
+  useProvideHeaderInfo('About the Role Comparer', HEADER_INFO)
   const envKeys = useMemo(() => roleComparerService.listEnvKeys(), [])
   const [result, setResult] = useState<RoleComparerResult | null>(null)
   const [comparing, setComparing] = useState(false)
@@ -370,16 +389,6 @@ export function RoleComparerWorkspace({ solutions, canManage }: Props) {
   return (
     <div className="rcmp">
       <div className="validate-toolbar rcmp-scope">
-        <InfoTip label="About the Role Comparer">
-          Compares security roles across the configured environments, matched{' '}
-          <strong>by name</strong> — a role id only survives clean solution
-          transport, so a role that was rebuilt by hand carries a different one
-          (reported as <em>rebuilt</em>). By default only{' '}
-          <strong>custom roles</strong> are loaded; pick a release solution to
-          narrow it to the roles that solution contains. Reads run as the
-          connector service principal. <strong>Read-only:</strong> a drifting
-          role is fixed by transporting it, not by editing the target.
-        </InfoTip>
         <SolutionSelect
           options={releases}
           value={scopeSolutionId}

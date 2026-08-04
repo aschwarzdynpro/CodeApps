@@ -38,6 +38,8 @@ import { TraceExplorer } from './components/TraceExplorer'
 import { OdataBrowserWorkspace } from './components/OdataBrowserWorkspace'
 import { LinksWorkspace } from './components/LinksWorkspace'
 import { LazyWorkspace } from './components/LazyWorkspace'
+import { InfoTip } from './components/InfoTip'
+import { useHeaderInfo } from './hooks/useHeaderInfo'
 // ALM Detective is temporarily hidden from the UI — component + service
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
 import { HelpPanel } from './components/HelpPanel'
@@ -290,6 +292,8 @@ function App() {
   }, [defaultPublisher, publishers])
 
   const [tab, setTab] = useState<Tab>('workbench')
+  /** ⓘ next to the page title, registered by the mounted workspace. */
+  const headerInfo = useHeaderInfo()
   // Shared target environment for the Operate features (Traces / Jobs /
   // Roles) — lifted here so switching tabs keeps the selection. Defaults to
   // the host env; resolved once startup config has hydrated ENVIRONMENTS.
@@ -1180,7 +1184,16 @@ function App() {
 
         <main className="content">
           <header className="content-header">
-            <h1>{TAB_TITLES[tab]}</h1>
+            {/* The ⓘ is supplied by whichever workspace is mounted (see
+                hooks/useHeaderInfo) — the shell shows it without knowing what
+                it says, which keeps feature copy out of this file and out of
+                the main bundle chunk. */}
+            <div className="content-title">
+              <h1>{TAB_TITLES[tab]}</h1>
+              {headerInfo && (
+                <InfoTip label={headerInfo.label}>{headerInfo.content}</InfoTip>
+              )}
+            </div>
             {tab === 'workbench' && !error && (
               <div className="header-actions">
                 {loadedAt && (

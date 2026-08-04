@@ -225,6 +225,18 @@
   font-size: 24px;
   letter-spacing: -0.02em;
 }
+/* Title + the workspace's optional ⓘ, kept together on the left; the header
+   itself is space-between, so without this wrapper the icon would be pushed
+   to the far right. */
+.content-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.content-title .infotip-btn {
+  font-size: 18px;
+}
 .header-actions {
   display: flex;
   align-items: center;
