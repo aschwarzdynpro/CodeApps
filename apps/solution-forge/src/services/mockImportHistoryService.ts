@@ -88,7 +88,7 @@ const FAILED_LOG = `<?xml version="1.0" encoding="utf-16"?>
           <Dependent type="60" schemaName="account_main" displayName="Account Main Form" parentSchemaName="account" parentDisplayName="Account" />
         </MissingDependency>
         <MissingDependency>
-          <Required type="2" schemaName="hso_creditscore" displayName="Credit Score" solution="Active" />
+          <Required type="2" schemaName="hso_creditscore" displayName="Credit Score" solution="Active" parentSchemaName="account" parentDisplayName="Account" />
           <Dependent type="26" schemaName="hso_hotaccounts" displayName="Hot Accounts" parentSchemaName="account" parentDisplayName="Account" />
         </MissingDependency>
         <MissingDependency>

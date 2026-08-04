@@ -150,8 +150,10 @@ nach Typ.
   und parst es strukturiert: Manifest-Verdict (UniqueName/Version/Fehlertext)
   und — der Kern — **Missing-Dependency-Fehler als präzise Tabelle**
   (`<MissingDependencies>`-Knoten): links die im Ziel **fehlende** Komponente
-  (Typ, Name, Herkunfts-Solution = „install first"), rechts die importierte
-  Komponente, die sie **braucht** (Typ, Name, Parent). Sonstige
+  (Typ, Name, **Parent**, Herkunfts-Solution = „install first"), rechts die
+  importierte Komponente, die sie **braucht** (Typ, Name, Parent). Der Parent
+  steht auf **beiden** Seiten — „View: Offene Projekte" ist ohne die zugehörige
+  Tabelle nicht auffindbar. Sonstige
   Failure/Warning-Results dedupliziert darunter. Das schwere XML wird nie in
   der Liste geladen; Parser ist eine pure function mit Tests. Die Liste ist auf
   die neuesten 100 begrenzt ⇒ **serverseitige Suche** (FetchXML): **Status-Chip**

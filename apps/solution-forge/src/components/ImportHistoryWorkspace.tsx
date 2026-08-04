@@ -312,7 +312,7 @@ export function ImportHistoryWorkspace({
                                   <table className="ops-table imp-deps">
                                     <thead>
                                       <tr>
-                                        <th colSpan={3} className="imp-deps-group">
+                                        <th colSpan={4} className="imp-deps-group">
                                           Missing in target — install first
                                         </th>
                                         <th colSpan={3} className="imp-deps-group">
@@ -322,6 +322,7 @@ export function ImportHistoryWorkspace({
                                       <tr>
                                         <th>Type</th>
                                         <th>Component</th>
+                                        <th>Parent</th>
                                         <th>From solution</th>
                                         <th>Type</th>
                                         <th>Component</th>
@@ -346,6 +347,11 @@ export function ImportHistoryWorkspace({
                                                   {d.requiredSchemaName}
                                                 </div>
                                               )}
+                                          </td>
+                                          <td>
+                                            {d.requiredParent || (
+                                              <span className="muted">—</span>
+                                            )}
                                           </td>
                                           <td>
                                             {d.requiredSolution || (

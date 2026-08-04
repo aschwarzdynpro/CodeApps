@@ -52,6 +52,12 @@ export interface MissingDependencyRow {
   requiredDisplayName: string
   /** Solution the required component lives in (per the source env). */
   requiredSolution: string
+  /**
+   * Owning parent of the missing component (e.g. the table a view or form
+   * belongs to), when the log reports it. Without it a row like
+   * "View — Offene Projekte" does not say WHERE to look for it.
+   */
+  requiredParent: string
   /** Component in the imported solution that NEEDS it. */
   dependentTypeCode: number | null
   dependentTypeLabel: string

@@ -558,7 +558,12 @@ Manifest-Verdict (direktes `<result>`-Kind des `<solutionManifest>`),
 `<MissingDependencies><MissingDependency>` → Tabelle aus den
 `<Required>`/`<Dependent>`-**Attributen** (type = componenttype-Code →
 `componentTypeLabel`, schemaName, displayName, solution,
-parentSchemaName/parentDisplayName), generische
+parentSchemaName/parentDisplayName — **`parent` wird von BEIDEN Knoten
+gelesen**, nicht nur vom Dependent: „View: Offene Projekte" ohne Tabelle ist
+nicht auffindbar. ⚠ `requiredParent` steht bewusst **NICHT** im Dedupe-Key
+`depKey` — die Top-Level- und die eingebettete Log-Quelle liefern das Attribut
+nicht zwingend beide, und ein Key-Unterschied erzeugte Duplikate statt einer
+zusammengeführten Zeile), generische
 `result[result="failure|warning"]`-Knoten dedupliziert. Parser wirft nie
 (Garbage ⇒ status 'unknown').
 

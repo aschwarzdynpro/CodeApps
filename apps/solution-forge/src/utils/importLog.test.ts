@@ -21,7 +21,7 @@ const FAILED_WITH_DEPENDENCIES = `<?xml version="1.0" encoding="utf-16"?>
           <Dependent key="2" type="60" schemaName="account_main" displayName="Account Main Form" parentSchemaName="account" parentDisplayName="Account" id="{aaaa0000-0000-0000-0000-000000000001}" />
         </MissingDependency>
         <MissingDependency>
-          <Required key="3" type="2" schemaName="hso_creditscore" displayName="Credit Score" solution="Active" />
+          <Required key="3" type="2" schemaName="hso_creditscore" displayName="Credit Score" solution="Active" parentSchemaName="account" parentDisplayName="Account" />
           <Dependent key="4" type="26" schemaName="hso_hotaccounts" displayName="Hot Accounts" parentSchemaName="account" />
         </MissingDependency>
       </MissingDependencies>
@@ -108,6 +108,27 @@ describe('parseImportLog', () => {
     // Parent falls back to the schema name when no display name is present.
     expect(dep2.dependentParent).toBe('account')
     expect(dep2.requiredTypeLabel).toBe('Column')
+  })
+
+  it('reports the parent of the MISSING component too', () => {
+    const d = parseImportLog(FAILED_WITH_DEPENDENCIES)
+    const [dep1, dep2] = d.missingDependencies
+    // "Column: Credit Score" is unactionable without knowing its table.
+    expect(dep2.requiredParent).toBe('Account')
+    // Absent on the required node → empty, not the dependent's parent.
+    expect(dep1.requiredParent).toBe('')
+  })
+
+  it('falls back to the parent schema name for the missing component', () => {
+    const xml = `<importexportxml><solutionManifest>
+      <UniqueName>X</UniqueName><MissingDependencies><MissingDependency>
+        <Required key="1" type="26" schemaName="hso_offeneprojekte" displayName="Offene Projekte" solution="Active" parentSchemaName="hso_projekt" />
+        <Dependent key="2" type="60" schemaName="f" displayName="Informationen" />
+      </MissingDependency></MissingDependencies>
+    </solutionManifest></importexportxml>`
+    expect(parseImportLog(xml).missingDependencies[0].requiredParent).toBe(
+      'hso_projekt',
+    )
   })
 
   it('collects generic failures deduped, failures before warnings', () => {

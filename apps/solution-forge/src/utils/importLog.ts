@@ -136,19 +136,22 @@ function parseMissingDependency(el: Element): MissingDependencyRow {
   const dependent = el.querySelector('Dependent')
   const rt = resolveType(required)
   const dt = resolveType(dependent)
-  const parentSchema = attr(dependent, 'parentSchemaName')
-  const parentDisplay = attr(dependent, 'parentDisplayName')
+  // Both nodes carry the parent attributes; the missing side needs them just
+  // as much — "View: Offene Projekte" is unactionable without its table.
+  const parentOf = (el: Element | null) =>
+    attr(el, 'parentDisplayName') || attr(el, 'parentSchemaName')
   return {
     requiredTypeCode: rt.code,
     requiredTypeLabel: rt.label,
     requiredSchemaName: schemaName(required),
     requiredDisplayName: attr(required, 'displayName'),
     requiredSolution: attr(required, 'solution'),
+    requiredParent: parentOf(required),
     dependentTypeCode: dt.code,
     dependentTypeLabel: dt.label,
     dependentSchemaName: schemaName(dependent),
     dependentDisplayName: attr(dependent, 'displayName'),
-    dependentParent: parentDisplay || parentSchema,
+    dependentParent: parentOf(dependent),
   }
 }
 
