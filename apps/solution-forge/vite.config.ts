@@ -12,14 +12,20 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        // STATIC chunks only — Vite emits a <link rel="modulepreload"> for
-        // each of them in index.html, and the Code Apps player only serves
-        // files referenced from index.html (gotcha #10 in CLAUDE.md). Do NOT
-        // switch to React.lazy/dynamic import without verifying in a real
-        // player session first: those chunks are fetched at runtime and would
-        // 404. The split keeps the vendor and generated-client code in their
-        // own long-lived cache entries so an app change no longer invalidates
-        // the whole ~1 MB bundle.
+        // These chunks are STATIC — Vite emits a <link rel="modulepreload">
+        // for each of them in index.html, and the Code Apps player only serves
+        // files referenced from index.html (gotcha #10 in CLAUDE.md). The
+        // split keeps the vendor and generated-client code in their own
+        // long-lived cache entries so an app change no longer invalidates the
+        // whole ~1 MB bundle.
+        //
+        // ONE exception is deliberate: App.tsx loads the Role Analyzer through
+        // React.lazy, which emits a chunk that index.html does NOT reference.
+        // That is the live probe for whether the player serves runtime-fetched
+        // chunks at all — the open roadmap item. It is contained by
+        // LazyWorkspace (a 404 shows a message instead of blanking the app).
+        // Until that probe has run in a real player session, do NOT convert
+        // further workspaces to React.lazy.
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('react-dom') || id.includes('/react/') || id.includes('scheduler'))

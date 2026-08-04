@@ -135,10 +135,16 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       Bewusst **statisch** (`manualChunks`), weil der Code-Apps-Player nur
       Dateien ausliefert, die in `index.html` referenziert sind (gotcha #10)
       — `modulepreload`-Links erfüllen das, dynamische Imports nicht.
-- [ ] **Echtes Lazy-Loading der Workspaces** (React.lazy): würde den
-      Erststart weiter drücken, braucht aber vorher einen **Live-Test im
-      Player**, ob zur Laufzeit nachgeladene Chunks ausgeliefert werden.
-      Bei 404 ⇒ weißer Screen beim Tab-Wechsel, deshalb nicht blind machen.
+- [~] **Echtes Lazy-Loading der Workspaces** (React.lazy): würde den
+      Erststart weiter drücken, braucht aber einen **Live-Test im Player**, ob
+      zur Laufzeit nachgeladene Chunks ausgeliefert werden. **Die Probe steht
+      seit dem 2026-08-04**: der wiederangeschlossene **Role Analyzer** ist der
+      einzige `React.lazy`-Workspace (eigener Chunk ~62 kB / 18 kB gzip, in der
+      `index.html` bewusst NICHT referenziert). `LazyWorkspace.tsx` (Suspense +
+      Error Boundary) fängt den 404-Fall als lesbare Meldung ab statt als
+      weißen Screen. **Offen: einmal im echten Player den Menüpunkt öffnen.**
+      Lädt er → die übrigen Workspaces können folgen; 404 → auf statischen
+      Import zurückbauen und den Punkt schließen.
 
 ## Team & Komfort
 
@@ -263,13 +269,16 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
 ## Umgesetzt
 
 - [x] ⭐ **Operate-Gruppe** (Ideen aus `docs/Ideas_v2.md`, je eigener
-      Menüpunkt). **Achtung:** von den dreien ist nur der **Plugin Trace
-      Explorer** noch in der App — **Job Monitor und Role Analyzer wurden am
-      2026-07-29 abgeklemmt** (waren lange ausgeblendete Previews, lagen aber
-      weiter im Bundle; −120 kB App-Chunk). Code bleibt im Repo,
-      Wiederanschluss siehe Kommentar an der `Operate`-Gruppe in `App.tsx`.
-      Damit sind auch die Role-Analyzer-Unterfeatures (Core Role Extractor,
-      Team & BU Map, Field-Level Security) aktuell **nicht erreichbar**.
+      Menüpunkt). **Stand:** **Plugin Trace Explorer** und **Role Analyzer**
+      sind in der App, der **Job Monitor** nicht. Beide letzteren waren am
+      2026-07-29 abgeklemmt worden (lange ausgeblendete Previews, lagen aber
+      weiter im Bundle; −120 kB App-Chunk); der **Role Analyzer ist am
+      2026-08-04 zurückgekommen** — als Fundament der Security-Konzept-Ausbau-
+      stufe und **lazy geladen**, sodass der Erststart unberührt bleibt
+      (+3 kB App-Chunk statt +62 kB). Damit sind auch seine Unterfeatures
+      (Core Role Extractor, Team & BU Map, Field-Level Security) wieder
+      erreichbar. Der Job Monitor bleibt draußen; Wiederanschluss siehe
+      Kommentar an der `Operate`-Gruppe in `App.tsx`.
       **Plugin Trace Explorer** (Stream + Correlation-Timeline +
       Performance-Aggregate + Trace-Level-Switch), **Async Job / Flow
       Monitor** (Health-Kacheln, asyncoperation-Explorer mit Bulk-

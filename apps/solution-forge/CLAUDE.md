@@ -147,25 +147,39 @@ delete-all-then-recreate (Env-Config hat keine eingehenden Refs). Derselbe
 Wizard dient im Edit-Modus (Menüpunkt) zum Nachpflegen; Mock: `getProvisioning-
 State` gibt Erst-Lauf `false`, nach Save `true` ⇒ **offline durchspielbar**.
 
-**Operate-Gruppe** — im Menü stehen nur noch **Plugin Traces** und **OData
-Browser**. **Job Monitor und Role Analyzer sind abgeklemmt** (2026-07-29): sie
-waren lange als Preview ausgeblendet, wurden aber weiter importiert und lagen
-damit voll im Bundle (~120 kB). Jetzt referenziert sie **nichts** mehr, also
-bündelt Rollup sie auch nicht — die Dateien (`JobMonitor.tsx`,
-`RoleAnalyzer.tsx`, `TeamBuMap.tsx`, `FieldSecurityWorkspace.tsx`, die
-Service-Trios `jobMonitorService`/`roleAnalyzerService`/`fieldSecurityService`
-und die Utils `heartbeat`/`privileges`/`coreRoles`/`orgTree`/`fieldSecurity`)
-liegen unverändert im Repo und ihre Vitest-Tests laufen weiter. Wiederanschluss:
-Import + `Tab`-Union + `TAB_TITLES` + Render-Block + Nav-Eintrag in `App.tsx`
-(Kommentar steht dort). Ebenfalls entfernt: das **PenaltyGame/GameOverlay**-
-Easter-Egg, das der Comparer während Bulk-Läufen einblendete — Fortschritt
-zeigen weiterhin die Inline-Progressbar (`.cmp-bulkbar`) und die `ActivityBar`.
-⚠ Das **CSS der entfernten Features steht noch in `App.css`** (eine Datei für
-alles); nicht blind purgen, `.ops-table` & Co. teilen sich Traces/Import
-History/OData Browser.
+**Operate-Gruppe** — im Menü stehen **Plugin Traces**, **OData Browser** und
+**Role Analyzer**. Job Monitor und Role Analyzer waren am 2026-07-29
+abgeklemmt worden (lange als Preview ausgeblendet, aber weiter importiert ⇒
+~120 kB tot im Bundle).
 
-Der folgende Abschnitt beschreibt die abgeklemmten Features **für den
-Wiederanschluss**, nicht den aktuellen Funktionsumfang: je Feature ein eigenes
+**Der Role Analyzer ist seit 2026-08-04 wieder angeschlossen — als einziger
+Workspace `React.lazy`.** Er ist das Fundament der Security-Konzept-Ausbau-
+stufe und zugleich die **Live-Probe für das offene Lazy-Loading-Thema**: sein
+Chunk (~62 kB / 18 kB gzip) wird zur Laufzeit geholt und ist in der
+`index.html` **nicht** referenziert — genau das, wovon Gotcha #10 sagt, dass
+der Player es womöglich nicht ausliefert. Deshalb hängt er in
+`components/LazyWorkspace.tsx` (Suspense + **Error Boundary**): ein 404 wird
+zur erklärenden Meldung mit Reload-Button statt zum weißen Screen. Messung:
+App-Chunk 618,26 → 623,49 kB (+5 kB Lazy-Verdrahtung + Help-Abschnitt), das
+ganze Feature (62,46 kB / 17,8 kB gzip) liegt im Extra-Chunk und wird erst
+beim Öffnen geholt. **Ergebnis der Probe steht noch aus** (Menüpunkt einmal im
+echten Player öffnen) — bis dahin **keine weiteren Workspaces auf `React.lazy`
+umstellen**; bei 404 auf statischen Import zurückbauen.
+
+**Der Job Monitor bleibt abgeklemmt** — nichts referenziert ihn, also bündelt
+Rollup ihn nicht; `JobMonitor.tsx`, das `jobMonitorService`-Trio und
+`utils/heartbeat.ts` liegen unverändert im Repo, Vitest läuft weiter.
+Wiederanschluss: Import + `Tab`-Union + `TAB_TITLES` + Render-Block +
+Nav-Eintrag in `App.tsx` (Kommentar steht dort). Ebenfalls entfernt (bleibt
+so): das **PenaltyGame/GameOverlay**-Easter-Egg, das der Comparer während
+Bulk-Läufen einblendete — Fortschritt zeigen die Inline-Progressbar
+(`.cmp-bulkbar`) und die `ActivityBar`. ⚠ Das **CSS der entfernten Features
+steht noch in `App.css`** (eine Datei für alles); nicht blind purgen,
+`.ops-table` & Co. teilen sich Traces/Import History/OData Browser.
+
+Vom folgenden Abschnitt gilt der **Job-Monitor-Teil als Doku für den
+Wiederanschluss**, der Role-Analyzer-Teil beschreibt das aktive Feature: je
+Feature ein eigenes
 Service-Paar nach demselben Muster —
 `traceService`/`jobMonitorService`/`roleAnalyzerService` (+ `dataverse…`/
 `mock…`). **Reads ausschließlich über den Konnektor** als FetchXML-

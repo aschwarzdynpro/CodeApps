@@ -3,7 +3,7 @@
  * sections follow the sidebar menu structure (Manage → Validate → Operate →
  * Reference); keep them in sync with the README when features change.
  * Features that are not reachable from the menu (ALM Detective, and the
- * unwired Job Monitor / Role Analyzer) are deliberately not documented here.
+ * unwired Job Monitor) are deliberately not documented here.
  */
 export function HelpPanel({ onClose }: { onClose: () => void }) {
   return (
@@ -1027,6 +1027,56 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 requires the deployment-manager role and runs as you — “All”
                 warns before enabling (log growth). The platform prunes
                 traces: this is an explorer, not an archive.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
+            <h3>🛡 Role Analyzer (Operate)</h3>
+            <ul>
+              <li>
+                Works on a <strong>snapshot of the security model</strong> of
+                the selected target environment (cached ~15 min, “Reload”
+                refreshes it). Roles are aggregated on their{' '}
+                <strong>root copy</strong> — Dataverse clones every role per
+                business unit, and the copies share one privilege set, so the
+                BU copies collapse into one row.
+              </li>
+              <li>
+                <strong>Matrix</strong> — role × table × privilege with depth
+                badges (U / BU / P / O). <strong>Diff</strong> puts two roles
+                side by side and shows only the deltas, exportable as Markdown
+                or CSV.
+              </li>
+              <li>
+                <strong>User rights</strong> lists one user's effective table
+                privileges with the <strong>path each grant came from</strong>{' '}
+                (“← role X ← team Y”); <strong>Reverse lookup</strong> answers
+                “who can &lt;action&gt; on &lt;table&gt;?”.{' '}
+                <strong>Hygiene</strong> flags unassigned roles and users
+                holding a lot of roles.
+              </li>
+              <li>
+                <strong>Core roles</strong> proposes consolidating privileges
+                that several custom roles share, and can{' '}
+                <strong>apply</strong> that: create the role, capture it in a
+                working solution, grant the merged privileges and optionally
+                strip the duplicates from the source roles. This is the only{' '}
+                <strong>writing</strong> part — host environment and deployment
+                managers only.
+              </li>
+              <li>
+                <strong>Team &amp; BU map</strong> draws the business-unit
+                hierarchy with the role-granting teams (pan / zoom, trace a
+                user's inherited path); <strong>Field security</strong> shows
+                which columns are secured and who may read, create, update or
+                see them unmasked.
+              </li>
+              <li>
+                Reads run through the connector, i.e. as the{' '}
+                <strong>service principal</strong> — the whole entry is gated.
+                Its code is <strong>loaded on demand</strong> when you open it,
+                so it costs nothing until then.
               </li>
             </ul>
           </section>

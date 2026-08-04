@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  lazy,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import './App.css'
 import { usePower } from './PowerProvider'
 import { useSolutions } from './hooks/useSolutions'
@@ -30,6 +37,7 @@ import { PluginComparerWorkspace } from './components/PluginComparerWorkspace'
 import { TraceExplorer } from './components/TraceExplorer'
 import { OdataBrowserWorkspace } from './components/OdataBrowserWorkspace'
 import { LinksWorkspace } from './components/LinksWorkspace'
+import { LazyWorkspace } from './components/LazyWorkspace'
 // ALM Detective is temporarily hidden from the UI — component + service
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
 import { HelpPanel } from './components/HelpPanel'
@@ -57,6 +65,25 @@ import {
   type WorkingSolution,
 } from './types/solution'
 
+/**
+ * The Role Analyzer is the ONE lazily loaded workspace — deliberately, as the
+ * live probe for whether the Code Apps player serves runtime-fetched chunks at
+ * all (Roadmap: "Echtes Lazy-Loading der Workspaces"). It is the right probe
+ * because it is the heaviest single feature (it drags the Team & BU map, the
+ * Field Security workspace and three service trios with it) and because a
+ * failure costs one menu entry instead of breaking a path anyone relies on.
+ *
+ * Everything else stays statically bundled: the player only serves files that
+ * `index.html` references (gotcha #10), and `manualChunks` in vite.config.ts
+ * gets `<link rel="modulepreload">` entries there, while this chunk does not.
+ * {@link LazyWorkspace} contains the failure so a 404 shows a message instead
+ * of blanking the app. If the probe succeeds, the other workspaces can follow;
+ * if it 404s, revert to a static import and close the roadmap item.
+ */
+const RoleAnalyzer = lazy(() =>
+  import('./components/RoleAnalyzer').then((m) => ({ default: m.RoleAnalyzer })),
+)
+
 type Tab =
   | 'workbench'
   | 'merge'
@@ -75,6 +102,7 @@ type Tab =
   | 'pluginCompare'
   | 'traces'
   | 'odata'
+  | 'roles'
   | 'links'
   | 'setup'
 
@@ -139,17 +167,23 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     // the workspace); the OData Browser is gated as a whole because it reads
     // as the connector service principal.
     //
-    // Job Monitor and Role Analyzer used to live here as hidden previews.
-    // They are now fully unwired — their components and services still exist
-    // on disk but nothing imports them, so they no longer ship in the bundle.
-    // Re-enabling means restoring the import, the Tab union member, the
-    // TAB_TITLES entry, the render block and a nav item.
+    // The Role Analyzer is back (it is the foundation of the security-concept
+    // features) but loads ON DEMAND — see the `RoleAnalyzer` lazy() above. It
+    // exposes the whole security model and is gated as a whole.
+    //
+    // The Job Monitor was unwired together with it on 2026-07-29 and stays
+    // that way: it is not part of the security concept, and leaving it out
+    // keeps the bundle win. Its component and service trio still exist on disk
+    // but nothing imports them, so rollup drops them. Re-enabling means
+    // restoring the import, the Tab union member, the TAB_TITLES entry, the
+    // render block and a nav item.
     label: 'Operate',
     items: [
       { key: 'traces', label: 'Plugin Traces', icon: '🧵', gated: false },
       // Reads any table of any configured environment through the connector,
       // i.e. as the service principal — gated, and the workspace says so.
       { key: 'odata', label: 'OData Browser', icon: '🗄️', gated: true },
+      { key: 'roles', label: 'Role Analyzer', icon: '🛡', gated: true },
     ],
   },
   {
@@ -184,6 +218,7 @@ const TAB_TITLES: Record<Tab, string> = {
   pluginCompare: 'Plugin Comparer',
   traces: 'Plugin Trace Explorer',
   odata: 'OData Browser',
+  roles: 'Security Role Analyzer',
   links: 'Environment Links',
   setup: 'Environment Setup',
 }
@@ -1525,6 +1560,22 @@ function App() {
           envKey={odataEnvKey}
           onEnvChange={setOdataEnvKey}
         />
+      )}
+
+      {/* The Role Analyzer remounts on env change (key) so its snapshot state
+          resets and refetches cleanly against the new target; the Trace
+          Explorer reloads in place to keep its filters. Its code arrives on
+          demand — LazyWorkspace covers the loading and the failure case. */}
+      {!error && tab === 'roles' && isDeploymentManager && (
+        <LazyWorkspace name="Role Analyzer">
+          <RoleAnalyzer
+            key={operateEnvKey}
+            envKey={operateEnvKey}
+            onEnvChange={setOperateEnvKey}
+            solutions={allSolutions}
+            canManage={isDeploymentManager}
+          />
+        </LazyWorkspace>
       )}
 
       {/* Reference links — independent of the solutions list. */}

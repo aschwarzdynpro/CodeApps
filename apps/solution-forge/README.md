@@ -393,15 +393,20 @@ nach Typ.
   Lookup-Fehler). Kompakter als die Einzelseiten — für die volle Tiefe den
   jeweiligen Feature-Tab öffnen. Der Detective orchestriert nur die
   vorhandenen Services (kein eigener Datenpfad).
-- **Operate-Gruppe** (Betriebssicht; im Menü **Plugin Traces** und
-  **OData Browser**). **Job Monitor und Role Analyzer sind aus der App
-  entfernt** — sie waren länger als Preview ausgeblendet und wurden deshalb
-  komplett abgeklemmt (kein Import, kein Render-Block), was den App-Chunk um
-  ~120 kB verkleinert hat. Ihr Code liegt unverändert im Repo
-  (`JobMonitor.tsx`, `RoleAnalyzer.tsx`, `TeamBuMap.tsx`,
-  `FieldSecurityWorkspace.tsx` + zugehörige Services/Utils, letztere weiterhin
-  Vitest-getestet); wie man sie wieder anschließt, steht als Kommentar an der
-  `Operate`-Gruppe in `App.tsx`. Die beiden Abschnitte unten sind daher
+- **Operate-Gruppe** (Betriebssicht; im Menü **Plugin Traces**,
+  **OData Browser** und **Role Analyzer**). Der **Role Analyzer ist seit dem
+  2026-08-04 wieder angeschlossen** — als Fundament der Security-Konzept-
+  Features — und wird als einziger Workspace **bei Bedarf nachgeladen**
+  (`React.lazy`, eigener Chunk ~62 kB / 18 kB gzip). Damit ist er zurück, ohne
+  den Erststart zu belasten; gleichzeitig ist er die Live-Probe, ob der
+  Code-Apps-Player zur Laufzeit geholte Chunks überhaupt ausliefert (siehe
+  Roadmap „Echtes Lazy-Loading"). Scheitert das Nachladen, zeigt
+  `LazyWorkspace` eine erklärende Meldung statt eines weißen Bildschirms.
+  **Der Job Monitor bleibt abgeklemmt** (kein Import, kein Render-Block) — er
+  gehört nicht zum Security-Konzept; sein Code liegt unverändert im Repo
+  (`JobMonitor.tsx` + `jobMonitorService`-Trio + `utils/heartbeat.ts`, weiter
+  Vitest-getestet), der Wiederanschluss steht als Kommentar an der
+  `Operate`-Gruppe in `App.tsx`. Der Job-Monitor-Abschnitt unten ist daher
   **Doku für den Wiederanschluss**, nicht für den aktuellen Funktionsumfang. **Zielumgebung wählbar:** oben sitzt ein **Target-Environment-
   Picker**, der aus dem konfigurierten `ENVIRONMENTS`-Set wählt (dev/uat/prod
   bzw. was der Installer nach `pro_environmentconfig` schreibt) — Default ist
@@ -482,7 +487,7 @@ nach Typ.
     (Heartbeat-Soll/Ist je Definition, pure function `evaluateHeartbeat`,
     Tabellen konfigurierbar via `config.ts → WATCHDOG_TABLES`) und
     **Trends** (Failed-Jobs/Tag 7/30 d, serverseitige Aggregate).
-  - **🛡 Role Analyzer** *(aus der App entfernt — Code im Repo)* — arbeitet auf einem ~15 min gecachten
+  - **🛡 Role Analyzer** *(gated; wird bei Bedarf nachgeladen)* — arbeitet auf einem ~15 min gecachten
     Snapshot des Security-Modells, Rollen aggregiert auf `parentrootroleid`
     (BU-Kopien kollabieren): **Matrix** (Rolle × Tabelle × Privileg mit
     Depth-Badges U/BU/P/O), **Diff** (zwei Rollen, nur Deltas, Export
