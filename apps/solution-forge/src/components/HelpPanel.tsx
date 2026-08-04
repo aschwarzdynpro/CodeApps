@@ -1095,6 +1095,19 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 baseline”, never as unchanged.
               </li>
               <li>
+                <strong>Document.</strong> The second sub-tab renders a frozen
+                baseline as a <strong>security concept document</strong> —
+                environments, and per role its privilege matrix plus which
+                environment deviates. Picking a second baseline puts a{' '}
+                <strong>“changes since”</strong> chapter in front of it: roles
+                added or removed, and every privilege that moved, with old and
+                new depth. Markdown or raw, copy or download. Nothing is
+                written — the document is reproducible from the snapshot at any
+                time. It also states what a baseline does <em>not</em> cover
+                (business units, teams, field security, audit settings), so an
+                absence is not misread as an all-clear.
+              </li>
+              <li>
                 <strong>Read-only by design.</strong> Editing a role directly
                 in UAT/PROD creates the unmanaged layer the Layer Inspector
                 then reports; a drifting role belongs in a solution and gets

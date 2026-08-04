@@ -1,0 +1,231 @@
+import { describe, expect, it } from 'vitest'
+import {
+  buildSecurityConcept,
+  diffBaselines,
+  diffRoleGrants,
+} from './securityConcept'
+import { decodeBaseline, encodeBaseline } from './securityBaseline'
+import type {
+  PrivilegeAction,
+  PrivilegeDepthMask,
+  RoleEntityMatrix,
+  SecurityModel,
+} from '../types/roles'
+
+type Spec = Record<string, Partial<Record<PrivilegeAction, PrivilegeDepthMask>>>
+
+function matrix(spec: Spec): RoleEntityMatrix {
+  const m: RoleEntityMatrix = new Map()
+  for (const [entity, actions] of Object.entries(spec)) {
+    const map = new Map<PrivilegeAction, PrivilegeDepthMask>()
+    for (const [action, depth] of Object.entries(actions))
+      map.set(action as PrivilegeAction, depth as PrivilegeDepthMask)
+    m.set(entity, map)
+  }
+  return m
+}
+
+function model(
+  roles: { id: string; name: string; managed?: boolean; spec?: Spec; misc?: string[] }[],
+): SecurityModel {
+  return {
+    roles: roles.map((r) => ({
+      rootRoleId: r.id,
+      name: r.name,
+      isManaged: !!r.managed,
+      copyCount: 1,
+    })),
+    entities: [],
+    matrices: new Map(roles.map((r) => [r.id, matrix(r.spec ?? {})])),
+    miscPrivileges: new Map(roles.map((r) => [r.id, r.misc ?? []])),
+    loadedAt: new Date(0),
+  }
+}
+
+const ENVS = ['dev', 'uat']
+const baseline = (models: Record<string, SecurityModel | null>) =>
+  encodeBaseline(models, ENVS, null)
+
+const META = {
+  name: 'Freigabe Q2',
+  scope: 'Custom roles',
+  envKeys: ENVS,
+  envLabel: (key: string) => key.toUpperCase(),
+  frozenOn: '2026-05-01T10:00:00.000Z',
+  frozenBy: 'Andy Schwarz',
+  generatedAt: new Date('2026-08-04T12:00:00.000Z'),
+}
+
+describe('diffRoleGrants', () => {
+  const grantsOf = (spec: Spec, misc: string[] = []) =>
+    decodeBaseline(
+      baseline({ dev: model([{ id: 'r', name: 'R', spec, misc }]), uat: null }),
+    )
+      .get('dev')!
+      .get('r')!
+
+  it('reports a gained grant with its depth', () => {
+    expect(
+      diffRoleGrants(grantsOf({}), grantsOf({ account: { Read: 2 } })),
+    ).toEqual(['+ account Read (Business Unit)'])
+  })
+
+  it('reports a lost grant', () => {
+    expect(
+      diffRoleGrants(grantsOf({ account: { Read: 2 } }), grantsOf({})),
+    ).toEqual(['− account Read (was Business Unit)'])
+  })
+
+  it('reports a depth change in both directions', () => {
+    expect(
+      diffRoleGrants(
+        grantsOf({ account: { Read: 2 } }),
+        grantsOf({ account: { Read: 8 } }),
+      ),
+    ).toEqual(['~ account Read: Business Unit → Organization'])
+  })
+
+  it('reports misc privileges after the table grants', () => {
+    const lines = diffRoleGrants(
+      grantsOf({ account: { Read: 2 } }, ['prvExportToExcel']),
+      grantsOf({ account: { Read: 8 } }, ['prvExportToExcel', 'prvBulkDelete']),
+    )
+    expect(lines).toEqual([
+      '~ account Read: Business Unit → Organization',
+      '+ prvBulkDelete',
+    ])
+  })
+
+  it('is empty for identical grants', () => {
+    const spec: Spec = { account: { Read: 2, Write: 1 } }
+    expect(diffRoleGrants(grantsOf(spec), grantsOf(spec))).toEqual([])
+  })
+})
+
+describe('diffBaselines', () => {
+  const before = baseline({
+    dev: model([
+      { id: 'a', name: 'Sales', spec: { account: { Read: 2 } } },
+      { id: 'b', name: 'Retired' },
+    ]),
+    uat: model([{ id: 'a', name: 'Sales', spec: { account: { Read: 2 } } }]),
+  })
+
+  it('separates added, removed and changed roles', () => {
+    const after = baseline({
+      dev: model([
+        { id: 'a', name: 'Sales', spec: { account: { Read: 8 } } },
+        { id: 'c', name: 'Brand new' },
+      ]),
+      uat: model([{ id: 'a', name: 'Sales', spec: { account: { Read: 2 } } }]),
+    })
+    const diff = diffBaselines(before, after)
+    expect(diff.added.map((r) => r.name)).toEqual(['Brand new'])
+    expect(diff.removed.map((r) => r.name)).toEqual(['Retired'])
+    expect(diff.changed.map((r) => r.name)).toEqual(['Sales'])
+  })
+
+  it('lists the change only for the environment it happened in', () => {
+    const after = baseline({
+      dev: model([
+        { id: 'a', name: 'Sales', spec: { account: { Read: 8 } } },
+        { id: 'b', name: 'Retired' },
+      ]),
+      uat: model([{ id: 'a', name: 'Sales', spec: { account: { Read: 2 } } }]),
+    })
+    const diff = diffBaselines(before, after)
+    const sales = diff.changed.find((r) => r.name === 'Sales')!
+    expect(sales.byEnv.map((e) => e.envKey)).toEqual(['dev'])
+    expect(sales.byEnv[0].lines).toEqual([
+      '~ account Read: Business Unit → Organization',
+    ])
+  })
+
+  it('finds nothing between a baseline and itself', () => {
+    const diff = diffBaselines(before, before)
+    expect(diff).toEqual({ added: [], removed: [], changed: [] })
+  })
+})
+
+describe('buildSecurityConcept', () => {
+  const payload = baseline({
+    dev: model([
+      {
+        id: 'a',
+        name: 'Vertrieb Süd',
+        spec: { account: { Read: 2, Write: 2 } },
+        misc: ['prvExportToExcel'],
+      },
+      { id: 'm', name: 'System Administrator', managed: true },
+    ]),
+    uat: model([
+      { id: 'a', name: 'Vertrieb Süd', spec: { account: { Read: 8, Write: 2 } } },
+      { id: 'm', name: 'System Administrator', managed: true },
+    ]),
+  })
+
+  it('renders a header, the environment table and the roles', () => {
+    const doc = buildSecurityConcept(payload, META)
+    expect(doc.markdown).toContain('# Security concept — Freigabe Q2')
+    expect(doc.markdown).toContain('by Andy Schwarz')
+    expect(doc.markdown).toContain('| DEV *(reference)* | 2 | 1 | 1 |')
+    expect(doc.markdown).toContain('### Vertrieb Süd')
+    expect(doc.markdown).toContain('`account`')
+  })
+
+  it('states what the baseline does not cover', () => {
+    // A reader must not read "absent" as "nothing to report".
+    const doc = buildSecurityConcept(payload, META)
+    expect(doc.markdown).toMatch(/not.*part of this baseline/i)
+    expect(doc.text).toMatch(/NOT part of this baseline/i)
+  })
+
+  it('flags an environment that deviates from the reference', () => {
+    // UAT differs twice: the Read depth AND the missing misc privilege —
+    // the counter spans both, like countPrivilegeDifferences elsewhere.
+    const doc = buildSecurityConcept(payload, META)
+    expect(doc.markdown).toContain('Differs from the reference: UAT (2 privileges)')
+  })
+
+  it('adds a changes chapter when a previous baseline is given', () => {
+    const previous = baseline({
+      dev: model([
+        { id: 'a', name: 'Vertrieb Süd', spec: { account: { Read: 1, Write: 2 } } },
+        { id: 'm', name: 'System Administrator', managed: true },
+      ]),
+      uat: model([
+        { id: 'a', name: 'Vertrieb Süd', spec: { account: { Read: 8, Write: 2 } } },
+        { id: 'm', name: 'System Administrator', managed: true },
+      ]),
+    })
+    const doc = buildSecurityConcept(payload, META, {
+      payload: previous,
+      name: 'Freigabe Q1',
+      frozenOn: '2026-02-01T10:00:00.000Z',
+    })
+    expect(doc.markdown).toContain('## Changes since “Freigabe Q1”')
+    expect(doc.markdown).toContain('~ account Read: User → Business Unit')
+    expect(doc.summary).toContain('1 changed')
+  })
+
+  it('says so explicitly when nothing changed', () => {
+    const doc = buildSecurityConcept(payload, META, {
+      payload,
+      name: 'Freigabe Q1',
+    })
+    expect(doc.markdown).toContain('No role or privilege changed.')
+    expect(doc.summary).toContain('0 changed')
+  })
+
+  it('summarises environments and roles', () => {
+    expect(buildSecurityConcept(payload, META).summary).toBe(
+      '2 environments · 2 roles',
+    )
+  })
+
+  it('is deterministic', () => {
+    const a = buildSecurityConcept(payload, META)
+    const b = buildSecurityConcept(payload, META)
+    expect(a.markdown).toBe(b.markdown)
+  })
+})

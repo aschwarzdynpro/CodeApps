@@ -274,10 +274,20 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       kürzen. Pure functions in `utils/securityBaseline.ts` (Vitest).
       *(Bewusst NICHT die Flow-Comparer-Semantik „ein Soll für alle Envs" —
       für Rollen ist Drift über die Zeit die Governance-Frage.)*
-- [ ] **Security-Konzept-Dokument**: aus dem Snapshot ein lesbares Dokument
-      generieren (BU-Baum, Rollen mit Privilegien-Matrix, Teams, FLS,
-      Audit-Konfig, App-User) — Zwilling des Release-Notes-Builders, plus
-      **Diff zweier Snapshots** als Audit-Nachweis.
+- [~] ⭐ **Security-Konzept-Dokument** (Role Comparer → Sub-Tab „Document"):
+      rendert einen eingefrorenen Baseline als lesbares Dokument — Umgebungs-
+      Übersicht, je Rolle die Privilegien-Matrix der Referenz-Umgebung,
+      Misc-Privilegien und ein Hinweis, welche Umgebung wie stark abweicht.
+      Wird ein **zweiter Baseline** gewählt, kommt das Kapitel **„Changes
+      since …"** davor: hinzugekommene/entfernte Rollen und je Umgebung die
+      geänderten Privilegien (`+`/`−`/`~` mit Tiefen-Angabe) — der
+      Audit-Nachweis. Markdown/Raw-Umschalter, Copy, Download. Reiner Builder
+      `utils/securityConcept.ts` (Vitest), nichts wird geschrieben — das
+      Dokument ist jederzeit aus dem Snapshot reproduzierbar.
+      **Offen:** der Baseline erfasst bislang nur Rollen + Privilegien; für
+      BU-Baum, Team-Zuweisungen, FLS und Audit-Konfig müsste das Payload
+      erweitert werden (Version-Feld ist da). Das Dokument sagt selbst, was es
+      NICHT abdeckt, damit „fehlt" nicht als „unauffällig" gelesen wird.
 - [ ] **Access Review / Rezertifizierung**: aus einem Snapshot eine Kampagne
       erzeugen (je User × Rolle eine Zeile, Reviewer bestätigt/entzieht),
       Abschluss als unveränderlicher Nachweis. Braucht eine zweite, leichtere

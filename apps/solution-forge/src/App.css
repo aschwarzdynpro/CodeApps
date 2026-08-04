@@ -8641,6 +8641,46 @@
 .rcmp-cell-drift {
   color: #8a5300;
 }
+
+/* Security concept document (Role Comparer › Document). */
+.scdoc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.scdoc-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.scdoc-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.scdoc-summary {
+  font-size: 12px;
+}
+.scdoc-body {
+  margin: 0;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  max-height: 68vh;
+  overflow: auto;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .rcmp-baseline {
   display: flex;
   align-items: center;

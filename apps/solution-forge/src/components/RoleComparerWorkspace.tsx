@@ -41,6 +41,7 @@ import {
 } from '../utils/securityBaseline'
 import { securityBaselineService } from '../services/securityBaselineService'
 import { RolePrivilegeDiffModal } from './RolePrivilegeDiffModal'
+import { SecurityConceptPanel } from './SecurityConceptPanel'
 import { SolutionSelect } from './SolutionSelect'
 import { useProvideHeaderInfo } from '../hooks/useHeaderInfo'
 
@@ -129,8 +130,36 @@ function RowBadges({ row }: { row: RoleComparerRow }) {
   )
 }
 
+type SubTab = 'compare' | 'document'
+
+function SubTabs({
+  subTab,
+  setSubTab,
+}: {
+  subTab: SubTab
+  setSubTab: (next: SubTab) => void
+}) {
+  return (
+    <nav className="subtabs">
+      <button
+        className={`subtab ${subTab === 'compare' ? 'subtab--active' : ''}`}
+        onClick={() => setSubTab('compare')}
+      >
+        Compare
+      </button>
+      <button
+        className={`subtab ${subTab === 'document' ? 'subtab--active' : ''}`}
+        onClick={() => setSubTab('document')}
+      >
+        Document
+      </button>
+    </nav>
+  )
+}
+
 export function RoleComparerWorkspace({ solutions, canManage }: Props) {
   useProvideHeaderInfo('About the Role Comparer', HEADER_INFO)
+  const [subTab, setSubTab] = useState<SubTab>('compare')
   const envKeys = useMemo(() => roleComparerService.listEnvKeys(), [])
   const [result, setResult] = useState<RoleComparerResult | null>(null)
   const [comparing, setComparing] = useState(false)
@@ -377,6 +406,15 @@ export function RoleComparerWorkspace({ solutions, canManage }: Props) {
 
   const activeBaseline = baselines?.find((b) => b.id === baselineId) ?? null
 
+  /**
+   * The Document tab needs the baseline list even when no comparison has run,
+   * so it is fetched on first switch rather than in a mount effect.
+   */
+  const openSubTab = (next: SubTab) => {
+    setSubTab(next)
+    if (next === 'document' && !baselines) void loadBaselines()
+  }
+
   const hiddenBySystemFilter =
     result && !includeSystem
       ? result.rows.length -
@@ -386,8 +424,17 @@ export function RoleComparerWorkspace({ solutions, canManage }: Props) {
         }).length
       : 0
 
+  if (subTab === 'document')
+    return (
+      <div className="rcmp">
+        <SubTabs subTab={subTab} setSubTab={openSubTab} />
+        <SecurityConceptPanel baselines={baselines ?? []} />
+      </div>
+    )
+
   return (
     <div className="rcmp">
+      <SubTabs subTab={subTab} setSubTab={openSubTab} />
       <div className="validate-toolbar rcmp-scope">
         <SolutionSelect
           options={releases}

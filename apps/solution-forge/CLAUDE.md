@@ -418,9 +418,22 @@ Scope** — nicht alle 286. Entscheidungen:
   Mock-Modellen und **verbiegt ihn bewusst** (eine Rolle geändert, eine
   entfernt, eine erfundene alte Rolle ergänzt), damit alle drei Verdikte
   offline vorführbar sind.
+**Sub-Tab „Document"** (`SecurityConceptPanel` + pure builder
+`utils/securityConcept.ts`, Vitest): rendert einen Baseline als
+Security-Konzept-Dokument (Markdown/Raw, Copy, Download) — Zwilling von
+`services/releaseNotes.ts`. Zweiter Baseline wählbar ⇒ Kapitel **„Changes
+since …"** VOR dem Inventar (`diffBaselines`/`diffRoleGrants`, Zeilen
+`+ entity Action (Tiefe)` / `− …` / `~ … : alt → neu`). **Nichts wird
+geschrieben** — das Dokument ist aus dem Snapshot reproduzierbar (Builder ist
+pure, `generatedAt` wird übergeben), ein eigener Record wäre Duplikat.
+Die Matrix wird nur für die **Referenz-Umgebung** (`envKeys[0]`, = Host)
+gerendert, abweichende Umgebungen erscheinen als Zähler — sonst verdreifacht
+sich das Dokument. ⚠ Der Baseline enthält **nur Rollen + Privilegien**; das
+Dokument sagt das explizit, damit „nicht enthalten" nicht als „unauffällig"
+gelesen wird.
 Dateien: `types/roleComparer.ts`, `utils/roleCompare.ts` (pure, Vitest),
-`utils/securityBaseline.ts` (pure, Vitest), `services/securityBaselineService`
-(+ `dataverse…`/`mock…`),
+`utils/securityBaseline.ts` + `utils/securityConcept.ts` (pure, Vitest),
+`services/securityBaselineService` (+ `dataverse…`/`mock…`),
 `services/roleComparerService.ts`, `components/RoleComparerWorkspace.tsx` +
 `RolePrivilegeDiffModal.tsx`. CSS `.rcmp-*` in `App.css`; die Zell-Sprache
 (`.cmp-cell*`) und die Depth-Badges (`.roles-depth*`) sind geteilt.

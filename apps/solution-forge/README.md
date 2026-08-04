@@ -218,6 +218,17 @@ nach Typ.
   unverändert. Der Payload liegt als kompaktes JSON in einer Spalte; passt er
   nicht, wird das Einfrieren **abgelehnt** (mit Hinweis, den Scope zu
   verkleinern) statt gekürzt zu speichern.
+  **Sub-Tab „Document":** rendert einen eingefrorenen Baseline als
+  **Security-Konzept-Dokument** — Umgebungs-Übersicht, je Rolle die
+  Privilegien-Matrix der Referenz-Umgebung (Host), Misc-Privilegien und ein
+  Hinweis, welche Umgebung wie stark abweicht. Wählt man einen **zweiten
+  Baseline**, steht davor das Kapitel **„Changes since …"**: hinzugekommene und
+  entfernte Rollen sowie je Umgebung jedes verschobene Privileg mit alter und
+  neuer Tiefe — der Audit-Nachweis. Markdown/Raw, Copy, Download. Es wird
+  **nichts gespeichert**; das Dokument ist jederzeit aus dem Snapshot
+  reproduzierbar. Das Dokument benennt selbst, was ein Baseline **nicht**
+  abdeckt (BU-Baum, Teams, Field Security, Audit-Konfig), damit „fehlt" nicht
+  als „unauffällig" gelesen wird.
   **Der Scope entscheidet, was geladen wird:** der Vergleich läuft zweiphasig
   — erst je Umgebung die billige Rollenliste, dann der teure Privilegien-Sweep
   **nur für die Rollen im Scope** (bei 286 Rollen, von denen wenige custom
