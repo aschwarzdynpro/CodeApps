@@ -329,11 +329,19 @@ Entscheidungen, die nicht verloren gehen dürfen:
   (Gotcha #7) — eine von Hand nachgebaute Rolle hätte nie gematcht. Name
   gleich + ID verschieden ist dann selbst der Befund (`identityDrift`,
   Badge „rebuilt").
-- **Drift wird auf den KANONISCHEN Strings entschieden, nie auf dem
-  Fingerprint.** `canonicalPrivileges` rendert das ganze Privilegien-Set
-  ordnungsunabhängig; `fingerprint` (FNV-1a, 8 hex) ist **nur Anzeige**. Eine
-  Hash-Kollision hieße „kein Drift" für eine Rolle, die abweicht — ein
-  False-Green, und genau das verbietet die Linie aus Gotcha #13.
+- **Drift wird auf den KANONISCHEN Strings entschieden, nie auf einem Hash.**
+  `canonicalPrivileges` rendert das ganze Privilegien-Set ordnungsunabhängig
+  und wird exakt verglichen. Eine Hash-Kollision hieße „kein Drift" für eine
+  Rolle, die abweicht — ein False-Green, und genau das verbietet die Linie aus
+  Gotcha #13. (Ein kurzer Anzeige-Fingerprint stand kurzzeitig in der Zelle,
+  ist aber wieder raus: er sah aus wie eine GUID und half beim Lesen nicht.)
+- **Die Zelle zeigt stattdessen `driftCount`** = wie viele Privilegien diese
+  Umgebung anders vergibt als die **Baseline**. Baseline = der Host, wenn er
+  die Rolle hat, sonst die erste Umgebung, die sie hat; die Baseline-Zelle
+  selbst bekommt `null`. So leuchtet die Abweichung dort auf, wo sie sitzt,
+  statt in allen Spalten gleichzeitig. Gezählt wird über
+  `countPrivilegeDifferences` (Tiefe abweichend, Grant nur auf einer Seite,
+  Misc-Privileg nur auf einer Seite — symmetrisch).
 - **`null` (Umgebung unlesbar) ≠ `present:false` (gelesen, Rolle fehlt).**
   Unlesbare Umgebungen zeigen „?" und fließen in **keinen** Befund ein.
 - **Drift ist symmetrisch definiert** („die Umgebungen, die die Rolle haben,

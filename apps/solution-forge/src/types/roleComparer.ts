@@ -35,10 +35,17 @@ export interface RoleEnvState {
   /** Number of non-table privileges (prvExportToExcel, …). */
   miscCount: number
   /**
-   * Stable hash over the whole privilege set (table grants incl. depth, plus
-   * the misc privileges). Equal fingerprint = identical rights.
+   * How many privileges this environment grants DIFFERENTLY from the baseline
+   * — table grants whose depth deviates (including granted-vs-not) plus misc
+   * privileges present on only one side.
+   *
+   * `null` for the baseline itself and whenever there is nothing to compare
+   * against (the role exists in only one environment). The baseline is the
+   * host when it has the role, otherwise the first environment that does — so
+   * one column reads as the reference and the deviation sits where it belongs
+   * instead of lighting up every column.
    */
-  fingerprint: string
+  driftCount: number | null
 }
 
 /** One role across the environments. */

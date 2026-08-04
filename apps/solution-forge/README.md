@@ -182,9 +182,11 @@ nach Typ.
   Rollen-Komponenten (componenttype 20) übrig. Eine Rolle, die in einer
   Umgebung managed und in einer anderen unmanaged ist, bleibt in jedem Fall
   sichtbar — das ist ein Befund, kein Rauschen. Darunter die Rollen über
-  **alle konfigurierten Umgebungen** als Matrix, je Zelle Privilegienzahl + **Fingerprint** des
-  Privilegien-Sets (gleicher Fingerprint = identische Rechte) sowie
-  managed/unmanaged und BU-Kopien. **Match über den Namen**, nicht über die
+  **alle konfigurierten Umgebungen** als Matrix; je Zelle die Privilegienzahl,
+  managed/unmanaged und — wo vorhanden — **wie viele Privilegien diese
+  Umgebung anders vergibt** als die Baseline (Baseline = Host, sonst die erste
+  Umgebung, die die Rolle hat; die Baseline-Zelle selbst zeigt keine Zahl).
+  **Match über den Namen**, nicht über die
   ID — eine Rollen-GUID überlebt nur sauberen Solution-Transport (Gotcha #7);
   Name gleich + ID verschieden ⇒ Badge **„rebuilt"** (von Hand nachgebaut
   statt transportiert; sieht heute richtig aus, driftet morgen still und wird

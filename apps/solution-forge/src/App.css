@@ -8554,6 +8554,9 @@
   font-size: 12px;
   margin: 10px 0 0;
 }
+.rcmp-cell-drift {
+  color: #8a5300;
+}
 .rcmp-toolbar {
   display: flex;
   align-items: center;

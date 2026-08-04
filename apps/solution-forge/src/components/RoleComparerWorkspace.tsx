@@ -403,11 +403,16 @@ export function RoleComparerWorkspace({ solutions }: Props) {
                           {cell.miscCount > 0 ? ` + ${cell.miscCount} misc` : ''}
                         </span>
                         <span className="cmp-cell-info">
-                          <code title="Fingerprint of the privilege set — equal means identical rights">
-                            {cell.fingerprint}
-                          </code>
-                          {cell.isManaged ? ' · managed' : ' · unmanaged'}
-                          {cell.copyCount > 1 ? ` · ${cell.copyCount} BU copies` : ''}
+                          {cell.isManaged ? 'managed' : 'unmanaged'}
+                          {cell.driftCount ? (
+                            <strong
+                              className="rcmp-cell-drift"
+                              title="Privileges granted differently than in the baseline environment"
+                            >
+                              {' · '}
+                              {cell.driftCount} differing
+                            </strong>
+                          ) : null}
                         </span>
                       </td>
                     )

@@ -1037,9 +1037,13 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 Answers “did the security roles arrive intact?” — roles across{' '}
                 <strong>all configured environments</strong> at once, as a
-                matrix. A cell shows how many privileges the role grants there
-                plus a <strong>fingerprint</strong> of its privilege set: equal
-                fingerprints mean identical rights.
+                matrix. A cell shows how many privileges the role grants there,
+                whether it is managed, and{' '}
+                <strong>how many privileges it grants differently</strong> from
+                the baseline. The baseline is the host environment (or, for a
+                role the host does not have, the first environment that does)
+                and shows no number itself — so a deviation stands out in the
+                column it belongs to instead of lighting up the whole row.
               </li>
               <li>
                 <strong>Scope first.</strong> Out of the box only{' '}

@@ -4,7 +4,7 @@ import {
   buildPrivilegeDiff,
   buildRoleComparison,
   canonicalPrivileges,
-  fingerprint,
+  countPrivilegeDifferences,
   filterRoleRows,
   isCustomRow,
   roleComparerCounts,
@@ -107,11 +107,41 @@ describe('canonicalPrivileges', () => {
   })
 })
 
-describe('fingerprint', () => {
-  it('is deterministic and 8 hex chars', () => {
-    const f = fingerprint('account:Read=2|')
-    expect(f).toBe(fingerprint('account:Read=2|'))
-    expect(f).toMatch(/^[0-9a-f]{8}$/)
+describe('countPrivilegeDifferences', () => {
+  it('counts a differing depth once', () => {
+    expect(
+      countPrivilegeDifferences(
+        { matrix: matrix({ account: { Read: 2 } }), misc: [] },
+        { matrix: matrix({ account: { Read: 8 } }), misc: [] },
+      ),
+    ).toBe(1)
+  })
+
+  it('counts a grant that only one side has', () => {
+    expect(
+      countPrivilegeDifferences(
+        { matrix: matrix({ account: { Read: 2, Write: 2 } }), misc: [] },
+        { matrix: matrix({ account: { Read: 2 } }), misc: [] },
+      ),
+    ).toBe(1)
+  })
+
+  it('counts misc privileges present on only one side', () => {
+    expect(
+      countPrivilegeDifferences(
+        { matrix: matrix({}), misc: ['prvBulkDelete', 'prvExportToExcel'] },
+        { matrix: matrix({}), misc: ['prvExportToExcel'] },
+      ),
+    ).toBe(1)
+  })
+
+  it('is zero for identical rights and symmetric', () => {
+    const a = { matrix: matrix({ account: { Read: 2 } }), misc: ['x'] }
+    const b = { matrix: matrix({ contact: { Write: 8 } }), misc: [] }
+    expect(countPrivilegeDifferences(a, a)).toBe(0)
+    expect(countPrivilegeDifferences(a, b)).toBe(
+      countPrivilegeDifferences(b, a),
+    )
   })
 })
 
@@ -135,6 +165,46 @@ describe('buildRoleComparison', () => {
       prod: model([{ id: 'r1', name: 'Sales', spec: { account: { Read: 2 } } }]),
     })
     expect(result.rows[0].drift).toBe(true)
+  })
+
+  it('counts the deviation per environment against the host as baseline', () => {
+    const result = compare({
+      dev: model([
+        { id: 'r1', name: 'Sales', spec: { account: { Read: 2, Write: 2 } } },
+      ]),
+      uat: model([
+        { id: 'r1', name: 'Sales', spec: { account: { Read: 8 } }, misc: ['x'] },
+      ]),
+      prod: model([
+        { id: 'r1', name: 'Sales', spec: { account: { Read: 2, Write: 2 } } },
+      ]),
+    })
+    const row = result.rows[0]
+    // The baseline itself has nothing to deviate from.
+    expect(row.byEnv.dev?.driftCount).toBeNull()
+    // Read depth differs, Write missing, misc 'x' extra.
+    expect(row.byEnv.uat?.driftCount).toBe(3)
+    expect(row.byEnv.prod?.driftCount).toBe(0)
+  })
+
+  it('falls back to the first environment that has the role as baseline', () => {
+    const result = compare({
+      dev: model([]),
+      uat: model([{ id: 'r1', name: 'Grown', spec: { account: { Read: 2 } } }]),
+      prod: model([{ id: 'r1', name: 'Grown', spec: { account: { Read: 8 } } }]),
+    })
+    const row = result.rows[0]
+    expect(row.byEnv.uat?.driftCount).toBeNull()
+    expect(row.byEnv.prod?.driftCount).toBe(1)
+  })
+
+  it('leaves the count null when only one environment has the role', () => {
+    const result = compare({
+      dev: model([{ id: 'r1', name: 'Lonely', spec: { account: { Read: 2 } } }]),
+      uat: model([]),
+      prod: model([]),
+    })
+    expect(result.rows[0].byEnv.dev?.driftCount).toBeNull()
   })
 
   it('separates "missing in target" from "only in target"', () => {

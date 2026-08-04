@@ -56,19 +56,40 @@ export function canonicalPrivileges(
   return `${parts.join(';')}|${miscPart}`
 }
 
+/** A role's rights in one environment, as needed for counting differences. */
+interface Grants {
+  matrix?: RoleEntityMatrix
+  misc: string[]
+}
+
 /**
- * Short, stable marker derived from the canonical string — FNV-1a, 8 hex
- * chars. DISPLAY ONLY (it makes "these two cells are the same" legible at a
- * glance and is handy in bug reports). Never compare fingerprints to decide
- * drift; compare the canonical strings.
+ * How many privileges two environments grant differently: table grants whose
+ * depth deviates (a grant missing on one side counts, its depth being 0) plus
+ * misc privileges present on only one side. Symmetric.
  */
-export function fingerprint(canonical: string): string {
-  let hash = 0x811c9dc5
-  for (let i = 0; i < canonical.length; i++) {
-    hash ^= canonical.charCodeAt(i)
-    hash = Math.imul(hash, 0x01000193) >>> 0
+export function countPrivilegeDifferences(a: Grants, b: Grants): number {
+  const pairs = new Set<string>()
+  for (const grants of [a, b]) {
+    if (!grants.matrix) continue
+    for (const [entity, actions] of grants.matrix) {
+      for (const [action, depth] of actions) {
+        if (depth) pairs.add(`${entity} ${action}`)
+      }
+    }
   }
-  return hash.toString(16).padStart(8, '0')
+  let differences = 0
+  for (const pair of pairs) {
+    const [entity, action] = pair.split(' ') as [string, PrivilegeAction]
+    const left = a.matrix?.get(entity)?.get(action) ?? 0
+    const right = b.matrix?.get(entity)?.get(action) ?? 0
+    if (left !== right) differences++
+  }
+  const miscA = new Set(a.misc)
+  const miscB = new Set(b.misc)
+  for (const name of new Set([...miscA, ...miscB])) {
+    if (miscA.has(name) !== miscB.has(name)) differences++
+  }
+  return differences
 }
 
 /** Number of entity × action grants in a matrix. */
@@ -110,7 +131,8 @@ function indexModel(model: SecurityModel): EnvIndex {
         copyCount: role.copyCount,
         privilegeCount: countGrants(matrix),
         miscCount: misc.length,
-        fingerprint: fingerprint(canonical),
+        // Filled in once the row's baseline environment is known.
+        driftCount: null,
       },
     })
   }
@@ -126,7 +148,7 @@ function absentState(): RoleEnvState {
     copyCount: 0,
     privilegeCount: 0,
     miscCount: 0,
-    fingerprint: '',
+    driftCount: null,
   }
 }
 
@@ -175,6 +197,7 @@ export function buildRoleComparison(
     let missingSomewhere = false
     let extraSomewhere = false
 
+    const grantsByEnv = new Map<string, Grants>()
     for (const key of envKeys) {
       const index = indexes.get(key)
       if (!index) {
@@ -186,10 +209,26 @@ export function buildRoleComparison(
         byEnv[key] = absentState()
         continue
       }
-      byEnv[key] = entry.state
+      // Copied so the per-row baseline never leaks into another row's state.
+      byEnv[key] = { ...entry.state }
+      grantsByEnv.set(key, { matrix: entry.matrix, misc: entry.misc })
       canonicals.push(entry.canonical)
       rootIds.push(entry.state.rootRoleId)
       managedFlags.push(entry.state.isManaged)
+    }
+
+    // Baseline = the host when it has the role, else the first environment
+    // that does; every other environment reports how far it deviates from it.
+    const baselineKey = grantsByEnv.has(hostKey)
+      ? hostKey
+      : (envKeys.find((key) => grantsByEnv.has(key)) ?? null)
+    const baseline = baselineKey ? grantsByEnv.get(baselineKey) : undefined
+    if (baseline) {
+      for (const [key, grants] of grantsByEnv) {
+        const cell = byEnv[key]
+        if (!cell || key === baselineKey) continue
+        cell.driftCount = countPrivilegeDifferences(grants, baseline)
+      }
     }
 
     const inHost = byEnv[hostKey]?.present === true

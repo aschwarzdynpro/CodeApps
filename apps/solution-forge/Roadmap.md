@@ -242,8 +242,9 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       Schreib-Mechanik des Core Role Extractors.
 - [x] ⭐ **Role Comparer cross-env** (Validate-Gruppe, Menüpunkt „Role
       Comparer", gated): dieselbe Sicherheitsrolle über alle konfigurierten
-      Umgebungen als Matrix — je Zelle Privilegienzahl + **Fingerprint** des
-      Privilegien-Sets (gleicher Fingerprint = identische Rechte).
+      Umgebungen als Matrix — je Zelle Privilegienzahl, managed/unmanaged und
+      **wie viele Privilegien diese Umgebung anders vergibt** als die Baseline
+      (Host, sonst die erste Umgebung mit der Rolle).
       **Scope-Vorauswahl** wie im Process Comparer: Default nur
       **Custom-Rollen** (managed OOB-Rollen ausgeblendet, Checkbox holt sie
       zurück), optional auf die Rollen-Komponenten (Typ 20) einer gewählten
