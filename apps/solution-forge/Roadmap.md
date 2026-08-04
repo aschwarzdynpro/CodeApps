@@ -243,7 +243,11 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
 - [x] ⭐ **Role Comparer cross-env** (Validate-Gruppe, Menüpunkt „Role
       Comparer", gated): dieselbe Sicherheitsrolle über alle konfigurierten
       Umgebungen als Matrix — je Zelle Privilegienzahl + **Fingerprint** des
-      Privilegien-Sets (gleicher Fingerprint = identische Rechte). Match über
+      Privilegien-Sets (gleicher Fingerprint = identische Rechte).
+      **Scope-Vorauswahl** wie im Process Comparer: Default nur
+      **Custom-Rollen** (managed OOB-Rollen ausgeblendet, Checkbox holt sie
+      zurück), optional auf die Rollen-Komponenten (Typ 20) einer gewählten
+      Release-Solution eingeschränkt. Match über
       den **Namen** (die Rollen-GUID überlebt nur sauberen Solution-Transport,
       Gotcha #7); Name gleich + ID verschieden = **„rebuilt"**, also von Hand
       nachgebaut statt transportiert. Befunde als Filter-Chips: Privilege

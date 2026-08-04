@@ -321,6 +321,70 @@ export function buildPrivilegeDiff(
   return { privileges, misc }
 }
 
+/**
+ * Whether a row is a CUSTOM role — unmanaged in at least one environment.
+ *
+ * "At least one" rather than "in the host" on purpose: a role that is managed
+ * in the host but unmanaged in PROD is precisely the kind of finding worth
+ * keeping, and a role that only exists in a target would otherwise be dropped
+ * before it could be judged.
+ */
+export function isCustomRow(row: RoleComparerRow): boolean {
+  return Object.values(row.byEnv).some(
+    (cell) => cell?.present && !cell.isManaged,
+  )
+}
+
+/** What the scope selector restricts the comparison to. */
+export interface RoleScope {
+  /** Hide roles that are managed everywhere (the ~250 out-of-the-box ones). */
+  customOnly: boolean
+  /**
+   * Match keys of the roles contained in the selected solution, or null when
+   * no solution is selected. Solution membership is a HOST concept — a role
+   * that exists only in a target cannot be a member and is filtered out.
+   */
+  solutionRoleKeys: Set<string> | null
+}
+
+/** Narrow the rows to the selected scope, before the filter chips apply. */
+export function applyRoleScope(
+  rows: RoleComparerRow[],
+  scope: RoleScope,
+): RoleComparerRow[] {
+  return rows.filter((row) => {
+    if (scope.solutionRoleKeys && !scope.solutionRoleKeys.has(row.key))
+      return false
+    if (scope.customOnly && !isCustomRow(row)) return false
+    return true
+  })
+}
+
+/**
+ * Resolve solution component object ids (component type 20 rows) to role match
+ * keys, using the host environment's model. Ids that no role in the model
+ * carries are reported separately rather than silently dropped: they usually
+ * mean the component points at a business-unit COPY of the role instead of its
+ * root, and swallowing them would quietly shrink the scope.
+ */
+export function solutionRoleKeysFrom(
+  objectIds: string[],
+  hostModel: SecurityModel | null,
+): { keys: Set<string>; unresolved: number } {
+  const keys = new Set<string>()
+  if (!hostModel) return { keys, unresolved: objectIds.length }
+  const byRootId = new Map(
+    hostModel.roles.map((role) => [role.rootRoleId.toLowerCase(), role.name]),
+  )
+  let unresolved = 0
+  for (const id of objectIds) {
+    const name = byRootId.get(id.toLowerCase())
+    if (name) keys.add(roleMatchKey(name))
+    else unresolved++
+  }
+  return { keys, unresolved }
+}
+
 /** Apply the workspace's filter chips and search box. */
 export function filterRoleRows(
   rows: RoleComparerRow[],

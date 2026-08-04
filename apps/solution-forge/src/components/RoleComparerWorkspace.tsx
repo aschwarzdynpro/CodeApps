@@ -23,12 +23,21 @@ import type {
   RoleComparerRow,
   RolePrivilegeDiff,
 } from '../types/roleComparer'
+import type { WorkingSolution } from '../types/solution'
 import {
+  applyRoleScope,
   buildPrivilegeDiff,
   filterRoleRows,
   roleComparerCounts,
+  solutionRoleKeysFrom,
 } from '../utils/roleCompare'
 import { RolePrivilegeDiffModal } from './RolePrivilegeDiffModal'
+import { SolutionSelect } from './SolutionSelect'
+
+interface Props {
+  /** Release solutions offered as the scope, as in the Process Comparer. */
+  solutions: WorkingSolution[]
+}
 
 function envLabel(envKey: string): string {
   return envByKey(envKey)?.label ?? envKey
@@ -75,7 +84,7 @@ function RowBadges({ row }: { row: RoleComparerRow }) {
   )
 }
 
-export function RoleComparerWorkspace() {
+export function RoleComparerWorkspace({ solutions }: Props) {
   const envKeys = useMemo(() => roleComparerService.listEnvKeys(), [])
   const [result, setResult] = useState<RoleComparerResult | null>(null)
   const [comparing, setComparing] = useState(false)
@@ -87,6 +96,34 @@ export function RoleComparerWorkspace() {
     row: RoleComparerRow
     diff: RolePrivilegeDiff
   } | null>(null)
+
+  // --- Scope: custom-only (default) and an optional release solution --------
+  const releases = useMemo(
+    () =>
+      solutions.filter(
+        (s) => s.kind === 'deployment' && !!s.recordId && !s.solutionMissing,
+      ),
+    [solutions],
+  )
+  const [scopeSolutionId, setScopeSolutionId] = useState('')
+  const [includeSystem, setIncludeSystem] = useState(false)
+  const [solutionRoleIds, setSolutionRoleIds] = useState<string[] | null>(null)
+  const [scopeError, setScopeError] = useState<string | null>(null)
+
+  const pickSolution = useCallback(async (id: string) => {
+    setScopeSolutionId(id)
+    setScopeError(null)
+    if (!id) {
+      setSolutionRoleIds(null)
+      return
+    }
+    try {
+      setSolutionRoleIds(await roleComparerService.listSolutionRoleIds(id))
+    } catch (err) {
+      setSolutionRoleIds([])
+      setScopeError(err instanceof Error ? err.message : String(err))
+    }
+  }, [])
 
   const runCompare = useCallback(
     async (force: boolean) => {
@@ -110,13 +147,34 @@ export function RoleComparerWorkspace() {
     [envKeys],
   )
 
-  const counts = useMemo(
-    () => (result ? roleComparerCounts(result.rows) : null),
-    [result],
+  /**
+   * Solution membership is expressed as role ids, so it can only be turned
+   * into match keys once the host model is loaded — hence the dependency on
+   * `result` rather than on the picker alone.
+   */
+  const solutionScope = useMemo(() => {
+    if (!solutionRoleIds || !result) return null
+    return solutionRoleKeysFrom(
+      solutionRoleIds,
+      roleComparerService.lastModels()[result.hostKey] ?? null,
+    )
+  }, [solutionRoleIds, result])
+
+  // Scope narrows first; the chips and their counts describe what is scoped in.
+  const scoped = useMemo(
+    () =>
+      result
+        ? applyRoleScope(result.rows, {
+            customOnly: !includeSystem,
+            solutionRoleKeys: solutionScope?.keys ?? null,
+          })
+        : [],
+    [result, includeSystem, solutionScope],
   )
+  const counts = useMemo(() => roleComparerCounts(scoped), [scoped])
   const shown = useMemo(
-    () => (result ? filterRoleRows(result.rows, filter, search) : []),
-    [result, filter, search],
+    () => filterRoleRows(scoped, filter, search),
+    [scoped, filter, search],
   )
 
   const openRow = useCallback(
@@ -133,23 +191,60 @@ export function RoleComparerWorkspace() {
     [envKeys],
   )
 
-  const filters: { key: RoleComparerFilter; label: string; count?: number }[] = [
-    { key: 'all', label: 'All roles', count: counts?.all },
-    { key: 'drift', label: 'Privilege drift', count: counts?.drift },
-    { key: 'missing', label: 'Missing / target-only', count: counts?.missing },
-    { key: 'identity', label: 'Rebuilt', count: counts?.identity },
-    { key: 'managed', label: 'Managed state', count: counts?.managed },
+  const filters: { key: RoleComparerFilter; label: string; count: number }[] = [
+    { key: 'all', label: 'In scope', count: counts.all },
+    { key: 'drift', label: 'Privilege drift', count: counts.drift },
+    { key: 'missing', label: 'Missing / target-only', count: counts.missing },
+    { key: 'identity', label: 'Rebuilt', count: counts.identity },
+    { key: 'managed', label: 'Managed state', count: counts.managed },
   ]
+
+  const hiddenBySystemFilter =
+    result && !includeSystem
+      ? result.rows.length -
+        applyRoleScope(result.rows, {
+          customOnly: true,
+          solutionRoleKeys: null,
+        }).length
+      : 0
 
   return (
     <div className="rcmp">
       <div className="state rcmp-intro">
-        Compares every security role across the configured environments,
-        matched <strong>by name</strong> — a role id only survives clean
-        solution transport, so a role that was rebuilt by hand carries a
-        different one (reported as <em>rebuilt</em>). Reads run as the
+        Compares security roles across the configured environments, matched{' '}
+        <strong>by name</strong> — a role id only survives clean solution
+        transport, so a role that was rebuilt by hand carries a different one
+        (reported as <em>rebuilt</em>). By default only{' '}
+        <strong>custom roles</strong> are shown; pick a release solution to
+        narrow it to the roles that solution contains. Reads run as the
         connector service principal. <strong>Read-only:</strong> a drifting
         role is fixed by transporting it, not by editing the target.
+      </div>
+
+      <div className="validate-toolbar rcmp-scope">
+        <SolutionSelect
+          options={releases}
+          value={scopeSolutionId}
+          onChange={(id) => void pickSolution(id)}
+          placeholder="All custom roles (no solution scope)"
+        />
+        {scopeSolutionId && (
+          <button
+            type="button"
+            className="btn btn--small"
+            onClick={() => void pickSolution('')}
+          >
+            Clear scope
+          </button>
+        )}
+        <label className="rcmp-scope-toggle">
+          <input
+            type="checkbox"
+            checked={includeSystem}
+            onChange={(e) => setIncludeSystem(e.target.checked)}
+          />
+          Include system (managed) roles
+        </label>
       </div>
 
       <div className="compare-controls rcmp-toolbar">
@@ -182,6 +277,32 @@ export function RoleComparerWorkspace() {
 
       {comparing && <div className="state">{progress || 'Comparing…'}</div>}
       {error && <div className="state state--error">{error}</div>}
+      {scopeError && (
+        <div className="state state--error">
+          Could not read the solution’s components: {scopeError}
+        </div>
+      )}
+
+      {result && (
+        <div className="muted rcmp-scope-note">
+          {solutionScope
+            ? `Scoped to ${solutionScope.keys.size} role(s) in the selected solution.`
+            : 'Showing all roles that are unmanaged in at least one environment.'}
+          {hiddenBySystemFilter > 0 &&
+            ` ${hiddenBySystemFilter} managed (system) role(s) hidden.`}
+          {solutionScope && solutionScope.unresolved > 0 && (
+            <>
+              {' '}
+              <strong>
+                {solutionScope.unresolved} solution component(s) could not be
+                matched to a role
+              </strong>{' '}
+              — they usually point at a business-unit copy rather than the root
+              role, so those roles are missing from this scope.
+            </>
+          )}
+        </div>
+      )}
 
       {result && Object.keys(result.envErrors).length > 0 && (
         <div className="state state--error">

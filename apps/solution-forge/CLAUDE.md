@@ -309,6 +309,20 @@ und nutzt dessen ~15-min-Cache; alle Reads laufen damit als Konnektor-SP.
 Umgebungen werden **sequenziell** geladen (aussagekräftiger Fortschritt, keine
 drei parallelen Sweeps auf einem Konnektor); eine fehlschlagende Umgebung
 landet in `envErrors` und macht den Lauf NICHT kaputt.
+**Scope-Vorauswahl** (analog Process Comparer): oben `SolutionSelect` über die
+Release-Solutions + Checkbox „Include system (managed) roles". Default =
+**nur Custom-Rollen** (`isCustomRow` = in ≥ 1 Umgebung unmanaged — bewusst
+„mindestens eine", damit managed-in-DEV/unmanaged-in-PROD als Befund erhalten
+bleibt statt weggefiltert zu werden); die ~250 OOB-Rollen sind sonst Rauschen.
+Mit gewählter Solution zusätzlich auf deren **Rollen-Komponenten
+(componenttype 20)** eingeschränkt: `roleComparerService.listSolutionRoleIds`
+nutzt `solutionService.listMergeComponents` (rohe `solutioncomponent`-
+Mitgliedschaft, **kein neuer Datenpfad**) und filtert auf Typ 20.
+`solutionRoleKeysFrom` mappt die objectIds über das **Host-Modell** auf
+Rollen-Namen und meldet **nicht auflösbare ids getrennt** (zeigen meist auf
+eine BU-Kopie statt auf die Root-Rolle) — stilles Schlucken würde den Scope
+unbemerkt verkleinern. Reihenfolge: **Scope zuerst, dann Filter-Chips**, damit
+die Chip-Counts beschreiben, was tatsächlich im Scope liegt.
 Entscheidungen, die nicht verloren gehen dürfen:
 - **Match über den Rollen-NAMEN** (normalisiert: trim/lowercase/Whitespace),
   nicht über `rootRoleId`. Die GUID überlebt nur sauberen Solution-Transport

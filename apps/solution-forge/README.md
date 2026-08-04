@@ -175,8 +175,14 @@ nach Typ.
   der Release-Solution, je mit **Assembly-Version** pro Umgebung;
   Enable/Disable je Zelle (Confirm, PROD extra-stark).
 - **Role Comparer** (Validate, gated, lazy geladen) — „sind die
-  Sicherheitsrollen heil angekommen?": jede Rolle über **alle konfigurierten
-  Umgebungen** als Matrix, je Zelle Privilegienzahl + **Fingerprint** des
+  Sicherheitsrollen heil angekommen?". **Scope zuerst:** standardmäßig nur
+  **Custom-Rollen** (die ~250 managed OOB-Rollen sind ausgeblendet, Checkbox
+  holt sie zurück); zusätzlich lässt sich oben eine **Release-Solution**
+  wählen (`SolutionSelect` wie im Process Comparer), dann bleiben nur deren
+  Rollen-Komponenten (componenttype 20) übrig. Eine Rolle, die in einer
+  Umgebung managed und in einer anderen unmanaged ist, bleibt in jedem Fall
+  sichtbar — das ist ein Befund, kein Rauschen. Darunter die Rollen über
+  **alle konfigurierten Umgebungen** als Matrix, je Zelle Privilegienzahl + **Fingerprint** des
   Privilegien-Sets (gleicher Fingerprint = identische Rechte) sowie
   managed/unmanaged und BU-Kopien. **Match über den Namen**, nicht über die
   ID — eine Rollen-GUID überlebt nur sauberen Solution-Transport (Gotcha #7);

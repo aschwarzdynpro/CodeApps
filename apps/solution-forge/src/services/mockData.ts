@@ -134,11 +134,15 @@ export const mockSolutions: WorkingSolution[] = [
 
 const components = (
   solutionKey: string,
-  rows: Array<[typeCode: number, typeName: string, displayName: string]>,
+  rows: Array<
+    [typeCode: number, typeName: string, displayName: string, objectId?: string]
+  >,
 ): SolutionComponentInfo[] =>
-  rows.map(([typeCode, typeName, displayName], i) => ({
+  rows.map(([typeCode, typeName, displayName, objectId], i) => ({
     id: `c-${solutionKey}-${i + 1}`,
-    objectId: `0bjec7id-${solutionKey}-0000-4000-${String(i + 1).padStart(12, '0')}`,
+    objectId:
+      objectId ??
+      `0bjec7id-${solutionKey}-0000-4000-${String(i + 1).padStart(12, '0')}`,
     typeCode,
     typeName,
     displayName,
@@ -179,6 +183,12 @@ export const mockComponentsBySolutionId: Record<string, SolutionComponentInfo[]>
     [1, 'Table', 'dyn_onboardingcase'],
     [60, 'Form', 'Onboarding Case – Main'],
     [29, 'Process', 'Onboarding approval flow'],
+    // Security roles (component type 20). The objectIds deliberately match the
+    // root role ids in mockRoleAnalyzerService so the Role Comparer's
+    // "roles in this solution" scope is demonstrable offline. Appended at the
+    // END — the merge fixup below addresses d12[0..2] positionally.
+    [20, 'Security Role', 'Vertrieb Süd', 'role-sales-sued'],
+    [20, 'Security Role', 'Service Desk', 'role-service'],
   ]),
   // feature_4655 — partner portal
   'a0000000-0000-4000-9000-000000000006': components('f4655', [

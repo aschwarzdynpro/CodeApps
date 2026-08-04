@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyRoleScope,
   buildPrivilegeDiff,
   buildRoleComparison,
   canonicalPrivileges,
   fingerprint,
   filterRoleRows,
+  isCustomRow,
   roleComparerCounts,
   roleMatchKey,
   rowHasFinding,
+  solutionRoleKeysFrom,
 } from './roleCompare'
 import type {
   PrivilegeAction,
@@ -273,6 +276,85 @@ describe('buildPrivilegeDiff', () => {
     const diff = buildPrivilegeDiff('nope', models, ENVS)
     expect(diff.privileges).toEqual([])
     expect(diff.misc).toEqual([])
+  })
+})
+
+describe('scope: custom roles and solution membership', () => {
+  const result = compare({
+    dev: model([
+      { id: 'sys', name: 'System Administrator', managed: true },
+      { id: 'own', name: 'Vertrieb Süd' },
+      { id: 'other', name: 'Service Desk' },
+    ]),
+    uat: model([
+      { id: 'sys', name: 'System Administrator', managed: true },
+      { id: 'own', name: 'Vertrieb Süd' },
+      { id: 'other', name: 'Service Desk' },
+    ]),
+    prod: model([]),
+  })
+
+  it('treats a role unmanaged in at least one environment as custom', () => {
+    const sys = result.rows.find((r) => r.name === 'System Administrator')!
+    const own = result.rows.find((r) => r.name === 'Vertrieb Süd')!
+    expect(isCustomRow(sys)).toBe(false)
+    expect(isCustomRow(own)).toBe(true)
+  })
+
+  it('keeps a role that is managed in one environment and unmanaged in another', () => {
+    const mixed = compare({
+      dev: model([{ id: 'r', name: 'Half managed', managed: true }]),
+      uat: model([{ id: 'r', name: 'Half managed', managed: false }]),
+      prod: model([]),
+    })
+    // The managed-state drift is exactly what must not be filtered away.
+    expect(isCustomRow(mixed.rows[0])).toBe(true)
+    expect(mixed.rows[0].managedDrift).toBe(true)
+  })
+
+  it('hides managed roles by default and shows them on demand', () => {
+    expect(
+      applyRoleScope(result.rows, {
+        customOnly: true,
+        solutionRoleKeys: null,
+      }).map((r) => r.name),
+    ).toEqual(['Service Desk', 'Vertrieb Süd'])
+    expect(
+      applyRoleScope(result.rows, {
+        customOnly: false,
+        solutionRoleKeys: null,
+      }),
+    ).toHaveLength(3)
+  })
+
+  it('narrows to the roles of a solution', () => {
+    const scoped = applyRoleScope(result.rows, {
+      customOnly: true,
+      solutionRoleKeys: new Set(['vertrieb süd']),
+    })
+    expect(scoped.map((r) => r.name)).toEqual(['Vertrieb Süd'])
+  })
+
+  it('resolves solution component ids to role keys via the host model', () => {
+    const host = model([
+      { id: 'own', name: 'Vertrieb Süd' },
+      { id: 'other', name: 'Service Desk' },
+    ])
+    const { keys, unresolved } = solutionRoleKeysFrom(
+      ['own', 'OTHER', 'bu-copy-not-in-model'],
+      host,
+    )
+    // Ids are compared case-insensitively (Dataverse GUID casing varies).
+    expect([...keys].sort()).toEqual(['service desk', 'vertrieb süd'])
+    // Unmatched ids are reported, not silently dropped from the scope.
+    expect(unresolved).toBe(1)
+  })
+
+  it('reports everything as unresolved when the host model is missing', () => {
+    expect(solutionRoleKeysFrom(['a', 'b'], null)).toEqual({
+      keys: new Set(),
+      unresolved: 2,
+    })
   })
 })
 

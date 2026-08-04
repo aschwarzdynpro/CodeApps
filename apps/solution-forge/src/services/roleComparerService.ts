@@ -28,6 +28,7 @@ import type { SecurityModel } from '../types/roles'
 import type { RoleComparerResult } from '../types/roleComparer'
 import { buildRoleComparison } from '../utils/roleCompare'
 import { roleAnalyzerService } from './roleAnalyzerService'
+import { solutionService } from './solutionService'
 
 export interface RoleComparerService {
   /**
@@ -48,7 +49,18 @@ export interface RoleComparerService {
    * re-derived so opening a role costs nothing.
    */
   lastModels(): Record<string, SecurityModel | null>
+  /**
+   * Object ids of the security-role components (component type 20) of one
+   * solution in the HOST environment — the scope selector's input. Reuses
+   * `solutionService.listMergeComponents`, i.e. the raw `solutioncomponent`
+   * membership, so no new data path is involved.
+   */
+  listSolutionRoleIds(solutionId: string): Promise<string[]>
 }
+
+/** componenttype of a security role — same constant the Core Role Extractor
+ *  uses when it captures a new role via AddSolutionComponent. */
+const ROLE_COMPONENT_TYPE = 20
 
 let lastModels: Record<string, SecurityModel | null> = {}
 
@@ -66,6 +78,13 @@ export const roleComparerService: RoleComparerService = {
   listEnvKeys: orderedEnvKeys,
 
   lastModels: () => lastModels,
+
+  async listSolutionRoleIds(solutionId) {
+    const components = await solutionService.listMergeComponents(solutionId)
+    return components
+      .filter((c) => c.typeCode === ROLE_COMPONENT_TYPE)
+      .map((c) => c.objectId)
+  },
 
   async compare(envKeys, onProgress, force) {
     const models: Record<string, SecurityModel | null> = {}

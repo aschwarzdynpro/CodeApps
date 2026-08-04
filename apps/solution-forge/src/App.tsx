@@ -1563,7 +1563,7 @@ function App() {
           and a role that is in no solution at all is one of the findings. */}
       {!error && tab === 'roleCompare' && isDeploymentManager && (
         <LazyWorkspace name="Role Comparer">
-          <RoleComparerWorkspace />
+          <RoleComparerWorkspace solutions={allSolutions} />
         </LazyWorkspace>
       )}
 

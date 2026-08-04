@@ -8536,6 +8536,24 @@
 .rcmp-intro {
   margin-bottom: 12px;
 }
+.rcmp-scope {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.rcmp-scope-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.rcmp-scope-note {
+  font-size: 12px;
+  margin: 10px 0 0;
+}
 .rcmp-toolbar {
   display: flex;
   align-items: center;

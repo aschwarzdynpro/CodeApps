@@ -1035,11 +1035,21 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <h3>🔐 Role Comparer (Validate)</h3>
             <ul>
               <li>
-                Answers “did the security roles arrive intact?” — every role
-                across <strong>all configured environments</strong> at once, as
-                a matrix. A cell shows how many privileges the role grants
-                there plus a <strong>fingerprint</strong> of its privilege set:
-                equal fingerprints mean identical rights.
+                Answers “did the security roles arrive intact?” — roles across{' '}
+                <strong>all configured environments</strong> at once, as a
+                matrix. A cell shows how many privileges the role grants there
+                plus a <strong>fingerprint</strong> of its privilege set: equal
+                fingerprints mean identical rights.
+              </li>
+              <li>
+                <strong>Scope first.</strong> Out of the box only{' '}
+                <strong>custom roles</strong> are listed — the ~250 managed
+                out-of-the-box roles are hidden (a checkbox brings them back).
+                Picking a <strong>release solution</strong> narrows it further
+                to the roles that solution actually contains, which is the
+                useful view before a deployment. A role that is managed in one
+                environment and unmanaged in another stays visible either way —
+                that difference is a finding, not noise.
               </li>
               <li>
                 Roles are matched <strong>by name</strong>, not by id — a role
