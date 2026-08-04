@@ -398,10 +398,12 @@ nach Typ.
   2026-08-04 wieder angeschlossen** — als Fundament der Security-Konzept-
   Features — und wird als einziger Workspace **bei Bedarf nachgeladen**
   (`React.lazy`, eigener Chunk ~62 kB / 18 kB gzip). Damit ist er zurück, ohne
-  den Erststart zu belasten; gleichzeitig ist er die Live-Probe, ob der
-  Code-Apps-Player zur Laufzeit geholte Chunks überhaupt ausliefert (siehe
-  Roadmap „Echtes Lazy-Loading"). Scheitert das Nachladen, zeigt
-  `LazyWorkspace` eine erklärende Meldung statt eines weißen Bildschirms.
+  den Erststart zu belasten. Er war zugleich die Live-Probe, ob der
+  Code-Apps-Player zur Laufzeit geholte Chunks ausliefert — **sie ist am
+  2026-08-04 an INT-11 geglückt**, womit Lazy-Loading für die übrigen
+  Workspaces freigegeben ist (siehe Roadmap). Scheitert ein Nachladen doch
+  einmal, zeigt `LazyWorkspace` eine erklärende Meldung statt eines weißen
+  Bildschirms.
   **Der Job Monitor bleibt abgeklemmt** (kein Import, kein Render-Block) — er
   gehört nicht zum Security-Konzept; sein Code liegt unverändert im Repo
   (`JobMonitor.tsx` + `jobMonitorService`-Trio + `utils/heartbeat.ts`, weiter

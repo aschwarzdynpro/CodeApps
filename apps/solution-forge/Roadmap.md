@@ -135,16 +135,17 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       Bewusst **statisch** (`manualChunks`), weil der Code-Apps-Player nur
       Dateien ausliefert, die in `index.html` referenziert sind (gotcha #10)
       — `modulepreload`-Links erfüllen das, dynamische Imports nicht.
-- [~] **Echtes Lazy-Loading der Workspaces** (React.lazy): würde den
-      Erststart weiter drücken, braucht aber einen **Live-Test im Player**, ob
-      zur Laufzeit nachgeladene Chunks ausgeliefert werden. **Die Probe steht
-      seit dem 2026-08-04**: der wiederangeschlossene **Role Analyzer** ist der
-      einzige `React.lazy`-Workspace (eigener Chunk ~62 kB / 18 kB gzip, in der
-      `index.html` bewusst NICHT referenziert). `LazyWorkspace.tsx` (Suspense +
-      Error Boundary) fängt den 404-Fall als lesbare Meldung ab statt als
-      weißen Screen. **Offen: einmal im echten Player den Menüpunkt öffnen.**
-      Lädt er → die übrigen Workspaces können folgen; 404 → auf statischen
-      Import zurückbauen und den Punkt schließen.
+- [~] **Echtes Lazy-Loading der Workspaces** (React.lazy). **Die Machbarkeit
+      ist am 2026-08-04 an INT-11 belegt**: der wiederangeschlossene **Role
+      Analyzer** läuft als `React.lazy`-Workspace (eigener Chunk ~62 kB /
+      18 kB gzip, in der `index.html` bewusst NICHT referenziert) — der Player
+      liefert ihn aus, der Workspace lädt. Die alte Sorge „dynamische Chunks
+      404en" ist damit widerlegt (Gotcha #10 präzisiert: betrifft Bilder, nicht
+      JS-Chunks). `LazyWorkspace.tsx` (Suspense + Error Boundary) bleibt die
+      Hülle für jeden Lazy-Workspace. **Offen: den Rest umstellen** — die
+      dicken Brocken zuerst (OData Browser, Transfer Hub, Analyze/Detective,
+      Comparer, User Settings), damit der ~624 kB-App-Chunk auf den Kern
+      schrumpft.
 
 ## Team & Komfort
 

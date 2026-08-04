@@ -19,13 +19,13 @@ export default defineConfig({
         // long-lived cache entries so an app change no longer invalidates the
         // whole ~1 MB bundle.
         //
-        // ONE exception is deliberate: App.tsx loads the Role Analyzer through
-        // React.lazy, which emits a chunk that index.html does NOT reference.
-        // That is the live probe for whether the player serves runtime-fetched
-        // chunks at all — the open roadmap item. It is contained by
-        // LazyWorkspace (a 404 shows a message instead of blanking the app).
-        // Until that probe has run in a real player session, do NOT convert
-        // further workspaces to React.lazy.
+        // React.lazy IS viable here — verified in a real player session on
+        // INT-11 on 2026-08-04 with the Role Analyzer, whose chunk index.html
+        // does not reference: the player served it and the workspace rendered.
+        // So gotcha #10's "only what index.html references" applies to static
+        // assets (images), NOT to JS chunks pulled by a dynamic import.
+        // Lazy workspaces still belong in LazyWorkspace (Suspense + error
+        // boundary) so a future fetch failure degrades to a message.
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('react-dom') || id.includes('/react/') || id.includes('scheduler'))

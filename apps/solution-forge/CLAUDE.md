@@ -154,17 +154,15 @@ abgeklemmt worden (lange als Preview ausgeblendet, aber weiter importiert ⇒
 
 **Der Role Analyzer ist seit 2026-08-04 wieder angeschlossen — als einziger
 Workspace `React.lazy`.** Er ist das Fundament der Security-Konzept-Ausbau-
-stufe und zugleich die **Live-Probe für das offene Lazy-Loading-Thema**: sein
+stufe und war zugleich die **Live-Probe für das Lazy-Loading-Thema**: sein
 Chunk (~62 kB / 18 kB gzip) wird zur Laufzeit geholt und ist in der
-`index.html` **nicht** referenziert — genau das, wovon Gotcha #10 sagt, dass
-der Player es womöglich nicht ausliefert. Deshalb hängt er in
-`components/LazyWorkspace.tsx` (Suspense + **Error Boundary**): ein 404 wird
-zur erklärenden Meldung mit Reload-Button statt zum weißen Screen. Messung:
-App-Chunk 618,26 → 623,49 kB (+5 kB Lazy-Verdrahtung + Help-Abschnitt), das
-ganze Feature (62,46 kB / 17,8 kB gzip) liegt im Extra-Chunk und wird erst
-beim Öffnen geholt. **Ergebnis der Probe steht noch aus** (Menüpunkt einmal im
-echten Player öffnen) — bis dahin **keine weiteren Workspaces auf `React.lazy`
-umstellen**; bei 404 auf statischen Import zurückbauen.
+`index.html` **nicht** referenziert. **Probe bestanden (INT-11, 2026-08-04):
+der Player liefert den Chunk aus, der Workspace lädt.** Damit ist `React.lazy`
+für Workspaces freigegeben (Details am Gotcha #10). Er hängt trotzdem in
+`components/LazyWorkspace.tsx` (Suspense + **Error Boundary**) — ein künftiger
+Fetch-Fehler wird zur erklärenden Meldung mit Reload-Button statt zum weißen
+Screen; neue Lazy-Workspaces genauso einpacken. Messung: App-Chunk 618,26 →
+623,49 kB (+5 kB Lazy-Verdrahtung + Help-Abschnitt) statt +62 kB.
 
 **Der Job Monitor bleibt abgeklemmt** — nichts referenziert ihn, also bündelt
 Rollup ihn nicht; `JobMonitor.tsx`, das `jobMonitorService`-Trio und
@@ -955,11 +953,19 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
    nicht teilbar, SP-Connections schon.
 10. `.env` ist repo-weit gitignored ⇒ Konfig-Defaults gehören nach
     `src/config.ts`. UI-Sprache Englisch, Chat Deutsch.
-    **Statische Assets (Bilder):** Der Code-App-Player serviert nur die in
-    `index.html` referenzierten Dateien (JS/CSS); ein nur aus JS referenziertes
+    **Statische Assets (Bilder):** Der Code-App-Player serviert **Bilder** nur,
+    wenn sie in `index.html` referenziert sind; ein nur aus JS referenziertes
     `/assets/*.png` wird NICHT ausgeliefert (404 → Broken Image). ⇒ Bilder als
     **Data-URI inlinen**: `import logo from './assets/x.png?inline'` (vorher auf
-    sinnvolle Größe verkleinern, da es im JS-Bundle landet). **Das App-Logo ist
+    sinnvolle Größe verkleinern, da es im JS-Bundle landet).
+    **⚠ Das gilt NICHT für JS-Chunks:** ein per `import()` zur Laufzeit
+    geholter Chunk, der in der `index.html` **nicht** referenziert ist, wird
+    sehr wohl ausgeliefert — **live an INT-11 verifiziert 2026-08-04** mit dem
+    lazy geladenen Role Analyzer (`assets/RoleAnalyzer-*.js`, kein
+    `modulepreload`-Link). Die frühere Annahme, dynamische Imports würden
+    404en, ist damit **widerlegt**; `React.lazy` ist für Workspaces nutzbar
+    (weiter in `LazyWorkspace` einpacken, damit ein Fetch-Fehler als Meldung
+    statt als weißer Screen endet). **Das App-Logo ist
     bewusst KEIN Raster mehr**, sondern ein code-gerendertes Lockup (Inline-SVG-
     Hexagon mit Brand-Gradient + Wordmark „Solution Administration Console / ALM")
     — gestochen scharf in jeder Größe, kein Asset-Serving nötig. Das gelieferte
