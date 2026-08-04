@@ -170,8 +170,21 @@ export interface SolutionService {
   /**
    * Sets pro_deploymentstatus on a working-solution record — e.g. to mark
    * it completed (DEPLOYMENT_COMPLETED_CODE) or to reopen it.
+   *
+   * `closeRecord` additionally moves the record's `statecode`, which is what
+   * the Open filter actually reads ({@link isOpenStatus}) — the deployment
+   * status is a label and does not affect it. Pass `true` when completing and
+   * `false` when reopening; leave it out to touch the label only.
+   *
+   * Not derived from the status code on purpose: the merge writes a status
+   * that also counts as "closed" (Merged into Core), and a source solution
+   * must not be deactivated just for having been merged.
    */
-  setDeploymentStatus(recordId: string, statusCode: number): Promise<void>
+  setDeploymentStatus(
+    recordId: string,
+    statusCode: number,
+    closeRecord?: boolean,
+  ): Promise<void>
   /**
    * Sets a release's merge rules on its record: the allow-list and the
    * exclude-list (component-type codes). Empty clears that list. A type is

@@ -58,6 +58,7 @@ import {
 } from './config'
 import {
   DEPLOYMENT_COMPLETED_CODE,
+  DEPLOYMENT_STATUS_NONE,
   isOpenStatus,
   type ComponentCollision,
   type MergeResult,
@@ -932,12 +933,43 @@ function App() {
       return
     }
     try {
+      // `true` closes the record (statecode 1). Without it the entry keeps
+      // showing under the Open filter, which reads statecode and not the
+      // deployment-status label.
       await solutionService.setDeploymentStatus(
         solution.recordId,
         DEPLOYMENT_COMPLETED_CODE,
+        true,
       )
     } catch (err) {
       console.warn('[solutions] complete failed:', err)
+      setActionErrorFading(false)
+      setActionError(
+        `Completing “${solution.title}” failed: ${describeError(err)}`,
+      )
+    }
+    reload()
+  }
+
+  /**
+   * Reactivate a completed working solution: statecode back to 0 and the
+   * deployment-status label back to its initial value, so it reappears under
+   * the Open filter instead of only being reachable with "Open" unticked.
+   */
+  const handleReopen = async (solution: WorkingSolution) => {
+    if (!solution.recordId) return
+    try {
+      await solutionService.setDeploymentStatus(
+        solution.recordId,
+        DEPLOYMENT_STATUS_NONE,
+        false,
+      )
+    } catch (err) {
+      console.warn('[solutions] reopen failed:', err)
+      setActionErrorFading(false)
+      setActionError(
+        `Reopening “${solution.title}” failed: ${describeError(err)}`,
+      )
     }
     reload()
   }
@@ -990,6 +1022,7 @@ function App() {
           await solutionService.setDeploymentStatus(
             solution.recordId,
             DEPLOYMENT_COMPLETED_CODE,
+            true,
           )
         await solutionService.deleteUnderlyingSolution(solution.id)
       } else {
@@ -1423,6 +1456,7 @@ function App() {
               canManageReleases={isDeploymentManager}
               onEdit={(s) => setEditTarget(s)}
               onComplete={(s) => setCompleteTarget(s)}
+              onReopen={(s) => void handleReopen(s)}
               onDelete={(s) => setConfirmDelete(s)}
               onRequestAssign={(s) => setAssignTarget(s)}
               onMerge={handleMergeFromList}

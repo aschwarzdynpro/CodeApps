@@ -14,7 +14,10 @@ import type {
   WorkItemInfo,
   WorkingSolution,
 } from '../types/solution'
-import { isClosedWorkItemState } from '../types/solution'
+import {
+  DEPLOYMENT_STATUS_NONE,
+  isClosedWorkItemState,
+} from '../types/solution'
 import type { SolutionService } from './solutionService'
 import { mockSolutionService } from './mockSolutionService'
 import { hostUserHints, powerModeReady } from '../PowerProvider'
@@ -206,8 +209,8 @@ const TYPE_OPT_BY_KIND: Record<CreateWorkingSolutionInput['kind'], number> = {
   bug: 867520001,
   deployment: 867520002,
 }
-/** pro_deploymentstatus: initial value and the "merged" log state. */
-const DEPLOYMENT_STATUS_NONE = 500870000
+/** pro_deploymentstatus: the "merged" log state (the initial value comes from
+ *  types/solution.ts, which the reopen action shares). */
 const DEPLOYMENT_STATUS_MERGED = 867520001
 
 const WORKING_ROW_SELECT = [
@@ -1237,15 +1240,27 @@ export class DataverseSolutionService implements SolutionService {
   async setDeploymentStatus(
     recordId: string,
     statusCode: number,
+    closeRecord?: boolean,
   ): Promise<void> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
-      return mockSolutionService.setDeploymentStatus(recordId, statusCode)
+      return mockSolutionService.setDeploymentStatus(
+        recordId,
+        statusCode,
+        closeRecord,
+      )
+    // statecode is what the Open filter reads; the deployment status is only
+    // a label. Both move in ONE update so the record can never end up
+    // completed-but-still-open (which is exactly the bug this closes).
+    // statuscode has to travel with statecode — 1 = Active, 2 = Inactive.
+    const patch: Record<string, unknown> = { pro_deploymentstatus: statusCode }
+    if (closeRecord !== undefined) {
+      patch.statecode = closeRecord ? 1 : 0
+      patch.statuscode = closeRecord ? 2 : 1
+    }
     const result = await Pro_workingsolutionsService.update(
       recordId,
-      {
-        pro_deploymentstatus: statusCode,
-      } as unknown as Partial<
+      patch as unknown as Partial<
         Omit<Pro_workingsolutionsBase, 'pro_workingsolutionid'>
       >,
     )

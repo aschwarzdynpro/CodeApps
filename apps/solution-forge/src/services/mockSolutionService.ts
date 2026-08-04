@@ -466,6 +466,7 @@ export class MockSolutionService {
   async setDeploymentStatus(
     recordId: string,
     statusCode: number,
+    closeRecord?: boolean,
   ): Promise<void> {
     await delay(250)
     const solution = this.solutions.find((s) => s.recordId === recordId)
@@ -473,6 +474,9 @@ export class MockSolutionService {
     solution.deploymentStatusCode = statusCode
     solution.deploymentStatus =
       statusCode === 500870003 ? 'Deployment completed' : 'None'
+    // Mirrors the real write: statecode is what the Open filter reads, so the
+    // offline demo has to move it too or a completed entry keeps showing.
+    if (closeRecord !== undefined) solution.recordStateCode = closeRecord ? 1 : 0
   }
 
   async setMergeTypeRules(

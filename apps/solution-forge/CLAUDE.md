@@ -253,8 +253,16 @@ aus erstem `pro_workbenchsettings`-Datensatz aufgelöst. **Offen/Geschlossen
 richtet sich allein nach dem `statecode` des Records** (0 = offen, 1 =
 geschlossen), NICHT nach dem Deployment-Status (`isOpenStatus`); `listSolutions`
 lädt daher auch inaktive Records (kein `statecode eq 0`-Filter mehr) und der
-Open-Toggle blendet sie aus. „Mark completed" setzt nur das Status-Label
-`pro_deploymentstatus`, deaktiviert den Record (noch) nicht.
+Open-Toggle blendet sie aus. **„Mark completed" setzt deshalb BEIDES** —
+Label `pro_deploymentstatus` **und** `statecode`/`statuscode` (1/2) in EINEM
+Update (`setDeploymentStatus(recordId, code, closeRecord)`); vorher schrieb es
+nur das Label, wodurch ein abgeschlossener Eintrag unter „Open" stehen blieb
+(Live-Bug 2026-08-04). ⚠ Das Schließen darf **NICHT** aus dem Statuscode
+abgeleitet werden: `DEPLOYMENT_STATUS_MERGED` (867520001) steht ebenfalls in
+`CLOSED_STATUS_CODES` und wird beim **Merge** geschrieben — eine gemergte
+Quell-Solution darf nicht deaktiviert werden. Gegenstück ist die
+**Reopen-Aktion** (↺ in der Zeile, nur bei geschlossenem Record): setzt
+`statecode` 0 + Label zurück auf `DEPLOYMENT_STATUS_NONE`.
 
 **Merge-Regeln je Release:** zwei Multi-Select-Choices auf
 `pro_workingsolution` — `pro_allowedmergetypes` (Allow) + `pro_excludedmergetypes`

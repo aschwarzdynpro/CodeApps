@@ -32,6 +32,8 @@ interface Props {
   /** Row quick-actions (also available without opening the detail). */
   onEdit: (solution: WorkingSolution) => void
   onComplete: (solution: WorkingSolution) => void
+  /** Reactivates a completed (closed) working solution. */
+  onReopen: (solution: WorkingSolution) => void
   onDelete: (solution: WorkingSolution) => void
   onRequestAssign: (solution: WorkingSolution) => void
   /** Jump to Merge with this solution pre-selected as a source. */
@@ -284,6 +286,7 @@ export function SolutionList({
   canManageReleases,
   onEdit,
   onComplete,
+  onReopen,
   onDelete,
   onRequestAssign,
   onMerge,
@@ -341,6 +344,7 @@ export function SolutionList({
       ? null
       : makerSolutionUrl(environmentId, s.id)
     const canComplete = !!s.recordId && isOpenStatus(s)
+    const canReopen = !!s.recordId && !isOpenStatus(s)
     const canMerge =
       (s.kind === 'feature' || s.kind === 'bug') &&
       !!s.recordId &&
@@ -556,6 +560,21 @@ export function SolutionList({
                   }}
                 >
                   ✓
+                </button>
+              )}
+              {/* Completing deactivates the record, which hides it behind the
+                  Open filter — so a closed entry needs the way back. */}
+              {canReopen && (
+                <button
+                  className="ws-act"
+                  title="Reopen this working solution"
+                  aria-label="Reopen this working solution"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onReopen(s)
+                  }}
+                >
+                  ↺
                 </button>
               )}
               {canMerge && (

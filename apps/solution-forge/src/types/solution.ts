@@ -175,6 +175,9 @@ export const CLOSED_STATUS_CODES = new Set([500870003, 867520001, 867520002])
 /** pro_deploymentstatus value for "Deployment completed". */
 export const DEPLOYMENT_COMPLETED_CODE = 500870003
 
+/** pro_deploymentstatus initial value ("None") — restored when reopening. */
+export const DEPLOYMENT_STATUS_NONE = 500870000
+
 /**
  * Returns true when a working solution counts as open. Open ⇔ the
  * working-solution record is active (statecode 0); the deployment status is

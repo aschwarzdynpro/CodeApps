@@ -331,11 +331,16 @@ nach Typ.
   Namenssuche einen User wählen (`assignOwner` setzt `ownerid@odata.bind`;
   `searchUsers` über `SystemusersService`).
 - **Mark completed**: aktive getrackte Einträge auf
-  `pro_deploymentstatus = Deployment completed` (500870003) setzen (reines
-  Status-Label — schließt den Eintrag nicht, das macht der statecode). Im
-  Dialog wird gefragt, ob die unterliegende Solution gelöscht werden soll;
-  falls ja, läuft das (wie beim Delete) über das 3-Sekunden-Undo — Statuswechsel
-  und Solution-Delete werden erst nach Ablauf committed, Undo lässt beides aus.
+  `pro_deploymentstatus = Deployment completed` (500870003) setzen **und den
+  Record schließen** (`statecode` 1) — beides in einem Update, damit der
+  Eintrag auch tatsächlich aus dem „Open"-Filter verschwindet (der liest den
+  statecode, nicht das Label). Im Dialog wird gefragt, ob die unterliegende
+  Solution gelöscht werden soll; falls ja, läuft das (wie beim Delete) über das
+  3-Sekunden-Undo — Statuswechsel und Solution-Delete werden erst nach Ablauf
+  committed, Undo lässt beides aus.
+- **Reopen** (↺, nur bei geschlossenen Einträgen sichtbar): macht das
+  rückgängig — `statecode` zurück auf 0 und das Status-Label auf „None", der
+  Eintrag taucht wieder unter „Open" auf.
 - **Löschen mit Undo**: Eintrag entfernen (Record, Solution oder beides) mit
   3-Sekunden-Restore-Fenster, bevor der harte Delete läuft.
 - **Merge**: Deployment Solution als Ziel wählen, Feature-/Bug-Solutions
