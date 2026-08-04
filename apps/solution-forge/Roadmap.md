@@ -236,10 +236,54 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       Quell-Rollen (die dann ebenfalls in die Solution kommen). *(Role
       Analyzer → Sub-Tab „Core roles"; nur Host-Env + Deployment Manager)*
 - [ ] **Onboarding-Assistent („berechtigen wie …")**: neuen User wie einen
-      Referenz-User ausstatten — Rollen, Team-Mitgliedschaften und
-      FLS-Profile des Vorbilds anzeigen und per Klick übertragen (mit
-      Diff-Preview und per-Step-Report). Nutzt den Security-Snapshot + die
-      Schreib-Mechanik des Core Role Extractors.
+      Referenz-User ausstatten. **Konzept steht (2026-08-04, mit dem Product
+      Owner durchgesprochen) — nicht implementiert, bewusst zurückgestellt.**
+      Beim Wiederaufnehmen hier starten, die Entscheidungen sind getroffen:
+
+  - **Ort/Zugriff:** Operate › „Onboarding", Deployment-Manager-gated, lazy.
+  - **Umfang:** direkt zugewiesene **Rollen**, **Team-Mitgliedschaften**,
+    **FLS-Profile**. Die **Business Unit ist manuell setzbar** (nicht vom
+    Vorbild übernommen) und gilt für den ganzen Lauf.
+  - **Mehrere Ziel-User je Lauf** (ein Vorbild → N Neuzugänge), Diff je
+    Person aufklappbar, seriell geschrieben mit Ergebnis je Person/Schritt.
+  - **Alle Umgebungen inkl. PROD** ⇒ Schreiben über den Konnektor, also als
+    **Service Principal**. Deshalb Pflicht: Tabelle **`pro_onboardingrun`**
+    (Muster `pro_mergerun`) mit ausführender Person, Umgebung, Vorbild,
+    Zielen, vergebenen Zuweisungen als JSON und Ergebnis — der Nachweis, den
+    die Plattform nicht liefert, weil dort überall der SP steht.
+  - **Vergibt, entzieht NIE.** Die Vorschau hat drei Blöcke: fehlt (wird
+    vergeben, abwählbar) / vorhanden (ausgegraut) / hat zusätzlich (nur
+    angezeigt). Stillschweigend Rechte wegzunehmen wäre eine andere Aktion
+    als die im Menü.
+  - **Herkunftspfad in der Vorschau:** eine Rolle, die der Neuzugang schon
+    über ein Team bekäme, wird NICHT zusätzlich direkt vergeben („kommt über
+    Team X") — sonst produziert das Onboarding genau die Doppelvergaben, die
+    der Role DeDuplicator später aufräumen müsste.
+  - ⚠ **Rollen existieren als Kopie je BU**, zuweisbar ist nur die Kopie der
+    User-BU. Von der Root-Rolle des Vorbilds auf die Kopie in der Ziel-BU
+    zurückrechnen; fehlt sie dort, ist die Zeile **nicht ausführbar** und
+    nennt den Grund — ersatzweise die Root-Kopie zu nehmen vergäbe eine
+    andere Reichweite. Am ersten echten Lauf prüfen, ob *Record ownership
+    across business units* aktiv ist (dann gilt die BU-Bindung nicht streng).
+  - ⚠ **Ein BU-Wechsel entzieht bestehende Rollen** ⇒ Schreibreihenfolge
+    BU → Rollen → Teams → FLS, und der Diff wird gegen die **künftige** BU
+    gerechnet, nicht gegen die aktuelle.
+  - **Snapshot erweitern:** `teammembership` für ALLE Teams laden, nicht nur
+    für rollenvergebende. Preis: ein zusätzlicher gepagter Sweep, der den
+    Role Analyzer verlangsamt. Gewinn: die dokumentierte Lücke der
+    **Team-&-BU-Map** (keine Mitglieder bei Nicht-Rollen-Teams) verschwindet.
+  - **Schreibpfade (alle unverifiziert — die App hat noch NIE ein N:N-
+    Intersect geschrieben):** `AssociateEntitiesWithOrganization` mit
+    `systemuserroles_association` / `teammembership_association` /
+    `systemuserprofiles_association`; BU per `UpdateRecordWithOrganization`
+    (`businessunitid@odata.bind`). `DisassociateEntitiesWithOrganization`
+    existiert ebenfalls (für später relevant, hier nicht gebraucht).
+    **Reihenfolge:** erst Rollen gegen INT-11 verifizieren, dann Teams/FLS,
+    PROD erst freigeben wenn alle drei sauber liefen; nicht verifizierte
+    Blöcke in der UI deaktiviert mit Begründung statt blind abfeuern.
+  - **Schnitt:** (1) Installer-Tabelle + Data Source, (2) Snapshot-Erweiterung,
+    (3) Lesepfad + Diff als pure functions mit Vitest, (4) UI, (5) Schreibpfad
+    rollenweise, (6) Log-Zeile + Doku. Umfangreichstes Einzelfeature bisher.
 - [x] ⭐ **Role Comparer cross-env** (Validate-Gruppe, Menüpunkt „Role
       Comparer", gated): dieselbe Sicherheitsrolle über alle konfigurierten
       Umgebungen als Matrix — je Zelle Privilegienzahl, managed/unmanaged und
