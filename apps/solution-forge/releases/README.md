@@ -15,7 +15,7 @@ top) — add one whenever you export a new version here.
 
 | File | Version | Exported | Contents |
 | --- | --- | --- | --- |
-| `DynamicsProSolutionAdminConsole_1.0.0.14_managed.zip` | 1.0.0.14 | 2026-07-25 | 8 `pro_` tables · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler), host operations now wired to `organization: "current"` so they render in the designer and activate normally at a customer · Code App (chunk-split bundle, incl. the first-run **Self-Provisioning Wizard**) · 1 security role |
+| `DynamicsProSolutionAdminConsole_1.0.0.16_managed.zip` | 1.0.0.16 | 2026-08-04 | **9** `pro_` tables (incl. `pro_securitysnapshot`) · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler), host operations on `organization: "current"` · Code App (chunk-split bundle with two **lazily loaded** workspaces, incl. the first-run **Self-Provisioning Wizard**, Role Comparer and the security concept document) · 1 connection reference `pro_CR_SAC_Dataverse` · 1 security role `INT \| DEPLOYMENT MANAGER` |
 
 Only the newest managed export is kept here (managed solutions upgrade
 cumulatively — an older versioned zip can't be imported over a newer one).

@@ -6,6 +6,48 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.16 — 2026-08-04
+
+**Security-Ausbau: Role Comparer, eingefrorene Baselines und
+Security-Konzept-Dokument. Neue Tabelle `pro_securitysnapshot` (9. Tabelle).**
+
+- **Role Comparer** (Validate, gated, lazy): dieselbe Sicherheitsrolle über alle
+  konfigurierten Umgebungen als Matrix — je Zelle Privilegienzahl,
+  managed/unmanaged und wie viele Privilegien gegenüber der Baseline-Umgebung
+  abweichen. **Match über den Rollen-NAMEN**, nicht die GUID (die überlebt nur
+  sauberen Transport); Name gleich + ID verschieden ⇒ Badge „rebuilt".
+  Scope-Vorauswahl: standardmäßig nur Custom-Rollen, optional auf die
+  Rollen-Komponenten einer Release-Solution eingeschränkt. Read-only —
+  eine driftende Rolle wird transportiert, nicht im Ziel repariert.
+- **Baselines einfrieren** (`pro_securitysnapshot`): der Ist-Zustand als
+  benannter Snapshot; „Compare against" prüft danach jede Umgebung gegen **ihr
+  eigenes eingefrorenes Ich** („was hat sich seit dem Audit geändert?") mit den
+  Verdikten changed / new / gone since freeze.
+- **Security-Konzept-Dokument** (Sub-Tab „Document"): Baseline als lesbares
+  Dokument — Umgebungen, je Rolle die Privilegien-Matrix, Abweichungen. Zweiter
+  Baseline wählbar ⇒ Kapitel „Changes since …" mit jedem verschobenen Privileg.
+  Umgebungen einzeln ab-/anwählbar; Markdown- und Text-Export.
+- **Role Analyzer wieder in der App** (Operate) — lädt aber **erst auf Klick**
+  („Analyze"), damit das Öffnen nicht die falsche Umgebung zieht. Damit sind
+  auch Core Role Extractor, Team-&-BU-Map und Field-Level Security wieder
+  erreichbar.
+- **Solution Import History**: bei fehlenden Abhängigkeiten zeigt die Tabelle
+  jetzt auch den **Parent der fehlenden Komponente** (welche Tabelle eine View
+  oder ein Formular gehört) — vorher stand der Parent nur auf der
+  abhängigen Seite.
+- **Fix:** „Mark completed" schließt den Working-Solution-Record jetzt wirklich
+  (`statecode`), vorher blieb der Eintrag trotz Status-Label unter „Open"
+  stehen. Neue **Reopen**-Aktion (↺) macht das rückgängig.
+- **UI:** Sidebar-Gruppen sind aufklappbar (21 Menüpunkte passten nicht mehr auf
+  einen Notebook-Bildschirm), **Data Transfer** ist von Manage nach **Operate**
+  gewandert, Erklärtexte liegen hinter einem ⓘ neben dem Seitentitel.
+- **Bundle:** Role Analyzer und Role Comparer werden **bei Bedarf nachgeladen**
+  (`React.lazy`) — im Player verifiziert, dass zur Laufzeit geholte Chunks
+  ausgeliefert werden.
+
+Datenmodell-Änderung: `installer/provision-model.ps1` legt zusätzlich
+`pro_securitysnapshot` an (idempotent, bestehende Tabellen werden übersprungen).
+
 ## 1.0.0.14 — 2026-07-25
 
 **Fix — Transfer-Executor-Flows sind beim Kunden aktivierbar und im Designer lesbar.**
