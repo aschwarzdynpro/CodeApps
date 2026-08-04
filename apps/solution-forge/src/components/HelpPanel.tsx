@@ -1083,10 +1083,23 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 never counted as “identical”.
               </li>
               <li>
+                <strong>Baselines.</strong> “❄ Freeze current state” stores the
+                roles currently in scope as a named snapshot. Switching{' '}
+                <strong>Compare against</strong> from “Live state” to that
+                snapshot changes the question from “do the environments agree?”
+                to <strong>“what changed since we froze it?”</strong> — each
+                environment is compared against its own frozen self. Roles are
+                then badged <em>changed</em>, <em>new</em> or <em>gone since
+                freeze</em>, and a cell counts the privileges that moved. An
+                environment the baseline never captured reads as “not in
+                baseline”, never as unchanged.
+              </li>
+              <li>
                 <strong>Read-only by design.</strong> Editing a role directly
                 in UAT/PROD creates the unmanaged layer the Layer Inspector
                 then reports; a drifting role belongs in a solution and gets
-                transported.
+                transported. Freezing a baseline is the one thing written here,
+                and it is recorded under your name.
               </li>
             </ul>
           </section>

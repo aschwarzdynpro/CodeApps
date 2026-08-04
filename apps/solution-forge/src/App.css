@@ -8557,6 +8557,38 @@
 .rcmp-cell-drift {
   color: #8a5300;
 }
+.rcmp-baseline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.rcmp-baseline-label {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.rcmp-baseline-meta {
+  font-size: 12px;
+}
+.rcmp-freeze-btn {
+  margin-left: auto;
+}
+.rcmp-freeze-form {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rcmp-freeze-form input {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  min-width: 200px;
+}
 .rcmp-toolbar {
   display: flex;
   align-items: center;

@@ -394,6 +394,11 @@ export function applyRoleScope(
   return rows.filter((row) => {
     if (scope.solutionRoleKeys && !scope.solutionRoleKeys.has(row.key))
       return false
+    // A role that vanished since the baseline exists in no environment, so
+    // there is no managed flag left to judge it by. It was in the frozen
+    // scope by construction — keep it, or "deleted since the freeze" could
+    // never be reported.
+    if (row.baseline?.isGone) return true
     if (scope.customOnly && !isCustomRow(row)) return false
     return true
   })
@@ -442,6 +447,13 @@ export function filterRoleRows(
         return row.identityDrift
       case 'managed':
         return row.managedDrift
+      // Baseline mode.
+      case 'changed':
+        return !!row.baseline?.changed
+      case 'new':
+        return !!row.baseline?.isNew
+      case 'gone':
+        return !!row.baseline?.isGone
       default:
         return true
     }

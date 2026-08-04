@@ -82,6 +82,27 @@ export interface RoleComparerRow {
    * and was created by hand in the other.
    */
   managedDrift: boolean
+  /** Set only in baseline mode — how the role stands against the frozen state. */
+  baseline?: RoleBaselineVerdict
+}
+
+/**
+ * How one role stands against a frozen baseline (see `utils/securityBaseline`).
+ * Only present when the workspace runs in baseline mode.
+ */
+export interface RoleBaselineVerdict {
+  /**
+   * Privileges granted differently than at freeze time, per environment.
+   * `null` = the baseline did not capture this environment, or the role was
+   * not in it — which is NOT the same as "unchanged".
+   */
+  changedByEnv: Record<string, number | null>
+  /** At least one environment deviates from the frozen state. */
+  changed: boolean
+  /** The role did not exist in the baseline at all — created since. */
+  isNew: boolean
+  /** The baseline had the role; it exists in no environment now. */
+  isGone: boolean
 }
 
 export interface RoleComparerResult {
@@ -124,3 +145,20 @@ export type RoleComparerFilter =
   | 'missing'
   | 'identity'
   | 'managed'
+  // Baseline mode only.
+  | 'changed'
+  | 'new'
+  | 'gone'
+
+/** One stored baseline, as listed in the picker. */
+export interface SecuritySnapshotSummary {
+  id: string
+  name: string
+  /** Scope description captured at freeze time ("Custom roles", "Solution: …"). */
+  scope: string
+  envKeys: string[]
+  roleCount: number
+  frozenOn?: string
+  frozenBy?: string
+  notes?: string
+}

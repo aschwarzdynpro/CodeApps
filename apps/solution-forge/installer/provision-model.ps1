@@ -4,11 +4,11 @@
   publisher "Dynamics Pro") into a target Dataverse environment.
 
 .DESCRIPTION
-  Creates — idempotently — the publisher, a solution, and the eight custom
+  Creates — idempotently — the publisher, a solution, and the nine custom
   tables with all columns, choices and lookups the Code App needs:
     pro_workingsolution, pro_workbenchsettings, pro_mergerun, pro_releasenote,
     pro_environmentconfig, pro_transferpackage, pro_transferentry,
-    pro_transferrun
+    pro_transferrun, pro_securitysnapshot
   Numeric choice values are pinned to the product's canonical values
   (867520000.. / 500870000.. / componenttype codes) regardless of the
   publisher's option-value prefix, so the app's constants stay stable.
@@ -164,6 +164,9 @@ $entities = @(
   @{ schema="${p}_TransferRun";       logical="${p}_transferrun";       set="${p}_transferruns"
      display='Transfer Run'; coll='Transfer Runs'; ownership='OrganizationOwned'
      primary=@{ schema="${p}_name"; max=400; req='ApplicationRequired' } }
+  @{ schema="${p}_SecuritySnapshot";  logical="${p}_securitysnapshot";  set="${p}_securitysnapshots"
+     display='Security Snapshot'; coll='Security Snapshots'; ownership='OrganizationOwned'
+     primary=@{ schema="${p}_name"; max=200; req='ApplicationRequired' } }
 )
 foreach ($e in $entities) {
   if (Test-DvExists "EntityDefinitions(LogicalName='$($e.logical)')?`$select=LogicalName") {
@@ -230,6 +233,19 @@ $columns = @{
     (MemoAttr "${p}_plaintext_txt" 200000 'None' 'Plain text'),
     (StrAttr  "${p}_summary_txt" 200 'None' 'Summary'),
     (StrAttr  "${p}_version_txt" 50 'None' 'Version')
+  )
+  # Frozen security baseline: one row = the role privileges of the compared
+  # environments at one point in time. The whole state lives denormalised in
+  # `_payload_txt` as compact JSON (entity dictionary + per-role grant
+  # triples), the same one-column-instead-of-a-child-table choice as
+  # pro_mergerun.pro_addedcomponents_txt. "Frozen at / by" is the audit
+  # createdon/createdby, as with pro_releasenote.
+  "${p}_securitysnapshot" = @(
+    (MemoAttr "${p}_payload_txt" 1000000 'None' 'Payload'),
+    (StrAttr  "${p}_scope_str" 400 'None' 'Scope'),
+    (StrAttr  "${p}_envkeys_str" 400 'None' 'Environment keys'),
+    (IntAttr  "${p}_rolecount_int" 0 100000 'None' 'Roles'),
+    (MemoAttr "${p}_notes_txt" 4000 'None' 'Notes')
   )
   "${p}_transferpackage" = @(
     (MemoAttr "${p}_description_txt" 4000 'None' 'Description'),

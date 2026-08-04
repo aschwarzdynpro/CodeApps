@@ -23,6 +23,7 @@ import type {
   RoleComparerRow,
   RolePrivilegeDiff,
 } from '../types/roleComparer'
+import type { SecuritySnapshotSummary } from '../types/roleComparer'
 import type { WorkingSolution } from '../types/solution'
 import {
   applyRoleScope,
@@ -31,12 +32,22 @@ import {
   roleComparerCounts,
   solutionRoleKeysFrom,
 } from '../utils/roleCompare'
+import {
+  applyBaselineVerdict,
+  baselineCounts,
+  encodeBaseline,
+  parseBaseline,
+  serializeBaseline,
+} from '../utils/securityBaseline'
+import { securityBaselineService } from '../services/securityBaselineService'
 import { RolePrivilegeDiffModal } from './RolePrivilegeDiffModal'
 import { SolutionSelect } from './SolutionSelect'
 
 interface Props {
   /** Release solutions offered as the scope, as in the Process Comparer. */
   solutions: WorkingSolution[]
+  /** Freezing a baseline is a deployment-manager act. */
+  canManage: boolean
 }
 
 function envLabel(envKey: string): string {
@@ -55,6 +66,21 @@ function formatRelative(date: Date): string {
 function RowBadges({ row }: { row: RoleComparerRow }) {
   return (
     <>
+      {row.baseline?.changed && (
+        <span className="rcmp-badge rcmp-badge--drift" title="Grants differ from the frozen baseline">
+          changed since freeze
+        </span>
+      )}
+      {row.baseline?.isNew && (
+        <span className="rcmp-badge rcmp-badge--identity" title="Did not exist when the baseline was frozen">
+          new since freeze
+        </span>
+      )}
+      {row.baseline?.isGone && (
+        <span className="rcmp-badge rcmp-badge--missing" title="Existed in the baseline, exists in no environment now">
+          gone since freeze
+        </span>
+      )}
       {row.drift && (
         <span className="rcmp-badge rcmp-badge--drift" title="The privilege set differs between environments">
           privilege drift
@@ -84,7 +110,7 @@ function RowBadges({ row }: { row: RoleComparerRow }) {
   )
 }
 
-export function RoleComparerWorkspace({ solutions }: Props) {
+export function RoleComparerWorkspace({ solutions, canManage }: Props) {
   const envKeys = useMemo(() => roleComparerService.listEnvKeys(), [])
   const [result, setResult] = useState<RoleComparerResult | null>(null)
   const [comparing, setComparing] = useState(false)
@@ -109,6 +135,48 @@ export function RoleComparerWorkspace({ solutions }: Props) {
   const [includeSystem, setIncludeSystem] = useState(false)
   const [solutionRoleIds, setSolutionRoleIds] = useState<string[] | null>(null)
   const [scopeError, setScopeError] = useState<string | null>(null)
+
+  // --- Baseline: freeze the current state, compare against a frozen one -----
+  const [baselines, setBaselines] = useState<SecuritySnapshotSummary[] | null>(
+    null,
+  )
+  const [baselineId, setBaselineId] = useState('')
+  const [baselinePayload, setBaselinePayload] = useState<string | null>(null)
+  const [baselineBusy, setBaselineBusy] = useState(false)
+  const [baselineError, setBaselineError] = useState<string | null>(null)
+
+  const loadBaselines = useCallback(async () => {
+    try {
+      setBaselines(await securityBaselineService.list())
+    } catch (err) {
+      setBaselines([])
+      setBaselineError(err instanceof Error ? err.message : String(err))
+    }
+  }, [])
+
+  const pickBaseline = useCallback(
+    async (id: string) => {
+      setBaselineId(id)
+      setBaselineError(null)
+      if (!id) {
+        setBaselinePayload(null)
+        return
+      }
+      setBaselineBusy(true)
+      try {
+        const payload = await securityBaselineService.getPayload(id)
+        setBaselinePayload(payload)
+        if (!payload)
+          setBaselineError('That baseline has no readable payload.')
+      } catch (err) {
+        setBaselinePayload(null)
+        setBaselineError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setBaselineBusy(false)
+      }
+    },
+    [],
+  )
 
   const pickSolution = useCallback(async (id: string) => {
     setScopeSolutionId(id)
@@ -137,6 +205,10 @@ export function RoleComparerWorkspace({ solutions }: Props) {
           force,
         )
         setResult(next)
+        // Loaded here rather than in a mount effect: a baseline is only
+        // meaningful once the current models exist, and the react-compiler
+        // rules keep state out of effects anyway.
+        if (!baselines) void loadBaselines()
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
       } finally {
@@ -144,7 +216,7 @@ export function RoleComparerWorkspace({ solutions }: Props) {
         setProgress('')
       }
     },
-    [envKeys],
+    [envKeys, baselines, loadBaselines],
   )
 
   /**
@@ -160,16 +232,34 @@ export function RoleComparerWorkspace({ solutions }: Props) {
     )
   }, [solutionRoleIds, result])
 
-  // Scope narrows first; the chips and their counts describe what is scoped in.
+  /**
+   * In baseline mode every row gains its verdict, and roles that vanished
+   * since the freeze are appended — so this has to happen BEFORE the scope
+   * narrows, otherwise those rows would never reach it.
+   */
+  const withBaseline = useMemo(() => {
+    if (!result) return null
+    const payload = parseBaseline(baselinePayload)
+    if (!payload) return result
+    return applyBaselineVerdict(
+      result,
+      roleComparerService.lastModels(),
+      payload,
+    )
+  }, [result, baselinePayload])
+
+  const baselineMode = !!baselinePayload && !!withBaseline?.rows.some((r) => r.baseline)
+
+  // Scope narrows next; the chips and their counts describe what is scoped in.
   const scoped = useMemo(
     () =>
-      result
-        ? applyRoleScope(result.rows, {
+      withBaseline
+        ? applyRoleScope(withBaseline.rows, {
             customOnly: !includeSystem,
             solutionRoleKeys: solutionScope?.keys ?? null,
           })
         : [],
-    [result, includeSystem, solutionScope],
+    [withBaseline, includeSystem, solutionScope],
   )
   const counts = useMemo(() => roleComparerCounts(scoped), [scoped])
   const shown = useMemo(
@@ -191,13 +281,67 @@ export function RoleComparerWorkspace({ solutions }: Props) {
     [envKeys],
   )
 
-  const filters: { key: RoleComparerFilter; label: string; count: number }[] = [
-    { key: 'all', label: 'In scope', count: counts.all },
-    { key: 'drift', label: 'Privilege drift', count: counts.drift },
-    { key: 'missing', label: 'Missing / target-only', count: counts.missing },
-    { key: 'identity', label: 'Rebuilt', count: counts.identity },
-    { key: 'managed', label: 'Managed state', count: counts.managed },
-  ]
+  const bCounts = useMemo(() => baselineCounts(scoped), [scoped])
+
+  const filters: { key: RoleComparerFilter; label: string; count: number }[] =
+    baselineMode
+      ? [
+          { key: 'all', label: 'In scope', count: counts.all },
+          { key: 'changed', label: 'Changed since freeze', count: bCounts.changed },
+          { key: 'new', label: 'New since freeze', count: bCounts.added },
+          { key: 'gone', label: 'Gone since freeze', count: bCounts.gone },
+          { key: 'drift', label: 'Cross-env drift', count: counts.drift },
+        ]
+      : [
+          { key: 'all', label: 'In scope', count: counts.all },
+          { key: 'drift', label: 'Privilege drift', count: counts.drift },
+          { key: 'missing', label: 'Missing / target-only', count: counts.missing },
+          { key: 'identity', label: 'Rebuilt', count: counts.identity },
+          { key: 'managed', label: 'Managed state', count: counts.managed },
+        ]
+
+  // --- Freeze ---------------------------------------------------------------
+  const [freezing, setFreezing] = useState(false)
+  const [freezeName, setFreezeName] = useState('')
+
+  const scopeDescription = solutionScope
+    ? `Solution: ${releases.find((s) => s.id === scopeSolutionId)?.uniqueName ?? scopeSolutionId}`
+    : includeSystem
+      ? 'All roles'
+      : 'Custom roles'
+
+  const doFreeze = useCallback(async () => {
+    if (!result) return
+    setBaselineBusy(true)
+    setBaselineError(null)
+    try {
+      // Freeze exactly what is scoped in — not all ~286 roles. Smaller, and
+      // it matches what the user was actually looking at.
+      const payload = serializeBaseline(
+        encodeBaseline(
+          roleComparerService.lastModels(),
+          result.envKeys,
+          new Set(scoped.map((r) => r.key)),
+        ),
+      )
+      const saved = await securityBaselineService.save({
+        name: freezeName.trim() || `Baseline ${new Date().toLocaleDateString()}`,
+        scope: scopeDescription,
+        envKeys: result.envKeys,
+        roleCount: scoped.length,
+        payload,
+      })
+      setBaselines((list) => [saved, ...(list ?? [])])
+      setFreezing(false)
+      setFreezeName('')
+    } catch (err) {
+      setBaselineError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBaselineBusy(false)
+    }
+  }, [result, scoped, freezeName, scopeDescription])
+
+  const activeBaseline = baselines?.find((b) => b.id === baselineId) ?? null
 
   const hiddenBySystemFilter =
     result && !includeSystem
@@ -320,6 +464,77 @@ export function RoleComparerWorkspace({ solutions }: Props) {
       )}
 
       {result && (
+        <div className="validate-toolbar rcmp-baseline">
+          <label className="rcmp-baseline-label" htmlFor="rcmp-baseline-pick">
+            Compare against
+          </label>
+          <select
+            id="rcmp-baseline-pick"
+            value={baselineId}
+            disabled={baselineBusy}
+            onChange={(e) => void pickBaseline(e.target.value)}
+          >
+            <option value="">Live state (host as baseline)</option>
+            {(baselines ?? []).map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+                {b.frozenOn
+                  ? ` — frozen ${new Date(b.frozenOn).toLocaleDateString()}`
+                  : ''}
+              </option>
+            ))}
+          </select>
+          {activeBaseline && (
+            <span className="muted rcmp-baseline-meta">
+              {activeBaseline.scope} · {activeBaseline.roleCount} roles
+              {activeBaseline.frozenBy ? ` · by ${activeBaseline.frozenBy}` : ''}
+            </span>
+          )}
+          {canManage && !freezing && (
+            <button
+              type="button"
+              className="btn btn--small rcmp-freeze-btn"
+              onClick={() => setFreezing(true)}
+              disabled={baselineBusy || scoped.length === 0}
+              title="Store the roles currently in scope as a frozen baseline"
+            >
+              ❄ Freeze current state…
+            </button>
+          )}
+          {freezing && (
+            <span className="rcmp-freeze-form">
+              <input
+                type="text"
+                value={freezeName}
+                placeholder={`Baseline ${new Date().toLocaleDateString()}`}
+                onChange={(e) => setFreezeName(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn btn--primary btn--small"
+                onClick={() => void doFreeze()}
+                disabled={baselineBusy}
+              >
+                {baselineBusy ? 'Freezing…' : `Freeze ${scoped.length} role(s)`}
+              </button>
+              <button
+                type="button"
+                className="btn btn--small"
+                onClick={() => setFreezing(false)}
+                disabled={baselineBusy}
+              >
+                Cancel
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
+      {baselineError && (
+        <div className="state state--error">{baselineError}</div>
+      )}
+
+      {result && (
         <>
           <div className="validate-toolbar rcmp-filters">
             {filters.map((f) => (
@@ -404,10 +619,28 @@ export function RoleComparerWorkspace({ solutions }: Props) {
                         </span>
                         <span className="cmp-cell-info">
                           {cell.isManaged ? 'managed' : 'unmanaged'}
-                          {cell.driftCount ? (
+                          {/* In baseline mode the number answers "changed
+                              since the freeze"; otherwise "differs from the
+                              reference environment". Showing both would be
+                              two different questions in one line. */}
+                          {baselineMode ? (
+                            row.baseline?.changedByEnv[key] ? (
+                              <strong
+                                className="rcmp-cell-drift"
+                                title="Privileges granted differently than when the baseline was frozen"
+                              >
+                                {' · '}
+                                {row.baseline.changedByEnv[key]} changed
+                              </strong>
+                            ) : row.baseline?.changedByEnv[key] === null ? (
+                              <span title="The baseline did not capture this environment for this role">
+                                {' · not in baseline'}
+                              </span>
+                            ) : null
+                          ) : cell.driftCount ? (
                             <strong
                               className="rcmp-cell-drift"
-                              title="Privileges granted differently than in the baseline environment"
+                              title="Privileges granted differently than in the reference environment"
                             >
                               {' · '}
                               {cell.driftCount} differing

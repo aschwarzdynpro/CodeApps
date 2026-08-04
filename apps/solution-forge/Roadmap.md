@@ -261,12 +261,27 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       der Layer Inspector meldet). Kein eigener Datenpfad: orchestriert
       `roleAnalyzerService.loadModel` je Umgebung (Muster ALM Detective),
       Logik in der pure function `utils/roleCompare.ts` (Vitest).
-- [ ] **Security-Baseline / eingefrorener Snapshot**: den Ist-Zustand als
-      `pro_securitysnapshot` einfrieren und den Role Comparer statt gegen den
-      Host gegen diese **Soll-Definition** prüfen (zweiter Drift-Modus, analog
-      zum Definition-Schalter des Flow Comparers). Grundlage für das
-      Security-Konzept-Dokument und den Snapshot-Diff („was hat sich seit dem
-      letzten Audit geändert?").
+- [x] ⭐ **Security-Baseline / eingefrorener Snapshot** (Role Comparer,
+      „Compare against"): den Ist-Zustand als **`pro_securitysnapshot`**
+      einfrieren („❄ Freeze current state", Deployment Manager, speichert
+      genau die Rollen im aktuellen Scope) und später jede Umgebung gegen
+      **ihr eigenes eingefrorenes Ich** prüfen — „was hat sich seit dem
+      letzten Audit geändert?". Verdikte je Rolle: **changed / new / gone
+      since freeze**, je Zelle die Zahl der seither geänderten Privilegien;
+      eine vom Baseline nicht erfasste Umgebung gilt als **unbekannt**, nicht
+      als unverändert. Payload als kompaktes JSON in einer Spalte
+      (Entity-Dictionary + Grant-Tripel), Größen-Guard **verweigert** statt zu
+      kürzen. Pure functions in `utils/securityBaseline.ts` (Vitest).
+      *(Bewusst NICHT die Flow-Comparer-Semantik „ein Soll für alle Envs" —
+      für Rollen ist Drift über die Zeit die Governance-Frage.)*
+- [ ] **Security-Konzept-Dokument**: aus dem Snapshot ein lesbares Dokument
+      generieren (BU-Baum, Rollen mit Privilegien-Matrix, Teams, FLS,
+      Audit-Konfig, App-User) — Zwilling des Release-Notes-Builders, plus
+      **Diff zweier Snapshots** als Audit-Nachweis.
+- [ ] **Access Review / Rezertifizierung**: aus einem Snapshot eine Kampagne
+      erzeugen (je User × Rolle eine Zeile, Reviewer bestätigt/entzieht),
+      Abschluss als unveränderlicher Nachweis. Braucht eine zweite, leichtere
+      Gate-Rolle (Reviewer ≠ Deployment Manager).
 - [ ] **Role DeDuplicator**: Prozess zum **Entflechten von
       Rollenzuordnungen, die Rechte doppelt vergeben** — pro User/Team
       aufdecken, welche Privilegien über mehrere zugewiesene Rollen mehrfach

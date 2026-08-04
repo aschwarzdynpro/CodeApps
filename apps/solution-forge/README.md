@@ -198,7 +198,19 @@ nach Typ.
   Umgebung** zeigt „?" und fließt in **keinen** Befund ein — sie wird nie als
   „identisch" gewertet. **Read-only mit Absicht:** eine driftende Rolle
   gehört transportiert; sie im Ziel zu editieren erzeugt genau den unmanaged
-  Layer, den der Layer Inspector anschließend meldet. Kein eigener Datenpfad
+  Layer, den der Layer Inspector anschließend meldet.
+  **Baseline-Modus:** „❄ Freeze current state" (Deployment Manager) friert die
+  Rollen im aktuellen Scope als benannten Snapshot ein (`pro_securitysnapshot`,
+  nativ als angemeldeter User gespeichert, `createdby` = „frozen by").
+  Schaltet man „Compare against" von *Live state* auf einen Snapshot um, ändert
+  sich die Frage von „stimmen die Umgebungen überein?" zu **„was hat sich seit
+  dem Einfrieren geändert?"** — jede Umgebung wird gegen **ihr eigenes**
+  eingefrorenes Ich geprüft. Zeilen tragen dann **changed / new / gone since
+  freeze**, die Zelle zählt die seither geänderten Privilegien. Eine vom
+  Baseline nicht erfasste Umgebung erscheint als „not in baseline", nie als
+  unverändert. Der Payload liegt als kompaktes JSON in einer Spalte; passt er
+  nicht, wird das Einfrieren **abgelehnt** (mit Hinweis, den Scope zu
+  verkleinern) statt gekürzt zu speichern. Kein eigener Datenpfad
   — orchestriert `roleAnalyzerService.loadModel` je Umgebung (Muster ALM
   Detective) und nutzt dessen ~15-Minuten-Cache; die Logik liegt in der pure
   function `utils/roleCompare.ts` (Vitest).

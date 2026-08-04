@@ -43,6 +43,7 @@ power-apps init --non-interactive -n "Solution Administration Console (Pro)" --c
 ./scripts/add-data-source.ps1 -a dataverse -t pro_transferpackage
 ./scripts/add-data-source.ps1 -a dataverse -t pro_transferentry
 ./scripts/add-data-source.ps1 -a dataverse -t pro_transferrun
+./scripts/add-data-source.ps1 -a dataverse -t pro_securitysnapshot
 # Operate-Gruppe (nur Schreibpfade; alle Reads laufen über den Konnektor):
 ./scripts/add-data-source.ps1 -a dataverse -t asyncoperation
 ./scripts/add-data-source.ps1 -a dataverse -t organization
@@ -356,7 +357,40 @@ Entscheidungen, die nicht verloren gehen dürfen:
   (`variantFor`) — UAT mit Privilege-Drift + rebuilt-Rolle + fehlender Rolle,
   PROD mit Managed-Drift + target-only-Rolle. Ohne das zeigte die Offline-Demo
   einen Vergleich ohne jeden Befund.
+**Baseline-Modus (eingefrorener Stand)** — Tabelle **`pro_securitysnapshot`**
+(`installer/provision-model.ps1`, 9. Tabelle). „Compare against" schaltet von
+**Live state** (Host als Referenz) auf einen eingefrorenen Snapshot; „❄ Freeze
+current state" (Deployment Manager) speichert **genau die Rollen im aktuellen
+Scope** — nicht alle 286. Entscheidungen:
+- **Jede Umgebung wird gegen ihr EIGENES eingefrorenes Ich verglichen**
+  („hat sich PROD seit dem Audit verändert?"), NICHT gegen eine gemeinsame
+  Soll-Definition wie beim Flow Comparer. Für Rollen ist die
+  Governance-Frage Drift über die **Zeit**; das ist auch der Diff, den ein
+  Security-Konzept-Dokument später braucht.
+- **Payload = eine Spalte, kein Kind-Tabellen-Baum** (`pro_payload_txt`,
+  Muster `pro_mergerun.pro_addedcomponents_txt`): Entity-Dictionary +
+  `[entityIdx, actionIdx, depth]`-Tripel je Grant. `baselineSizeVerdict`
+  **verweigert** ab 900 000 Zeichen mit Hinweis „Scope verkleinern" statt zu
+  kürzen — ein still gekürzter Baseline meldete jede weggefallene Rolle als
+  unverändert.
+- **Eine nicht lesbare Umgebung wird gar nicht erst erfasst** (nicht als leere
+  Umgebung), sonst läse sie sich später als „dort wurden alle Rollen
+  gelöscht". Beim Vergleich ergibt eine nicht erfasste (Env, Rolle) `null` =
+  **unbekannt**, nicht 0 = unverändert.
+- Verdikte je Zeile: `changed` / `isNew` / `isGone`. **`isGone`-Zeilen sind
+  vom Custom-only-Filter ausgenommen** (sie existieren nirgends mehr, haben
+  also kein managed-Flag, mit dem man sie beurteilen könnte) — sonst wäre
+  „seit dem Einfrieren gelöscht" nie sichtbar.
+- CRUD läuft **nativ als angemeldeter User** (nicht über den Konnektor-SP):
+  Einfrieren ist ein Akt der Beweisführung, `createdby` ist das angezeigte
+  „frozen by".
+- Mock: `mockSecurityBaselineService` seedet einen Baseline aus den
+  Mock-Modellen und **verbiegt ihn bewusst** (eine Rolle geändert, eine
+  entfernt, eine erfundene alte Rolle ergänzt), damit alle drei Verdikte
+  offline vorführbar sind.
 Dateien: `types/roleComparer.ts`, `utils/roleCompare.ts` (pure, Vitest),
+`utils/securityBaseline.ts` (pure, Vitest), `services/securityBaselineService`
+(+ `dataverse…`/`mock…`),
 `services/roleComparerService.ts`, `components/RoleComparerWorkspace.tsx` +
 `RolePrivilegeDiffModal.tsx`. CSS `.rcmp-*` in `App.css`; die Zell-Sprache
 (`.cmp-cell*`) und die Depth-Badges (`.roles-depth*`) sind geteilt.
