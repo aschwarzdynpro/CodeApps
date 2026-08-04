@@ -240,6 +240,28 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       FLS-Profile des Vorbilds anzeigen und per Klick übertragen (mit
       Diff-Preview und per-Step-Report). Nutzt den Security-Snapshot + die
       Schreib-Mechanik des Core Role Extractors.
+- [x] ⭐ **Role Comparer cross-env** (Validate-Gruppe, Menüpunkt „Role
+      Comparer", gated): dieselbe Sicherheitsrolle über alle konfigurierten
+      Umgebungen als Matrix — je Zelle Privilegienzahl + **Fingerprint** des
+      Privilegien-Sets (gleicher Fingerprint = identische Rechte). Match über
+      den **Namen** (die Rollen-GUID überlebt nur sauberen Solution-Transport,
+      Gotcha #7); Name gleich + ID verschieden = **„rebuilt"**, also von Hand
+      nachgebaut statt transportiert. Befunde als Filter-Chips: Privilege
+      Drift, Missing/Target-only, Rebuilt, Managed State. Klick auf eine Rolle
+      öffnet den Drilldown (Tabelle × Aktion × Umgebung mit Tiefe, „nur
+      Unterschiede"-Schalter, dazu die Misc-Privilegien). Nicht lesbare
+      Umgebungen zeigen „?" und fließen in **keinen** Befund ein (kein
+      False-Green). **Read-only** — eine driftende Rolle wird transportiert,
+      nicht im Ziel repariert (sonst entsteht genau der unmanaged Layer, den
+      der Layer Inspector meldet). Kein eigener Datenpfad: orchestriert
+      `roleAnalyzerService.loadModel` je Umgebung (Muster ALM Detective),
+      Logik in der pure function `utils/roleCompare.ts` (Vitest).
+- [ ] **Security-Baseline / eingefrorener Snapshot**: den Ist-Zustand als
+      `pro_securitysnapshot` einfrieren und den Role Comparer statt gegen den
+      Host gegen diese **Soll-Definition** prüfen (zweiter Drift-Modus, analog
+      zum Definition-Schalter des Flow Comparers). Grundlage für das
+      Security-Konzept-Dokument und den Snapshot-Diff („was hat sich seit dem
+      letzten Audit geändert?").
 - [ ] **Role DeDuplicator**: Prozess zum **Entflechten von
       Rollenzuordnungen, die Rechte doppelt vergeben** — pro User/Team
       aufdecken, welche Privilegien über mehrere zugewiesene Rollen mehrfach

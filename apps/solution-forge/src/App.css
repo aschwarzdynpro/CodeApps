@@ -8528,3 +8528,109 @@
 .odb-identity-toggle--on span {
   text-decoration: underline dotted;
 }
+
+/* --- Role Comparer (cross-env role drift) -------------------------------
+   Reuses the comparer cell language (.cmp-cell and its modifiers) and the
+   depth badges (.roles-depth*) from the Role Analyzer, so only the pieces
+   specific to this workspace live here. */
+.rcmp-intro {
+  margin-bottom: 12px;
+}
+.rcmp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.rcmp-envs {
+  font-size: 12px;
+}
+.rcmp-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0 8px;
+}
+.rcmp-search {
+  margin-left: auto;
+  min-width: 200px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+.rcmp-table {
+  width: 100%;
+}
+.rcmp-row {
+  cursor: pointer;
+}
+.rcmp-row:hover > td {
+  background: #f7f8fc;
+}
+.rcmp-name {
+  font-weight: 600;
+}
+.rcmp-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 3px;
+}
+.rcmp-badge {
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.rcmp-badge--drift {
+  background: #fff4e5;
+  border-color: #f0c489;
+  color: #8a5300;
+}
+.rcmp-badge--missing {
+  background: #fdf2f3;
+  border-color: #f1aeb5;
+  color: #b02a37;
+}
+.rcmp-badge--identity {
+  background: #eef0ff;
+  border-color: #b9c0f5;
+  color: #3b41a8;
+}
+.rcmp-badge--managed {
+  background: #eef7f0;
+  border-color: #a9d3b6;
+  color: #1f6b3a;
+}
+.rcmp-diff-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.rcmp-diff-toggle {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.rcmp-diff-scroll {
+  max-height: 62vh;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+.rcmp-diff-table code {
+  font-size: 11.5px;
+}
+.rcmp-diff-row--drift > td {
+  background: #fff8ee;
+}
+.rcmp-diff-subhead {
+  margin: 16px 0 6px;
+  font-size: 13px;
+}

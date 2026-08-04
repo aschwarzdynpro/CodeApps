@@ -84,6 +84,19 @@ const RoleAnalyzer = lazy(() =>
   import('./components/RoleAnalyzer').then((m) => ({ default: m.RoleAnalyzer })),
 )
 
+/**
+ * The Role Comparer loads on demand for the same reason: it pulls in the whole
+ * security-model machinery (via `roleComparerService` → `roleAnalyzerService`)
+ * for a screen most sessions never open. It deliberately does NOT share the
+ * lazy chunk with the Role Analyzer — Rollup gives each dynamic import its own
+ * chunk, and opening the comparer should not also download the analyzer's UI.
+ */
+const RoleComparerWorkspace = lazy(() =>
+  import('./components/RoleComparerWorkspace').then((m) => ({
+    default: m.RoleComparerWorkspace,
+  })),
+)
+
 type Tab =
   | 'workbench'
   | 'merge'
@@ -100,6 +113,7 @@ type Tab =
   | 'userSettings'
   | 'flowCompare'
   | 'pluginCompare'
+  | 'roleCompare'
   | 'traces'
   | 'odata'
   | 'roles'
@@ -159,6 +173,10 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: '🧩',
         gated: true,
       },
+      // Cross-env role drift. Sits in Validate (not Operate, where the Role
+      // Analyzer lives) because it answers a deployment question — "did the
+      // roles arrive intact?" — rather than a live-operations one.
+      { key: 'roleCompare', label: 'Role Comparer', icon: '🔐', gated: true },
     ],
   },
   {
@@ -216,6 +234,7 @@ const TAB_TITLES: Record<Tab, string> = {
   userSettings: 'User Settings',
   flowCompare: 'Process Comparer',
   pluginCompare: 'Plugin Comparer',
+  roleCompare: 'Role Comparer',
   traces: 'Plugin Trace Explorer',
   odata: 'OData Browser',
   roles: 'Security Role Analyzer',
@@ -1538,6 +1557,14 @@ function App() {
           solutions={allSolutions}
           canManage={isDeploymentManager}
         />
+      )}
+
+      {/* Role Comparer — no solution scope: roles are compared tenant-wide,
+          and a role that is in no solution at all is one of the findings. */}
+      {!error && tab === 'roleCompare' && isDeploymentManager && (
+        <LazyWorkspace name="Role Comparer">
+          <RoleComparerWorkspace />
+        </LazyWorkspace>
       )}
 
       {/* Operate views are independent of the solutions list — they render

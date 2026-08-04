@@ -162,7 +162,11 @@ für Workspaces freigegeben (Details am Gotcha #10). Er hängt trotzdem in
 `components/LazyWorkspace.tsx` (Suspense + **Error Boundary**) — ein künftiger
 Fetch-Fehler wird zur erklärenden Meldung mit Reload-Button statt zum weißen
 Screen; neue Lazy-Workspaces genauso einpacken. Messung: App-Chunk 618,26 →
-623,49 kB (+5 kB Lazy-Verdrahtung + Help-Abschnitt) statt +62 kB.
+623,49 kB (+5 kB Lazy-Verdrahtung + Help-Abschnitt) statt +62 kB. Der **Role
+Comparer** ist der zweite Lazy-Workspace; Rollup zieht den geteilten
+`roleAnalyzerService` automatisch in einen **eigenen dritten Chunk**, sodass
+beide Features ihn teilen statt ihn zu duplizieren (Role Analyzer 40,9 kB +
+Role Comparer 12,6 kB + shared 22,4 kB).
 
 **Der Job Monitor bleibt abgeklemmt** — nichts referenziert ihn, also bündelt
 Rollup ihn nicht; `JobMonitor.tsx`, das `jobMonitorService`-Trio und
@@ -296,6 +300,44 @@ volle Historie, `buildReleaseNotes(..., sincePublishedOn)` setzt den „seit"-
 Subtitle; kein Delta ⇒ Publish deaktiviert. Notes sind historisch (was gemergt
 wurde), nicht der Live-Stand; Komponente↔Quelle ist nicht zuordenbar (Merge-Log
 speichert kombinierte Liste).
+
+**Role Comparer** (Validate-Gruppe, Menüpunkt „Role Comparer", gated, **lazy**):
+Cross-env-Drift der Sicherheitsrollen. **Kein eigener Datenpfad und kein
+eigener Mock** — `roleComparerService` orchestriert nur
+`roleAnalyzerService.loadModel(envKey)` je Umgebung (Muster **ALM Detective**)
+und nutzt dessen ~15-min-Cache; alle Reads laufen damit als Konnektor-SP.
+Umgebungen werden **sequenziell** geladen (aussagekräftiger Fortschritt, keine
+drei parallelen Sweeps auf einem Konnektor); eine fehlschlagende Umgebung
+landet in `envErrors` und macht den Lauf NICHT kaputt.
+Entscheidungen, die nicht verloren gehen dürfen:
+- **Match über den Rollen-NAMEN** (normalisiert: trim/lowercase/Whitespace),
+  nicht über `rootRoleId`. Die GUID überlebt nur sauberen Solution-Transport
+  (Gotcha #7) — eine von Hand nachgebaute Rolle hätte nie gematcht. Name
+  gleich + ID verschieden ist dann selbst der Befund (`identityDrift`,
+  Badge „rebuilt").
+- **Drift wird auf den KANONISCHEN Strings entschieden, nie auf dem
+  Fingerprint.** `canonicalPrivileges` rendert das ganze Privilegien-Set
+  ordnungsunabhängig; `fingerprint` (FNV-1a, 8 hex) ist **nur Anzeige**. Eine
+  Hash-Kollision hieße „kein Drift" für eine Rolle, die abweicht — ein
+  False-Green, und genau das verbietet die Linie aus Gotcha #13.
+- **`null` (Umgebung unlesbar) ≠ `present:false` (gelesen, Rolle fehlt).**
+  Unlesbare Umgebungen zeigen „?" und fließen in **keinen** Befund ein.
+- **Drift ist symmetrisch definiert** („die Umgebungen, die die Rolle haben,
+  gewähren nicht alle dasselbe"), nicht gegen den Host — sonst entginge Drift
+  zwischen UAT und PROD bei einer Rolle, die es im Host nicht gibt.
+- **Read-only mit Absicht.** `AddPrivilegesRole`/`RemovePrivilegeRole`
+  cross-env wären technisch möglich (der Core Role Extractor macht das
+  host-seitig), erzeugten im Ziel aber genau den unmanaged Active Layer, den
+  der Layer Inspector meldet. Der Fix für eine driftende Rolle ist Transport.
+- **Mock-Parität:** weil der Comparer keinen eigenen Mock hat, liefert
+  `mockRoleAnalyzerService.loadModel` jetzt **per-Env-Varianten**
+  (`variantFor`) — UAT mit Privilege-Drift + rebuilt-Rolle + fehlender Rolle,
+  PROD mit Managed-Drift + target-only-Rolle. Ohne das zeigte die Offline-Demo
+  einen Vergleich ohne jeden Befund.
+Dateien: `types/roleComparer.ts`, `utils/roleCompare.ts` (pure, Vitest),
+`services/roleComparerService.ts`, `components/RoleComparerWorkspace.tsx` +
+`RolePrivilegeDiffModal.tsx`. CSS `.rcmp-*` in `App.css`; die Zell-Sprache
+(`.cmp-cell*`) und die Depth-Badges (`.roles-depth*`) sind geteilt.
 
 **Env Config Cockpit** (Validate-Gruppe, Menüpunkt „Env Config", gated):
 `EnvConfigWorkspace` + `envConfigService` (`dataverse…`/`mock…`). Liest je

@@ -1032,6 +1032,52 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
+            <h3>🔐 Role Comparer (Validate)</h3>
+            <ul>
+              <li>
+                Answers “did the security roles arrive intact?” — every role
+                across <strong>all configured environments</strong> at once, as
+                a matrix. A cell shows how many privileges the role grants
+                there plus a <strong>fingerprint</strong> of its privilege set:
+                equal fingerprints mean identical rights.
+              </li>
+              <li>
+                Roles are matched <strong>by name</strong>, not by id — a role
+                id only survives clean solution transport. When the name
+                matches but the id does not, the role was{' '}
+                <strong>rebuilt by hand</strong> instead of transported: it may
+                look right today, will drift silently tomorrow, and a solution
+                import will not update it. That case gets its own{' '}
+                <em>rebuilt</em> badge.
+              </li>
+              <li>
+                Findings, each with a filter chip:{' '}
+                <strong>privilege drift</strong> (the environments do not grant
+                the same), <strong>missing / target-only</strong> (in the host
+                but not in a target, or grown locally in a target),{' '}
+                <strong>rebuilt</strong>, and <strong>managed state</strong>{' '}
+                (managed in one place, unmanaged in another).
+              </li>
+              <li>
+                Click a role for the drill-down: every table × action it grants
+                anywhere, with the depth per environment and a “only
+                differences” toggle, plus the non-table privileges.
+              </li>
+              <li>
+                An environment that cannot be read shows{' '}
+                <strong>“?”</strong> and is excluded from every finding — it is
+                never counted as “identical”.
+              </li>
+              <li>
+                <strong>Read-only by design.</strong> Editing a role directly
+                in UAT/PROD creates the unmanaged layer the Layer Inspector
+                then reports; a drifting role belongs in a solution and gets
+                transported.
+              </li>
+            </ul>
+          </section>
+
+          <section className="help-section">
             <h3>🛡 Role Analyzer (Operate)</h3>
             <ul>
               <li>

@@ -59,7 +59,8 @@ nach Typ.
 - **Navigation**: linke Sidebar, gruppiert in **Manage** (Workbench, Merge,
   Merge Rules, Release Notes, Timeline, Data Transfer), **Validate**
   (Deployment Readiness, Analyze, Env Config, Audit Config, Dual-Write Maps,
-  Import History, User Settings, Process Comparer, Plugin Comparer),
+  Import History, User Settings, Process Comparer, Plugin Comparer,
+  Role Comparer),
   **Operate** (Plugin Traces, OData Browser) und **Reference** (Links,
   Environment Setup).
   Gated-Einträge
@@ -173,6 +174,26 @@ nach Typ.
 - **Plugin Comparer** (Validate, gated) — dasselbe für die **Plugin-Steps**
   der Release-Solution, je mit **Assembly-Version** pro Umgebung;
   Enable/Disable je Zelle (Confirm, PROD extra-stark).
+- **Role Comparer** (Validate, gated, lazy geladen) — „sind die
+  Sicherheitsrollen heil angekommen?": jede Rolle über **alle konfigurierten
+  Umgebungen** als Matrix, je Zelle Privilegienzahl + **Fingerprint** des
+  Privilegien-Sets (gleicher Fingerprint = identische Rechte) sowie
+  managed/unmanaged und BU-Kopien. **Match über den Namen**, nicht über die
+  ID — eine Rollen-GUID überlebt nur sauberen Solution-Transport (Gotcha #7);
+  Name gleich + ID verschieden ⇒ Badge **„rebuilt"** (von Hand nachgebaut
+  statt transportiert; sieht heute richtig aus, driftet morgen still und wird
+  von keinem Import aktualisiert). Filter-Chips mit Counts: **privilege
+  drift**, **missing / target-only**, **rebuilt**, **managed state**. Klick
+  auf eine Zeile öffnet den **Drilldown**: jede Tabelle × Aktion, die die
+  Rolle irgendwo gewährt, mit der Tiefe je Umgebung (U/BU/P/O), Schalter „nur
+  Unterschiede", darunter die Misc-Privilegien. Eine **nicht lesbare
+  Umgebung** zeigt „?" und fließt in **keinen** Befund ein — sie wird nie als
+  „identisch" gewertet. **Read-only mit Absicht:** eine driftende Rolle
+  gehört transportiert; sie im Ziel zu editieren erzeugt genau den unmanaged
+  Layer, den der Layer Inspector anschließend meldet. Kein eigener Datenpfad
+  — orchestriert `roleAnalyzerService.loadModel` je Umgebung (Muster ALM
+  Detective) und nutzt dessen ~15-Minuten-Cache; die Logik liegt in der pure
+  function `utils/roleCompare.ts` (Vitest).
 - **Timeline** (Manage) — **Release-Timeline**: „was ging wann wohin" für
   eine gewählte Release-Solution als vertikaler Zeitstrahl (neueste zuerst):
   **Merge-Runs** (`pro_mergerun`, mit Counts + Quell-Solutions),

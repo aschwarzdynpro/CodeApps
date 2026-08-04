@@ -19,6 +19,7 @@ import type {
 } from '../types/orgStructure'
 import type { RoleAnalyzerService } from './roleAnalyzerService'
 import { maxDepth } from '../utils/privileges'
+import { currentEnvKey } from '../config'
 
 /**
  * Mock implementation of {@link RoleAnalyzerService} — a compact but
@@ -221,19 +222,23 @@ const TEAM_MEMBERS = new Map<string, Set<string>>([
   ['t-0002', new Set(['u-0004'])],
 ])
 
-function buildModel(): SecurityModel {
+type RoleSpecEntry = RoleSummary & { spec: Spec; misc: string[] }
+
+function buildModelFrom(roles: RoleSpecEntry[]): SecurityModel {
   const matrices = new Map<string, RoleEntityMatrix>()
   const miscPrivileges = new Map<string, string[]>()
-  for (const role of ROLES) {
+  for (const role of roles) {
     matrices.set(role.rootRoleId, matrix(role.spec))
     miscPrivileges.set(role.rootRoleId, role.misc)
   }
   return {
-    roles: ROLES.map(({ spec, misc, ...summary }) => {
-      void spec
-      void misc
-      return summary
-    }).sort((a, b) => a.name.localeCompare(b.name)),
+    roles: roles
+      .map(({ spec, misc, ...summary }) => {
+        void spec
+        void misc
+        return summary
+      })
+      .sort((a, b) => a.name.localeCompare(b.name)),
     entities: [...ENTITIES].sort(),
     matrices,
     miscPrivileges,
@@ -241,7 +246,63 @@ function buildModel(): SecurityModel {
   }
 }
 
+function buildModel(): SecurityModel {
+  return buildModelFrom(ROLES)
+}
+
 const MODEL = buildModel()
+
+/**
+ * Per-environment VARIANTS of the mock model.
+ *
+ * The Role Comparer orchestrates `loadModel` per environment and has no mock
+ * of its own (see `roleComparerService.ts`). If every environment returned the
+ * identical model, the offline demo would show a comparison with nothing in
+ * it — so the non-host environments are seeded with one instance of each
+ * finding the comparer can report:
+ *
+ * - UAT   — "Vertrieb Süd" lost its account Delete (privilege drift),
+ *           "Service Desk" carries a different root id (rebuilt, not
+ *           transported), the orphan role never arrived (missing).
+ * - PROD  — matches the host on privileges (so UAT stands out), but the
+ *           Deployment Manager role is managed there (managed-state drift),
+ *           the orphan role is missing too, and a locally grown hotfix role
+ *           exists that the host never had (extra).
+ *
+ * Anything not listed stays identical, so "no findings" rows exist as well.
+ */
+function variantFor(envKey: string): SecurityModel {
+  const key = envKey.toLowerCase()
+  if (key === currentEnvKey().toLowerCase()) return MODEL
+
+  const roles: RoleSpecEntry[] = ROLES.filter(
+    (r) => r.rootRoleId !== 'role-orphan',
+  ).map((r) => ({ ...r, spec: { ...r.spec }, misc: [...r.misc] }))
+
+  if (key === 'uat') {
+    const sued = roles.find((r) => r.rootRoleId === 'role-sales-sued')
+    if (sued)
+      sued.spec = {
+        ...sued.spec,
+        account: { ...BU_WRITER, Assign: 2, Share: 2 },
+      }
+    const service = roles.find((r) => r.rootRoleId === 'role-service')
+    if (service) service.rootRoleId = 'role-service-rebuilt-in-uat'
+    return buildModelFrom(roles)
+  }
+
+  const deploy = roles.find((r) => r.rootRoleId === 'role-deploy')
+  if (deploy) deploy.isManaged = true
+  roles.push({
+    rootRoleId: 'role-prod-hotfix',
+    name: 'PROD Hotfix (lokal angelegt)',
+    isManaged: false,
+    copyCount: 1,
+    spec: { account: ORG_READER, incident: { ...BU_WRITER, Delete: 8 } },
+    misc: ['prvBulkDelete'],
+  })
+  return buildModelFrom(roles)
+}
 
 function nameOf(rootId: string): string {
   return MODEL.roles.find((r) => r.rootRoleId === rootId)?.name ?? rootId
@@ -270,7 +331,6 @@ class MockRoleAnalyzerService implements RoleAnalyzerService {
     onProgress?: (message: string) => void,
     force?: boolean,
   ): Promise<SecurityModel> {
-    void envKey
     void force
     onProgress?.('Loading roles…')
     await delay(250)
@@ -278,7 +338,9 @@ class MockRoleAnalyzerService implements RoleAnalyzerService {
     await delay(250)
     onProgress?.('Loading assignments…')
     await delay(250)
-    return MODEL
+    // Env-specific so the cross-env Role Comparer has something to show
+    // offline; the host environment gets the unmodified model.
+    return variantFor(envKey)
   }
 
   async searchUsers(query: string, _envKey: string): Promise<PrincipalRef[]> {
