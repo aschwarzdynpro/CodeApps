@@ -360,6 +360,21 @@
   background: #fdf2f3;
   border-color: #b02a37;
 }
+/* Destructive PRIMARY (the PROD transfer run). On its own .btn--danger is a
+   light button with red text; combined with .btn--primary that dark red landed
+   on the brand-purple fill and was barely readable. A solid red instead —
+   white on #b02a37 clears AA, and the colour carries the warning that the
+   purple did not. Specificity, not source order, decides this. */
+.btn--primary.btn--danger {
+  background: #b02a37;
+  border-color: #b02a37;
+  color: #fff;
+}
+.btn--primary.btn--danger:hover {
+  background: #8f2029;
+  border-color: #8f2029;
+  filter: none;
+}
 /* Wide overlays span ~80% of the page (the .modal rule below sets a 520px
    cap, so these need the extra .modal specificity to win regardless of order). */
 .modal.modal--wide {
