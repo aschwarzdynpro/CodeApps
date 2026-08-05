@@ -13,6 +13,11 @@ solution via `pac code push --solutionName DynamicsProSolutionAdminConsole`.
 **Every release gets a short entry in [`CHANGELOG.md`](CHANGELOG.md)** (newest on
 top) — add one whenever you export a new version here.
 
+The whole procedure — version bump, export, package verification, changelog,
+GitHub release — is written down in `.claude/skills/create-release/SKILL.md`
+at the repo root. Read it before doing this by hand; it carries the guard that
+keeps the version bump from landing in a customer environment.
+
 | File | Version | Exported | Contents |
 | --- | --- | --- | --- |
 | `DynamicsProSolutionAdminConsole_1.0.0.17_managed.zip` | 1.0.0.17 | 2026-08-05 | **9** `pro_` tables — `pro_transferentry` gained the three **delta** columns (`pro_deltamode_opt`, `pro_deltafetchxml_txt`, `pro_deltawatermarks_txt`) · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler) **rebuilt for delta transfers**, host operations on `organization: "current"` · Code App (chunk-split bundle with two **lazily loaded** workspaces, incl. the first-run **Self-Provisioning Wizard**, Role Comparer, the security concept document and the entry dialog's **Write plan**) · 1 connection reference `pro_CR_SAC_Dataverse` · 1 security role `INT \| DEPLOYMENT MANAGER` |

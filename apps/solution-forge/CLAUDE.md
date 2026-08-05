@@ -92,6 +92,21 @@ gotcha #1) und pusht über `power-apps push` (npm-CLI, Schulz-Tenant angemeldet;
 richtet nur ein (Config + Data Sources + Build), ohne Flow/Push. **`pac code push`
 für Schulz strippt die Flow-Registrierung → „Connection reference not found".**
 
+## Release (managed Export)
+
+Sagt der Nutzer **„Release erzeugen"**, gilt der Skill
+`.claude/skills/create-release/SKILL.md` im Repo-Root: Playground pushen →
+Version hochzählen → managed exportieren → **Paketinhalt gegen das Zip
+verifizieren** → CHANGELOG-Sektion aus den Commits seit dem letzten Tag →
+README-Tabelle → altes Zip entfernen → Commit → `gh release create
+SAC_v<version>` mit dem Zip als Asset. Artefakte liegen in `releases/`.
+
+⚠ **Das aktive pac-Profil überlebt den Wechsel zwischen zwei Tool-Aufrufen
+nicht.** Am 2026-08-05 landete eine Versionserhöhung deshalb in Schulz INT-11
+statt im Playground, obwohl `pac org who` unmittelbar davor den Playground
+gezeigt hatte. Profilwahl, Guard und schreibende Aktion gehören immer in
+EINEN Aufruf.
+
 ## Architektur
 
 UI hängt NUR am Interface `SolutionService`
