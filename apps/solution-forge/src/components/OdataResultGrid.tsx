@@ -36,6 +36,16 @@ interface Props {
   onOpenRecord: (recordId: string) => void
   /** Follow a lookup cell into the record it points at. */
   onOpenLookup: (targetLogicalName: string, recordId: string) => void
+  /**
+   * Columns that may be dropped from `$select` straight from their header.
+   * Absent or empty when that would be a lie: a query without `$select` lets
+   * the server choose the columns (removing one would have to invent a
+   * `$select` covering all the others), and dropping the last remaining column
+   * would empty `$select` — which means "every column", the opposite of what
+   * the click asked for.
+   */
+  removableKeys?: ReadonlySet<string>
+  onRemoveColumn?: (key: string) => void
 }
 
 export function OdataResultGrid({
@@ -48,6 +58,8 @@ export function OdataResultGrid({
   primaryIdAttribute,
   onOpenRecord,
   onOpenLookup,
+  removableKeys,
+  onRemoveColumn,
 }: Props) {
   const [detail, setDetail] = useState<{ title: string; value: string } | null>(
     null,
@@ -89,6 +101,19 @@ export function OdataResultGrid({
                           : ''}
                       </span>
                     </button>
+                    {onRemoveColumn && removableKeys?.has(key) && (
+                      <button
+                        className="odb-th-drop"
+                        // Sits beside the sort button rather than inside it —
+                        // a nested button would be invalid markup and the
+                        // click would sort on its way out.
+                        onClick={() => onRemoveColumn(key)}
+                        title={`Remove ${meta?.displayName ?? key} from $select`}
+                        aria-label={`Remove column ${meta?.displayName ?? key} from the query`}
+                      >
+                        ✕
+                      </button>
+                    )}
                     <code className="odb-th-logical">{key}</code>
                   </th>
                 )

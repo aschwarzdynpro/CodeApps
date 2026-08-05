@@ -917,6 +917,16 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
   `odata.maxpagesize=<n>` erzeugt erst den `@odata.nextLink`, aus dem
   `skipTokenFrom` den Cursor zieht. Beides **verify-on-first-run** (Plan §10);
   Fallback ohne Cursor = Keyset-Paging über den Primary Key.
+- **Die gewählten Spalten werden NICHT als Chip-Liste geführt.** Sie stehen
+  ohnehin zweimal auf dem Schirm — in der stets sichtbaren Raw-Zeile
+  (`$select=…`) und nach dem Run in den Grid-Kopfzeilen; eine dritte Kopie
+  kostete viel Höhe und sagte nichts Neues. Der Zähler-Button („12 selected")
+  führt in den Picker, **einzelne Spalten wirft man in der Grid-Kopfzeile per
+  ✕ raus** (`removableKeys`/`onRemoveColumn`, nur bei Hover sichtbar). Das ✕
+  erscheint **nur in OData-Mode und nur bei `select.length > 1`**: ohne
+  `$select` bestimmt der Server die Spalten (Entfernen müsste erst ein
+  `$select` erfinden), und die letzte zu entfernen leerte `$select` — was
+  „alle Spalten" heißt und die Query damit *erweitern* statt verengen würde.
 - **Der Konnektor kann kein `$count`/`$apply`/`$search`/`$batch`** (nur
   `$select/$filter/$orderby/$expand/$top/$skiptoken/fetchXml`) ⇒ Zeilenzahl
   später per FetchXML-Aggregat, nicht per `$count`.

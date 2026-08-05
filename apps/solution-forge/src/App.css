@@ -8187,6 +8187,29 @@
   font-size: 9px;
   color: var(--brand);
 }
+/* Drop a column from $select right in the header — where you actually notice
+   you do not want it. Hidden until the header is hovered or the button takes
+   keyboard focus; a permanent ✕ on every column turns the header row into
+   noise. Only `opacity` animates, so appearing shifts no layout. */
+.odb-th-drop {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  margin-left: 2px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.odb-grid th:hover .odb-th-drop,
+.odb-th-drop:focus-visible {
+  opacity: 1;
+}
+.odb-th-drop:hover {
+  color: #b02a37;
+}
 .odb-th-logical {
   display: block;
   font-size: 10.5px;

@@ -462,6 +462,24 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     return rows ? dataKeys(rows) : []
   }, [query.select, rows])
 
+  /**
+   * Columns the grid header may drop from `$select`. Only in OData mode (the
+   * FetchXML path has no `$select` to edit), only when a `$select` exists at
+   * all, and never down to zero — an empty `$select` means "every column", so
+   * removing the last one would widen the query instead of narrowing it.
+   */
+  const removableColumnKeys = useMemo(
+    () => (mode === 'odata' && query.select.length > 1 ? new Set(query.select) : undefined),
+    [mode, query.select],
+  )
+
+  const removeColumn = (key: string) =>
+    setQuery((prev) =>
+      prev.select.length > 1
+        ? { ...prev, select: prev.select.filter((s) => s !== key) }
+        : prev,
+    )
+
   /** Apply a new query, re-running it when a result is already on screen. */
   const runQuery = (next: ODataQuery) => {
     setQuery(next)
@@ -936,23 +954,16 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
                 : `${query.select.length || 'all'} selected`}{' '}
               ▾
             </button>
-            {query.select.length > 0 && (
-              <span className="odb-chiplist">
-                {query.select.map((name) => (
-                  <button
-                    key={name}
-                    className="chip odb-chip"
-                    title="Remove from $select"
-                    onClick={() =>
-                      setQuery((prev) => ({
-                        ...prev,
-                        select: prev.select.filter((s) => s !== name),
-                      }))
-                    }
-                  >
-                    {name} ✕
-                  </button>
-                ))}
+            {/* The selected columns are deliberately NOT listed here. They
+                already read out of the raw query line below ($select=…) and,
+                once the query has run, out of the grid headers — a third copy
+                as chips cost a lot of vertical space and told nobody anything
+                new. Removing a single column lives where you notice you do not
+                want it: the grid header. */}
+            {query.select.length > 0 && rows === null && (
+              <span className="muted">
+                shown in <code>$select</code> below — run the query to drop
+                columns from the grid header
               </span>
             )}
             {query.select.length === 0 && (
@@ -1280,6 +1291,8 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
             primaryIdAttribute={meta?.ref.primaryIdAttribute ?? ''}
             onOpenRecord={(id) => openRecord(table, id)}
             onOpenLookup={openRecord}
+            removableKeys={removableColumnKeys}
+            onRemoveColumn={removeColumn}
           />
           <div className="odb-footer">
             <span className="muted">
