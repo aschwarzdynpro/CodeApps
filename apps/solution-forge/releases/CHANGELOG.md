@@ -6,6 +6,39 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.18 — 2026-08-05
+
+**Nur OData Browser. Keine Schema-Änderung, keine neuen Flow-Versionen** —
+der Import braucht diesmal weder `provision-model.ps1` noch ein erneutes
+Aktivieren der Executor-Flows.
+
+- **Spalten werden nicht mehr als Chip-Liste geführt.** Jede gewählte Spalte
+  war ein eigener entfernbarer Chip; bei zwanzig Spalten und Namen wie
+  `_pro_package_ref_value` lief das über mehrere Zeilen und schob die Query
+  aus dem Bild. Die Liste war ohnehin die **dritte** Darstellung derselben
+  Information: Der Button daneben zählt sie, die stets sichtbare Query-Zeile
+  zeigt `$select=…` als maßgebliche, editierbare Fassung, und nach dem Lauf
+  stehen sie nochmal als Grid-Kopfzeilen da — mit Daten darunter.
+  **Einzelne Spalten wirft man jetzt in der Grid-Kopfzeile per ✕ raus**,
+  also dort, wo einem beim Lesen auffällt, dass man sie nicht braucht. Der
+  Klick auf den Titel sortiert weiter wie bisher.
+  Zwei Fälle zeigen bewusst **kein** ✕, weil es dort lügen würde: ohne
+  `$select` bestimmt der Server die Spalten (Entfernen müsste erst ein
+  `$select` mit allen übrigen erfinden), und bei nur noch einer Spalte
+  bedeutet ein leeres `$select` „alle Spalten" — die letzte zu entfernen
+  würde die Query also *erweitern*.
+- **Copy-Buttons für `$select`, `$filter` und `$expand`** unter der
+  Query-Zeile, für die Felder einer „List rows"-Aktion im Cloud Flow. Sie
+  kopieren den **nackten, unkodierten** Wert — nicht den Ausschnitt aus der
+  URL: Der Konnektor kodiert diese Felder selbst, ein mitkopiertes `%20` oder
+  `%27` zerlegt dort jeden Filter. Deaktiviert, wenn der jeweilige Teil leer
+  ist (der Tooltip sagt welcher fehlt, statt still `""` zu kopieren) und
+  solange die Query-Zeile eine **nicht angewendete** Änderung hat — dann
+  hielte der Builder noch die alte Query und gäbe etwas anderes aus als auf
+  dem Schirm steht. Der Tooltip zeigt vorab den exakten String.
+
+---
+
 ## 1.0.0.17 — 2026-08-05
 
 **Transfer Hub: Delta-Transfers und ein sichtbarer Write Plan. Drei neue

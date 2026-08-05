@@ -20,7 +20,7 @@ keeps the version bump from landing in a customer environment.
 
 | File | Version | Exported | Contents |
 | --- | --- | --- | --- |
-| `DynamicsProSolutionAdminConsole_1.0.0.17_managed.zip` | 1.0.0.17 | 2026-08-05 | **9** `pro_` tables — `pro_transferentry` gained the three **delta** columns (`pro_deltamode_opt`, `pro_deltafetchxml_txt`, `pro_deltawatermarks_txt`) · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler) **rebuilt for delta transfers**, host operations on `organization: "current"` · Code App (chunk-split bundle with two **lazily loaded** workspaces, incl. the first-run **Self-Provisioning Wizard**, Role Comparer, the security concept document and the entry dialog's **Write plan**) · 1 connection reference `pro_CR_SAC_Dataverse` · 1 security role `INT \| DEPLOYMENT MANAGER` |
+| `DynamicsProSolutionAdminConsole_1.0.0.18_managed.zip` | 1.0.0.18 | 2026-08-05 | **9** `pro_` tables incl. the three **delta** columns on `pro_transferentry` · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler), host operations on `organization: "current"` · Code App (chunk-split bundle with two **lazily loaded** workspaces, incl. the first-run **Self-Provisioning Wizard**, Role Comparer, the security concept document, the entry dialog's **Write plan** and the OData Browser's **cloud-flow copy buttons**) · 1 connection reference `pro_CR_SAC_Dataverse` · 1 security role `INT \| DEPLOYMENT MANAGER` · **unchanged since 1.0.0.17:** data model and flows |
 
 Only the newest managed export is kept here (managed solutions upgrade
 cumulatively — an older versioned zip can't be imported over a newer one).
