@@ -59,9 +59,19 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       UAT vs. PROD) schnell aufsetzen.
 - [ ] **Run-Housekeeping**: Runs akkumulieren unbegrenzt — „älter als N Tage
       löschen" als Bulk-Aktion oder im Scheduler.
-- [ ] **Column-Plan-Transparenz im Entry-Dialog**: anzeigen, welche Spalten
-      der Plan überspringt (Owner, polymorphe Lookups, read-only, statecode)
-      statt sie still zu ignorieren.
+- [x] **Column-Plan-Transparenz im Entry-Dialog**: Abschnitt **„Write plan"**
+      zeigt je Spalte, was der Executor tut — 1:1 kopiert, als Referenz
+      gebunden oder übersprungen mit ausgeschriebenem Grund (Owner, polymorphe
+      Lookups, read-only, Plattform-Spalten, …). Speist sich über
+      `previewColumnPlan` aus **derselben** Berechnung, die beim Save in
+      `pro_columnplan_txt` landet — Anzeige und Executor-Rezept können nicht
+      auseinanderlaufen. Dazu **Notices** statt bloßer Liste: Blocker
+      „Plan leer" (Entry würde Zeilen ohne Inhalt anlegen) im Save-Gate,
+      Warnung bei **verworfenen Referenzen** (Zeile landet ohne Lookup, Run
+      meldet trotzdem Erfolg) und je Lookup die Paket-Prüfung „Zieltabelle
+      wird von keinem / einem inaktiven / einem später laufenden Entry
+      transportiert" — der Parent-first-Rat als konkreter Befund.
+      Pure function `utils/columnPlanReport.ts` (Vitest).
 - [ ] **Power-Platform-Pipelines-Integration**: Pipeline-Run aus der App
       starten, Run-Status nach `pro_deploymentstatus` zurückspiegeln.
 - [x] **Solution Import History Viewer**: `importjob`-Historie je wählbarer

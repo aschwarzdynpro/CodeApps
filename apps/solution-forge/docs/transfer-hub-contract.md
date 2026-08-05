@@ -120,7 +120,7 @@ Failed with a note. Runs in status Cancelled are never picked up.
 | `pro_orphanhandling_opt` | Choice | What to do with orphaned target records. `null` ⇒ Ignore. |
 | `pro_order_int` | Int | In-package execution order, ascending. |
 | `pro_notes_txt` | Memo | Operator notes, informational. |
-| `pro_columnplan_txt` | Memo | **Write recipe JSON** computed by the hub at save time: `{"s":[scalar cols],"l":[{"c":col,"s":target entity set}],"x":[{"c":col,"r":reason}]}` — the executor copies `s` 1:1 and binds `l` as `<c>@odata.bind = /<s>(<guid>)`; `x` documents skipped columns. Empty ⇒ executor errors the entry (author must re-save it). |
+| `pro_columnplan_txt` | Memo | **Write recipe JSON** computed by the hub at save time: `{"s":[scalar cols],"l":[{"c":col,"s":target entity set}],"x":[{"c":col,"r":reason}]}` — the executor copies `s` 1:1 and binds `l` as `<c>@odata.bind = /<s>(<guid>)`; `x` documents skipped columns. Empty ⇒ executor errors the entry (author must re-save it). The hub's entry dialog renders this same recipe live (section **Write plan**), so `x` is authoring feedback, not just documentation — keep the reason strings stable, `utils/columnPlanReport.ts` maps them to human sentences. |
 | `statecode` | State | 0 = execute, 1 = skip. |
 
 ## Choice values

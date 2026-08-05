@@ -19,7 +19,15 @@ import {
   formatFetchXml,
   parseFetchXml,
   setAttributes,
+  type ColumnPlan,
 } from '../utils/transferConfig'
+import {
+  buildColumnPlanReport,
+  parseColumnPlan,
+  planBlockers,
+  type ColumnPlanReport,
+  type SiblingEntry,
+} from '../utils/columnPlanReport'
 import { SearchSelect } from './SearchSelect'
 import { formattedValue } from '../services/currentEnvQuery'
 
@@ -31,9 +39,17 @@ interface Props {
   locked?: boolean
   /** Suggested pro_order_int for a new entry (last + 1). */
   defaultOrder: number
+  /**
+   * The package's OTHER entries — what lets the write plan say whether a
+   * lookup's target table is transferred at all, and early enough. Memoize in
+   * the caller; the report recomputes when this changes identity.
+   */
+  siblings: SiblingEntry[]
   onSave: (input: TransferEntryInput) => Promise<void>
   onClose: () => void
 }
+
+const NOTICE_ICON = { blocker: '⛔', warning: '⚠', info: 'ⓘ' } as const
 
 const ORPHAN_OPTIONS: { value: OrphanHandling; label: string; hint: string }[] = [
   { value: 'ignore', label: 'Ignore', hint: 'Leave target records untouched' },
@@ -53,6 +69,7 @@ export function TransferEntryDialog({
   entry,
   locked = false,
   defaultOrder,
+  siblings,
   onSave,
   onClose,
 }: Props) {
@@ -85,6 +102,14 @@ export function TransferEntryDialog({
   const [preview, setPreview] = useState<PreviewResult | null>(null)
   const [previewBusy, setPreviewBusy] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
+
+  // Write plan. Seeded from the stored recipe so an existing entry renders it
+  // instantly; the live recompute below then reflects unsaved query edits.
+  const [plan, setPlan] = useState<ColumnPlan | null>(() =>
+    entry ? parseColumnPlan(entry.columnPlan) : null,
+  )
+  const [planBusy, setPlanBusy] = useState(false)
+  const [showPlanColumns, setShowPlanColumns] = useState(false)
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -192,6 +217,40 @@ export function TransferEntryDialog({
 
   const parsed = useMemo(() => parseFetchXml(fetchXml), [fetchXml])
 
+  /**
+   * Recompute the write plan for the CURRENT query through the very service
+   * call that save persists — the dialog can therefore never show a recipe the
+   * executor would not receive. Debounced because the FetchXML textarea fires
+   * on every keystroke; the source metadata behind it is cached per table.
+   */
+  useEffect(() => {
+    if (!envKey || !table) return
+    if (queryMode === 'view' ? !viewId : !parsed.ok) return
+    let alive = true
+    const timer = setTimeout(() => {
+      setPlanBusy(true)
+      void (async () => {
+        try {
+          // View mode plans the view's CURRENT FetchXML — what save snapshots.
+          const xml =
+            queryMode === 'view'
+              ? (await transferHubService.getViewFetchXml(envKey, viewId)).fetchXml
+              : fetchXml
+          const next = await transferHubService.previewColumnPlan(envKey, table, xml)
+          if (alive) setPlan(next)
+        } catch {
+          if (alive) setPlan(null)
+        } finally {
+          if (alive) setPlanBusy(false)
+        }
+      })()
+    }, 450)
+    return () => {
+      alive = false
+      clearTimeout(timer)
+    }
+  }, [envKey, table, queryMode, viewId, fetchXml, parsed])
+
   const draft = {
     sourceEnvKey: envKey,
     tableLogicalName: table,
@@ -201,8 +260,27 @@ export function TransferEntryDialog({
     matchMode,
     matchColumns: [...matchColumns],
   }
-  const blockers = describeEntryValidation(draft)
   const orderNum = Number(order)
+
+  const planReport = useMemo<ColumnPlanReport | null>(() => {
+    if (!plan) return null
+    return buildColumnPlanReport({
+      plan,
+      ownEntitySet: entitySet,
+      ownOrder: Number.isFinite(orderNum) ? orderNum : 0,
+      siblings,
+      // Saved views always list their attributes explicitly, so only a
+      // hand-written query can carry <all-attributes/>.
+      allAttributes: queryMode === 'fetchxml' && parsed.ok && parsed.allAttributes,
+    })
+  }, [plan, entitySet, orderNum, siblings, queryMode, parsed])
+
+  const blockers = [
+    ...describeEntryValidation(draft),
+    // Fail-open by design: an unreadable source environment yields no plan and
+    // therefore no blocker — metadata trouble must not stop authoring.
+    ...(planReport ? planBlockers(planReport) : []),
+  ]
   const canSubmit =
     !submitting && !locked && blockers.length === 0 && Number.isFinite(orderNum) && orderNum >= 0
 
@@ -558,6 +636,96 @@ export function TransferEntryDialog({
                     </tbody>
                   </table>
                 </div>
+              )}
+            </div>
+
+            <div className="form-row">
+              <span className="form-label">
+                Write plan{' '}
+                <span className="muted">— what the executor does with each column</span>
+              </span>
+              {!planReport ? (
+                <span className="muted thub-hint">
+                  {planBusy
+                    ? 'Reading the source metadata…'
+                    : 'Appears once the query is valid and the source metadata could be read.'}
+                </span>
+              ) : (
+                <>
+                  <div className="thub-plan-summary">
+                    <span className="thub-plan-count">
+                      <b>{planReport.scalars.length}</b> written
+                    </span>
+                    <span className="thub-plan-count">
+                      <b>{planReport.lookups.length}</b> as reference
+                    </span>
+                    <span
+                      className={`thub-plan-count ${
+                        planReport.skippedCount > 0 ? 'thub-plan-count--skip' : ''
+                      }`}
+                    >
+                      <b>{planReport.skippedCount}</b> skipped
+                    </span>
+                    <button
+                      className="btn btn--small"
+                      onClick={() => setShowPlanColumns((v) => !v)}
+                    >
+                      {showPlanColumns ? 'Hide columns' : 'Show columns'}
+                    </button>
+                    {planBusy && <span className="muted">updating…</span>}
+                  </div>
+
+                  {planReport.notices.map((n) => (
+                    <div key={n.id} className={`thub-plan-notice thub-plan-notice--${n.level}`}>
+                      <span aria-hidden="true">{NOTICE_ICON[n.level]}</span>
+                      <span>{n.text}</span>
+                    </div>
+                  ))}
+
+                  {showPlanColumns && (
+                    <div className="thub-plan-details">
+                      <div className="thub-plan-group">
+                        <span className="thub-plan-group-title">
+                          Copied 1:1 ({planReport.scalars.length})
+                        </span>
+                        <div className="thub-plan-cols">
+                          {planReport.scalars.map((c) => (
+                            <code key={c}>{c}</code>
+                          ))}
+                          {planReport.scalars.length === 0 && <span className="muted">none</span>}
+                        </div>
+                      </div>
+
+                      <div className="thub-plan-group">
+                        <span className="thub-plan-group-title">
+                          Bound as reference ({planReport.lookups.length})
+                        </span>
+                        <div className="thub-plan-cols">
+                          {planReport.lookups.map((l) => (
+                            <code key={l.c} title={`Bound to ${l.s} in the target`}>
+                              {l.c} → {l.s}
+                            </code>
+                          ))}
+                          {planReport.lookups.length === 0 && <span className="muted">none</span>}
+                        </div>
+                      </div>
+
+                      {planReport.skipped.map((g) => (
+                        <div key={g.reason} className="thub-plan-group">
+                          <span className="thub-plan-group-title">
+                            Skipped · {g.reason} ({g.columns.length})
+                          </span>
+                          <span className="muted thub-plan-reason">{g.label}</span>
+                          <div className="thub-plan-cols">
+                            {g.columns.map((c) => (
+                              <code key={c}>{c}</code>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

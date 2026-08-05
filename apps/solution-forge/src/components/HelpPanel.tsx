@@ -369,6 +369,20 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 self-contained; “⟳” re-reads the view when it changed.
               </li>
               <li>
+                <strong>Write plan</strong> — the entry dialog shows what the
+                executor will do with <em>every</em> column of the query:
+                copied 1:1, bound as a reference, or skipped with the reason.
+                It is the same recipe that gets saved for the executor, so what
+                you see is what runs. Watch the notices above it: a{' '}
+                <strong>dropped reference</strong> (a polymorphic lookup, for
+                example) means the rows arrive without that reference{' '}
+                <em>and the run still reports success</em>, and a lookup whose
+                target table no entry transfers — or one transferred{' '}
+                <em>after</em> this entry — will not resolve on the first run.
+                An entry whose plan is empty cannot be saved; it would create
+                rows with nothing in them.
+              </li>
+              <li>
                 <strong>Record matching</strong> per entry: GUID upsert (ids
                 stay identical across environments) or match by business
                 columns (up to <strong>5</strong> — the picker stops there).

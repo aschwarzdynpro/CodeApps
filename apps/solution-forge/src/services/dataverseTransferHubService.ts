@@ -35,6 +35,7 @@ import {
   parseCsvList,
   parseFetchXml,
   withRowLimit,
+  type ColumnPlan,
   type PlanAttributeMeta,
 } from '../utils/transferConfig'
 import { Pro_transferpackagesService } from '../generated/services/Pro_transferpackagesService'
@@ -53,6 +54,14 @@ import type { IOperationResult } from '@microsoft/power-apps/data'
  * source-environment lookups run through the connector (SP identity) so the
  * hub can browse tables/views and preview data in ANY configured environment.
  */
+
+/** Source-table metadata the column plan is built from (cached per session). */
+interface PlanMetadata {
+  attrs: PlanAttributeMeta[]
+  /** ReferencingAttribute → referenced entity logical names (>1 = polymorphic). */
+  lookupTargets: Record<string, string[]>
+  primaryIdAttribute: string
+}
 
 /** Metadata Label → localized display label. */
 function label(value: unknown): string {
@@ -606,10 +615,12 @@ class DataverseTransferHubService implements TransferHubService {
     fetchXml: string
   }): Promise<string> {
     try {
-      return await this.computeColumnPlan(
-        input.sourceEnvKey,
-        input.tableLogicalName,
-        input.fetchXml,
+      return JSON.stringify(
+        await this.computeColumnPlan(
+          input.sourceEnvKey,
+          input.tableLogicalName,
+          input.fetchXml,
+        ),
       )
     } catch (err) {
       console.warn('[transfer] column-plan computation failed:', err)
@@ -617,17 +628,71 @@ class DataverseTransferHubService implements TransferHubService {
     }
   }
 
+  async previewColumnPlan(
+    envKey: string,
+    tableLogicalName: string,
+    fetchXml: string,
+  ): Promise<ColumnPlan | null> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockTransferHubService.previewColumnPlan(envKey, tableLogicalName, fetchXml)
+    try {
+      return await this.computeColumnPlan(envKey, tableLogicalName, fetchXml)
+    } catch (err) {
+      // Authoring must survive an unreachable source environment — the dialog
+      // shows nothing rather than a scary error, and save still computes it.
+      console.warn('[transfer] column-plan preview failed:', err)
+      return null
+    }
+  }
+
   private async computeColumnPlan(
     envKey: string,
     table: string,
     fetchXml: string,
-  ): Promise<string> {
+  ): Promise<ColumnPlan> {
     const orgUrl = orgUrlForEnvKey(envKey)
     const parsed = parseFetchXml(fetchXml)
     const fetchAttrs =
       parsed.ok && !parsed.allAttributes && parsed.attributes.length > 0
         ? parsed.attributes
         : null
+    const { attrs, lookupTargets, primaryIdAttribute } = await this.loadPlanMetadata(orgUrl, table)
+    // Resolve entity sets only for single-target lookups in scope.
+    const entitySetByTable: Record<string, string> = {}
+    const wanted = new Set(fetchAttrs ?? attrs.map((a) => a.logicalName))
+    for (const [attr, targets] of Object.entries(lookupTargets)) {
+      const unique = [...new Set(targets)]
+      if (unique.length !== 1 || !wanted.has(attr) || entitySetByTable[unique[0]]) continue
+      try {
+        entitySetByTable[unique[0]] = (await this.resolveEntityInfo(orgUrl, unique[0])).set
+      } catch (err) {
+        console.warn('[transfer] lookup target set resolution failed:', unique[0], err)
+      }
+    }
+    return buildColumnPlan(
+      fetchAttrs,
+      attrs,
+      primaryIdAttribute,
+      lookupTargets,
+      entitySetByTable,
+    )
+  }
+
+  /** orgUrl|table → plan metadata (see {@link loadPlanMetadata}). */
+  private planMetaByTable = new Map<string, PlanMetadata>()
+
+  /**
+   * The source table's attribute + relationship metadata behind the column
+   * plan. Cached per session because the entry dialog recomputes the plan on
+   * every query edit — the same read otherwise runs on every keystroke. A
+   * schema change in the source environment needs a page reload to show up,
+   * which matches how the rest of the app caches metadata.
+   */
+  private async loadPlanMetadata(orgUrl: string, table: string): Promise<PlanMetadata> {
+    const cacheKey = `${orgUrl}|${table}`
+    const cached = this.planMetaByTable.get(cacheKey)
+    if (cached) return cached
     const safe = table.replace(/'/g, "''")
     const rows = await odataQuery('EntityDefinitions', 'LogicalName,PrimaryIdAttribute', {
       orgUrl,
@@ -656,27 +721,13 @@ class DataverseTransferHubService implements TransferHubService {
       if (!attr || !target) continue
       ;(lookupTargets[attr] ??= []).push(target)
     }
-    // Resolve entity sets only for single-target lookups in scope.
-    const entitySetByTable: Record<string, string> = {}
-    const wanted = new Set(fetchAttrs ?? attrs.map((a) => a.logicalName))
-    for (const [attr, targets] of Object.entries(lookupTargets)) {
-      const unique = [...new Set(targets)]
-      if (unique.length !== 1 || !wanted.has(attr) || entitySetByTable[unique[0]]) continue
-      try {
-        entitySetByTable[unique[0]] = (await this.resolveEntityInfo(orgUrl, unique[0])).set
-      } catch (err) {
-        console.warn('[transfer] lookup target set resolution failed:', unique[0], err)
-      }
+    const meta: PlanMetadata = {
+      attrs,
+      lookupTargets,
+      primaryIdAttribute: rowStr(row.PrimaryIdAttribute),
     }
-    return JSON.stringify(
-      buildColumnPlan(
-        fetchAttrs,
-        attrs,
-        rowStr(row.PrimaryIdAttribute),
-        lookupTargets,
-        entitySetByTable,
-      ),
-    )
+    this.planMetaByTable.set(cacheKey, meta)
+    return meta
   }
 
   /** table → { entitySet, primaryIdAttribute } cache per orgUrl. */

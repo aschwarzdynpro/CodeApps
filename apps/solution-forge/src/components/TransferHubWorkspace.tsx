@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import type {
   TransferEntry,
   TransferPackage,
@@ -7,6 +7,7 @@ import type {
 } from '../types/transferHub'
 import { transferHubService } from '../services/transferHubService'
 import { formatDuration, formatFetchXml, parseRunLog } from '../utils/transferConfig'
+import type { SiblingEntry } from '../utils/columnPlanReport'
 import { ENVIRONMENTS } from '../config'
 import { formatDateTime, formatRelative } from '../utils/format'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -296,6 +297,25 @@ export function TransferHubWorkspace() {
   }
 
   const nextOrder = entries && entries.length > 0 ? Math.max(...entries.map((e) => e.order)) + 1 : 1
+
+  /**
+   * The edited entry's siblings, for its write plan: they decide whether a
+   * lookup's target table is transferred by this package at all, and whether
+   * it runs early enough for the reference to resolve.
+   */
+  const editedEntryId = entryDialog?.entry?.id ?? ''
+  const dialogSiblings = useMemo<SiblingEntry[]>(
+    () =>
+      (entries ?? [])
+        .filter((e) => e.id !== editedEntryId)
+        .map((e) => ({
+          name: e.name,
+          entitySet: e.entitySet,
+          order: e.order,
+          active: e.active,
+        })),
+    [entries, editedEntryId],
+  )
 
   return (
     <div className="thub">
@@ -827,6 +847,7 @@ export function TransferHubWorkspace() {
           entry={entryDialog.entry}
           locked={runActive}
           defaultOrder={nextOrder}
+          siblings={dialogSiblings}
           onClose={() => setEntryDialog(null)}
           onSave={async (input) => {
             if (entryDialog.entry) {

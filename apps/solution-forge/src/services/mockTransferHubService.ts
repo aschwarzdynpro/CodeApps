@@ -10,7 +10,7 @@ import type {
   TransferRun,
 } from '../types/transferHub'
 import type { CreateRunOptions, TransferHubService } from './transferHubService'
-import { fetchTop, fetchXmlAttributes } from '../utils/transferConfig'
+import { fetchTop, fetchXmlAttributes, type ColumnPlan } from '../utils/transferConfig'
 
 /**
  * Offline mock of {@link TransferHubService} — the full hub is demoable
@@ -454,6 +454,18 @@ class MockTransferHubService implements TransferHubService {
     const count = seeded[tableLogicalName] ?? 12
     const top = fetchTop(fetchXml)
     return top !== null ? Math.min(count, top) : count
+  }
+
+  async previewColumnPlan(
+    _envKey: string,
+    tableLogicalName: string,
+    fetchXml: string,
+  ): Promise<ColumnPlan | null> {
+    void _envKey
+    await delay(200)
+    // Same helper the mock's create/update use — the dialog and the stored
+    // recipe agree offline exactly as they do against a real environment.
+    return JSON.parse(mockColumnPlan(tableLogicalName, fetchXml)) as ColumnPlan
   }
 }
 

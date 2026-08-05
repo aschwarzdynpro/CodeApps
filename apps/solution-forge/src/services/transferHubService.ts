@@ -9,6 +9,7 @@ import type {
   TransferPackageInput,
   TransferRun,
 } from '../types/transferHub'
+import type { ColumnPlan } from '../utils/transferConfig'
 import { dataverseTransferHubService } from './dataverseTransferHubService'
 
 /**
@@ -90,6 +91,18 @@ export interface TransferHubService {
     tableLogicalName: string,
     fetchXml: string,
   ): Promise<number | undefined>
+  /**
+   * The write recipe this query WOULD be saved with — the very computation
+   * `createEntry`/`updateEntry` persist into `pro_columnplan_txt`, so what the
+   * entry dialog shows can never drift from what the executor receives.
+   * `null` when the source metadata is unreachable (the dialog then simply
+   * shows nothing — a transient metadata error must not block authoring).
+   */
+  previewColumnPlan(
+    envKey: string,
+    tableLogicalName: string,
+    fetchXml: string,
+  ): Promise<ColumnPlan | null>
 }
 
 export const transferHubService: TransferHubService = dataverseTransferHubService

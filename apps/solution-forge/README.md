@@ -271,7 +271,14 @@ nach Typ.
   **Record-Matching** (GUID-Upsert oder fachliche Match-Spalten, max. 5)
   und **Orphan-Handling** (Ignore/Deactivate/Delete — Scope ist beidseitig
   die Query des Eintrags: nur Zielzeilen, die die Query zurückgibt, können
-  Orphans werden). Views werden als **FetchXML-Snapshot** gespeichert
+  Orphans werden). Der Abschnitt **„Write plan"** im Eintrags-Dialog zeigt je
+  Spalte, was der Executor damit tut — 1:1 kopiert, als Referenz gebunden oder
+  übersprungen mit Grund — aus **derselben** Berechnung, die gespeichert wird.
+  Dazu Befunde statt bloßer Liste: **verworfene Referenzen** (polymorphe/
+  unauflösbare Lookups — die Zeile landet ohne Referenz, der Run meldet
+  trotzdem Erfolg), Lookups auf Tabellen, die **kein** Eintrag des Pakets
+  transportiert oder erst **später**, und ein leerer Plan blockiert das
+  Speichern. Views werden als **FetchXML-Snapshot** gespeichert
   (self-contained, „⟳" re-snapshottet). **▶ Run** bietet zwei Achsen:
   **✍ Transfer | 🧪 Dry run** (Simulation — der Executor partitioniert, zählt
   und loggt, schreibt aber nichts; das Log zeigt, was passiert *wäre*,

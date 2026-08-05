@@ -765,7 +765,21 @@ View-Refresh) berechnet `computeColumnPlan` aus den Quell-Metadaten
 Expand für Lookup-Ziele, kein Metadata-Cast nötig) das Write-Rezept
 `pro_columnplan_txt` (`{"s":[Skalare],"l":[{c,s}=Lookup→Entity-Set],"x":
 [{c,r}=übersprungen]}`, pure function `utils/transferConfig.buildColumnPlan`,
-Vitest) — Owner/polymorphe Lookups werden übersprungen. **Executor-Flow**
+Vitest) — Owner/polymorphe Lookups werden übersprungen. Der Entry-Dialog
+zeigt dasselbe Rezept als Abschnitt **„Write plan"**: `previewColumnPlan`
+ruft **exakt `computeColumnPlan`** auf (debounced 450 ms, Tabellen-Metadaten
+pro Session gecacht), damit Anzeige und gespeichertes Rezept nicht
+auseinanderlaufen können; die Auswertung ist die pure function
+`utils/columnPlanReport.ts` (Vitest): Spalten nach Grund gruppiert plus
+**Notices** — Blocker „Plan leer" (Entry würde Zeilen ohne Inhalt anlegen,
+hängt im Save-Gate), Warnung bei verworfenen Referenzen (polymorph/
+unauflösbar → Zeile landet ohne Referenz, Run meldet trotzdem Erfolg) und
+je Lookup die Paket-Prüfung „Zieltabelle wird von keinem Entry
+transportiert / von einem inaktiven / von einem mit höherer Order"
+(= der Parent-first-Rat als konkreter Befund; der Dialog bekommt dafür die
+Geschwister-Entries als `siblings`-Prop). **Fail-open:** unerreichbare
+Quell-Metadaten ⇒ kein Plan ⇒ **kein** Blocker — ein Metadatenfehler darf
+das Autorieren nicht verhindern. **Executor-Flow**
 (implementiert + shipbar, **v4 = Parent+Child, komplett variablenfrei**):
 Templates `installer/executor-flow.clientdata.json` (Parent, Platzhalter
 `__CONNREF__`/`__CHILD_ID__`; **Host-Ops nutzen `organization:"current"`** —

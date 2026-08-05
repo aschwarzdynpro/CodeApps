@@ -7052,6 +7052,87 @@
   font-size: 12px;
   margin-top: 6px;
 }
+
+/* Transfer hub — write plan (what the executor does with each column) */
+.thub-plan-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 12px;
+}
+.thub-plan-count {
+  color: var(--muted);
+}
+.thub-plan-count b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.thub-plan-count--skip b {
+  color: #b7791f;
+}
+.thub-plan-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.thub-plan-notice--blocker {
+  border-color: #f1aeb5;
+  background: #fdf2f3;
+  color: #b02a37;
+}
+.thub-plan-notice--warning {
+  border-color: #f0dcae;
+  background: #fdf6e7;
+  color: #8a5d15;
+}
+.thub-plan-notice--info {
+  background: var(--bg);
+  color: var(--muted);
+}
+.thub-plan-details {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 10px 10px;
+  background: var(--bg);
+}
+.thub-plan-group {
+  margin-top: 8px;
+}
+.thub-plan-group-title {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.thub-plan-reason {
+  display: block;
+  font-size: 11.5px;
+  margin: 2px 0 4px;
+}
+.thub-plan-cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 4px;
+  font-size: 12px;
+}
+.thub-plan-cols code {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
 /* Transfer hub — per-entry insights (count column + collapsible preview) */
 .thub-count-cell {
   white-space: nowrap;
