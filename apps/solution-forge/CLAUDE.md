@@ -779,7 +779,27 @@ transportiert / von einem inaktiven / von einem mit höherer Order"
 (= der Parent-first-Rat als konkreter Befund; der Dialog bekommt dafür die
 Geschwister-Entries als `siblings`-Prop). **Fail-open:** unerreichbare
 Quell-Metadaten ⇒ kein Plan ⇒ **kein** Blocker — ein Metadatenfehler darf
-das Autorieren nicht verhindern. **Executor-Flow**
+das Autorieren nicht verhindern.
+**Delta-Transfers** (`pro_deltamode_opt` Full/Modified, `pro_deltafetchxml_txt`,
+`pro_deltawatermarks_txt`): der Entry überträgt nur Zeilen mit `modifiedon` ab
+dem Wasserstand **des jeweiligen Ziels**. Vier Regeln, jede gegen einen
+konkreten Datenverlust: (1) Wasserstand **pro Ziel**, nie pro Entry — ein Lauf,
+der nach UAT landet und nach PROD scheitert, darf PROD nicht dauerhaft
+überspringen lassen; (2) Stempel = **Lesezeit minus 2 min** (`Stamp`-Compose vor
+allen Reads), damit während des Laufs geänderte Zeilen der NÄCHSTE Lauf fängt
+und Clock-Skew abgedeckt ist — doppelt übertragen ist gratis (Upsert), verloren
+nicht; (3) Fortschreiben nur bei **sauberer** Zelle: kein Dry Run, kein Cap,
+0 Fehler; (4) **harter Ausschluss mit Orphan-Handling** im Save-Gate — ein
+Delta-Set ist unvollständig, also sähe jede unveränderte Zielzeile verwaist aus
+(bei Delete: Tabelle leer beim zweiten Lauf). Die gefilterte Query baut der Hub
+per `withDeltaCondition` (wrappt vorhandene Top-Level-Filter in ein neues
+`<filter type="and">` — ein `<filter type="or">` würde sonst „geändert seit X
+ODER Autorenfilter" ergeben) mit **genau einem `__DELTA__`-Loch**; der Executor
+kann kein XML, nur `replace()`. ⚠ Delta hebt das **5000er-Cap NICHT** auf: der
+Ziel-Read braucht weiter die volle Menge für den Match-Index. Query **erweitern
+backfillt nicht** (alte `modifiedon` bleiben alt) ⇒ „↺ Reset delta"
+(`resetDelta`) leert die Map. Zell-Log führt `"delta":true|false`.
+**Executor-Flow**
 (implementiert + shipbar, **v4 = Parent+Child, komplett variablenfrei**):
 Templates `installer/executor-flow.clientdata.json` (Parent, Platzhalter
 `__CONNREF__`/`__CHILD_ID__`; **Host-Ops nutzen `organization:"current"`** —

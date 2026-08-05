@@ -45,6 +45,12 @@ export interface TransferHubService {
   updateEntry(id: string, input: TransferEntryInput): Promise<void>
   deleteEntry(id: string): Promise<void>
   setEntryActive(id: string, active: boolean): Promise<void>
+  /**
+   * Forget the entry's delta watermarks, so the next run transfers everything
+   * again. Needed after WIDENING a query: rows the old filter excluded keep
+   * their old `modifiedon` and would never be picked up otherwise.
+   */
+  resetDelta(id: string): Promise<void>
   /** Persist a new in-package order (serial pro_order_int updates, 1-based). */
   reorderEntries(orderedIds: string[]): Promise<void>
   /**

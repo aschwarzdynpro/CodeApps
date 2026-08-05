@@ -47,10 +47,21 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       abgeschnitten zu schreiben. Wege für später: OData-Read-Pfad (dort wirkt
       die Policy) statt FetchXML, oder ein Grandchild-Flow je Seite.
 
-- [ ] **Delta-Transfers**: nur Zeilen mit `modifiedon` seit dem letzten
-      erfolgreichen Run übertragen (Zeitstempel je Entry snapshotten, in den
-      Fetch injizieren). Schließt sich mit Orphan-Handling gegenseitig aus
-      (unvollständiges Quell-Set ⇒ False-Positive-Orphans) — im UI koppeln.
+- [x] **Delta-Transfers** (`pro_deltamode_opt` / `pro_deltafetchxml_txt` /
+      `pro_deltawatermarks_txt`): Eintrag überträgt nur Zeilen mit `modifiedon`
+      ab dem Wasserstand — **einem pro Ziel-Umgebung**, damit ein Lauf, der
+      nach UAT landet und nach PROD scheitert, PROD nicht dauerhaft
+      überspringen lässt. Stempel = **Lesezeit minus 2 min** (während des Laufs
+      geänderte Zeilen fängt der nächste Lauf; deckt Clock-Skew ab), rückt nur
+      bei sauberer Zelle vor (kein Dry Run, kein Cap, 0 Fehler). **Harter
+      Ausschluss mit Orphan-Handling** im Save-Gate — ein Delta-Set ist
+      unvollständig, jede unveränderte Zielzeile sähe verwaist aus (bei Delete:
+      Tabelle leer beim zweiten Lauf). Die gefilterte Query baut der Hub per
+      `withDeltaCondition` (Vitest) mit genau einem `__DELTA__`-Loch, weil der
+      Executor kein XML kann — nur `replace()`. „↺ Reset delta" für den Fall,
+      dass ein Filter gelockert wurde (alte Zeilen behalten ihr altes
+      `modifiedon` und kämen sonst nie nach). ⚠ Hebt das **5000er-Cap nicht**
+      auf: der Ziel-Read braucht weiter die volle Menge für den Match-Index.
 - [ ] **Benachrichtigung bei Failed/Partial**: Teams-/Mail-Action im
       Finish-Pfad des Executors oder ein Notification-Flow auf den
       `pro_transferrun`-Statuswechsel („Run lief nachts schief, niemand

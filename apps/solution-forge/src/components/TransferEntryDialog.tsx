@@ -6,6 +6,7 @@ import type {
   SavedViewRef,
   TableRef,
   TransferEntry,
+  TransferDeltaMode,
   TransferEntryInput,
   TransferMatchMode,
   TransferQueryMode,
@@ -19,6 +20,7 @@ import {
   formatFetchXml,
   parseFetchXml,
   setAttributes,
+  DELTA_ATTRIBUTE,
   type ColumnPlan,
 } from '../utils/transferConfig'
 import {
@@ -39,6 +41,8 @@ interface Props {
   locked?: boolean
   /** Suggested pro_order_int for a new entry (last + 1). */
   defaultOrder: number
+  /** The package's target environments — one delta watermark each. */
+  targetEnvKeys: string[]
   /**
    * The package's OTHER entries — what lets the write plan say whether a
    * lookup's target table is transferred at all, and early enough. Memoize in
@@ -69,6 +73,7 @@ export function TransferEntryDialog({
   entry,
   locked = false,
   defaultOrder,
+  targetEnvKeys,
   siblings,
   onSave,
   onClose,
@@ -88,6 +93,12 @@ export function TransferEntryDialog({
     () => new Set(entry?.matchColumns ?? []),
   )
   const [orphan, setOrphan] = useState<OrphanHandling>(entry?.orphanHandling ?? 'ignore')
+  const [deltaMode, setDeltaMode] = useState<TransferDeltaMode>(entry?.deltaMode ?? 'none')
+  // Watermarks are executor-owned; the dialog only displays and clears them.
+  const [watermarks, setWatermarks] = useState<Record<string, string>>(
+    () => entry?.deltaWatermarks ?? {},
+  )
+  const [resetting, setResetting] = useState(false)
 
   // Source-environment lookups.
   const [tables, setTables] = useState<TableRef[] | null>(null)
@@ -259,6 +270,8 @@ export function TransferEntryDialog({
     fetchXml,
     matchMode,
     matchColumns: [...matchColumns],
+    deltaMode: deltaMode === 'modified',
+    orphanHandling: orphan,
   }
   const orderNum = Number(order)
 
@@ -369,6 +382,7 @@ export function TransferEntryDialog({
         matchMode,
         matchColumns: matchMode === 'columns' ? [...matchColumns] : [],
         orphanHandling: orphan,
+        deltaMode,
         order: orderNum,
         notes: notes.trim(),
       })
@@ -389,6 +403,30 @@ export function TransferEntryDialog({
 
   const columnLabel = (logicalName: string) =>
     columns?.find((c) => c.logicalName === logicalName)?.displayName ?? logicalName
+
+  const envLabel = (key: string) => ENVIRONMENTS.find((e) => e.key === key)?.label ?? key
+
+  /**
+   * Delta filters on `modifiedon`. Assume it exists while the metadata is
+   * still loading — every stock table has it, and a wrongly disabled toggle is
+   * more confusing than one that turns out unavailable a moment later.
+   */
+  const hasModifiedOn =
+    columns === null || columns.some((c) => c.logicalName === DELTA_ATTRIBUTE)
+
+  const resetDelta = async () => {
+    if (!entry) return
+    setResetting(true)
+    setError(null)
+    try {
+      await transferHubService.resetDelta(entry.id)
+      setWatermarks({})
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setResetting(false)
+    }
+  }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -802,6 +840,73 @@ export function TransferEntryDialog({
                 ))}
               </select>
             </label>
+
+            <div className="form-row">
+              <span className="form-label">Rows per run</span>
+              <div className="chips">
+                <button
+                  className={`chip ${deltaMode === 'none' ? 'chip--active' : ''}`}
+                  title="Every row the query returns, on every run."
+                  onClick={() => setDeltaMode('none')}
+                >
+                  Full
+                </button>
+                <button
+                  className={`chip ${deltaMode === 'modified' ? 'chip--active' : ''} ${
+                    hasModifiedOn ? '' : 'chip--off'
+                  }`}
+                  disabled={!hasModifiedOn}
+                  title={
+                    hasModifiedOn
+                      ? 'Only rows changed since this entry last reached that target.'
+                      : `${tableDisplayName || table} has no modifiedon column, so changes cannot be dated.`
+                  }
+                  onClick={() => setDeltaMode('modified')}
+                >
+                  Δ Changed since last run
+                </button>
+              </div>
+              {deltaMode === 'modified' && (
+                <div className="thub-delta">
+                  <span className="muted thub-hint">
+                    Each target keeps its <strong>own</strong> watermark — a run that lands in
+                    one environment and fails in another must not make the failed one skip
+                    those rows. A target without a watermark transfers everything.
+                  </span>
+                  <div className="thub-delta-marks">
+                    {targetEnvKeys.length === 0 && (
+                      <span className="muted">The package has no target environments yet.</span>
+                    )}
+                    {targetEnvKeys.map((key) => (
+                      <span key={key} className="thub-delta-mark">
+                        <b>{envLabel(key)}</b>
+                        {watermarks[key] ? (
+                          <> changed since {new Date(watermarks[key]).toLocaleString()}</>
+                        ) : (
+                          <span className="muted"> never run — next run transfers everything</span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                  {Object.keys(watermarks).length > 0 && (
+                    <div className="thub-xml-tools">
+                      <span className="muted thub-hint">
+                        Widening the query does <strong>not</strong> bring back rows that were
+                        already skipped — their <code>modifiedon</code> stays old. Reset after
+                        loosening a filter.
+                      </span>
+                      <button
+                        className="btn btn--small"
+                        disabled={resetting || locked || !entry}
+                        onClick={() => void resetDelta()}
+                      >
+                        {resetting ? 'Resetting…' : '↺ Reset delta'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             <label className="form-row">
               <span className="form-label">Notes</span>

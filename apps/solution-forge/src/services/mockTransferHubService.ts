@@ -143,6 +143,10 @@ const entries: TransferEntry[] = [
     matchMode: 'guid',
     matchColumns: [],
     orphanHandling: 'ignore',
+    deltaMode: 'modified',
+    // uat has a stamp, prod does not — the target that never ran shows up as a
+    // full transfer, which is exactly the case the per-target map exists for.
+    deltaWatermarks: { uat: '2026-08-04T22:10:00Z' },
     order: 1,
     notes: '',
     active: true,
@@ -165,6 +169,8 @@ const entries: TransferEntry[] = [
     matchMode: 'columns',
     matchColumns: ['cust_code'],
     orphanHandling: 'deactivate',
+    deltaMode: 'none',
+    deltaWatermarks: {},
     order: 2,
     notes: 'Matched by code — target ids differ historically.',
     active: true,
@@ -187,6 +193,8 @@ const entries: TransferEntry[] = [
     matchMode: 'guid',
     matchColumns: [],
     orphanHandling: 'delete',
+    deltaMode: 'none',
+    deltaWatermarks: {},
     order: 3,
     notes: 'After price lists — the lookup needs its parent first.',
     active: true,
@@ -298,6 +306,7 @@ class MockTransferHubService implements TransferHubService {
       id: nextId('entry'),
       active: true,
       columnPlan: mockColumnPlan(input.tableLogicalName, input.fetchXml),
+      deltaWatermarks: {},
     }
     entries.push(entry)
     return { ...entry }
@@ -316,6 +325,12 @@ class MockTransferHubService implements TransferHubService {
     await delay(150)
     const idx = entries.findIndex((e) => e.id === id)
     if (idx >= 0) entries.splice(idx, 1)
+  }
+
+  async resetDelta(id: string): Promise<void> {
+    await delay(100)
+    const entry = entries.find((e) => e.id === id)
+    if (entry) entry.deltaWatermarks = {}
   }
 
   async setEntryActive(id: string, active: boolean): Promise<void> {

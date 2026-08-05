@@ -136,6 +136,8 @@ $runStatusOpts = @(
 $recurrenceOpts = @(
   (New-DvOption 867520000 'None'), (New-DvOption 867520001 'Daily'),
   (New-DvOption 867520002 'Weekly'))
+$deltaModeOpts = @(
+  (New-DvOption 867520000 'Full'), (New-DvOption 867520001 'Modified since last run'))
 
 # ---- 3. Entities -----------------------------------------------------------
 # Each: SchemaName, primary attr (schema/max/req), ownership, set name, display
@@ -274,7 +276,15 @@ $columns = @{
     (PickAttr "${p}_orphanhandling_opt" 'None' 'Orphan handling' $orphanOpts),
     (IntAttr  "${p}_order_int" 0 10000 'None' 'Order'),
     (MemoAttr "${p}_notes_txt" 4000 'None' 'Notes'),
-    (MemoAttr "${p}_columnplan_txt" 100000 'None' 'Column plan')
+    (MemoAttr "${p}_columnplan_txt" 100000 'None' 'Column plan'),
+    # Delta transfers: only rows whose modifiedon is at or after the watermark
+    # of the target being written. The hub pre-builds the filtered query with a
+    # single __DELTA__ hole (the executor has no XML tooling, only replace());
+    # the watermark map is per TARGET so a run that landed in UAT but failed in
+    # PROD cannot make PROD skip those rows forever.
+    (PickAttr "${p}_deltamode_opt" 'None' 'Delta mode' $deltaModeOpts),
+    (MemoAttr "${p}_deltafetchxml_txt" 1000000 'None' 'Delta FetchXML template'),
+    (MemoAttr "${p}_deltawatermarks_txt" 4000 'None' 'Delta watermarks')
   )
   "${p}_transferrun" = @(
     (PickAttr "${p}_status_opt" 'ApplicationRequired' 'Status' $runStatusOpts),

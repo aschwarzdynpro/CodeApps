@@ -14,6 +14,8 @@
 export type TransferQueryMode = 'view' | 'fetchxml'
 export type TransferMatchMode = 'guid' | 'columns'
 export type OrphanHandling = 'ignore' | 'deactivate' | 'delete'
+/** Whether an entry transfers everything or only what changed since last time. */
+export type TransferDeltaMode = 'none' | 'modified'
 /** Cadence of an automatically recurring package run. */
 export type TransferRecurrence = 'none' | 'daily' | 'weekly'
 export type TransferRunStatus =
@@ -42,6 +44,12 @@ export const ORPHAN_CODES: Record<OrphanHandling, number> = {
   ignore: 867520000,
   deactivate: 867520001,
   delete: 867520002,
+}
+
+/** pro_deltamode_opt option values (null on the record = 'none'). */
+export const DELTA_MODE_CODES: Record<TransferDeltaMode, number> = {
+  none: 867520000,
+  modified: 867520001,
 }
 
 /** pro_status_opt option values on pro_transferrun. */
@@ -85,6 +93,9 @@ export function orphanFromCode(code: number | null | undefined): OrphanHandling 
   if (code === ORPHAN_CODES.deactivate) return 'deactivate'
   if (code === ORPHAN_CODES.delete) return 'delete'
   return 'ignore'
+}
+export function deltaModeFromCode(code: number | null | undefined): TransferDeltaMode {
+  return code === DELTA_MODE_CODES.modified ? 'modified' : 'none'
 }
 
 /** One configuration bundle the pipeline executes as a unit. */
@@ -135,6 +146,19 @@ export interface TransferEntry {
   /** Logical column names (columns mode) — comma string on the record. */
   matchColumns: string[]
   orphanHandling: OrphanHandling
+  /**
+   * 'modified' transfers only rows whose `modifiedon` is at or after the
+   * watermark of the target being written. Mutually exclusive with orphan
+   * handling — see the save gate in `utils/transferConfig`.
+   */
+  deltaMode: TransferDeltaMode
+  /**
+   * Target env key → ISO watermark, written by the executor after a clean
+   * cell. Per TARGET because a run can succeed for UAT and fail for PROD;
+   * a shared stamp would make PROD skip those rows forever. A missing key
+   * means "never transferred" and yields a full run.
+   */
+  deltaWatermarks: Record<string, string>
   /** In-package execution order (parents before children for lookups). */
   order: number
   notes: string
@@ -175,6 +199,7 @@ export interface TransferEntryInput {
   matchMode: TransferMatchMode
   matchColumns: string[]
   orphanHandling: OrphanHandling
+  deltaMode: TransferDeltaMode
   order: number
   notes: string
 }

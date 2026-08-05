@@ -278,7 +278,16 @@ nach Typ.
   unauflösbare Lookups — die Zeile landet ohne Referenz, der Run meldet
   trotzdem Erfolg), Lookups auf Tabellen, die **kein** Eintrag des Pakets
   transportiert oder erst **später**, und ein leerer Plan blockiert das
-  Speichern. Views werden als **FetchXML-Snapshot** gespeichert
+  Speichern. **Delta-Transfers** je Eintrag („Δ Changed since last run"):
+  überträgt nur Zeilen mit `modifiedon` ab dem Wasserstand — **pro Ziel-Umgebung
+  einer**, damit ein Lauf, der nach UAT landet und nach PROD scheitert, PROD
+  nicht dauerhaft überspringen lässt. Der Stempel ist die Lesezeit minus zwei
+  Minuten und rückt nur bei sauberer Zelle vor (kein Dry Run, kein Cap, keine
+  Fehler). Mit **Orphan-Handling nicht kombinierbar** (Save-Gate blockt: ein
+  Delta-Set ist unvollständig, jede unveränderte Zielzeile sähe verwaist aus);
+  hebt das 5000er-Limit **nicht** auf; nach dem Lockern eines Filters
+  „↺ Reset delta", weil alte Zeilen ihr altes `modifiedon` behalten.
+  Views werden als **FetchXML-Snapshot** gespeichert
   (self-contained, „⟳" re-snapshottet). **▶ Run** bietet zwei Achsen:
   **✍ Transfer | 🧪 Dry run** (Simulation — der Executor partitioniert, zählt
   und loggt, schreibt aber nichts; das Log zeigt, was passiert *wäre*,

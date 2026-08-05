@@ -14,9 +14,13 @@ import {
   parseCsvList,
   parseFetchXml,
   parseRunLog,
+  parseWatermarks,
   setAttributes,
   validateMatchColumns,
+  withDeltaCondition,
   withRowLimit,
+  DELTA_ATTRIBUTE,
+  DELTA_PLACEHOLDER,
   type TransferEntryDraft,
 } from './transferConfig'
 
@@ -288,6 +292,11 @@ describe('parseRunLog', () => {
     expect(rows![0]).toMatchObject({ entry: 'NACE Codes', target: 'uat', created: 1, updated: 9, errors: ['x failed'] })
     expect(rows![1]).toMatchObject({ entry: 'Broken', error: 'no column plan', created: 0 })
   })
+  it('reads the delta flag, defaulting to a full cell', () => {
+    const rows = parseRunLog('[{"entry":"A","target":"uat","delta":true},{"entry":"B","target":"prod"}]')
+    expect(rows![0].delta).toBe(true)
+    expect(rows![1].delta).toBe(false)
+  })
   it('returns null for empty or non-array input', () => {
     expect(parseRunLog('')).toBeNull()
     expect(parseRunLog('not json')).toBeNull()
@@ -332,7 +341,23 @@ describe('describeEntryValidation', () => {
     fetchXml: SIMPLE,
     matchMode: 'guid',
     matchColumns: [],
+    deltaMode: false,
+    orphanHandling: 'ignore',
   }
+
+  it('blocks delta mode combined with orphan handling', () => {
+    expect(describeEntryValidation({ ...base, deltaMode: true, orphanHandling: 'delete' })).toEqual([
+      expect.stringContaining('Delta transfers cannot be combined with orphan handling'),
+    ])
+    expect(
+      describeEntryValidation({ ...base, deltaMode: true, orphanHandling: 'deactivate' }),
+    ).toHaveLength(1)
+    expect(describeEntryValidation({ ...base, deltaMode: true, orphanHandling: 'ignore' })).toEqual(
+      [],
+    )
+    // Orphan handling on its own is fine — only the combination is dangerous.
+    expect(describeEntryValidation({ ...base, orphanHandling: 'delete' })).toEqual([])
+  })
 
   it('passes a clean fetchxml draft', () => {
     expect(describeEntryValidation(base)).toEqual([])
@@ -397,5 +422,93 @@ describe('describeEntryValidation', () => {
         matchColumns: six.slice(0, MAX_MATCH_COLUMNS),
       }),
     ).toEqual([])
+  })
+})
+
+describe('withDeltaCondition', () => {
+  const delta = (xml: string) => withDeltaCondition(xml) ?? ''
+
+  it('wraps an existing filter instead of appending into it', () => {
+    // An <filter type="or"> would otherwise turn "changed since X" into
+    // "changed since X OR whatever the author filtered for".
+    const or = `<fetch><entity name="t"><filter type="or"><condition attribute="a" operator="eq" value="1"/><condition attribute="b" operator="eq" value="2"/></filter></entity></fetch>`
+    const out = delta(or)
+    const doc = new DOMParser().parseFromString(out, 'application/xml')
+    const entity = doc.getElementsByTagName('entity')[0]
+    const top = [...entity.children].filter((c) => c.tagName === 'filter')
+    expect(top).toHaveLength(1)
+    expect(top[0].getAttribute('type')).toBe('and')
+    // The author's or-filter survives as a NESTED child of the new and-filter.
+    const nested = [...top[0].children].filter((c) => c.tagName === 'filter')
+    expect(nested).toHaveLength(1)
+    expect(nested[0].getAttribute('type')).toBe('or')
+    expect(nested[0].children).toHaveLength(2)
+  })
+
+  it('adds the condition with the placeholder as its value', () => {
+    const out = delta(SIMPLE)
+    expect(out).toContain(`attribute="${DELTA_ATTRIBUTE}"`)
+    expect(out).toContain('operator="ge"')
+    expect(out).toContain(`value="${DELTA_PLACEHOLDER}"`)
+    // Exactly one hole for the executor's string replace.
+    expect(out.split(DELTA_PLACEHOLDER)).toHaveLength(2)
+  })
+
+  it('works on a query that has no filter at all', () => {
+    const out = delta('<fetch><entity name="t"><attribute name="a"/></entity></fetch>')
+    const doc = new DOMParser().parseFromString(out, 'application/xml')
+    const entity = doc.getElementsByTagName('entity')[0]
+    const filters = [...entity.children].filter((c) => c.tagName === 'filter')
+    expect(filters).toHaveLength(1)
+    expect(filters[0].children).toHaveLength(1)
+  })
+
+  it('leaves link-entity filters where they are', () => {
+    const withLink = `<fetch><entity name="t"><link-entity name="u"><filter><condition attribute="x" operator="eq" value="1"/></filter></link-entity></entity></fetch>`
+    const doc = new DOMParser().parseFromString(delta(withLink), 'application/xml')
+    const link = doc.getElementsByTagName('link-entity')[0]
+    expect(link.getElementsByTagName('filter')).toHaveLength(1)
+    expect(link.getElementsByTagName('condition')[0].getAttribute('attribute')).toBe('x')
+  })
+
+  it('keeps attributes and ordering intact', () => {
+    const out = delta(SIMPLE)
+    expect(fetchXmlAttributes(out)).toEqual(['cust_name', 'cust_code'])
+    expect(out).toContain('<order attribute="cust_name"')
+  })
+
+  it('returns null for input it cannot rewrite', () => {
+    expect(withDeltaCondition('not xml at all <')).toBeNull()
+    expect(withDeltaCondition('')).toBeNull()
+    expect(withDeltaCondition('<other><entity name="t"/></other>')).toBeNull()
+    // Two entities: the rewriter refuses rather than guessing which one.
+    expect(
+      withDeltaCondition('<fetch><entity name="a"/><entity name="b"/></fetch>'),
+    ).toBeNull()
+  })
+})
+
+describe('parseWatermarks', () => {
+  it('reads a per-target map', () => {
+    expect(parseWatermarks('{"uat":"2026-08-05T09:00:00Z","prod":"2026-08-01T07:00:00Z"}')).toEqual({
+      uat: '2026-08-05T09:00:00Z',
+      prod: '2026-08-01T07:00:00Z',
+    })
+  })
+
+  it('treats anything unreadable as no watermark', () => {
+    // No watermark means a FULL transfer — always the safe direction.
+    expect(parseWatermarks('')).toEqual({})
+    expect(parseWatermarks(null)).toEqual({})
+    expect(parseWatermarks(undefined)).toEqual({})
+    expect(parseWatermarks('{broken')).toEqual({})
+    expect(parseWatermarks('["uat"]')).toEqual({})
+    expect(parseWatermarks('"uat"')).toEqual({})
+  })
+
+  it('drops non-string and empty stamps', () => {
+    expect(parseWatermarks('{"uat":"2026-08-05T09:00:00Z","prod":7,"dev":"  "}')).toEqual({
+      uat: '2026-08-05T09:00:00Z',
+    })
   })
 })

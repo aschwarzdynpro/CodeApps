@@ -6,6 +6,8 @@
  * Kept free of service imports so the whole module stays unit-testable.
  */
 
+import type { OrphanHandling } from '../types/transferHub'
+
 export interface ParsedFetchXmlOk {
   ok: true
   /** Logical name of the (single) top-level entity. */
@@ -122,6 +124,81 @@ export function withRowLimit(xml: string, count: number): string {
     fetch.removeAttribute(attr)
   fetch.setAttribute('count', String(top !== null ? Math.min(top, count) : count))
   return serialize(doc)
+}
+
+/**
+ * Marker the delta watermark is substituted for at run time. The executor does
+ * a plain string `replace()` — it has no XML tooling, so the hub pre-builds the
+ * whole query and leaves exactly one hole.
+ */
+export const DELTA_PLACEHOLDER = '__DELTA__'
+
+/** The column a delta transfer filters on. */
+export const DELTA_ATTRIBUTE = 'modifiedon'
+
+/**
+ * Rewrite the query so it only returns rows changed since a watermark, with
+ * the watermark itself left as {@link DELTA_PLACEHOLDER}.
+ *
+ * The new condition is ANDed with whatever the author wrote by WRAPPING the
+ * entity's existing top-level filters in a fresh `<filter type="and">` rather
+ * than appending a condition into them — an existing `<filter type="or">`
+ * would otherwise silently turn "changed since X" into "changed since X OR
+ * anything the author filtered for". Filters inside `<link-entity>` are left
+ * alone; they constrain the join, not the rows written.
+ *
+ * `modifiedon` also covers newly created rows (a fresh row's modifiedon equals
+ * its createdon), so no second condition is needed. Returns null when the
+ * input does not parse — the caller then stores no delta query, and the
+ * executor falls back to the full one.
+ */
+export function withDeltaCondition(xml: string): string | null {
+  const doc = parseXmlDocument(xml)
+  if (!doc || doc.documentElement.tagName !== 'fetch') return null
+  const entities = directChildren(doc.documentElement, 'entity')
+  if (entities.length !== 1) return null
+  const entity = entities[0]
+
+  const wrapper = doc.createElement('filter')
+  wrapper.setAttribute('type', 'and')
+  const condition = doc.createElement('condition')
+  condition.setAttribute('attribute', DELTA_ATTRIBUTE)
+  condition.setAttribute('operator', 'ge')
+  condition.setAttribute('value', DELTA_PLACEHOLDER)
+  wrapper.appendChild(condition)
+
+  const existing = directChildren(entity, 'filter')
+  // Keep the query readable: the wrapper takes the first filter's place, else
+  // it goes ahead of the joins/ordering so the entity still reads top-down.
+  const anchor =
+    existing[0] ??
+    directChildren(entity, 'link-entity')[0] ??
+    directChildren(entity, 'order')[0] ??
+    null
+  entity.insertBefore(wrapper, anchor)
+  for (const filter of existing) wrapper.appendChild(filter)
+  return serialize(doc)
+}
+
+/**
+ * Per-target delta watermarks, stored as a JSON map on the entry
+ * (`{"uat":"2026-08-05T09:00:00Z"}`). One stamp PER TARGET on purpose: a run
+ * that landed in UAT but failed in PROD must not let PROD skip those rows
+ * forever. Never throws — an unreadable map means "no watermark", i.e. a full
+ * transfer, which is always safe.
+ */
+export function parseWatermarks(value: string | null | undefined): Record<string, string> {
+  if (!value || !value.trim()) return {}
+  try {
+    const data: unknown = JSON.parse(value)
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return {}
+    const out: Record<string, string> = {}
+    for (const [key, stamp] of Object.entries(data as Record<string, unknown>))
+      if (typeof stamp === 'string' && stamp.trim()) out[key] = stamp
+    return out
+  } catch {
+    return {}
+  }
 }
 
 /** Alias under which {@link buildCountFetchXml} returns the row count. */
@@ -376,6 +453,8 @@ export interface RunLogRow {
   errors: string[]
   /** Entry-level failure message (no counters were produced). */
   error: string
+  /** True when the cell read only rows changed since its target's watermark. */
+  delta: boolean
 }
 
 /**
@@ -401,6 +480,7 @@ export function parseRunLog(log: string): RunLogRow[] | null {
         deleted: num(r.deleted),
         errors: Array.isArray(r.errors) ? r.errors.map((e) => String(e)) : [],
         error: str(r.error),
+        delta: r.delta === true,
       }
     })
   } catch {
@@ -424,6 +504,9 @@ export interface TransferEntryDraft {
   fetchXml: string
   matchMode: 'guid' | 'columns'
   matchColumns: string[]
+  /** True when the entry only transfers rows changed since the last run. */
+  deltaMode: boolean
+  orphanHandling: OrphanHandling
 }
 
 /**
@@ -448,6 +531,15 @@ export function describeEntryValidation(draft: TransferEntryDraft): string[] {
         `FetchXML queries <entity name="${parsed.entity}"> but the selected table is ${draft.tableLogicalName}.`,
       )
     }
+  }
+  if (draft.deltaMode && draft.orphanHandling !== 'ignore') {
+    // A delta read returns an INCOMPLETE source set by definition, so every
+    // unchanged target row looks like an orphan. With handling Delete that
+    // empties the table on the second run. Hard block, not a warning.
+    errors.push(
+      'Delta transfers cannot be combined with orphan handling — an incomplete source set ' +
+        'would make every unchanged target record look orphaned. Set it to Ignore.',
+    )
   }
   if (draft.matchMode === 'columns') {
     if (draft.matchColumns.length === 0) {

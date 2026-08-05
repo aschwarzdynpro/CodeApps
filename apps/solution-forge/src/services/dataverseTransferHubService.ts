@@ -15,6 +15,8 @@ import {
   QUERY_MODE_CODES,
   RECURRENCE_CODES,
   RUN_STATUS_CODES,
+  DELTA_MODE_CODES,
+  deltaModeFromCode,
   matchModeFromCode,
   orphanFromCode,
   queryModeFromCode,
@@ -34,6 +36,8 @@ import {
   joinCsvList,
   parseCsvList,
   parseFetchXml,
+  parseWatermarks,
+  withDeltaCondition,
   withRowLimit,
   type ColumnPlan,
   type PlanAttributeMeta,
@@ -97,6 +101,9 @@ async function fetchAll<T>(
  */
 const LATE_PACKAGE_COLUMNS = ['pro_recurrence_opt', 'pro_nextrun_dat']
 const LATE_RUN_COLUMNS = ['pro_dryrun_bit']
+// pro_deltafetchxml_txt is written but never selected — up to a megabyte, and
+// only the executor reads it.
+const LATE_ENTRY_COLUMNS = ['pro_deltamode_opt', 'pro_deltawatermarks_txt']
 
 const PACKAGE_SELECT: string[] = [
   ...([
@@ -111,27 +118,30 @@ const PACKAGE_SELECT: string[] = [
   ...LATE_PACKAGE_COLUMNS,
 ]
 
-const ENTRY_SELECT: (keyof Pro_transferentries)[] = [
-  'pro_transferentryid',
-  'pro_name',
-  'pro_sourceenv_str',
-  'pro_sourcetable_str',
-  'pro_sourcetabledisplay_str',
-  'pro_sourceentityset_str',
-  'pro_primaryidattr_str',
-  'pro_querymode_opt',
-  'pro_viewid_str',
-  'pro_viewname_str',
-  'pro_viewsnapshotat_dat',
-  'pro_fetchxml_txt',
-  'pro_matchmode_opt',
-  'pro_matchcolumns_str',
-  'pro_orphanhandling_opt',
-  'pro_order_int',
-  'pro_notes_txt',
-  'pro_columnplan_txt',
-  'statecode',
-  '_pro_package_ref_value',
+const ENTRY_SELECT: string[] = [
+  ...([
+    'pro_transferentryid',
+    'pro_name',
+    'pro_sourceenv_str',
+    'pro_sourcetable_str',
+    'pro_sourcetabledisplay_str',
+    'pro_sourceentityset_str',
+    'pro_primaryidattr_str',
+    'pro_querymode_opt',
+    'pro_viewid_str',
+    'pro_viewname_str',
+    'pro_viewsnapshotat_dat',
+    'pro_fetchxml_txt',
+    'pro_matchmode_opt',
+    'pro_matchcolumns_str',
+    'pro_orphanhandling_opt',
+    'pro_order_int',
+    'pro_notes_txt',
+    'pro_columnplan_txt',
+    'statecode',
+    '_pro_package_ref_value',
+  ] satisfies (keyof Pro_transferentries)[]),
+  ...LATE_ENTRY_COLUMNS,
 ]
 
 const RUN_SELECT: string[] = [
@@ -231,6 +241,8 @@ function toEntry(row: Pro_transferentries): TransferEntry {
     notes: row.pro_notes_txt ?? '',
     active: Number(row.statecode ?? 0) === 0,
     columnPlan: row.pro_columnplan_txt ?? '',
+    deltaMode: deltaModeFromCode(late(row, 'pro_deltamode_opt') as number | null),
+    deltaWatermarks: parseWatermarks(late(row, 'pro_deltawatermarks_txt') as string | null),
   }
 }
 
@@ -252,6 +264,12 @@ function entryRecord(input: TransferEntryInput): Record<string, unknown> {
     pro_matchmode_opt: MATCH_MODE_CODES[input.matchMode],
     pro_matchcolumns_str: joinCsvList(input.matchColumns) || null,
     pro_orphanhandling_opt: ORPHAN_CODES[input.orphanHandling],
+    pro_deltamode_opt: DELTA_MODE_CODES[input.deltaMode],
+    // The executor has no XML tooling — it can only replace() the __DELTA__
+    // hole, so the whole filtered query is pre-built here. Cleared when delta
+    // is off, so a stale template can never be picked up.
+    pro_deltafetchxml_txt:
+      input.deltaMode === 'modified' ? (withDeltaCondition(input.fetchXml) ?? '') : '',
     pro_order_int: input.order,
     pro_notes_txt: input.notes,
   }
@@ -349,7 +367,7 @@ class DataverseTransferHubService implements TransferHubService {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockTransferHubService.listEntries(packageId)
     const rows = await fetchAll((o) => Pro_transferentriesService.getAll(o), {
-      select: ENTRY_SELECT as string[],
+      select: ENTRY_SELECT,
       filter: `_pro_package_ref_value eq ${packageId}`,
       orderBy: ['pro_order_int asc', 'pro_name asc'],
     })
@@ -396,6 +414,19 @@ class DataverseTransferHubService implements TransferHubService {
     await Pro_transferentriesService.delete(id)
   }
 
+  async resetDelta(id: string): Promise<void> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return mockTransferHubService.resetDelta(id)
+    const changed = { pro_deltawatermarks_txt: null } as unknown as Partial<
+      Omit<Pro_transferentriesBase, 'pro_transferentryid'>
+    >
+    const result = await Pro_transferentriesService.update(id, changed)
+    if (!result.success) {
+      console.warn('[transfer] delta reset failed — result:', result)
+      throw new Error('Resetting the delta watermarks failed.')
+    }
+  }
+
   async setEntryActive(id: string, active: boolean): Promise<void> {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockTransferHubService.setEntryActive(id, active)
@@ -429,7 +460,7 @@ class DataverseTransferHubService implements TransferHubService {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockTransferHubService.refreshViewSnapshot(entryId)
     const got = await Pro_transferentriesService.get(entryId, {
-      select: ENTRY_SELECT as string[],
+      select: ENTRY_SELECT,
     })
     if (!got.success || !got.data) throw new Error('Reading the entry failed.')
     const entry = toEntry(got.data)
@@ -447,6 +478,10 @@ class DataverseTransferHubService implements TransferHubService {
       pro_viewname_str: view.name,
       pro_viewsnapshotat_dat: snapshotAt,
       pro_columnplan_txt: columnPlan,
+      // The delta template is derived from the query — a re-snapshot invalidates
+      // it just as it invalidates the column plan.
+      pro_deltafetchxml_txt:
+        entry.deltaMode === 'modified' ? (withDeltaCondition(view.fetchXml) ?? '') : '',
     } as unknown as Partial<Omit<Pro_transferentriesBase, 'pro_transferentryid'>>
     const result = await Pro_transferentriesService.update(entryId, changed)
     if (!result.success) {

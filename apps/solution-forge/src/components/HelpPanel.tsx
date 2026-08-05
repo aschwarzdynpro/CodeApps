@@ -389,6 +389,22 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 Ambiguous matches are skipped and reported as errors.
               </li>
               <li>
+                <strong>Δ Changed since last run</strong> transfers only rows
+                whose <code>modifiedon</code> is at or after the watermark{' '}
+                <em>of the target being written</em> — each target keeps its
+                own, so a run that lands in UAT and fails in PROD cannot make
+                PROD skip those rows forever. The watermark is the read time
+                minus two minutes and only advances for a clean cell (no dry
+                run, no row cap, no errors). Two things to know: it{' '}
+                <strong>cannot</strong> be combined with orphan handling (an
+                incomplete source set would make every unchanged target record
+                look orphaned), and <strong>widening the query does not bring
+                skipped rows back</strong> — their <code>modifiedon</code> stays
+                old, so use <strong>↺ Reset delta</strong> after loosening a
+                filter. It does not raise the 5000-row limit either; the target
+                is still read in full to match records.
+              </li>
+              <li>
                 <strong>Orphan handling</strong> per entry: ignore / deactivate
                 / delete target records missing from the source. The scope is
                 the entry's <strong>query on both sides</strong> — only target

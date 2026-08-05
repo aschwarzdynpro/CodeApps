@@ -53,6 +53,17 @@ function describeRecurrence(pkg: TransferPackage): string {
   return `${cadence} ${when} · next ${formatDateTime(pkg.nextRun)}`
 }
 
+/** Tooltip of the Δ badge: which target is caught up to when. */
+function describeDelta(entry: TransferEntry): string {
+  const marks = Object.entries(entry.deltaWatermarks)
+  if (marks.length === 0)
+    return 'Delta transfer — no target has run yet, so the next run transfers everything.'
+  return [
+    'Delta transfer — only rows changed since:',
+    ...marks.map(([key, stamp]) => `  ${envLabel(key)}: ${formatDateTime(stamp)}`),
+  ].join('\n')
+}
+
 /** Per-entry row-count cell: loading spinner, a number, or "not countable". */
 type CountState = 'loading' | 'na' | number
 
@@ -499,7 +510,17 @@ export function TransferHubWorkspace() {
                           <td className="nowrap">
                             {entry.matchMode === 'guid' ? 'GUID' : entry.matchColumns.join(', ')}
                           </td>
-                          <td className="nowrap">{ORPHAN_LABELS[entry.orphanHandling]}</td>
+                          <td className="nowrap">
+                            {ORPHAN_LABELS[entry.orphanHandling]}
+                            {entry.deltaMode === 'modified' && (
+                              <span
+                                className="thub-delta-badge"
+                                title={describeDelta(entry)}
+                              >
+                                Δ
+                              </span>
+                            )}
+                          </td>
                           <td className="num nowrap thub-count-cell">
                             {count === 'loading' ? (
                               <span className="muted">…</span>
@@ -769,6 +790,14 @@ export function TransferHubWorkspace() {
                                                 <td>{row.entry || '–'}</td>
                                                 <td className="nowrap">
                                                   {row.target ? envLabel(row.target) : '–'}
+                                                  {row.delta && (
+                                                    <span
+                                                      className="thub-delta-badge"
+                                                      title="Delta cell — only rows changed since this target's watermark were read."
+                                                    >
+                                                      Δ
+                                                    </span>
+                                                  )}
                                                 </td>
                                                 {row.error ? (
                                                   <td colSpan={5}>
@@ -847,6 +876,7 @@ export function TransferHubWorkspace() {
           entry={entryDialog.entry}
           locked={runActive}
           defaultOrder={nextOrder}
+          targetEnvKeys={selected.targetEnvKeys}
           siblings={dialogSiblings}
           onClose={() => setEntryDialog(null)}
           onSave={async (input) => {

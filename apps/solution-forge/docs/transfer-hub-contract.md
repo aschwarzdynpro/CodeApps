@@ -63,9 +63,9 @@ schedule unless you build that separately):
 ```json
 [
   { "entry": "Payment terms", "target": "uat", "created": 0, "updated": 42,
-    "deactivated": 0, "deleted": 0, "errors": [] },
+    "deactivated": 0, "deleted": 0, "delta": true, "errors": [] },
   { "entry": "Price lists", "target": "prod", "created": 1, "updated": 6,
-    "errors": ["cust_code 'X9' matched 2 rows — skipped"] }
+    "delta": false, "errors": ["cust_code 'X9' matched 2 rows — skipped"] }
 ]
 ```
 
@@ -118,6 +118,9 @@ Failed with a note. Runs in status Cancelled are never picked up.
 | `pro_matchmode_opt` | Choice | Record matching, see below. `null` ⇒ GUID upsert. |
 | `pro_matchcolumns_str` | String(1000) | Comma-separated logical column names (columns mode). |
 | `pro_orphanhandling_opt` | Choice | What to do with orphaned target records. `null` ⇒ Ignore. |
+| `pro_deltamode_opt` | Choice | 867520000 Full / 867520001 **Modified since last run**. `null` ⇒ Full. See *Delta transfers* below. |
+| `pro_deltafetchxml_txt` | Memo | The entry query with a `modifiedon ge __DELTA__` condition already spliced in, pre-built by the hub at save time. The executor only does `replace(…, '__DELTA__', watermark)` — it has no XML tooling. Empty ⇒ the executor runs the full query even when delta mode is on (a legacy entry; re-save it). |
+| `pro_deltawatermarks_txt` | Memo | `{"uat":"2026-08-05T09:58:00Z"}` — one watermark **per target env key**, written by the executor. A missing key means that target has never had a clean run ⇒ full transfer. |
 | `pro_order_int` | Int | In-package execution order, ascending. |
 | `pro_notes_txt` | Memo | Operator notes, informational. |
 | `pro_columnplan_txt` | Memo | **Write recipe JSON** computed by the hub at save time: `{"s":[scalar cols],"l":[{"c":col,"s":target entity set}],"x":[{"c":col,"r":reason}]}` — the executor copies `s` 1:1 and binds `l` as `<c>@odata.bind = /<s>(<guid>)`; `x` documents skipped columns. Empty ⇒ executor errors the entry (author must re-save it). The hub's entry dialog renders this same recipe live (section **Write plan**), so `x` is authoring feedback, not just documentation — keep the reason strings stable, `utils/columnPlanReport.ts` maps them to human sentences. |
@@ -148,6 +151,44 @@ Mirrored in `src/types/transferHub.ts` — codes are pinned, never renumber.
 | 867520000 | **None** — the package only runs when a run is queued manually. |
 | 867520001 | **Daily** — one run every 24 h at the `pro_nextrun_dat` time. |
 | 867520002 | **Weekly** — one run every 7 days at the `pro_nextrun_dat` weekday/time. |
+
+| `pro_deltamode_opt` | |
+|---|---|
+| 867520000 | **Full** — every row the query returns, on every run. |
+| 867520001 | **Modified since last run** — only rows whose `modifiedon` is at or after this target's watermark. |
+
+## Delta transfers
+
+An entry in delta mode reads only what changed since it last landed cleanly in
+the target being written. The rules below are not optional decoration — each
+one exists because the naive version loses or destroys data.
+
+- **One watermark PER TARGET** (`pro_deltawatermarks_txt`), never one per
+  entry. A run that succeeds for UAT and fails for PROD must not let PROD skip
+  those rows forever.
+- **The stamp is the READ time, backdated ~2 minutes**, not the finish time.
+  Rows modified while the run is in flight must be caught by the *next* run;
+  the margin also absorbs clock skew between the executor host and Dataverse.
+  Re-transferring a handful of rows is free (the writes are upserts); losing
+  one is not.
+- **The watermark advances only for a clean cell**: not on a dry run, not when
+  the 5000-row cap fired, and not when the cell reported any error. Anything
+  else would silently skip the rows that just failed.
+- **Delta and orphan handling are mutually exclusive.** A delta read returns an
+  incomplete source set by definition, so every unchanged target row looks
+  orphaned — with handling *Delete* the second run empties the table. The hub
+  blocks the combination at save time; an executor implementing this contract
+  independently MUST refuse it too.
+- **Widening a query does not backfill.** Rows the old filter excluded keep
+  their old `modifiedon` and will never clear the watermark. The hub offers
+  *Reset delta* (clear `pro_deltawatermarks_txt`) for exactly this; a wider
+  filter without a reset silently transfers nothing new.
+- **Delta does NOT lift the 5000-row cap.** It shrinks the *source* read and
+  the write volume, but the target still has to be read in full to build the
+  match index, and that read is capped like any other. A large target table
+  therefore still needs a narrower entry query.
+- The executor reports `"delta": true|false` per cell in `pro_log_txt` so a
+  small row count is distinguishable from a broken query.
 
 ## Record matching
 
@@ -209,7 +250,15 @@ The repo ships a working executor implementation of this contract as a
 - **Child** `PA | AUTO | Transfer Run | Execute Cell`
   (`installer/executor-child-flow.clientdata.json`): Request/Button trigger
   with inputs `{entryId, srcUrl, tgtUrl, targetKey}`; reads the entry +
-  source/target rows itself, partitions rows with Filter arrays (updates =
+  source/target rows itself. **Delta path:** `Stamp` captures
+  `addMinutes(utcNow(),-2)` before any read, `Wm` looks this target up in
+  `pro_deltawatermarks_txt` (empty ⇒ full), `SrcFetch` picks either
+  `pro_fetchxml_txt` or `replace(pro_deltafetchxml_txt,'__DELTA__',Wm)`, and a
+  one-iteration `For_wm` loop at the end writes the new stamp back — gated on
+  not-dry-run AND not-capped AND zero cell errors. `Cell_json` runs after it
+  with `Succeeded|Failed|Skipped`, so a failed watermark write cannot fail a
+  cell whose rows already landed (the stamp simply stays put and the next run
+  re-upserts them). Partitioning: partitions rows with Filter arrays (updates =
   source keys in the target index, creates = the rest, ambiguous = composite
   key occurs >1× among target keys, case-insensitive `indexOf`/`lastIndexOf`
   probe; composite keys = fixed 5-slot concat, **max 5 match columns**), then
