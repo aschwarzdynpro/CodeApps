@@ -927,6 +927,13 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
   `$select` bestimmt der Server die Spalten (Entfernen müsste erst ein
   `$select` erfinden), und die letzte zu entfernen leerte `$select` — was
   „alle Spalten" heißt und die Query damit *erweitern* statt verengen würde.
+- **Copy-Buttons je Query-Teil** (`$select`/`$filter`/`$expand`, eigene Zeile
+  unter der Raw-Query) für Cloud-Flow-Felder. Sie kopieren den **nackten,
+  unkodierten** Wert aus `renderQueryOptions` — NICHT aus der URL: die
+  „List rows"-Felder nehmen genau die Rohform, der Konnektor kodiert selbst,
+  ein `%20` aus der URL zerlegt dort jeden Filter. Bei unangewendetem
+  Raw-Draft sind sie **deaktiviert**, weil der Builder dann noch die alte
+  Query hält und etwas anderes ausgäbe als die Zeile zeigt.
 - **Der Konnektor kann kein `$count`/`$apply`/`$search`/`$batch`** (nur
   `$select/$filter/$orderby/$expand/$top/$skiptoken/fetchXml`) ⇒ Zeilenzahl
   später per FetchXML-Aggregat, nicht per `$count`.

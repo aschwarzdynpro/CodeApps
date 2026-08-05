@@ -23,6 +23,7 @@ import {
   expandNavigationName,
   joinExpand,
   parseQueryPath,
+  renderQueryOptions,
   splitExpand,
   toQueryPath,
   toWebApiUrl,
@@ -150,6 +151,8 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [columnSearch, setColumnSearch] = useState('')
   const [copied, setCopied] = useState(false)
+  /** Which `$…` part last went to the clipboard, for the ✓ flash. */
+  const [copiedPart, setCopiedPart] = useState<string | null>(null)
 
   /** Raw query line: null = mirroring the builder, string = being edited. */
   const [rawDraft, setRawDraft] = useState<string | null>(null)
@@ -758,6 +761,31 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     window.setTimeout(() => setCopied(false), 1600)
   }
 
+  /**
+   * The query broken into the pieces a cloud flow's "List rows" action asks
+   * for in separate fields (Select Columns / Filter Rows / Expand Query).
+   *
+   * `renderQueryOptions` is the right source and the only one: it returns the
+   * values **unencoded**, which is exactly what those fields take — the
+   * connector percent-encodes them itself. Copying the segment out of the URL
+   * instead would paste `%20` and `%27` into the flow and break every filter.
+   */
+  const queryParts = useMemo(() => {
+    const opts = renderQueryOptions(query, metaByKey)
+    return [
+      { key: 'select', label: '$select', value: opts.select ?? '' },
+      { key: 'filter', label: '$filter', value: opts.filter ?? '' },
+      { key: 'expand', label: '$expand', value: opts.expand ?? '' },
+    ]
+  }, [query, metaByKey])
+
+  const copyPart = (key: string, value: string) => {
+    if (!value) return
+    void navigator.clipboard?.writeText(value)
+    setCopiedPart(key)
+    window.setTimeout(() => setCopiedPart(null), 1600)
+  }
+
   // --- render --------------------------------------------------------------
 
   return (
@@ -1199,6 +1227,34 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
                 {copied ? '✓ Copied' : 'Copy URL'}
               </button>
             </span>
+          </div>
+
+          {/* The parts a cloud flow wants in separate fields. Own row rather
+              than four more buttons in the action cluster above — and labelled,
+              so three bare `$…` buttons do not look like query editing. */}
+          <div className="odb-query-parts">
+            <span className="muted">Copy for a cloud flow:</span>
+            {queryParts.map((part) => (
+              <button
+                key={part.key}
+                className="btn btn--small odb-part-btn"
+                onClick={() => copyPart(part.key, part.value)}
+                // An unapplied edit in the line above means the builder still
+                // holds the OLD query — copying that would hand out something
+                // other than what is on screen.
+                disabled={!part.value || rawDraft !== null}
+                title={
+                  rawDraft !== null
+                    ? 'Apply the edited query first — these come from the builder.'
+                    : part.value
+                      ? `Copies the bare value, unencoded:\n${part.value}`
+                      : `This query has no ${part.label}.`
+                }
+              >
+                {copiedPart === part.key ? '✓ ' : ''}
+                {part.label}
+              </button>
+            ))}
           </div>
           {rawIssues.length > 0 && (
             <ul className="odb-query-issues">

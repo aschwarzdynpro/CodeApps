@@ -8139,6 +8139,19 @@
 .odb-query-actions {
   flex: 0 0 auto;
 }
+/* The $select / $filter / $expand copy row for cloud-flow fields. Its own
+   line under the query, so the primary actions stay a four-button cluster. */
+.odb-query-parts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 11.5px;
+}
+.odb-part-btn {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
 .odb-query-note {
   margin-top: 6px;
   font-size: 11.5px;
