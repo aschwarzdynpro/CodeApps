@@ -178,11 +178,23 @@ gh release create SAC_v<version> \
   --notes-file <datei>
 ```
 
-**Die Release-Notes sind der CHANGELOG-Eintrag dieses Releases** — dieselbe
-Sprache (Deutsch), derselbe Inhalt, eine Quelle. Nicht neu formulieren, sonst
-driften die beiden Fassungen auseinander. Ergänzt werden nur die zwei Zeilen,
-die auf GitHub Sinn ergeben und im CHANGELOG nicht stehen: der
-`pac solution import`-Befehl und der Verweis auf
+**Die Release-Notes sind auf ENGLISCH** — wie das übrige GitHub-Umfeld des
+Repos (README, Commits) und wie `SAC_v1.0.0.17`, das die Vorlage ist. Der
+CHANGELOG bleibt deutsch; die Sprachtrennung ist gewollt:
+
+| Artefakt | Sprache | Publikum |
+|---|---|---|
+| `releases/CHANGELOG.md` | Deutsch | du und deutschsprachige Kunden |
+| GitHub-Release-Notes | Englisch | wer im Repo landet |
+
+Damit existiert derselbe Inhalt zweimal. **Beide müssen inhaltlich
+deckungsgleich sein** — dieselben Features, dieselben Begründungen, dieselben
+zugegebenen Grenzen. Keine Fassung darf einen Fakt enthalten, den die andere
+nicht hat. Die Notes sind die englische Wiedergabe des CHANGELOG-Eintrags,
+keine zweite, eigenständig geschriebene Version.
+
+Nur zwei Dinge stehen zusätzlich in den Notes, weil sie im CHANGELOG nichts
+zu suchen haben: der `pac solution import`-Befehl und der Verweis auf
 `releases/README.md` für die Nachschritte.
 
 Bringt das Release Schema-Änderungen, gehört der Upgrade-Hinweis **oben** in
