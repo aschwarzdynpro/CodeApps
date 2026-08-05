@@ -15,7 +15,7 @@ top) — add one whenever you export a new version here.
 
 | File | Version | Exported | Contents |
 | --- | --- | --- | --- |
-| `DynamicsProSolutionAdminConsole_1.0.0.16_managed.zip` | 1.0.0.16 | 2026-08-04 | **9** `pro_` tables (incl. `pro_securitysnapshot`) · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler), host operations on `organization: "current"` · Code App (chunk-split bundle with two **lazily loaded** workspaces, incl. the first-run **Self-Provisioning Wizard**, Role Comparer and the security concept document) · 1 connection reference `pro_CR_SAC_Dataverse` · 1 security role `INT \| DEPLOYMENT MANAGER` |
+| `DynamicsProSolutionAdminConsole_1.0.0.17_managed.zip` | 1.0.0.17 | 2026-08-05 | **9** `pro_` tables — `pro_transferentry` gained the three **delta** columns (`pro_deltamode_opt`, `pro_deltafetchxml_txt`, `pro_deltawatermarks_txt`) · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler) **rebuilt for delta transfers**, host operations on `organization: "current"` · Code App (chunk-split bundle with two **lazily loaded** workspaces, incl. the first-run **Self-Provisioning Wizard**, Role Comparer, the security concept document and the entry dialog's **Write plan**) · 1 connection reference `pro_CR_SAC_Dataverse` · 1 security role `INT \| DEPLOYMENT MANAGER` |
 
 Only the newest managed export is kept here (managed solutions upgrade
 cumulatively — an older versioned zip can't be imported over a newer one).
@@ -44,6 +44,24 @@ cumulatively — an older versioned zip can't be imported over a newer one).
 
 See `docs/transfer-hub-contract.md` for the executor internals and
 `installer/README.md` for the script-based install path.
+
+## Upgrading an existing installation
+
+A release that adds columns needs a different step depending on how the target
+was installed in the first place — 1.0.0.17 adds three:
+
+- **Installed from a managed zip:** import the newer zip over it. The columns
+  and the rebuilt flows come along; nothing else to do for the data model.
+- **Installed with the script installer** (`installer/install.ps1`, unmanaged):
+  the managed zip cannot be laid over it. Re-run
+  `installer/provision-model.ps1` for the columns and
+  `installer/deploy-executor-flow.ps1` for the flows — both are idempotent and
+  only add what is missing.
+
+After either path, **verify the three transfer flows are on**; an import can
+leave them deactivated, and a scheduler that is off looks exactly like "no runs
+were due". Existing transfer entries are unaffected — delta mode is off until
+someone switches it on per entry.
 
 ## Notes
 

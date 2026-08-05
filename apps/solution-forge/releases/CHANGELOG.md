@@ -6,6 +6,64 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.17 — 2026-08-05
+
+**Transfer Hub: Delta-Transfers und ein sichtbarer Write Plan. Drei neue
+Spalten auf `pro_transferentry` (`pro_deltamode_opt`, `pro_deltafetchxml_txt`,
+`pro_deltawatermarks_txt`) — der managed Import bringt sie mit, beim
+Skript-Install muss `provision-model.ps1` erneut laufen. Die drei
+Executor-Flows sind ebenfalls neu und müssen nach dem Import wieder aktiviert
+werden.**
+
+- **Delta-Transfers**: Ein Entry überträgt auf Wunsch nur noch Zeilen, deren
+  `modifiedon` seit dem letzten sauberen Lauf liegt. Vier Regeln, jede davon
+  gegen einen konkreten Datenverlust:
+  - **Ein Wasserstand je Ziel**, nicht je Entry — ein Lauf, der in UAT landet
+    und in PROD scheitert, darf PROD diese Zeilen nicht für immer überspringen.
+  - **Der Stempel ist die Lesezeit, zwei Minuten zurückdatiert**, nicht die
+    Fertigzeit: Zeilen, die während des Laufs geändert werden, muss der nächste
+    Lauf noch fangen; die Marge deckt Uhr-Versatz ab. Doppelt übertragen ist
+    gratis (es sind Upserts), verloren nicht.
+  - **Er rückt nur bei sauberer Zelle vor** — nicht beim Dry Run, nicht bei
+    gezogener 5000er-Notbremse, nicht bei Fehlern. Sonst würden ausgerechnet
+    die gescheiterten Zeilen beim nächsten Mal übersprungen.
+  - **Delta und Orphan-Handling schließen sich aus**, blockierend im Save-Gate
+    statt als Warnung: Ein Delta-Set ist unvollständig, also sähe jede
+    unveränderte Zielzeile verwaist aus — mit Handling *Delete* leert der
+    zweite Lauf die Tabelle.
+  Die gefilterte Query baut der Hub vor (`pro_deltafetchxml_txt` mit genau
+  einer `__DELTA__`-Lücke), weil der Flow kein XML-Werkzeug hat. Die
+  Delta-Bedingung **umschließt** vorhandene Filter in einem neuen
+  `<filter type="and">`, statt sich in sie hineinzuhängen — in einem
+  `<filter type="or">` des Autors wäre aus „geändert seit X" sonst still
+  „geändert seit X ODER sein Filterkriterium" geworden.
+  Zwei ehrliche Grenzen stehen in der UI: Delta hebt die **5000er-Grenze
+  nicht auf** (das Ziel wird weiter vollständig für den Match-Index gelesen),
+  und eine nachträglich erweiterte Query füllt **nicht rückwirkend** auf —
+  dafür gibt es **„Reset delta"**.
+- **Write Plan im Entry-Dialog**: Welche Spalte geschrieben, welche als
+  Referenz gebunden und welche mit welcher Begründung übersprungen wird, stand
+  bisher nur im Rezept für den Executor. Jetzt zeigt der Dialog es an — gespeist
+  aus **derselben Berechnung**, die auch gespeichert wird, damit Anzeige und
+  Executor-Rezept nicht auseinanderlaufen können. Die Hinweise sind der
+  eigentliche Gewinn: eine **fallengelassene Referenz** (polymorpher Lookup,
+  unauflösbares Ziel) lässt die Zeile ohne ihren Bezug im Ziel landen, während
+  der Lauf Erfolg meldet; je Lookup sagt der Dialog, ob die Zieltabelle von
+  **keinem**, einem **inaktiven** oder einem **später laufenden** Entry
+  übertragen wird. Ein **leerer Plan blockiert das Speichern**.
+- **Fix — Zeilenenden sind kein Inhalts-Drift**: Dieselbe Web Resource mit LF
+  in der einen und CRLF in der anderen Umgebung wurde als kompletter Drift
+  gemeldet und im Diff vollständig eingefärbt. Hash und Diff laufen jetzt über
+  normalisierten Text (BOM entfernt, CRLF/CR → LF). **Nicht** normalisiert
+  werden Trailing Spaces, Leerzeilen und Einrückung — das sind Änderungen.
+  Nebenbefund mitbehoben: der Hash lief über das rohe Base64, der Diff über den
+  dekodierten Text.
+- **Fix — Lesbarkeit**: Der Bestätigen-Button eines PROD-Transfer-Laufs trug
+  dunkelroten Text auf brand-lila Fläche. Jetzt ein durchgehend roter
+  Destruktiv-Button.
+
+---
+
 ## 1.0.0.16 — 2026-08-04
 
 **Security-Ausbau: Role Comparer, eingefrorene Baselines und
