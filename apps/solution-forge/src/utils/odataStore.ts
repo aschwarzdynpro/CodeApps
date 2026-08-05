@@ -144,6 +144,33 @@ export function saveIdentityDismissed(dismissed: boolean): void {
   }
 }
 
+const BUILDER_COLLAPSED_KEY = `sac.odb.${VERSION}.builderCollapsed`
+
+/**
+ * Whether the query builder (Columns / Filter / Expand / Sort) is folded away.
+ *
+ * Like the identity notice and unlike history: **not** per environment. How
+ * much of the screen someone wants for results is a property of the person,
+ * not of the org they happen to be browsing. Someone who works out of the raw
+ * query line collapses it once and expects it to stay that way.
+ */
+export function loadBuilderCollapsed(): boolean {
+  try {
+    return localStorage.getItem(BUILDER_COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function saveBuilderCollapsed(collapsed: boolean): void {
+  try {
+    if (collapsed) localStorage.setItem(BUILDER_COLLAPSED_KEY, '1')
+    else localStorage.removeItem(BUILDER_COLLAPSED_KEY)
+  } catch {
+    // Private mode — the choice just does not survive the session.
+  }
+}
+
 /** Ids only have to be unique within one browser — no need for a real uuid. */
 export function newEntryId(): string {
   return `q${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`
