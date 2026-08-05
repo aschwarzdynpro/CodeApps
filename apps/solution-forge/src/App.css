@@ -8139,36 +8139,6 @@
 .odb-query-actions {
   flex: 0 0 auto;
 }
-/* Fold the query builder away. Sits at the top of the builder card; the query
-   line below stays visible either way, so collapsed still shows the query. */
-.odb-builder-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  background: none;
-  border: none;
-  padding: 0 0 8px;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-  cursor: pointer;
-}
-.odb-builder-toggle:hover {
-  color: var(--brand);
-}
-.odb-builder-caret {
-  font-size: 9px;
-  color: var(--brand);
-}
-/* Collapsed: no builder rows above, so the query line needs no top gap. */
-.odb-builder-toggle[aria-expanded='false'] {
-  padding-bottom: 0;
-}
-
 /* The $select / $filter / $expand copy row for cloud-flow fields. Its own
    line under the query, so the primary actions stay a four-button cluster. */
 .odb-query-parts {

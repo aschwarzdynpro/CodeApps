@@ -927,13 +927,6 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
   `$select` bestimmt der Server die Spalten (Entfernen müsste erst ein
   `$select` erfinden), und die letzte zu entfernen leerte `$select` — was
   „alle Spalten" heißt und die Query damit *erweitern* statt verengen würde.
-- **Der Builder (Columns/Filter/Expand/Sort) ist klappbar** — die Query-Zeile
-  darunter bleibt IMMER sichtbar, weil sie bereits alles ausspricht, was der
-  Builder hält; eingeklappt ist die Karte deshalb vollständig und kein Rätsel
-  (und braucht aus demselben Grund keine Zusammenfassung neben dem Caret).
-  Merkt sich per `loadBuilderCollapsed`/`saveBuilderCollapsed` in
-  `odataStore.ts` — **nicht** je Umgebung, wie beim Identitäts-Hinweis:
-  wie viel Platz jemand fürs Ergebnis will, ist eine Eigenschaft der Person.
 - **Copy-Buttons je Query-Teil** (`$select`/`$filter`/`$expand`, eigene Zeile
   unter der Raw-Query) für Cloud-Flow-Felder. Sie kopieren den **nackten,
   unkodierten** Wert aus `renderQueryOptions` — NICHT aus der URL: die

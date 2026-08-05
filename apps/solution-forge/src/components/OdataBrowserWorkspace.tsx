@@ -47,13 +47,11 @@ import { OdataQueryLibrary } from './OdataQueryLibrary'
 import { PromptDialog } from './PromptDialog'
 import {
   addToHistory,
-  loadBuilderCollapsed,
   loadHistory,
   loadIdentityDismissed,
   loadSaved,
   newEntryId,
   removeById,
-  saveBuilderCollapsed,
   saveHistory,
   saveIdentityDismissed,
   saveSaved,
@@ -155,8 +153,6 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   const [copied, setCopied] = useState(false)
   /** Which `$…` part last went to the clipboard, for the ✓ flash. */
   const [copiedPart, setCopiedPart] = useState<string | null>(null)
-  /** Builder folded away to give the grid the screen. Survives reloads. */
-  const [builderCollapsed, setBuilderCollapsed] = useState(loadBuilderCollapsed)
 
   /** Raw query line: null = mirroring the builder, string = being edited. */
   const [rawDraft, setRawDraft] = useState<string | null>(null)
@@ -974,30 +970,6 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
 
       {mode === 'odata' && table && (
         <div className="card odb-builder">
-          {/* Folding hides Columns/Filter/Expand/Sort but never the query
-              line: that line already states everything they hold, so the
-              collapsed card stays a complete picture instead of a mystery.
-              No summary chip beside the caret for the same reason. */}
-          <button
-            className="odb-builder-toggle"
-            onClick={() => {
-              const next = !builderCollapsed
-              setBuilderCollapsed(next)
-              saveBuilderCollapsed(next)
-            }}
-            aria-expanded={!builderCollapsed}
-            title={
-              builderCollapsed
-                ? 'Show the query builder'
-                : 'Hide the query builder — the query line below keeps working'
-            }
-          >
-            <span className="odb-builder-caret">{builderCollapsed ? '▸' : '▾'}</span>
-            Query builder
-          </button>
-
-          {!builderCollapsed && (
-          <>
           <div className="odb-builder-row">
             <span className="odb-builder-label">Columns</span>
             <button
@@ -1214,8 +1186,6 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
               </span>
             )}
           </div>
-          </>
-          )}
 
           <div className="odb-query">
             <QueryInput
