@@ -3,6 +3,7 @@ import type { EntityRef, RawAttribute } from '../types/odataBrowser'
 import { classifyColumn } from './odataQuery'
 import {
   fieldsOfGroup,
+  filterRecordFields,
   groupRecordFields,
   recordId,
   recordLabel,
@@ -138,6 +139,65 @@ describe('groupRecordFields', () => {
 
   it('copes with no metadata and no ref at all', () => {
     expect(() => groupRecordFields(ROW, [], null)).not.toThrow()
+  })
+})
+
+describe('filterRecordFields', () => {
+  const fields = groupRecordFields(ROW, COLUMNS, REF)
+  const keys = (search: string) =>
+    filterRecordFields(fields, ROW, search).map((f) => f.key)
+
+  it('returns everything for an empty or blank search', () => {
+    expect(filterRecordFields(fields, ROW, '')).toHaveLength(fields.length)
+    expect(filterRecordFields(fields, ROW, '   ')).toHaveLength(fields.length)
+  })
+
+  it('matches the display name, case-insensitively', () => {
+    expect(keys('annual')).toEqual(['revenue'])
+  })
+
+  it('matches the row key with its lookup decoration', () => {
+    expect(keys('_primarycontactid_value')).toEqual(['_primarycontactid_value'])
+  })
+
+  it('matches the base logical name without the decoration', () => {
+    // Nobody types the underscores when looking for a lookup.
+    expect(keys('primarycontactid')).toEqual(['_primarycontactid_value'])
+  })
+
+  it('matches a plain value', () => {
+    expect(keys('contoso')).toEqual(['name'])
+  })
+
+  it('matches the formatted value', () => {
+    // '€4,200.00' is what the panel shows for revenue.
+    expect(keys('€4,200')).toEqual(['revenue'])
+  })
+
+  it('matches the raw value behind a formatted one', () => {
+    // The formatted text is '€4,200.00' — the comma means it does NOT contain
+    // '4200'. Only the raw 4200 does, which is the whole point of matching both.
+    expect(keys('4200')).toEqual(['revenue'])
+  })
+
+  it('finds a field that has no value at all by its name', () => {
+    expect(keys('description')).toEqual(['description'])
+  })
+
+  it('returns nothing when neither name nor value matches', () => {
+    expect(keys('zzz-not-here')).toEqual([])
+  })
+
+  it('keeps a term containing spaces intact', () => {
+    // 'Annual Revenue' is the display name, so the term matches as a substring.
+    expect(keys('annual revenue')).toEqual(['revenue'])
+  })
+
+  it('does not split the term into words', () => {
+    // Reversed, both words are still in 'Annual Revenue' — an implementation
+    // that split on spaces and ANDed the parts would match here. Substring
+    // does not, which is the behaviour anyone pasting a value expects.
+    expect(keys('revenue annual')).toEqual([])
   })
 })
 

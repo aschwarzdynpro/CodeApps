@@ -927,6 +927,15 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
   `$select` bestimmt der Server die Spalten (Entfernen müsste erst ein
   `$select` erfinden), und die letzte zu entfernen leerte `$select` — was
   „alle Spalten" heißt und die Query damit *erweitern* statt verengen würde.
+- **Feldsuche im Datensatz-Panel** (`filterRecordFields`, Vitest): sucht über
+  **Anzeigename, technischen Namen UND Wert** — den Wert in BEIDEN
+  Darstellungen, formatiert („Active", „€4.200,00") und roh (`0`, `4200`).
+  Nur eine davon zu prüfen machte ein Feld über das Angezeigte auffindbar,
+  aber nicht über das Gespeicherte (oder umgekehrt) — was jemand im Kopf hat,
+  ist nicht vorhersagbar. Reiner Teilstring, **kein** Wort-Splitting: ein
+  Suchfeld, das Wörter still ver-UNDet, überrascht beim Einfügen eines Werts
+  mit Leerzeichen. Leer gefilterte Gruppen verschwinden samt Überschrift; die
+  Suche wird bei jedem Datensatzwechsel in `goTo`/`goBack` geleert.
 - **Copy-Buttons je Query-Teil** (`$select`/`$filter`/`$expand`, eigene Zeile
   unter der Raw-Query) für Cloud-Flow-Felder. Sie kopieren den **nackten,
   unkodierten** Wert aus `renderQueryOptions` — NICHT aus der URL: die

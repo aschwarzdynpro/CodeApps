@@ -8477,6 +8477,25 @@
   padding: 14px 20px 20px;
   overflow-y: auto;
 }
+/* Search over the record's fields. Sticks to the top of the scrolling body —
+   a record can carry 200 fields, and a filter you have to scroll back up to
+   change is a filter you stop using. Opaque background is therefore required,
+   not decoration: rows would otherwise run through underneath it. */
+.odb-record-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  background: var(--surface);
+}
+.odb-record-search .search {
+  flex: 1;
+  min-width: 0;
+}
 .odb-record-group {
   margin-bottom: 18px;
 }

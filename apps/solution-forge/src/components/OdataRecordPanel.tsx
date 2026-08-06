@@ -12,6 +12,7 @@ import {
   FIELD_GROUP_LABELS,
   FIELD_GROUP_ORDER,
   fieldsOfGroup,
+  filterRecordFields,
   groupRecordFields,
   recordId as idOf,
   recordLabel,
@@ -78,6 +79,8 @@ export function OdataRecordPanel({
   const [collections, setCollections] = useState<CollectionRef[] | null>(null)
   const [collectionsLoading, setCollectionsLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  /** Narrows the Fields tab. Cleared on every move — see `goTo`/`goBack`. */
+  const [fieldSearch, setFieldSearch] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -115,12 +118,14 @@ export function OdataRecordPanel({
   const goTo = (next: RecordAddress) => {
     setCollections(null)
     setTab('fields')
+    setFieldSearch('')
     setTrail((prev) => [...prev, next])
   }
 
   const goBack = () => {
     setCollections(null)
     setTab('fields')
+    setFieldSearch('')
     setTrail((prev) => prev.slice(0, -1))
   }
 
@@ -156,6 +161,7 @@ export function OdataRecordPanel({
   }
 
   const fields = row ? groupRecordFields(row, meta?.columns ?? [], meta?.ref ?? null) : []
+  const visibleFields = row ? filterRecordFields(fields, row, fieldSearch) : fields
   const title = row ? recordLabel(row, meta?.ref ?? null) : here.recordId
   const thisId = row ? idOf(row, meta?.ref ?? null) : null
 
@@ -232,8 +238,31 @@ export function OdataRecordPanel({
 
           {!loading && row && tab === 'fields' && (
             <>
+              <div className="odb-record-search">
+                <input
+                  className="search"
+                  type="search"
+                  placeholder="Search fields — display name, logical name or value…"
+                  value={fieldSearch}
+                  onChange={(e) => setFieldSearch(e.target.value)}
+                  aria-label="Search the fields of this record"
+                />
+                {fieldSearch.trim() !== '' && (
+                  <span className="muted">
+                    {visibleFields.length} of {fields.length} fields
+                  </span>
+                )}
+              </div>
+              {fieldSearch.trim() !== '' && visibleFields.length === 0 && (
+                <div className="state">
+                  No field matches “{fieldSearch.trim()}” — neither by name nor
+                  by value.
+                </div>
+              )}
               {FIELD_GROUP_ORDER.map((group) => {
-                const groupFields = fieldsOfGroup(fields, group)
+                // Groups whose fields all filtered out render nothing, heading
+                // included — that already falls out of the length check below.
+                const groupFields = fieldsOfGroup(visibleFields, group)
                 if (groupFields.length === 0) return null
                 return (
                   <section key={group} className="odb-record-group">
