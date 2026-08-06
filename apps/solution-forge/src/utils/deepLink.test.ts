@@ -39,15 +39,15 @@ describe('deepLinkTarget', () => {
 })
 
 describe('buildDeepLink', () => {
-  it('composes the play URL', () => {
+  it('composes the play URL and hides the player chrome', () => {
     expect(buildDeepLink('app-1', 'env-1', 'odata')).toBe(
-      'https://apps.powerapps.com/play/e/env-1/app/app-1?p=odata',
+      'https://apps.powerapps.com/play/e/env-1/app/app-1?p=odata&hidenavbar=true',
     )
   })
 
   it('encodes the parts', () => {
     expect(buildDeepLink('a b', 'e/1', 'x y')).toBe(
-      'https://apps.powerapps.com/play/e/e%2F1/app/a%20b?p=x%20y',
+      'https://apps.powerapps.com/play/e/e%2F1/app/a%20b?p=x%20y&hidenavbar=true',
     )
   })
 

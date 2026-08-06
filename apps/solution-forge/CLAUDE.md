@@ -1241,7 +1241,11 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
     höher: `padding: 10px 0`) — er ist keine Lösung fürs Überlaufen.
     **Deeplinks (`utils/deepLink.ts`, Vitest):** `?p=<tab-key>` an der
     Play-URL öffnet den Arbeitsbereich; das 🔗 in der Topbar legt den Link zum
-    aktuellen Bereich in die Zwischenablage.
+    aktuellen Bereich in die Zwischenablage. Erzeugte Links tragen zusätzlich
+    **`&hidenavbar=true`** — das wertet der *Player* aus, nicht wir: seine
+    eigene Leiste ist hier reine Dopplung (die Konsole bringt ihre volle
+    Navigation mit) und kostet vertikalen Platz, von dem diese App ohnehin zu
+    wenig hat.
     ⚠ **Die Adresszeile gehört dem Player, nicht uns.** Die App läuft im
     iframe, `pushState` änderte also eine URL, die niemand sieht oder kopiert
     — ein Link kann nur **komponiert** werden (`appId` + `environmentId` aus

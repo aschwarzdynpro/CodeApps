@@ -25,6 +25,15 @@ export const DEEP_LINK_PARAM = 'p'
 const PLAYER_ORIGIN = 'https://apps.powerapps.com'
 
 /**
+ * Player-level parameters appended to every generated link. `hidenavbar` is
+ * consumed by the player, not by us — it drops the player's own chrome, which
+ * is pure duplication here: the console brings its own full navigation, and
+ * the bar costs vertical space this app is chronically short of (the sidebar
+ * already had to become an accordion to fit a notebook viewport).
+ */
+const PLAYER_PARAMS = 'hidenavbar=true'
+
+/**
  * The workspace a deeplink asks for, or null.
  *
  * `knownKeys` is passed in rather than imported so this stays free of the
@@ -57,6 +66,7 @@ export function buildDeepLink(
   return (
     `${PLAYER_ORIGIN}/play/e/${encodeURIComponent(environmentId)}` +
     `/app/${encodeURIComponent(appId)}` +
-    `?${DEEP_LINK_PARAM}=${encodeURIComponent(tabKey)}`
+    `?${DEEP_LINK_PARAM}=${encodeURIComponent(tabKey)}` +
+    `&${PLAYER_PARAMS}`
   )
 }
