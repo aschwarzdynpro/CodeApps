@@ -40,6 +40,7 @@ import { LinksWorkspace } from './components/LinksWorkspace'
 import { LazyWorkspace } from './components/LazyWorkspace'
 import { InfoTip } from './components/InfoTip'
 import { useHeaderInfo } from './hooks/useHeaderInfo'
+import { buildDeepLink, deepLinkTarget } from './utils/deepLink'
 // ALM Detective is temporarily hidden from the UI — component + service
 // (AlmDetective.tsx / detectiveService.ts) stay in place for re-enabling.
 import { HelpPanel } from './components/HelpPanel'
@@ -222,6 +223,14 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
 ]
 
+/**
+ * Flat view of the navigation. Deeplinks resolve against it, so a workspace
+ * that is not in the menu cannot be linked to — which is the right answer:
+ * the link would open something the user cannot navigate back to.
+ */
+const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((group) => group.items)
+const NAV_KEYS: Tab[] = NAV_ITEMS.map((item) => item.key)
+
 /** Heading shown in the content header per section. */
 const TAB_TITLES: Record<Tab, string> = {
   workbench: 'Workbench',
@@ -275,7 +284,7 @@ function describeError(err: unknown): string {
 }
 
 function App() {
-  const { environmentId, mode } = usePower()
+  const { environmentId, mode, appId, queryParams } = usePower()
   const { solutions, publishers, defaultPublisher, loading, error, loadedAt, reload } =
     useSolutions()
 
@@ -294,7 +303,53 @@ function App() {
     return match?.id ?? ''
   }, [defaultPublisher, publishers])
 
-  const [tab, setTab] = useState<Tab>('workbench')
+  /**
+   * The workspace the user picked, or null while nothing has been clicked yet.
+   *
+   * `tab` below is DERIVED from it and the deeplink, which is what keeps the
+   * deeplink effect-free: the target arrives asynchronously (the player hands
+   * the query string over via a PostMessage bridge), and seeding state from an
+   * async value would mean setState inside an effect. Once the user navigates,
+   * their pick wins for good.
+   */
+  const [pickedTab, setPickedTab] = useState<Tab | null>(null)
+
+  // Merge and Compare are restricted to deployment managers; tabs stay
+  // visible but disabled until the role check confirms access. Declared here
+  // because the deeplink below has to respect it.
+  const [isDeploymentManager, setIsDeploymentManager] = useState(false)
+
+  /**
+   * Workspace a shared link asks for. Gated workspaces are only honoured once
+   * the role check has confirmed access — a link must not open a page the
+   * sidebar itself refuses to navigate to, because the content guards would
+   * then render nothing and leave an empty shell. Until the check comes back
+   * (and for anyone without the role) the link falls back to the default
+   * workspace, where the sidebar shows the target as locked, as always.
+   */
+  const deepLinkTab = useMemo<Tab | null>(() => {
+    const key = deepLinkTarget(queryParams, NAV_KEYS)
+    if (!key) return null
+    if (NAV_ITEMS.find((item) => item.key === key)?.gated && !isDeploymentManager)
+      return null
+    return key as Tab
+  }, [queryParams, isDeploymentManager])
+
+  const tab: Tab = pickedTab ?? deepLinkTab ?? 'workbench'
+
+  /**
+   * Shareable link to whatever is open. Composed rather than read off the
+   * address bar: the app sits in the player's iframe, so the URL the user
+   * sees belongs to the player and nothing we do here can change it.
+   */
+  const deepLink = buildDeepLink(appId, environmentId, tab)
+  const [linkCopied, setLinkCopied] = useState(false)
+  const copyDeepLink = () => {
+    if (!deepLink) return
+    void navigator.clipboard?.writeText(deepLink)
+    setLinkCopied(true)
+    window.setTimeout(() => setLinkCopied(false), 1600)
+  }
   /**
    * Sidebar accordion — 21 entries in four groups do not fit a laptop viewport,
    * so only one group is open at a time.
@@ -318,7 +373,7 @@ function App() {
    * while the active entry sits in a collapsed one.
    */
   const goToTab = (next: Tab) => {
-    setTab(next)
+    setPickedTab(next)
     setExpandedGroup(null)
   }
 
@@ -361,9 +416,6 @@ function App() {
       }
       return next
     })
-  // Merge and Compare are restricted to deployment managers; tabs stay
-  // visible but disabled until the role check confirms access.
-  const [isDeploymentManager, setIsDeploymentManager] = useState(false)
   // Dual-Write Maps only appears once the msdyn_dualwriteentitymap table is
   // confirmed to exist in the host env (hidden until then; the probe fails
   // open so a hiccup never hides an installed feature).
@@ -1174,6 +1226,19 @@ function App() {
           >
             {mode === 'power-platform' ? '● Connected' : '● Demo data'}
           </span>
+          <button
+            className="topbar-icon"
+            onClick={copyDeepLink}
+            disabled={!deepLink}
+            title={
+              deepLink
+                ? `Copy a link to ${TAB_TITLES[tab]}\n${deepLink}`
+                : 'Sharing needs the Power Apps host — there is no app to link to on mock data.'
+            }
+            aria-label={`Copy a link to ${TAB_TITLES[tab]}`}
+          >
+            {linkCopied ? '✓' : '🔗'}
+          </button>
           <button
             className="topbar-icon"
             onClick={() => setShowHowTo(true)}

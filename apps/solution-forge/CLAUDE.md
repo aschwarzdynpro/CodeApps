@@ -1239,6 +1239,24 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
     alle Gruppen offen und die Header ausgeblendet, sonst käme man nirgends hin.
     ⚠ Der Icon-Modus spart nur **Breite, keine Höhe** (Zeilen werden dort sogar
     höher: `padding: 10px 0`) — er ist keine Lösung fürs Überlaufen.
+    **Deeplinks (`utils/deepLink.ts`, Vitest):** `?p=<tab-key>` an der
+    Play-URL öffnet den Arbeitsbereich; das 🔗 in der Topbar legt den Link zum
+    aktuellen Bereich in die Zwischenablage.
+    ⚠ **Die Adresszeile gehört dem Player, nicht uns.** Die App läuft im
+    iframe, `pushState` änderte also eine URL, die niemand sieht oder kopiert
+    — ein Link kann nur **komponiert** werden (`appId` + `environmentId` aus
+    dem Host-Kontext), nicht abgelesen. Gelesen wird er über
+    `IAppContext.queryParams`, das der Player über die PostMessage-Brücke
+    liefert; `PowerProvider` reicht es samt `appId` durch.
+    Der Ziel-Tab ist **abgeleitet** (`pickedTab ?? deepLinkTab ?? 'workbench'`)
+    — der Parameter trifft asynchron ein, ein `useState`-Seed daraus wäre
+    setState im Effekt. **Gated Bereiche werden erst nach bestandener
+    Rollenprüfung geöffnet**, sonst landete man auf einer Seite, zu der die
+    Sidebar gar nicht navigiert, und die Content-Guards rendern nichts →
+    leere Hülle. Unbekannte Keys degradieren auf den Default-Bereich.
+    Nur `PLAYER_ORIGIN` ist auf die kommerzielle Cloud fest verdrahtet: Der
+    Host-Kontext meldet Environment und App, aber nicht den Host, und der
+    Parent-Frame ist cross-origin.
     **UI-Konsistenz (Refurbish-Pass in App.css):** native `<select>`s in
     Toolbars/Pickern werden ZENTRAL gestylt (`.trace-toolbar/.subtabs/
     .compare-controls/.operate-env/.validate-toolbar select` — Radius,

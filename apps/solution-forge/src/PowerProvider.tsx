@@ -28,12 +28,24 @@ interface PowerContextValue {
   mode: PowerMode
   /** Dataverse environment id reported by the host, or null standalone. */
   environmentId: string | null
+  /** App id reported by the host — needed to compose a shareable play URL. */
+  appId: string | null
+  /**
+   * Query string of the play URL, handed over by the player
+   * (`IAppContext.queryParams`). This is the ONLY way in: the app sits in the
+   * player's iframe, so `window.location` is not the URL the user opened.
+   */
+  queryParams: Record<string, string>
 }
+
+const EMPTY_PARAMS: Record<string, string> = {}
 
 const PowerContext = createContext<PowerContextValue>({
   ready: false,
   mode: 'local-mock',
   environmentId: null,
+  appId: null,
+  queryParams: EMPTY_PARAMS,
 })
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -128,11 +140,25 @@ function extractEnvironmentId(ctx: unknown): string | null {
   return null
 }
 
+/** `app.queryParams` from the host context — string values only, never null. */
+function extractQueryParams(ctx: unknown): Record<string, string> {
+  const app = (ctx as { app?: Record<string, unknown> } | null)?.app
+  const raw = app?.queryParams
+  if (!raw || typeof raw !== 'object') return EMPTY_PARAMS
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === 'string') out[key] = value
+  }
+  return out
+}
+
 export function PowerProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PowerContextValue>({
     ready: false,
     mode: 'local-mock',
     environmentId: null,
+    appId: null,
+    queryParams: EMPTY_PARAMS,
   })
 
   useEffect(() => {
@@ -141,6 +167,8 @@ export function PowerProvider({ children }: { children: ReactNode }) {
     const init = async () => {
       let mode: PowerMode = 'local-mock'
       let environmentId: string | null = null
+      let appId: string | null = null
+      let queryParams: Record<string, string> = EMPTY_PARAMS
       try {
         // Inside a Power Apps host, getContext() resolves quickly via the
         // PostMessage bridge to the parent iframe. Standalone there is no
@@ -154,7 +182,9 @@ export function PowerProvider({ children }: { children: ReactNode }) {
         ])
         if (ctx?.app?.appId) {
           mode = 'power-platform'
+          appId = ctx.app.appId
           environmentId = extractEnvironmentId(ctx)
+          queryParams = extractQueryParams(ctx)
           extractUserHints(ctx)
         }
       } catch {
@@ -162,7 +192,8 @@ export function PowerProvider({ children }: { children: ReactNode }) {
       }
       // Resolve regardless of cancellation so any pending service calls unblock.
       resolveMode(mode)
-      if (!cancelled) setState({ ready: true, mode, environmentId })
+      if (!cancelled)
+        setState({ ready: true, mode, environmentId, appId, queryParams })
     }
 
     void init()
