@@ -6,6 +6,48 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.19 — 2026-08-06
+
+**Teilbare Links auf einen Arbeitsbereich, dazu eine Feldsuche im
+Datensatz-Panel des OData Browsers. Keine Schema-Änderung, keine neuen
+Flow-Versionen** — der Import braucht weder `provision-model.ps1` noch ein
+erneutes Aktivieren der Executor-Flows.
+
+- **Deeplinks**: `?p=<bereich>` an der Play-URL öffnet den Arbeitsbereich; das
+  **🔗 in der Topbar** legt den Link zum gerade offenen Bereich in die
+  Zwischenablage, inklusive `&hidenavbar=true` (blendet die Leiste des Players
+  aus — die Konsole bringt ihre eigene Navigation mit, und der Platz fehlt
+  vertikal ohnehin).
+  Die Form folgt aus einer Tatsache, nicht aus Geschmack: Die App läuft im
+  iframe des Players, **die Adresszeile gehört also dem Player**. Ein Link
+  lässt sich dort nicht ablesen, nur komponieren — daher der Button statt
+  einer mitwandernden URL. Gelesen wird er über die dafür vorgesehene
+  SDK-Schnittstelle.
+  **Gated Bereiche öffnet ein Link erst nach bestandener Rollenprüfung**: Sonst
+  landete man auf einer Seite, zu der die Sidebar gar nicht navigiert, und säße
+  vor einer leeren Hülle. Bis dahin — und für alle ohne die Rolle — führt der
+  Link auf den Standardbereich, wo das Ziel wie gewohnt als gesperrt erscheint.
+  Unbekannte Bereichs-Namen degradieren ebenso, statt zu scheitern; die
+  Zuordnung ist außerdem groß-/kleinschreibungstolerant, weil Chat- und
+  Ticketsysteme URLs gern kleinschreiben.
+  ⚠ Erzeugte Links zeigen auf die **kommerzielle Cloud** — der Host-Kontext
+  meldet Umgebung und App, aber nicht den Host, von dem geladen wurde.
+- **Feldsuche im Datensatz-Panel** (OData Browser → Datensatz → Fields): Eine
+  Dataverse-Zeile bringt 30 bis 200 Felder mit; sie zu finden hieß bisher
+  scrollen. Gesucht wird über **drei** Achsen, weil nicht vorhersagbar ist,
+  welche jemand im Kopf hat: **Anzeigename**, **technischer Name** (mit *und*
+  ohne die `_…_value`-Dekoration eines Lookups) und **Inhalt** — und zwar in
+  **beiden** Darstellungen, formatiert und roh. Nur eine davon zu prüfen wäre
+  eine Falle: Ein Betrag zeigt sich als `€4.200,00`, enthält wegen des
+  Trennzeichens also gar kein „4200" — wer die gespeicherte Zahl tippt, fände
+  nichts. Umgekehrt findet man `statecode` über „Active", obwohl dort `0` steht.
+  Reiner Teilstring, **kein** Zerlegen an Leerzeichen: Ein Feld, das Wörter
+  still ver-UNDet, überrascht beim Einfügen eines Werts mit Leerzeichen. Leer
+  gefilterte Gruppen verschwinden samt Überschrift, die Suche bleibt beim
+  Scrollen oben stehen und wird bei jedem Datensatzwechsel geleert.
+
+---
+
 ## 1.0.0.18 — 2026-08-05
 
 **Nur OData Browser. Keine Schema-Änderung, keine neuen Flow-Versionen** —
