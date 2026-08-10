@@ -6,6 +6,66 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.20 — 2026-08-10
+
+**Nur die Dual-Write Maps — dort aber zwei stille Falschaussagen abgestellt und
+das Cockpit auf alle Umgebungen geöffnet. Keine Schema-Änderung, keine neuen
+Flow-Versionen** — der Import braucht weder `provision-model.ps1` noch ein
+erneutes Aktivieren der Executor-Flows.
+
+- **Die angezeigte Version war nicht die laufende.** Das Cockpit setzte
+  „aktuelle Version" mit der **höchsten Versionsnummer** gleich. Auf
+  `msdyn_dualwriteentitymap` markiert aber **kein Feld** die Version, die im
+  Dienst ist — jede gespeicherte Version ist ein eigener Datensatz, und alle
+  sind aktiv, veröffentlicht und unmanaged. Wo eine Sonderversion geparkt liegt,
+  gewann sie den Zahlenvergleich: An INT-11 traf das 3 von 91 Maps, darunter
+  `sst_[msdyn_projects - Projects]`, das seit November 2023 eine `9.9.9.9`
+  („für Datenmigration") anzeigte statt der 2.0.2.1 vom August 2026.
+  **Den neuesten Datensatz zu nehmen wäre keine Lösung, nur eine
+  Verschiebung**: `sst_[salesorders - CDS sales order headers]` läuft mit
+  2.0.1.8, sein zuletzt angelegter Datensatz ist dieselbe 9.9.9.9.
+  Die laufende Version steht woanders — in **`msdyn_dualwriteruntimeconfig`**,
+  wo jede aktive Zeile die Version des Mappings samt Quell- und Zieltabelle
+  führt. Die liest das Cockpit jetzt und zeigt sie mit dem Marker **`live`**.
+  ⚠ **Die Abdeckung ist prinzipbedingt teilweise**: Dataverse führt diese
+  Laufzeit-Konfiguration nur für Maps, bei denen es die **Quelle** ist
+  (CRM → AX) — 45 von 91 an INT-11; bei den übrigen liegt sie auf der
+  F&O-Seite. Ein fehlender Eintrag heißt deshalb „Version unbekannt", nicht
+  „läuft nicht", und die Zeile sagt genau das: **`latest saved`** statt einer
+  Behauptung. Liegt eine gespeicherte Version **über** der laufenden, ist das
+  ein eigener Befund in der Zeile — jemand hat eine Version gespeichert und nie
+  in Betrieb genommen.
+- **Maps sind jetzt je Umgebung einsehbar** (Auswahl oben, Vorgabe = Host).
+  Die Abfragen laufen umgebungsübergreifend über den Konnektor; jeder Cache
+  liegt pro Umgebung, damit nicht beim Umschalten UATs Maps unter PRODs
+  Überschrift stehen. Ist Dual-Write in der gewählten Umgebung nicht
+  installiert, steht das im Klartext da statt eines Abfragefehlers.
+- **Dabei kam heraus, dass der bisherige Filter eine Host-Annahme war.** Das
+  Cockpit zeigte nur **unmanaged** Maps — richtig für die Entwicklungsumgebung,
+  wo autorisiert wird, aber falsch für alles danach: Maps erreichen UAT und
+  PROD **in einer Solution und sind dort managed**, in PROD 223 von 236
+  Map-Namen. Der Filter hätte 19 Maps gezeigt und dabei ausgesehen wie eine
+  vollständige Antwort. Er ist weg; stattdessen stehen **Custom / Managed /
+  All als Filter mit Zählern** in der Leiste, mit *Custom* als Vorgabe im Host
+  (dort sind die rund 120 Standard-Maps Rauschen) und *All* in den anderen
+  Umgebungen.
+- **Neuer Befund „unmanaged layer".** Aus der Managed-Auswertung fallen zwei
+  verschiedene Aussagen: ob eine Map ausschließlich über eine Solution kam —
+  und ob eine **transportierte Map zusätzlich unmanaged Datensätze trägt**,
+  also direkt in der Zielumgebung bearbeitet wurde. In PROD betrifft das
+  **6 Maps**, `sst_[msdyn_projects - Projects]` darunter. Sie sind jetzt
+  markiert; das ist für Dual-Write dasselbe, was der Layer Inspector für
+  Solution-Komponenten meldet. Ob dort eine inhaltlich abweichende Definition
+  steckt oder nur ein folgenloser Speichervorgang, sagt der Marker **nicht** —
+  er nennt die Kandidaten, das Mapping selbst zeigt das Overlay.
+- ⚠ **Voraussetzung**: Der Service Principal hinter dem Konnektor braucht
+  Leserecht auf `msdyn_dualwriteruntimeconfig` — je Umgebung. Fehlt es, wird
+  der Fehler geschluckt (die Liste bleibt vollständig) und **jede** Zeile
+  fällt auf `latest saved` zurück. Das Erkennungszeichen ist also kein Fehler,
+  sondern das Ausbleiben jedes `live`-Markers.
+
+---
+
 ## 1.0.0.19 — 2026-08-06
 
 **Teilbare Links auf einen Arbeitsbereich, dazu eine Feldsuche im

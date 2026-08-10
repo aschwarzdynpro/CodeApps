@@ -20,7 +20,7 @@ keeps the version bump from landing in a customer environment.
 
 | File | Version | Exported | Contents |
 | --- | --- | --- | --- |
-| `DynamicsProSolutionAdminConsole_1.0.0.19_managed.zip` | 1.0.0.19 | 2026-08-06 | **9** `pro_` tables incl. the three **delta** columns on `pro_transferentry` · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler), host operations on `organization: "current"` · Code App (chunk-split bundle with two **lazily loaded** workspaces, incl. the first-run **Self-Provisioning Wizard**, Role Comparer, the security concept document, the entry dialog's **Write plan**, the OData Browser's **cloud-flow copy buttons** and **record field search**, plus **shareable workspace links**) · 1 connection reference `pro_CR_SAC_Dataverse` · 1 security role `INT \| DEPLOYMENT MANAGER` · **unchanged since 1.0.0.17:** data model and flows |
+| `DynamicsProSolutionAdminConsole_1.0.0.20_managed.zip` | 1.0.0.20 | 2026-08-10 | **9** `pro_` tables incl. the three **delta** columns on `pro_transferentry` · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler), host operations on `organization: "current"` · Code App (chunk-split bundle with two **lazily loaded** workspaces, incl. the first-run **Self-Provisioning Wizard**, Role Comparer, the security concept document, the entry dialog's **Write plan**, the OData Browser's **cloud-flow copy buttons** and **record field search**, shareable workspace links, plus the Dual-Write cockpit's **running-version lookup** and **per-environment view**) · 1 connection reference `pro_CR_SAC_Dataverse` · 1 security role `INT \| DEPLOYMENT MANAGER` · **unchanged since 1.0.0.17:** data model and flows |
 
 Only the newest managed export is kept here (managed solutions upgrade
 cumulatively — an older versioned zip can't be imported over a newer one).
@@ -46,6 +46,12 @@ cumulatively — an older versioned zip can't be imported over a newer one).
    users who operate the console.
 4. Add the Code App to the environment's app list if it is not surfaced
    automatically (Maker → Apps).
+5. **If the environment runs Dual-Write** (since 1.0.0.20): give the
+   connection's service principal read access to `msdyn_dualwriteentitymap`
+   **and `msdyn_dualwriteruntimeconfig`**, in every environment the cockpit is
+   pointed at. Without the second one the maps still list, but every row falls
+   back to "latest saved" — the symptom is the absence of any `live` marker,
+   not an error.
 
 See `docs/transfer-hub-contract.md` for the executor internals and
 `installer/README.md` for the script-based install path.
