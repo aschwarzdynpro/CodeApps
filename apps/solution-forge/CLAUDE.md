@@ -499,8 +499,34 @@ neuen Data Sources.
 
 **Dual-Write Table Maps** (Validate-Gruppe, Menüpunkt „Dual-Write Maps",
 gated): `DualWriteWorkspace` + `dualWriteService` (`dataverse…`/`mock…`).
-Liest über den Konnektor (FetchXML, SP-Identität) die **Custom (unmanaged)**
-Dual-Write-Table-Maps der Host-Env. **Entity `msdyn_dualwriteentitymap`**
+Liest über den Konnektor (FetchXML, SP-Identität) die
+Dual-Write-Table-Maps einer **wählbaren Umgebung**.
+⚠ **Der frühere harte Filter `ismanaged eq 0` war eine Host-Annahme und ist
+weg.** Maps werden in DEV unmanaged autorisiert, erreichen UAT/PROD aber **in
+einer Solution und sind dort managed** — an Schulz PROD 223 von 236
+Map-Namen. Cross-env hätte der Filter 217 Maps verschluckt und dabei
+ausgesehen wie eine vollständige Antwort. Stattdessen wird `ismanaged` je
+Record gelesen (Zwei-Optionen-Feld ⇒ **defensiv coercen**, `isTrue`) und per
+`managedStateOf` (pure, Vitest) zu zwei verschiedenen Aussagen verdichtet:
+`isManaged` (ALLE Records managed) und **`hasUnmanagedLayer`** (managed UND
+unmanaged Records ⇒ eine transportierte Map wurde direkt in der Umgebung
+editiert — an PROD real bei **6 Maps**, u. a. `sst_[msdyn_projects -
+Projects]`; Badge „unmanaged layer"). Gefiltert wird in der UI per Chips
+(Custom/Managed/All **mit Zählern**); **Default = Custom in der Host-Env, All
+sonst** (in DEV sind die ~120 OOB-Maps Rauschen, in UAT/PROD *sind* die
+transportierten Maps die Maps). Der Default leitet sich beim Mount ab —
+der Remount per `key` erledigt das Umschalten von allein.
+**Zielumgebung** per `OperateEnvPicker` (eigener Lift `dualWriteEnvKey` in
+App.tsx, Remount per `key`); alle drei Service-Methoden nehmen `envKey` →
+`orgUrlForEnvKey`. **Jeder Cache ist pro orgUrl** (`installed`, `runtimeSet` im
+Service; der Modul-Session-Cache der Liste ist eine `Map` pro envKey) — ein
+gemeinsamer Slot zeigte beim nächsten Wechsel UATs Maps unter PROD.
+**Die Menü-Sichtbarkeit probet weiter NUR die Host-Env** (`isInstalled()` ohne
+Argument); der Workspace probet zusätzlich die **gewählte** Env und zeigt bei
+`false` „not installed here" statt eines Query-Fehlers (fail-open, Probe-Fehler
+⇒ laden). Der Mock variiert je Env (`variantFor`: Nicht-Host-Envs ohne die
+Time-Report-Map und mit älterer PO-Line-Version) — ohne das änderte der Picker
+offline sichtbar nichts. **Entity `msdyn_dualwriteentitymap`**
 (Entity-Set `msdyn_dualwriteentitymaps`) — empirisch am INT-11 verifiziert
 (nicht `msdyn_dualwritetablemap`!). Felder: `msdyn_name` (z. B.
 `sst_[uoms - Units]`), `msdyn_displayname`, `msdyn_version` (dotted, z. B.

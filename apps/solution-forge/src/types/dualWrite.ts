@@ -30,6 +30,14 @@ export interface DualWriteMapSummary {
   latestSavedVersion: string
   /** How many version records exist for this map name (>= 1). */
   versionCount: number
+  /** True when EVERY version record is managed — a map that only ever arrived
+   *  through a solution (or ships with Dual-Write) and was never edited here.
+   *  In the host env these are the OOB maps; in UAT/PROD they are the bulk. */
+  isManaged: boolean
+  /** True when the map has managed AND unmanaged records: someone edited a
+   *  transported map directly in this environment, so it now carries an
+   *  unmanaged layer. A finding in UAT/PROD, business as usual in dev. */
+  hasUnmanagedLayer: boolean
   /** Source table + its environment type (from the current version's first
    *  leg), e.g. "Units" / "AX". '' when the mapping could not be read. */
   sourceSchema: string

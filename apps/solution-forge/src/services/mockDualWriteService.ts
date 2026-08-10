@@ -1,5 +1,6 @@
 import type { DualWriteMapSummary } from '../types/dualWrite'
 import type { DualWriteService } from './dualWriteService'
+import { isCurrentEnvKey } from '../config'
 import {
   mappingFieldNames,
   parseDualWriteMapping,
@@ -122,6 +123,8 @@ const MAPS: DualWriteMapSummary[] = [
     liveVersion: '2.0.2.3',
     latestSavedVersion: '9.9.9.9',
     versionCount: 4,
+    isManaged: false,
+    hasUnmanagedLayer: false,
     sourceSchema: 'CDS purchase order line entity',
     sourceEnv: 'AX',
     destinationSchema: 'msdyn_purchaseorderproducts',
@@ -138,6 +141,8 @@ const MAPS: DualWriteMapSummary[] = [
     versionKind: 'saved',
     latestSavedVersion: '2.0.0.2',
     versionCount: 3,
+    isManaged: false,
+    hasUnmanagedLayer: false,
     sourceSchema: 'Units',
     sourceEnv: 'AX',
     destinationSchema: 'uoms',
@@ -153,6 +158,8 @@ const MAPS: DualWriteMapSummary[] = [
     liveVersion: '0.0.0.1',
     latestSavedVersion: '0.0.0.1',
     versionCount: 1,
+    isManaged: false,
+    hasUnmanagedLayer: false,
     sourceSchema: 'SSTTimeReportMainEntity',
     sourceEnv: 'AX',
     destinationSchema: 'sst_timereportses',
@@ -168,19 +175,57 @@ const MAPPINGS: Record<string, string> = {
   'dw-timereport': TIME_REPORT_MAPPING,
 }
 
+/**
+ * What a non-host environment shows. Without this the picker would swap
+ * environments and change nothing on screen, which is precisely the failure the
+ * cockpit exists to make visible: a target environment running an OLDER map
+ * version than the host, and a map that never got transported at all.
+ */
+function variantFor(envKey: string, maps: DualWriteMapSummary[]) {
+  if (isCurrentEnvKey(envKey)) return maps
+  return (
+    maps
+      // The time-report map only exists in the host env — never transported.
+      .filter((m) => m.id !== 'dw-timereport')
+      .map((m) =>
+        m.id === 'dw-po-line'
+          ? // Transported and running an older version than the host.
+            {
+              ...m,
+              version: '2.0.1.0',
+              liveVersion: '2.0.1.0',
+              latestSavedVersion: '2.0.1.0',
+              versionCount: 2,
+              isManaged: true,
+              hasUnmanagedLayer: false,
+            }
+          : // Transported, then edited in place — the unmanaged-layer finding
+            // the real PROD data shows on six maps.
+            {
+              ...m,
+              isManaged: false,
+              hasUnmanagedLayer: true,
+            },
+      )
+  )
+}
+
 class MockDualWriteService implements DualWriteService {
   async isInstalled(): Promise<boolean> {
     return true
   }
 
-  async listTableMaps(): Promise<DualWriteMapSummary[]> {
+  async listTableMaps(envKey: string): Promise<DualWriteMapSummary[]> {
     await delay(200)
     // Index each map's mapped field names (mirrors the real service) so field
     // search works offline too.
-    return MAPS.map((m) => ({
-      ...m,
-      fields: mappingFieldNames(parseDualWriteMapping(MAPPINGS[m.id] ?? '')),
-    }))
+    return variantFor(
+      envKey,
+      MAPS.map((m) => ({
+        ...m,
+        fields: mappingFieldNames(parseDualWriteMapping(MAPPINGS[m.id] ?? '')),
+      })),
+    )
   }
 
   async getMapping(id: string): Promise<string> {

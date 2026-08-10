@@ -100,6 +100,26 @@ export interface DualWriteVersionRecord {
   /** ISO created timestamp — drives the "newest saved" ordering. */
   createdOn: string
   modifiedOn: string
+  isManaged: boolean
+}
+
+/**
+ * Managed state of a whole map, from its version records.
+ *
+ * The two are not the same question. `isManaged` says the map only ever
+ * arrived through a solution; `hasUnmanagedLayer` says a transported map was
+ * edited in place — which in a downstream environment is the finding, and is
+ * invisible if you only look at whether "the map" is managed.
+ */
+export function managedStateOf(records: { isManaged: boolean }[]): {
+  isManaged: boolean
+  hasUnmanagedLayer: boolean
+} {
+  const managed = records.filter((r) => r.isManaged).length
+  return {
+    isManaged: records.length > 0 && managed === records.length,
+    hasUnmanagedLayer: managed > 0 && managed < records.length,
+  }
 }
 
 /** Which saved version the cockpit shows for a map, and how sure it is. */

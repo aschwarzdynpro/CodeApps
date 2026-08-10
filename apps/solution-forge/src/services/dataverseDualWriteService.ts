@@ -3,15 +3,16 @@ import type { DualWriteService } from './dualWriteService'
 import { mockDualWriteService } from './mockDualWriteService'
 import { powerModeReady } from '../PowerProvider'
 import {
-  currentOrgUrl,
   fetchXmlAllPages,
   fetchXmlEscape,
   fetchXmlQuery,
   odataQuery,
   rowStr,
 } from './currentEnvQuery'
+import { currentEnvKey, orgUrlForEnvKey } from '../config'
 import type { DualWriteVersionRecord } from '../utils/dualWriteMapping'
 import {
+  managedStateOf,
   mapNameKey,
   mappingFieldNames,
   overallDirection,
@@ -24,43 +25,63 @@ import {
  * Real {@link DualWriteService}. Dual-write table maps live in
  * `msdyn_dualwriteentitymap`; each saved version is its own record, and the
  * mapping definition (legs + field mappings) is the `msdyn_mapping` JSON on the
- * record. Reads run through the connector (SP identity) against the host env,
- * so the SP needs read access to `msdyn_dualwriteentitymap` and
- * `msdyn_dualwriteruntimeconfig`.
+ * record. Reads run through the connector (SP identity) against the environment
+ * the caller picked, so the SP needs read access to `msdyn_dualwriteentitymap`
+ * and `msdyn_dualwriteruntimeconfig` in every environment it is asked about.
+ *
+ * ⚠ Every cache here is keyed by org URL. One environment's answer must never
+ * be served for another — the whole point of the picker is that the two differ.
  */
 
 const ENTITY_SET = 'msdyn_dualwriteentitymaps'
 const RUNTIME_ENTITY = 'msdyn_dualwriteruntimeconfig'
 
-class DataverseDualWriteService implements DualWriteService {
-  /** Cached per session — the table does not appear/disappear at runtime. */
-  private installed: boolean | null = null
-  /** Resolved once per session (metadata read, not a naive "+s"). */
-  private runtimeSet: string | null = null
+/** Truthiness of a two-option column across the shapes the connector emits. */
+const isTrue = (v: unknown): boolean =>
+  v === true || v === 1 || v === '1' || v === 'true' || v === 'True'
 
-  async isInstalled(): Promise<boolean> {
+class DataverseDualWriteService implements DualWriteService {
+  /** Per org URL — the table does not appear/disappear at runtime. */
+  private installed = new Map<string, boolean>()
+  /** Per org URL (metadata read, not a naive "+s"). */
+  private runtimeSet = new Map<string, string>()
+
+  async isInstalled(envKey: string = currentEnvKey()): Promise<boolean> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockDualWriteService.isInstalled()
-    if (this.installed !== null) return this.installed
+    if (mode !== 'power-platform') return mockDualWriteService.isInstalled(envKey)
+    const orgUrl = orgUrlForEnvKey(envKey)
+    const cached = this.installed.get(orgUrl)
+    if (cached !== undefined) return cached
+    let installed: boolean
     try {
       const rows = await odataQuery('EntityDefinitions', 'LogicalName', {
+        orgUrl,
         filter: "LogicalName eq 'msdyn_dualwriteentitymap'",
       })
-      this.installed = rows.length > 0
+      installed = rows.length > 0
     } catch {
       // Fail open — a probe hiccup must not hide a working feature.
-      this.installed = true
+      installed = true
     }
-    return this.installed
+    this.installed.set(orgUrl, installed)
+    return installed
   }
 
-  async listTableMaps(): Promise<DualWriteMapSummary[]> {
+  async listTableMaps(envKey: string): Promise<DualWriteMapSummary[]> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockDualWriteService.listTableMaps()
+    if (mode !== 'power-platform')
+      return mockDualWriteService.listTableMaps(envKey)
 
     // Step 1 — cheap grouping query: the `msdyn_mapping` payload is large and
-    // NOT selected here. Custom (unmanaged) maps only; every saved version is
-    // its own record, so we group by name and then pick ONE version per map.
+    // NOT selected here. Every saved version is its own record, so we group by
+    // name and then pick ONE version per map.
+    //
+    // ⚠ Deliberately NOT filtered to unmanaged. That filter was a host-env
+    // assumption: maps are authored unmanaged in dev, but reach UAT/PROD inside
+    // a solution and are MANAGED there — at Schulz 223 of 236 map names in
+    // PROD. Filtering them out would have left the cross-env view almost empty
+    // while looking like a complete answer. The managed state is carried per
+    // map instead and filtered in the UI.
     const fetchXml =
       `<fetch>` +
       `<entity name="msdyn_dualwriteentitymap">` +
@@ -69,12 +90,10 @@ class DataverseDualWriteService implements DualWriteService {
       `<attribute name="msdyn_version" />` +
       `<attribute name="createdon" />` +
       `<attribute name="modifiedon" />` +
-      `<filter type="and">` +
-      `<condition attribute="ismanaged" operator="eq" value="0" />` +
-      `</filter>` +
+      `<attribute name="ismanaged" />` +
       `<order attribute="msdyn_name" />` +
       `</entity></fetch>`
-    const orgUrl = currentOrgUrl()
+    const orgUrl = orgUrlForEnvKey(envKey)
     const rows = await fetchXmlAllPages(ENTITY_SET, fetchXml, orgUrl)
 
     const byName = new Map<string, DualWriteVersionRecord[]>()
@@ -86,6 +105,9 @@ class DataverseDualWriteService implements DualWriteService {
         version: rowStr(row.msdyn_version),
         createdOn: rowStr(row.createdon),
         modifiedOn: rowStr(row.modifiedon),
+        // Two-option field: the connector hands back a JS boolean, but string
+        // and numeric shapes exist in the wild — coerce rather than trust one.
+        isManaged: isTrue(row.ismanaged),
       }
       const list = byName.get(name)
       if (list) list.push(record)
@@ -120,6 +142,7 @@ class DataverseDualWriteService implements DualWriteService {
         liveVersion,
         latestSavedVersion: pick.latestSavedVersion,
         versionCount: records.length,
+        ...managedStateOf(records),
         sourceSchema: '',
         sourceEnv: '',
         destinationSchema: '',
@@ -200,18 +223,21 @@ class DataverseDualWriteService implements DualWriteService {
 
   /** `EntitySetName` of the runtime-config table (metadata, not a naive "+s"). */
   private async runtimeEntitySet(orgUrl: string): Promise<string> {
-    if (this.runtimeSet) return this.runtimeSet
+    const cached = this.runtimeSet.get(orgUrl)
+    if (cached) return cached
     const fallback = `${RUNTIME_ENTITY}s`
+    let name: string
     try {
       const rows = await odataQuery('EntityDefinitions', 'EntitySetName', {
         orgUrl,
         filter: `LogicalName eq '${RUNTIME_ENTITY}'`,
       })
-      this.runtimeSet = rowStr(rows[0]?.EntitySetName) || fallback
+      name = rowStr(rows[0]?.EntitySetName) || fallback
     } catch {
-      this.runtimeSet = fallback
+      name = fallback
     }
-    return this.runtimeSet
+    this.runtimeSet.set(orgUrl, name)
+    return name
   }
 
   /**
@@ -245,9 +271,10 @@ class DataverseDualWriteService implements DualWriteService {
     return map
   }
 
-  async getMapping(id: string): Promise<string> {
+  async getMapping(id: string, envKey: string): Promise<string> {
     const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockDualWriteService.getMapping(id)
+    if (mode !== 'power-platform')
+      return mockDualWriteService.getMapping(id, envKey)
     const fetchXml =
       `<fetch top="1">` +
       `<entity name="msdyn_dualwriteentitymap">` +
@@ -256,7 +283,11 @@ class DataverseDualWriteService implements DualWriteService {
       `<condition attribute="msdyn_dualwriteentitymapid" operator="eq" value="${fetchXmlEscape(id)}" />` +
       `</filter>` +
       `</entity></fetch>`
-    const rows = await fetchXmlQuery(ENTITY_SET, fetchXml, currentOrgUrl())
+    const rows = await fetchXmlQuery(
+      ENTITY_SET,
+      fetchXml,
+      orgUrlForEnvKey(envKey),
+    )
     return rowStr(rows[0]?.msdyn_mapping)
   }
 }

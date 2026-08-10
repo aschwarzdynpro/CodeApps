@@ -387,6 +387,11 @@ function App() {
   )
   // Audit Config has its own target-environment selection (Validate group).
   const [auditEnvKey, setAuditEnvKey] = useState<string>(() => currentEnvKey())
+  // Dual-Write Maps — the map versions running in UAT/PROD are exactly what
+  // differs from the host, so this cockpit gets its own selection too.
+  const [dualWriteEnvKey, setDualWriteEnvKey] = useState<string>(() =>
+    currentEnvKey(),
+  )
   // Import History too — deployments usually get checked in UAT/PROD.
   const [importEnvKey, setImportEnvKey] = useState<string>(() =>
     currentEnvKey(),
@@ -1689,7 +1694,11 @@ function App() {
       )}
 
       {!error && tab === 'dualWrite' && isDeploymentManager && (
-        <DualWriteWorkspace />
+        <DualWriteWorkspace
+          key={dualWriteEnvKey}
+          envKey={dualWriteEnvKey}
+          onEnvChange={setDualWriteEnvKey}
+        />
       )}
 
       {!error && tab === 'importHistory' && isDeploymentManager && (

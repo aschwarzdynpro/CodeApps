@@ -831,11 +831,25 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           <section className="help-section">
             <h3>🔀 Dual-Write Maps (Validate)</h3>
             <p>
-              The <strong>Dual-Write Table Maps</strong> cockpit lists the{' '}
-              <strong>custom (unmanaged)</strong> dual-write table maps in the
-              current environment (<code>msdyn_dualwriteentitymap</code>) — one
-              row per map, its <strong>source → target table</strong> with the
-              sync direction (↔ / → / ←) and how many version records exist.
+              The <strong>Dual-Write Table Maps</strong> cockpit lists the
+              dual-write table maps of a <strong>chosen environment</strong> (
+              <code>msdyn_dualwriteentitymap</code>) — one row per map, its{' '}
+              <strong>source → target table</strong> with the sync direction
+              (↔ / → / ←) and how many version records exist. The picker at the
+              top switches between the configured environments, so the versions
+              running in UAT or PROD can be held against the host's; where
+              dual-write is not installed at all, the cockpit says so.
+            </p>
+            <p>
+              Maps are authored <strong>unmanaged</strong> in dev but reach the
+              downstream environments inside a solution, where they are{' '}
+              <strong>managed</strong> — so the{' '}
+              <em>Custom / Managed / All</em> chips carry counts and default to{' '}
+              <em>Custom</em> in the host environment and <em>All</em>{' '}
+              elsewhere. A managed map that also has unmanaged version records
+              was <strong>edited directly in that environment</strong> and is
+              tagged <em>unmanaged layer</em> — the dual-write equivalent of
+              what the Layer Inspector reports for solution components.
             </p>
             <p>
               Every saved version of a map is its own record, and{' '}

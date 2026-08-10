@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { DualWriteMapSummary } from '../types/dualWrite'
 import { dualWriteService } from '../services/dualWriteService'
+import { envByKey, isCurrentEnvKey } from '../config'
+import { OperateEnvPicker } from './OperateEnvPicker'
 import {
   countFieldMappings,
   parseDualWriteMapping,
@@ -9,16 +11,25 @@ import {
 
 /**
  * Dual-Write Table Maps cockpit — lists the custom (unmanaged)
- * `msdyn_dualwriteentitymap` records in the current environment (one row per
+ * `msdyn_dualwriteentitymap` records of the SELECTED environment (one row per
  * map name), and opens a mapping overlay on click that renders the map's legs
  * + field mappings from the `msdyn_mapping` JSON.
  *
- * Read-only. The list is kept in a session-scoped cache so switching tabs does
- * not re-read; the Refresh button and the "Updated …" time cover freshness.
+ * Read-only. Reads go cross-env through the connector, so UAT/PROD can be
+ * inspected without leaving the app — which is where the maps usually differ
+ * from the host's. The list is kept in a session-scoped cache so switching tabs
+ * does not re-read; the Refresh button and the "Updated …" time cover freshness.
  */
 
-/** Session cache: survives tab navigation (module scope), resets on reload. */
-let sessionCache: { maps: DualWriteMapSummary[]; loadedAt: Date } | null = null
+/**
+ * Session cache: survives tab navigation (module scope), resets on reload.
+ * ⚠ Keyed by environment — a single slot would show UAT's maps under PROD's
+ * heading on the next switch.
+ */
+const sessionCache = new Map<
+  string,
+  { maps: DualWriteMapSummary[]; loadedAt: Date }
+>()
 
 function fmtDateTime(iso: string): string {
   if (!iso) return '—'
@@ -87,9 +98,11 @@ function VersionCell({ map }: { map: DualWriteMapSummary }) {
 /** Overlay that lazy-loads and renders one map's mapping definition. */
 function DualWriteMappingModal({
   map,
+  envKey,
   onClose,
 }: {
   map: DualWriteMapSummary
+  envKey: string
   onClose: () => void
 }) {
   const [raw, setRaw] = useState<string | null>(null)
@@ -101,7 +114,7 @@ function DualWriteMappingModal({
   useEffect(() => {
     let cancelled = false
     dualWriteService
-      .getMapping(map.id)
+      .getMapping(map.id, envKey)
       .then((m) => {
         if (!cancelled) setRaw(m)
       })
@@ -112,7 +125,7 @@ function DualWriteMappingModal({
     return () => {
       cancelled = true
     }
-  }, [map.id])
+  }, [map.id, envKey])
 
   const detail = useMemo(
     () => (raw !== null ? parseDualWriteMapping(raw) : null),
@@ -315,57 +328,113 @@ function DualWriteMappingModal({
   )
 }
 
-export function DualWriteWorkspace() {
+type ManagedFilter = 'custom' | 'managed' | 'all'
+
+interface Props {
+  /** Environment whose maps are shown (from the configured ENVIRONMENTS). */
+  envKey: string
+  onEnvChange: (envKey: string) => void
+}
+
+export function DualWriteWorkspace({ envKey, onEnvChange }: Props) {
+  const cached = sessionCache.get(envKey)
   const [maps, setMaps] = useState<DualWriteMapSummary[] | null>(
-    sessionCache?.maps ?? null,
+    cached?.maps ?? null,
   )
-  const [loadedAt, setLoadedAt] = useState<Date | null>(
-    sessionCache?.loadedAt ?? null,
-  )
+  const [loadedAt, setLoadedAt] = useState<Date | null>(cached?.loadedAt ?? null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // null while the install probe is still out — the list must not claim "no
+  // maps" before we know whether the table even exists here.
+  const [installed, setInstalled] = useState<boolean | null>(null)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<DualWriteMapSummary | null>(null)
+  // Default depends on the environment, and the component remounts on every
+  // switch so it re-derives on its own. In the host env the custom maps are
+  // what anyone authors and the ~120 managed OOB maps are noise; in UAT/PROD
+  // the transported maps ARE the customer's maps and hiding them would answer
+  // "which maps are here" with almost nothing. The counts on the chips make
+  // the choice visible either way — nothing is hidden silently.
+  const [managedFilter, setManagedFilter] = useState<ManagedFilter>(() =>
+    isCurrentEnvKey(envKey) ? 'custom' : 'all',
+  )
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const list = await dualWriteService.listTableMaps()
+      const list = await dualWriteService.listTableMaps(envKey)
       const now = new Date()
       setMaps(list)
       setLoadedAt(now)
-      sessionCache = { maps: list, loadedAt: now }
+      sessionCache.set(envKey, { maps: list, loadedAt: now })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [envKey])
 
-  // Fetch on first mount only when the session cache is empty.
+  // Probe the SELECTED environment first: dual-write can be installed in the
+  // host and absent in UAT/PROD, and "not installed here" is a plain fact, not
+  // the query error the list read would otherwise show. Fails open.
   useEffect(() => {
-    if (sessionCache) return
-    const t = window.setTimeout(() => void load(), 30)
-    return () => window.clearTimeout(t)
-  }, [load])
+    let cancelled = false
+    const t = window.setTimeout(() => {
+      void dualWriteService
+        .isInstalled(envKey)
+        .catch(() => true)
+        .then((ok) => {
+          if (cancelled) return
+          setInstalled(ok)
+          if (ok && !sessionCache.has(envKey)) void load()
+        })
+    }, 30)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [envKey, load])
 
   const q = search.trim().toLowerCase()
+  const counts = useMemo(() => {
+    const all = maps?.length ?? 0
+    const managed = maps?.filter((m) => m.isManaged).length ?? 0
+    return { all, managed, custom: all - managed }
+  }, [maps])
+
   const rows = useMemo(() => {
     if (!maps) return []
     return maps.filter(
       (m) =>
-        !q ||
-        m.name.toLowerCase().includes(q) ||
-        m.sourceSchema.toLowerCase().includes(q) ||
-        m.destinationSchema.toLowerCase().includes(q) ||
-        // Also match a field inside the mapping (e.g. "accountnumber").
-        m.fields?.some((f) => f.includes(q)),
+        (managedFilter === 'all' ||
+          (managedFilter === 'managed' ? m.isManaged : !m.isManaged)) &&
+        (!q ||
+          m.name.toLowerCase().includes(q) ||
+          m.sourceSchema.toLowerCase().includes(q) ||
+          m.destinationSchema.toLowerCase().includes(q) ||
+          // Also match a field inside the mapping (e.g. "accountnumber").
+          m.fields?.some((f) => f.includes(q))),
     )
-  }, [maps, q])
+  }, [maps, q, managedFilter])
+
+  if (installed === false) {
+    return (
+      <div>
+        <OperateEnvPicker envKey={envKey} onChange={onEnvChange} />
+        <div className="state">
+          Dual-Write is not installed in{' '}
+          <strong>{envByKey(envKey)?.label ?? envKey}</strong> — the{' '}
+          <code>msdyn_dualwriteentitymap</code> table does not exist there.
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div>
+      <OperateEnvPicker envKey={envKey} onChange={onEnvChange} />
+
       <div className="card trace-toolbar">
         <input
           className="search"
@@ -374,6 +443,30 @@ export function DualWriteWorkspace() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <span className="chips" role="group" aria-label="Managed state">
+          {(
+            [
+              ['custom', 'Custom', counts.custom],
+              ['managed', 'Managed', counts.managed],
+              ['all', 'All', counts.all],
+            ] as [ManagedFilter, string, number][]
+          ).map(([key, label, count]) => (
+            <button
+              key={key}
+              className={`chip ${managedFilter === key ? 'chip--active' : ''}`}
+              onClick={() => setManagedFilter(key)}
+              title={
+                key === 'custom'
+                  ? 'Maps with at least one unmanaged version record — authored here, or a transported map edited in place'
+                  : key === 'managed'
+                    ? 'Maps that only ever arrived through a solution and were never edited here'
+                    : 'Every dual-write table map in this environment'
+              }
+            >
+              {label} {maps ? count : '—'}
+            </button>
+          ))}
+        </span>
         <span className="trace-toolbar-right">
           <span className="muted">
             {maps ? `${rows.length} of ${maps.length}` : '—'} map
@@ -399,12 +492,18 @@ export function DualWriteWorkspace() {
       </div>
 
       <div className="muted jobs-sample-note">
-        Custom (unmanaged) dual-write table maps in the current environment.
-        Each map is shown at its <strong>running</strong> version where the
-        dual-write runtime configuration records one (<span className="dw-vtag dw-vtag--live">live</span>),
-        otherwise at the newest saved version (<span className="dw-vtag">latest saved</span>) —
+        Dual-write table maps in the selected environment. Each map is shown at
+        its <strong>running</strong> version where the dual-write runtime
+        configuration records one (
+        <span className="dw-vtag dw-vtag--live">live</span>), otherwise at the
+        newest saved version (<span className="dw-vtag">latest saved</span>) —
         Dataverse only records the running version for maps where it is the
-        source (CRM → AX). Click a row to see its field mappings.
+        source (CRM → AX). Maps are authored unmanaged and arrive{' '}
+        <strong>managed</strong> downstream, so the default is{' '}
+        <em>Custom</em> in the host environment and <em>All</em> elsewhere; a
+        managed map carrying unmanaged records was edited in place and is
+        tagged <span className="dw-vdrift">unmanaged layer</span>. Click a row
+        to see its field mappings.
       </div>
 
       {error && <div className="state state--error">{error}</div>}
@@ -449,6 +548,22 @@ export function DualWriteWorkspace() {
                     >
                       <td>
                         <span className="dw-map-name">{m.name}</span>
+                        {m.isManaged && (
+                          <span
+                            className="dw-vtag"
+                            title="Every version record is managed — arrived through a solution, never edited here"
+                          >
+                            managed
+                          </span>
+                        )}
+                        {m.hasUnmanagedLayer && (
+                          <span
+                            className="dw-vdrift"
+                            title="A transported (managed) map that was edited directly in this environment — it now carries an unmanaged layer"
+                          >
+                            unmanaged layer
+                          </span>
+                        )}
                         {hits.length > 0 && (
                           <div className="dw-field-hits">
                             {hits.slice(0, 4).map((f) => (
@@ -506,6 +621,7 @@ export function DualWriteWorkspace() {
       {selected && (
         <DualWriteMappingModal
           map={selected}
+          envKey={envKey}
           onClose={() => setSelected(null)}
         />
       )}

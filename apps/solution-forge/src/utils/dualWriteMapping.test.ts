@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   compareMapVersions,
   countFieldMappings,
+  managedStateOf,
   mapNameKey,
   mappingFieldNames,
   overallDirection,
@@ -237,6 +238,7 @@ describe('pickCurrentVersion', () => {
     version,
     createdOn,
     modifiedOn: createdOn,
+    isManaged: false,
   })
 
   // The real sst_[msdyn_projects - Projects] shape: a parked 9.9.9.9 sits on
@@ -285,6 +287,39 @@ describe('pickCurrentVersion', () => {
     expect(pickCurrentVersion([])).toBeNull()
     const undated = [rec('2.0.0.1', ''), rec('2.0.0.3', '')]
     expect(pickCurrentVersion(undated)!.record.version).toBe('2.0.0.3')
+  })
+})
+
+describe('managedStateOf', () => {
+  const r = (isManaged: boolean) => ({ isManaged })
+
+  it('calls a map managed only when every record is', () => {
+    expect(managedStateOf([r(true), r(true)])).toEqual({
+      isManaged: true,
+      hasUnmanagedLayer: false,
+    })
+  })
+
+  it('calls a map custom when nothing is managed', () => {
+    expect(managedStateOf([r(false), r(false)])).toEqual({
+      isManaged: false,
+      hasUnmanagedLayer: false,
+    })
+  })
+
+  it('flags a transported map that was edited in place', () => {
+    // The real PROD shape: managed records from the solution plus a local edit.
+    expect(managedStateOf([r(true), r(true), r(false)])).toEqual({
+      isManaged: false,
+      hasUnmanagedLayer: true,
+    })
+  })
+
+  it('claims nothing for an empty record set', () => {
+    expect(managedStateOf([])).toEqual({
+      isManaged: false,
+      hasUnmanagedLayer: false,
+    })
   })
 })
 

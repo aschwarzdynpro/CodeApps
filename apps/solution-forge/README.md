@@ -120,10 +120,17 @@ nach Typ.
   auditierte Tabelle keine markierte Spalte hat (nur Record-Shell). Spalten
   werden beim Aufklappen lazy geladen. Read-only über den Konnektor
   (Metadaten); Mock-Fallback. Synergie mit der Audit-Explorer-App im Monorepo.
-- **Dual-Write Maps** (Validate, gated) — die **Custom (unmanaged) Dual-Write
-  Table Maps** der Current Environment aus `msdyn_dualwriteentitymap` (jede
+- **Dual-Write Maps** (Validate, gated) — die **Dual-Write Table Maps** einer
+  **wählbaren Umgebung** (Env-Picker oben, Default = Host; Reads laufen
+  cross-env über den Konnektor) aus `msdyn_dualwriteentitymap` (jede
   gespeicherte Version = eigener Record ⇒ **Gruppierung nach Name**, plus
-  Zähler der Versionen). **Welche Version gezeigt wird, ist nicht die höchste
+  Zähler der Versionen). **Managed-Filter als Chips mit Zählern**
+  (Custom / Managed / All): Maps werden in DEV unmanaged autorisiert, kommen
+  in UAT/PROD aber managed an (Schulz PROD: 223 von 236 Namen), deshalb ist
+  der Default *Custom* in der Host-Umgebung und *All* sonst. Eine
+  transportierte Map mit zusätzlichen unmanaged Records wurde direkt in der
+  Zielumgebung editiert und trägt den Marker **„unmanaged layer"** (an PROD
+  real bei 6 Maps). **Welche Version gezeigt wird, ist nicht die höchste
   Nummer** — auf der Version-Zeile markiert nichts die aktive, und geparkte
   Sonderversionen (`9.9.9.9` „für Datenmigration") gewännen jeden
   Zahlenvergleich. Stattdessen: die **laufende** Version aus
@@ -146,8 +153,10 @@ nach Typ.
   und „Show raw JSON", **Feld-Suchfeld** (filtert Quell-/Ziel-Feld und
   Lookup-Entity über alle Legs), Overlay auf **80vh** gedeckelt (Body
   scrollt). Der **Menüpunkt erscheint nur**, wenn
-  `msdyn_dualwriteentitymap` in der Umgebung existiert (EntityDefinitions-
-  Probe, Session-Cache, fail-open). Parser = pure function mit Vitest.
+  `msdyn_dualwriteentitymap` in der **Host**-Umgebung existiert
+  (EntityDefinitions-Probe, Cache pro Org-URL, fail-open); ist Dual-Write in
+  der *gewählten* Umgebung nicht installiert, sagt der Workspace das im Klartext
+  statt einen Query-Fehler zu zeigen. Parser = pure function mit Vitest.
   Read-only über den Konnektor (FetchXML, SP); Session-Cache; Mock-Fallback.
 - **Import History** (Validate, gated) — **Solution-Import-Historie** einer
   wählbaren Umgebung aus der `importjob`-Tabelle: Start, Solution, Status
