@@ -509,10 +509,11 @@ Dual-Write-Table-Maps der Host-Env. **Entity `msdyn_dualwriteentitymap`**
 `msdyn_properties`, `modifiedon`. (Owner bewusst NICHT angezeigt — der
 Konnektor liefert für `ownerid` keine Formatted-Value-Annotation und Owner ist
 fachlich irrelevant.) **Jede gespeicherte Version ist ein eigener Record** ⇒
-`listTableMaps` läuft **zweistufig**: (1) günstige Query ohne `msdyn_mapping`
-(id/name/version/modifiedon), gruppiert nach `msdyn_name`, behält die höchste
-Version (`compareMapVersions`, semver-numerisch) + Zähler älterer; (2) lädt
-`msdyn_mapping` NUR für die aktuellen Versionen (`mappingsByIds`, `in`-Filter in
+`listTableMaps` läuft **dreistufig**: (1) günstige Query ohne `msdyn_mapping`
+(id/name/version/createdon/modifiedon), gruppiert nach `msdyn_name`; (2) die
+**laufende** Version je Map aus `msdyn_dualwriteruntimeconfig` (s. u.), daraus
+`pickCurrentVersion`; (3) lädt
+`msdyn_mapping` NUR für die gezeigten Versionen (`mappingsByIds`, `in`-Filter in
 40er-Chunks — nicht alle ~300 Versions-Records) und zieht daraus je Map
 **Quelltabelle/Zieltabelle/Richtung** (`overallDirection`: bidi wenn ein Feld 3
 ist oder 1+2 gemischt, sonst die eine Richtung). Liste zeigt „Source → Target"
@@ -527,6 +528,33 @@ coercen: 1 = source→dest, 2 = dest→source, 3 = bidirektional;
 (`DualWriteMappingModal`, `.modal-backdrop`-Muster) mit Leg-Tabellen,
 Toggles „Hide system-generated"/„Show raw JSON". Session-Cache im Component.
 Read-only, keine neuen Data Sources.
+**⚠ „Aktuelle Version" ist NICHT die höchste Versionsnummer** (war bis
+2026-08-10 so und war falsch): auf `msdyn_dualwriteentitymap` markiert **kein
+Feld** die aktive Version — alle Versions-Records sind Active/Veröffentlicht/
+unmanaged —, und es liegen **geparkte Sonderversionen** herum, die jeden
+Zahlenvergleich gewinnen (`9.9.9.9` „Version for Data Migration", auch ein
+`2.1.0.0`-Entwurf). An INT-11 betraf das 3 von 91 Maps, u. a.
+`sst_[msdyn_projects - Projects]` (zeigte 9.9.9.9 statt 2.0.2.1). **„Neuester
+Record" ist ebenfalls keine Lösung:** `sst_[salesorders - CDS sales order
+headers]` läuft mit 2.0.1.8, sein zuletzt angelegter Record ist 9.9.9.9.
+Einzige belastbare Quelle ist **`msdyn_dualwriteruntimeconfig`**: die
+`msdyn_unsecure`-JSON jeder aktiven Zeile trägt `SourceEntityName`/
+`DestinationEntityName` + **`EntityMapVersion` {Major,Minor,Build,Revision}** =
+die tatsächlich laufende Version (empirisch an INT-11 verifiziert 2026-08-10).
+Join über den **Klammer-Inhalt von `msdyn_name`** (`sst_[uoms - Units]` →
+`uoms - units` = `<CE-Entity-Set> - <AX-Entity>`, `mapNameKey`/`runtimeMapKey`).
+⚠ **Die Abdeckung ist prinzipiell partiell**: Dataverse führt eine Runtime-
+Config nur für Maps, bei denen es die **Quelle** ist (CE→AX) — 45 von 91 an
+INT-11; bei AX→CE-Maps (z. B. Projects) liegt sie auf der F&O-Seite. **Fehlender
+Key heißt „unbekannt", NICHT „läuft nicht"** — deshalb `versionKind:
+'live' | 'saved'` am Summary und zwei verschiedene Badges, nie eine stille
+Behauptung. Zwei Maps mit gleichem Klammer-Key (`hso_`/`sst_[accounts - SST CDS
+Parties]`) ⇒ **keiner** bekommt die Live-Version zugeordnet. Auswahl-Logik =
+pure function `pickCurrentVersion` (Vitest), Runtime-Read ist **best-effort**
+(Fehler ⇒ nur das „live"-Label fehlt, nie die Liste); Entity-Set-Name der
+Runtime-Tabelle über `EntityDefinitions` aufgelöst (Session-Cache, Fallback
+„+s"). Steht die zuletzt gespeicherte Version **über** der laufenden, zeigt die
+Zeile das als eigenen Befund („v9.9.9.9 not live").
 
 **Team & BU Map** (Role Analyzer → Sub-Tab „Team & BU map", read-only):
 `TeamBuMap.tsx` — interaktives **Org-Chart als Inline-SVG** (kein Chart-Dep),

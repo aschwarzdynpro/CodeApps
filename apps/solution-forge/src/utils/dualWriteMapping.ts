@@ -34,6 +34,122 @@ export function compareMapVersions(a: string, b: string): number {
   return 0
 }
 
+/**
+ * Join key of a table map: the bracket content of `msdyn_name`
+ * (`sst_[uoms - Units]` → `uoms - units`). That content is
+ * `<Dataverse entity set> - <F&O entity>` — exactly the pair the dual-write
+ * runtime configuration identifies a running map by, so it is what links a map
+ * to its live version. '' when the name carries no brackets; no live version
+ * may then be attributed to it.
+ */
+export function mapNameKey(name: string): string {
+  const open = name.indexOf('[')
+  const close = name.lastIndexOf(']')
+  if (open < 0 || close <= open) return ''
+  return name.slice(open + 1, close).trim().toLowerCase()
+}
+
+/** Key for a runtime-config entry, in the same shape as {@link mapNameKey}. */
+export function runtimeMapKey(source: string, destination: string): string {
+  return `${source.trim()} - ${destination.trim()}`.toLowerCase()
+}
+
+interface RawRuntimeConfig {
+  SourceEntityName?: unknown
+  DestinationEntityName?: unknown
+  EntityMapVersion?: unknown
+}
+
+/**
+ * The live map version out of one `msdyn_dualwriteruntimeconfig.msdyn_unsecure`
+ * payload: `{ SourceEntityName, DestinationEntityName, EntityMapVersion:
+ * { Major, Minor, Build, Revision } }`. Returns null when the payload is not
+ * a runtime config we understand — never throws.
+ *
+ * ⚠ Such a row exists only for maps where **Dataverse is the source**
+ * (CE → F&O); for F&O → CE maps the runtime configuration lives on the F&O
+ * side. A missing entry therefore means "live version unknown", NOT "stopped".
+ */
+export function parseRuntimeMapVersion(
+  unsecureJson: string,
+): { key: string; version: string } | null {
+  if (!unsecureJson || !unsecureJson.trim()) return null
+  let raw: RawRuntimeConfig
+  try {
+    const parsed: unknown = JSON.parse(unsecureJson)
+    raw = (typeof parsed === 'string' ? JSON.parse(parsed) : parsed) as RawRuntimeConfig
+  } catch {
+    return null
+  }
+  if (!raw || typeof raw !== 'object') return null
+  const source = toStr(raw.SourceEntityName)
+  const destination = toStr(raw.DestinationEntityName)
+  const v = raw.EntityMapVersion
+  if (!source || !destination || !v || typeof v !== 'object') return null
+  const parts = v as Record<string, unknown>
+  const version = ['Major', 'Minor', 'Build', 'Revision']
+    .map((p) => toNum(parts[p]))
+    .join('.')
+  return { key: runtimeMapKey(source, destination), version }
+}
+
+/** One saved version record of a table map (a `msdyn_dualwriteentitymap` row). */
+export interface DualWriteVersionRecord {
+  id: string
+  version: string
+  /** ISO created timestamp — drives the "newest saved" ordering. */
+  createdOn: string
+  modifiedOn: string
+}
+
+/** Which saved version the cockpit shows for a map, and how sure it is. */
+export interface DualWriteVersionPick {
+  record: DualWriteVersionRecord
+  /** 'live' = proven by the runtime config; 'saved' = newest saved, unproven. */
+  kind: 'live' | 'saved'
+  /** Version of the newest saved record (may differ from the running one). */
+  latestSavedVersion: string
+}
+
+const createdMs = (r: DualWriteVersionRecord): number => {
+  const t = Date.parse(r.createdOn)
+  return Number.isNaN(t) ? 0 : t
+}
+
+/**
+ * Pick the version record a map is shown at.
+ *
+ * ⚠ NOT the highest version number. Dual-write maps carry parked sentinel
+ * versions (`9.9.9.9` "for data migration", `2.1.0.0` drafts) that win any
+ * numeric comparison while something else is running — that was the original
+ * bug. And the newest saved record is no substitute: at Schulz INT-11
+ * `sst_[salesorders - CDS sales order headers]` runs 2.0.1.8 while its most
+ * recently created record is 9.9.9.9.
+ *
+ * So: when the runtime config proves a live version, that record wins
+ * (`kind: 'live'`); otherwise the newest saved record is shown and labelled as
+ * such (`kind: 'saved'`) rather than passed off as the running one.
+ */
+export function pickCurrentVersion(
+  records: DualWriteVersionRecord[],
+  liveVersion?: string,
+): DualWriteVersionPick | null {
+  if (records.length === 0) return null
+  const bySaved = [...records].sort((a, b) => {
+    const d = createdMs(b) - createdMs(a)
+    return d !== 0 ? d : compareMapVersions(b.version, a.version)
+  })
+  const latestSavedVersion = bySaved[0].version
+  if (liveVersion) {
+    const live = bySaved.find((r) => r.version === liveVersion)
+    // A live version without a matching record (the version was deleted after
+    // it started running) stays reported on the summary — but we cannot show a
+    // mapping we do not have, so the newest saved record is rendered instead.
+    if (live) return { record: live, kind: 'live', latestSavedVersion }
+  }
+  return { record: bySaved[0], kind: 'saved', latestSavedVersion }
+}
+
 /** Arrow + human label for a sync-direction code (relative to the leg). */
 export function syncDirectionInfo(dir: number): {
   arrow: string

@@ -16,8 +16,12 @@ export interface DualWriteService {
   isInstalled(): Promise<boolean>
   /**
    * Custom (unmanaged) dual-write table maps in the current environment — one
-   * entry per map name at its current (highest) version, with the owner and a
-   * count of how many version records exist.
+   * entry per map name, with a count of how many version records exist.
+   *
+   * The version shown is the RUNNING one where `msdyn_dualwriteruntimeconfig`
+   * records it, otherwise the newest saved one, flagged via
+   * `DualWriteMapSummary.versionKind`. It is deliberately NOT the highest
+   * version number: parked sentinel versions (9.9.9.9) would win that.
    */
   listTableMaps(): Promise<DualWriteMapSummary[]>
   /**

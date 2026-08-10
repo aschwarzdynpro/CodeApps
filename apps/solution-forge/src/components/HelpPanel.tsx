@@ -834,9 +834,26 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               The <strong>Dual-Write Table Maps</strong> cockpit lists the{' '}
               <strong>custom (unmanaged)</strong> dual-write table maps in the
               current environment (<code>msdyn_dualwriteentitymap</code>) — one
-              row per map at its <strong>current (highest) version</strong>,
-              its <strong>source → target table</strong> with the sync
-              direction (↔ / → / ←) and how many older version records exist.
+              row per map, its <strong>source → target table</strong> with the
+              sync direction (↔ / → / ←) and how many version records exist.
+            </p>
+            <p>
+              Every saved version of a map is its own record, and{' '}
+              <strong>nothing on the record marks the one in service</strong> —
+              so the version shown is the <strong>running</strong> one read
+              from the dual-write runtime configuration (
+              <code>msdyn_dualwriteruntimeconfig</code>, tagged{' '}
+              <em>live</em>) wherever that exists. Dataverse only holds it for
+              maps where it is the <strong>source</strong> (CRM → AX); for the
+              others the <strong>newest saved</strong> version is shown and
+              labelled <em>latest saved</em> rather than passed off as running.
+              A version saved <em>on top of</em> the running one — the parked{' '}
+              <code>9.9.9.9</code> data-migration maps, for instance — is
+              called out in the row instead of quietly replacing it. Sorting by
+              version number would do exactly that, which is why it is not
+              used.
+            </p>
+            <p>
               Click a map to open an overlay that renders the mapping from its{' '}
               <code>msdyn_mapping</code> definition: each leg's source ↔
               destination schema and a <strong>field-mapping table</strong> with

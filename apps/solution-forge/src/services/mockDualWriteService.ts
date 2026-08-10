@@ -10,6 +10,11 @@ import {
  * table maps so the cockpit and the mapping overlay are fully demoable offline.
  * One map has several field mappings with a value-map transform and a
  * lookup-resolved destination; another is a lean custom map.
+ *
+ * The three maps cover the three version states the real cockpit distinguishes:
+ * a running version that IS the newest saved one, a running version with a
+ * newer version parked but not in service (the real 9.9.9.9 case), and a map
+ * whose running version Dataverse does not record at all.
  */
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -108,9 +113,14 @@ const TIME_REPORT_MAPPING = `{
 /** Summaries + their mapping payloads (payload served lazily via getMapping). */
 const MAPS: DualWriteMapSummary[] = [
   {
+    // Runs at 2.0.2.3 while a parked 9.9.9.9 sits on top of it — the drift the
+    // cockpit must surface instead of silently showing 9.9.9.9.
     id: 'dw-po-line',
     name: 'sst_[msdyn_purchaseorderproducts - CDS purchase order line entity]',
     version: '2.0.2.3',
+    versionKind: 'live',
+    liveVersion: '2.0.2.3',
+    latestSavedVersion: '9.9.9.9',
     versionCount: 4,
     sourceSchema: 'CDS purchase order line entity',
     sourceEnv: 'AX',
@@ -120,9 +130,13 @@ const MAPS: DualWriteMapSummary[] = [
     modifiedOn: '2026-05-14T09:12:00Z',
   },
   {
+    // F&O → CE map: Dataverse holds no runtime config, so the newest saved
+    // version is shown and labelled as unproven.
     id: 'dw-units',
     name: 'sst_[uoms - Units]',
     version: '2.0.0.2',
+    versionKind: 'saved',
+    latestSavedVersion: '2.0.0.2',
     versionCount: 3,
     sourceSchema: 'Units',
     sourceEnv: 'AX',
@@ -135,6 +149,9 @@ const MAPS: DualWriteMapSummary[] = [
     id: 'dw-timereport',
     name: 'sst_[sst_timereportses - Time Report Main Table]',
     version: '0.0.0.1',
+    versionKind: 'live',
+    liveVersion: '0.0.0.1',
+    latestSavedVersion: '0.0.0.1',
     versionCount: 1,
     sourceSchema: 'SSTTimeReportMainEntity',
     sourceEnv: 'AX',

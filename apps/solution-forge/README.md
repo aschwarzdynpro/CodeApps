@@ -122,12 +122,21 @@ nach Typ.
   (Metadaten); Mock-Fallback. Synergie mit der Audit-Explorer-App im Monorepo.
 - **Dual-Write Maps** (Validate, gated) — die **Custom (unmanaged) Dual-Write
   Table Maps** der Current Environment aus `msdyn_dualwriteentitymap` (jede
-  gespeicherte Version = eigener Record ⇒ **Gruppierung nach Name, aktuelle =
-  höchste Version**, plus Zähler älterer Versionen). Liste: Name, aktuelle
-  Version, **Quell- → Zieltabelle mit Richtung** (aus dem Mapping der aktuellen
+  gespeicherte Version = eigener Record ⇒ **Gruppierung nach Name**, plus
+  Zähler der Versionen). **Welche Version gezeigt wird, ist nicht die höchste
+  Nummer** — auf der Version-Zeile markiert nichts die aktive, und geparkte
+  Sonderversionen (`9.9.9.9` „für Datenmigration") gewännen jeden
+  Zahlenvergleich. Stattdessen: die **laufende** Version aus
+  `msdyn_dualwriteruntimeconfig` (Badge `live`), wo Dataverse sie führt — das
+  ist nur bei Maps der Fall, bei denen **Dataverse die Quelle** ist (CRM → AX);
+  sonst die **zuletzt gespeicherte** Version, ehrlich als `latest saved`
+  gekennzeichnet. Liegt eine neuere Version *über* der laufenden, weist die
+  Zeile sie als „nicht live" aus (typischer Befund: jemand hat eine Version
+  gespeichert, aber nie in Betrieb genommen). Liste: Name, Version + Herkunft,
+  **Quell- → Zieltabelle mit Richtung** (aus dem Mapping der gezeigten
   Version — Env-Chips AX/CRM + Richtungspfeil ↔/→/←, `overallDirection`),
-  geändert am. Die Mappings der aktuellen Versionen werden dafür in einer
-  zweiten, gechunkten Query nachgeladen (nur die aktuellen, nicht alle
+  geändert am. Die Mappings der gezeigten Versionen werden dafür in einer
+  zweiten, gechunkten Query nachgeladen (nicht alle
   Versions-Records). **Klick auf ein Mapping** öffnet
   ein Overlay, das die `msdyn_mapping`-Definition aufbereitet: je Leg
   Source ↔ Destination-Schema und eine **Field-Mapping-Tabelle** mit

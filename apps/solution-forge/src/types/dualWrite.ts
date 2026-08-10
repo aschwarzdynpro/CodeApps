@@ -1,20 +1,33 @@
 /**
  * Dual-write table maps (`msdyn_dualwriteentitymap`) in the current
  * environment. Each saved version of a map is stored as its own record, so the
- * cockpit groups by name and surfaces the current (highest) version, then
- * parses that record's `msdyn_mapping` JSON into legs + field mappings for the
- * detail overlay.
+ * cockpit groups by name and surfaces one version per map, then parses that
+ * record's `msdyn_mapping` JSON into legs + field mappings for the detail
+ * overlay.
+ *
+ * Which version that is comes from `msdyn_dualwriteruntimeconfig` where the
+ * running version is recorded, and from the newest saved record otherwise —
+ * see `utils/dualWriteMapping.ts → pickCurrentVersion`.
  */
 
-/** One dual-write table map (current version) — a list row. */
+/** One dual-write table map (at the shown version) — a list row. */
 export interface DualWriteMapSummary {
-  /** `msdyn_dualwriteentitymapid` of the current-version record (drives the
-   *  lazy mapping load). */
+  /** `msdyn_dualwriteentitymapid` of the shown record (drives the lazy
+   *  mapping load). */
   id: string
   /** `msdyn_name`, e.g. "sst_[uoms - Units]". */
   name: string
-  /** Current (highest) version string, e.g. "2.0.1.5". */
+  /** Version string of the shown record, e.g. "2.0.1.5". */
   version: string
+  /** Where {@link version} comes from: 'live' = the running version, proven by
+   *  the dual-write runtime configuration; 'saved' = the newest saved record,
+   *  because the running version is not recorded in Dataverse for this map. */
+  versionKind: 'live' | 'saved'
+  /** The running version per `msdyn_dualwriteruntimeconfig`, when known. */
+  liveVersion?: string
+  /** Version of the newest saved record. Differs from {@link liveVersion} when
+   *  someone saved a version that was never put into service. */
+  latestSavedVersion: string
   /** How many version records exist for this map name (>= 1). */
   versionCount: number
   /** Source table + its environment type (from the current version's first

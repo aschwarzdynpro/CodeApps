@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   compareMapVersions,
   countFieldMappings,
+  mapNameKey,
   mappingFieldNames,
   overallDirection,
   parseDualWriteMapping,
+  parseRuntimeMapVersion,
+  pickCurrentVersion,
+  runtimeMapKey,
   syncDirectionInfo,
 } from './dualWriteMapping'
 
@@ -168,6 +172,119 @@ describe('overallDirection', () => {
   })
   it('is 0 with no field mappings', () => {
     expect(overallDirection(mk([]))).toBe(0)
+  })
+})
+
+describe('mapNameKey', () => {
+  it('extracts the source/destination pair from a map name', () => {
+    expect(mapNameKey('sst_[uoms - Units]')).toBe('uoms - units')
+    expect(mapNameKey('sst_[msdyn_projects - Projects]')).toBe(
+      'msdyn_projects - projects',
+    )
+  })
+  it('matches the key a runtime-config entry produces', () => {
+    expect(mapNameKey('hso_[accounts - SST CDS Parties]')).toBe(
+      runtimeMapKey('accounts', 'SST CDS Parties'),
+    )
+  })
+  it('is empty when the name carries no brackets', () => {
+    expect(mapNameKey('plain map name')).toBe('')
+    expect(mapNameKey('sst_[unclosed')).toBe('')
+  })
+})
+
+describe('parseRuntimeMapVersion', () => {
+  // Shape of a real `msdyn_dualwriteruntimeconfig.msdyn_unsecure` payload,
+  // trimmed to the fields we read.
+  const RUNTIME = JSON.stringify({
+    ProjectId: 'be881e8c-9b73-4583-b13b-7dd3bff2e399',
+    SourceEntityName: 'msdyn_projecttasks',
+    SourceEnvironmentType: 1,
+    DestinationEntityName: 'CE project tasks',
+    DestinationEnvironmentType: 3,
+    EntityMapVersion: { Major: 2, Minor: 0, Build: 0, Revision: 2 },
+    FieldMappings: [],
+  })
+
+  it('reads the live version and its join key', () => {
+    expect(parseRuntimeMapVersion(RUNTIME)).toEqual({
+      key: 'msdyn_projecttasks - ce project tasks',
+      version: '2.0.0.2',
+    })
+  })
+
+  it('keys the same map its name does', () => {
+    expect(parseRuntimeMapVersion(RUNTIME)!.key).toBe(
+      mapNameKey('sst_[msdyn_projecttasks - CE project tasks]'),
+    )
+  })
+
+  it('returns null for anything it does not understand — never throws', () => {
+    expect(parseRuntimeMapVersion('')).toBeNull()
+    expect(parseRuntimeMapVersion('not json')).toBeNull()
+    expect(parseRuntimeMapVersion('{}')).toBeNull()
+    expect(
+      parseRuntimeMapVersion(
+        JSON.stringify({ SourceEntityName: 'a', DestinationEntityName: 'b' }),
+      ),
+    ).toBeNull()
+  })
+})
+
+describe('pickCurrentVersion', () => {
+  const rec = (version: string, createdOn: string) => ({
+    id: `id-${version}`,
+    version,
+    createdOn,
+    modifiedOn: createdOn,
+  })
+
+  // The real sst_[msdyn_projects - Projects] shape: a parked 9.9.9.9 sits on
+  // top of the live line, so the highest number is NOT the current version.
+  const PROJECTS = [
+    rec('2.0.1.2', '2023-11-29T11:45:00Z'),
+    rec('9.9.9.9', '2023-11-27T19:11:00Z'),
+    rec('2.0.2.1', '2026-08-06T09:58:00Z'),
+    rec('2.0.2.0', '2026-03-24T13:48:00Z'),
+  ]
+
+  it('never picks a parked sentinel version just because it is the highest', () => {
+    const pick = pickCurrentVersion(PROJECTS)!
+    expect(pick.record.version).toBe('2.0.2.1')
+    expect(pick.kind).toBe('saved')
+  })
+
+  it('prefers the proven running version over the newest saved one', () => {
+    // sst_[salesorders - …]: runs 2.0.1.8 although 9.9.9.9 was saved later.
+    const salesorders = [
+      rec('2.0.1.8', '2025-02-10T08:00:00Z'),
+      rec('9.9.9.9', '2025-06-01T08:00:00Z'),
+    ]
+    const pick = pickCurrentVersion(salesorders, '2.0.1.8')!
+    expect(pick.record.version).toBe('2.0.1.8')
+    expect(pick.kind).toBe('live')
+    // The parked version stays visible as a finding.
+    expect(pick.latestSavedVersion).toBe('9.9.9.9')
+  })
+
+  it('falls back to the newest saved record when the live version has no record', () => {
+    const pick = pickCurrentVersion(PROJECTS, '1.2.3.4')!
+    expect(pick.record.version).toBe('2.0.2.1')
+    expect(pick.kind).toBe('saved')
+  })
+
+  it('breaks a created-on tie by version number', () => {
+    const sameDay = [
+      rec('2.0.1.6', '2025-03-05T14:25:00Z'),
+      rec('2.0.1.7', '2025-03-05T14:25:00Z'),
+    ]
+    expect(pickCurrentVersion(sameDay)!.record.version).toBe('2.0.1.7')
+  })
+
+  it('tolerates missing timestamps and empty input', () => {
+    expect(pickCurrentVersion([])).toBeNull()
+    const undated = [rec('2.0.0.1', ''), rec('2.0.0.3', '')]
+    expect(pickCurrentVersion(undated)!.record.version).toBe('2.0.0.3')
   })
 })
 

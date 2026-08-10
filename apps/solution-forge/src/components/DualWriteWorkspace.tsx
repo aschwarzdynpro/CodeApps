@@ -10,8 +10,8 @@ import {
 /**
  * Dual-Write Table Maps cockpit — lists the custom (unmanaged)
  * `msdyn_dualwriteentitymap` records in the current environment (one row per
- * map name at its current version), and opens a mapping overlay on click that
- * renders the map's legs + field mappings from the `msdyn_mapping` JSON.
+ * map name), and opens a mapping overlay on click that renders the map's legs
+ * + field mappings from the `msdyn_mapping` JSON.
  *
  * Read-only. The list is kept in a session-scoped cache so switching tabs does
  * not re-read; the Refresh button and the "Updated …" time cover freshness.
@@ -28,6 +28,60 @@ function fmtDateTime(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   })}`
+}
+
+/**
+ * Version badge + where that version comes from. A map is shown at its RUNNING
+ * version where the dual-write runtime configuration records one, otherwise at
+ * the newest saved version — and the difference is spelled out rather than
+ * smoothed over: a saved-but-not-running version is a real finding (someone
+ * edited a map and never put it into service).
+ */
+function VersionCell({ map }: { map: DualWriteMapSummary }) {
+  const parked =
+    map.versionKind === 'live' &&
+    !!map.latestSavedVersion &&
+    map.latestSavedVersion !== map.version
+  return (
+    <>
+      <span className="dw-badge">v{map.version}</span>
+      {map.versionKind === 'live' ? (
+        <span
+          className="dw-vtag dw-vtag--live"
+          title="Running version — from the dual-write runtime configuration"
+        >
+          live
+        </span>
+      ) : (
+        <span
+          className="dw-vtag"
+          title={
+            map.liveVersion
+              ? `Runs at v${map.liveVersion}, but no saved version record carries that number`
+              : 'Newest saved version. Dataverse records the running version only for maps where it is the source (CRM → AX), so this one is unverified.'
+          }
+        >
+          latest saved
+        </span>
+      )}
+      {parked && (
+        <span
+          className="dw-vdrift"
+          title={`v${map.latestSavedVersion} is saved but not running`}
+        >
+          v{map.latestSavedVersion} not live
+        </span>
+      )}
+      {map.versionCount > 1 && (
+        <span
+          className="muted dw-versions"
+          title={`${map.versionCount} version records exist for this map`}
+        >
+          {map.versionCount} versions
+        </span>
+      )}
+    </>
+  )
 }
 
 /** Overlay that lazy-loads and renders one map's mapping definition. */
@@ -83,7 +137,7 @@ function DualWriteMappingModal({
 
         <div className="dw-modal-body">
           <div className="dw-modal-meta">
-            <span className="dw-badge">v{map.version}</span>
+            <VersionCell map={map} />
             {detail && !detail.unparsed && (
               <span className="dw-badge dw-badge--env">
                 {detail.leftEnvironmentType} ↔ {detail.centerEnvironmentType}
@@ -346,8 +400,11 @@ export function DualWriteWorkspace() {
 
       <div className="muted jobs-sample-note">
         Custom (unmanaged) dual-write table maps in the current environment.
-        Each map is shown at its current (highest) version; click a row to see
-        its field mappings.
+        Each map is shown at its <strong>running</strong> version where the
+        dual-write runtime configuration records one (<span className="dw-vtag dw-vtag--live">live</span>),
+        otherwise at the newest saved version (<span className="dw-vtag">latest saved</span>) —
+        Dataverse only records the running version for maps where it is the
+        source (CRM → AX). Click a row to see its field mappings.
       </div>
 
       {error && <div className="state state--error">{error}</div>}
@@ -366,7 +423,7 @@ export function DualWriteWorkspace() {
               <thead>
                 <tr>
                   <th>Table map</th>
-                  <th>Current version</th>
+                  <th>Version</th>
                   <th>Source → Target</th>
                   <th>Modified</th>
                 </tr>
@@ -408,15 +465,7 @@ export function DualWriteWorkspace() {
                         )}
                       </td>
                     <td className="nowrap">
-                      <span className="dw-badge">v{m.version}</span>
-                      {m.versionCount > 1 && (
-                        <span
-                          className="muted dw-versions"
-                          title={`${m.versionCount} version records exist for this map`}
-                        >
-                          +{m.versionCount - 1} older
-                        </span>
-                      )}
+                      <VersionCell map={m} />
                     </td>
                     <td>
                       {m.sourceSchema || m.destinationSchema ? (
