@@ -555,6 +555,10 @@ pure function `pickCurrentVersion` (Vitest), Runtime-Read ist **best-effort**
 Runtime-Tabelle über `EntityDefinitions` aufgelöst (Session-Cache, Fallback
 „+s"). Steht die zuletzt gespeicherte Version **über** der laufenden, zeigt die
 Zeile das als eigenen Befund („v9.9.9.9 not live").
+**Verify-on-first-use:** der Konnektor-SP braucht Leserecht auf
+`msdyn_dualwriteruntimeconfig`. Fehlt es, schluckt der best-effort-Read den
+Fehler (Konsole `[dualwrite] runtime config read failed`) und **jede** Zeile
+zeigt „latest saved" — Symptom also: kein einziges `live`-Badge in der Liste.
 
 **Team & BU Map** (Role Analyzer → Sub-Tab „Team & BU map", read-only):
 `TeamBuMap.tsx` — interaktives **Org-Chart als Inline-SVG** (kein Chart-Dep),
