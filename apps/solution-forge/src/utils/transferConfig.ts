@@ -301,6 +301,64 @@ export function formatDuration(ms: number): string {
   return parts.join(' ')
 }
 
+/** OData annotation carrying a column's display text. */
+const FORMATTED_SUFFIX = '@OData.Community.Display.V1.FormattedValue'
+
+/** `_primarycontactid_value` → `primarycontactid`; anything else unchanged. */
+function lookupBaseName(key: string): string {
+  const m = /^_(.+)_value$/.exec(key)
+  return m ? m[1] : key
+}
+
+/**
+ * Value of one preview cell.
+ *
+ * ⚠ A `<attribute name="inv_subject" />` on a LOOKUP does not come back under
+ * that name — the Web API returns it as `_inv_subject_value`, with the target
+ * record's display text in a FormattedValue annotation. Reading only the plain
+ * name renders every lookup column blank, which is exactly what the preview
+ * did. Both spellings are tried, formatted text first, so a lookup shows the
+ * record's name instead of its GUID.
+ *
+ * The executor already coalesces the same two spellings when it builds match
+ * keys — this brings the preview in line with what actually gets transferred.
+ */
+export function previewCellValue(
+  row: Record<string, unknown>,
+  column: string,
+): string {
+  const keys = [column, `_${column}_value`]
+  for (const key of keys) {
+    const formatted = row[`${key}${FORMATTED_SUFFIX}`]
+    if (typeof formatted === 'string' && formatted !== '') return formatted
+  }
+  for (const key of keys) {
+    const value = row[key]
+    if (value !== undefined && value !== null && value !== '') return String(value)
+  }
+  return ''
+}
+
+/**
+ * Column names of a row, for queries that name no attributes (`<all-attributes/>`).
+ * Annotations are dropped and lookups are folded back to their bare name, so
+ * the header reads `inv_subject` rather than `_inv_subject_value` — and matches
+ * what {@link previewCellValue} resolves. Filtering `_`-prefixed keys out (the
+ * earlier behaviour) removed the lookups from the table altogether.
+ */
+export function previewColumnsFromRow(row: Record<string, unknown>): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const key of Object.keys(row)) {
+    if (key.includes('@')) continue
+    const name = lookupBaseName(key)
+    if (seen.has(name)) continue
+    seen.add(name)
+    out.push(name)
+  }
+  return out
+}
+
 /** Split a comma string (record storage format) — trimmed, de-duplicated. */
 export function parseCsvList(value: string | null | undefined): string[] {
   if (!value) return []

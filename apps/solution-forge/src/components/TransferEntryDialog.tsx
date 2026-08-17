@@ -19,6 +19,7 @@ import {
   fetchXmlAttributes,
   formatFetchXml,
   parseFetchXml,
+  previewCellValue,
   setAttributes,
   DELTA_ATTRIBUTE,
   type ColumnPlan,
@@ -31,7 +32,6 @@ import {
   type SiblingEntry,
 } from '../utils/columnPlanReport'
 import { SearchSelect } from './SearchSelect'
-import { formattedValue } from '../services/currentEnvQuery'
 
 interface Props {
   packageId: string
@@ -665,9 +665,7 @@ export function TransferEntryDialog({
                       {preview.rows.map((row, i) => (
                         <tr key={i}>
                           {preview.columns.map((c) => (
-                            <td key={c}>
-                              {formattedValue(row, c) ?? String(row[c] ?? '')}
-                            </td>
+                            <td key={c}>{previewCellValue(row, c)}</td>
                           ))}
                         </tr>
                       ))}

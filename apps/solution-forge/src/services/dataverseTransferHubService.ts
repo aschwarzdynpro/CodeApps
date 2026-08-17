@@ -37,6 +37,7 @@ import {
   parseCsvList,
   parseFetchXml,
   parseWatermarks,
+  previewColumnsFromRow,
   withDeltaCondition,
   withRowLimit,
   type ColumnPlan,
@@ -814,7 +815,7 @@ class DataverseTransferHubService implements TransferHubService {
         ? parsed.attributes
         : []
     if (columns.length === 0 && rows.length > 0)
-      columns = Object.keys(rows[0]).filter((k) => !k.includes('@') && !k.startsWith('_'))
+      columns = previewColumnsFromRow(rows[0])
 
     // Best-effort total (same filter, aggregate count) — null for aggregate
     // queries; >50k rows throws and simply leaves the badge off (same
