@@ -32,6 +32,7 @@ import {
   COUNT_ALIAS,
   buildColumnPlan,
   buildCountFetchXml,
+  derivedColumnReason,
   fetchTop,
   joinCsvList,
   parseCsvList,
@@ -73,6 +74,7 @@ function label(value: unknown): string {
   const v = value as { UserLocalizedLabel?: { Label?: string } } | undefined
   return v?.UserLocalizedLabel?.Label ?? ''
 }
+
 
 const GUID_RE = /^[0-9a-fA-F-]{32,36}$/
 
@@ -626,7 +628,10 @@ class DataverseTransferHubService implements TransferHubService {
     const rows = await odataQuery('EntityDefinitions', 'LogicalName', {
       orgUrl: orgUrlForEnvKey(envKey),
       filter: `LogicalName eq '${safe}'`,
-      expand: 'Attributes($select=LogicalName,DisplayName,AttributeType)',
+      // AttributeOf / IsValidForRead / AttributeTypeName carry the derived-vs-real
+      // distinction — same metadata the OData Browser classifies columns from.
+      expand:
+        'Attributes($select=LogicalName,DisplayName,AttributeType,AttributeTypeName,AttributeOf,IsValidForRead)',
     })
     const attrs = (rows[0]?.Attributes as Array<Record<string, unknown>> | undefined) ?? []
     return attrs
@@ -634,6 +639,7 @@ class DataverseTransferHubService implements TransferHubService {
         logicalName: rowStr(a.LogicalName),
         displayName: label(a.DisplayName) || rowStr(a.LogicalName),
         attributeType: rowStr(a.AttributeType),
+        derivedReason: derivedColumnReason(a),
       }))
       .filter((c) => c.logicalName)
       .sort((a, b) => a.displayName.localeCompare(b.displayName))

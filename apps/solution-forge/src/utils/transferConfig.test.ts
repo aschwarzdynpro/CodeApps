@@ -5,6 +5,7 @@ import {
   MAX_MATCH_COLUMNS,
   buildColumnPlan,
   buildCountFetchXml,
+  derivedColumnReason,
   describeEntryValidation,
   fetchTop,
   fetchXmlAttributes,
@@ -319,6 +320,56 @@ describe('formatDuration', () => {
   it('clamps negative and sub-second values', () => {
     expect(formatDuration(-5_000)).toBe('0s')
     expect(formatDuration(400)).toBe('0s')
+  })
+})
+
+describe('derivedColumnReason', () => {
+  it('flags the label sibling of a choice — the picker noise this removes', () => {
+    expect(
+      derivedColumnReason({
+        LogicalName: 'inv_priorityname',
+        AttributeType: 'Virtual',
+        AttributeOf: 'inv_priority',
+      }),
+    ).toBe('derived from inv_priority')
+  })
+
+  it('flags a lookup name and a money base column', () => {
+    expect(
+      derivedColumnReason({ LogicalName: 'inv_subject_idname', AttributeOf: 'inv_subject_id' }),
+    ).toBeDefined()
+    expect(
+      derivedColumnReason({ LogicalName: 'cust_amount_base', AttributeOf: 'cust_amount' }),
+    ).toBeDefined()
+  })
+
+  it('leaves ordinary columns alone', () => {
+    expect(
+      derivedColumnReason({ LogicalName: 'inv_priority', AttributeType: 'Picklist' }),
+    ).toBeUndefined()
+    expect(
+      derivedColumnReason({ LogicalName: 'inv_subject_id', AttributeType: 'Lookup' }),
+    ).toBeUndefined()
+  })
+
+  it('rescues a MultiSelect choice, which also reports itself as Virtual', () => {
+    expect(
+      derivedColumnReason({
+        LogicalName: 'inv_tags',
+        AttributeType: 'Virtual',
+        AttributeTypeName: { Value: 'MultiSelectPicklistType' },
+      }),
+    ).toBeUndefined()
+    // …while any other virtual stays hidden.
+    expect(
+      derivedColumnReason({ LogicalName: 'inv_file', AttributeType: 'Virtual' }),
+    ).toBe('virtual attribute')
+  })
+
+  it('flags an unreadable column', () => {
+    expect(
+      derivedColumnReason({ LogicalName: 'x', AttributeType: 'String', IsValidForRead: false }),
+    ).toBe('not readable')
   })
 })
 

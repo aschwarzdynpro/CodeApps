@@ -109,6 +109,8 @@ export function TransferEntryDialog({
   // FetchXML tooling.
   const [showColumnPicker, setShowColumnPicker] = useState(false)
   const [pickedColumns, setPickedColumns] = useState<Set<string>>(new Set())
+  /** Derived columns the open query selects — listed despite the filter. */
+  const [pickerKeep, setPickerKeep] = useState<Set<string>>(new Set())
   const [columnSearch, setColumnSearch] = useState('')
   const [preview, setPreview] = useState<PreviewResult | null>(null)
   const [previewBusy, setPreviewBusy] = useState(false)
@@ -307,7 +309,13 @@ export function TransferEntryDialog({
   }
 
   const openColumnPicker = () => {
-    setPickedColumns(new Set(fetchXmlAttributes(fetchXml)))
+    const picked = new Set(fetchXmlAttributes(fetchXml))
+    setPickedColumns(picked)
+    // Frozen at open time, not derived from `pickedColumns`: a derived column
+    // the query already selects has to stay listed for the whole session of the
+    // picker, otherwise unticking it would make the row vanish under the cursor
+    // and there would be no way to tick it again.
+    setPickerKeep(picked)
     setColumnSearch('')
     setShowColumnPicker(true)
   }
@@ -315,16 +323,27 @@ export function TransferEntryDialog({
     setFetchXml(formatFetchXml(setAttributes(fetchXml, [...pickedColumns])))
     setShowColumnPicker(false)
   }
-  /** Picker list: alphabetical by display name, narrowed by the search box. */
+  /**
+   * Picker list: alphabetical by display name, narrowed by the search box.
+   *
+   * Dataverse's derived siblings (`inv_priorityname` for the choice
+   * `inv_priority`, `<lookup>name`, `<money>_base`) are left out — the target
+   * derives them itself, so they can never be transferred, and they roughly
+   * double the length of the list. A query that already selects one still shows
+   * it, so nothing becomes unremovable; and the FetchXML tab stays open for
+   * anyone who deliberately wants one.
+   */
   const visibleColumns = useMemo(() => {
-    const sorted = [...(columns ?? [])].sort((a, b) => a.displayName.localeCompare(b.displayName))
+    const sorted = [...(columns ?? [])]
+      .filter((c) => !c.derivedReason || pickerKeep.has(c.logicalName))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName))
     const q = columnSearch.trim().toLowerCase()
     if (!q) return sorted
     return sorted.filter(
       (c) =>
         c.displayName.toLowerCase().includes(q) || c.logicalName.toLowerCase().includes(q),
     )
-  }, [columns, columnSearch])
+  }, [columns, columnSearch, pickerKeep])
 
   const runPreview = async () => {
     setPreviewBusy(true)
@@ -394,8 +413,13 @@ export function TransferEntryDialog({
   }
 
   // Column options for match mode: metadata list, else the parsed attributes.
+  // Derived siblings are dropped here for the same reason as in the picker —
+  // a generated label is no basis for finding a target record. Anything the
+  // query itself names stays, so an existing entry never loses its match column.
   const matchColumnOptions = useMemo(() => {
-    const fromMeta = (columns ?? []).map((c) => c.logicalName)
+    const fromMeta = (columns ?? [])
+      .filter((c) => !c.derivedReason)
+      .map((c) => c.logicalName)
     const fromXml = parsed.ok ? parsed.attributes : []
     const all = [...new Set([...fromMeta, ...fromXml])].sort()
     return all

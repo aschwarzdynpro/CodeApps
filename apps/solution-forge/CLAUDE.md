@@ -933,6 +933,19 @@ verifiziert); im OData-Pfad ist es ein String und matcht den logischen Namen.
 (`buildCountFetchXml` transformiert die Query selbst → Filter bleibt). Pure
 Utils in `utils/transferConfig.ts` (DOMParser, Vitest jsdom): `parseFetchXml`,
 `setAttributes` (Spalten-Picker), `describeEntryValidation` (Save-Gate).
+**Der Spalten-Picker blendet die abgeleiteten Geschwister aus**, die Dataverse
+neben jeder echten Spalte generiert (`inv_priorityname` = Label der Choice
+`inv_priority`, `<lookup>name`, `<money>_base`): sie verdoppeln die Liste und
+sind für einen Transfer nutzlos, weil das Ziel sie selbst ableitet — der
+Executor könnte sie nie schreiben. Regel = pure function
+`derivedColumnReason` (Vitest), entscheidend ist **`AttributeOf`**; ⚠ eine
+**MultiSelect-Choice meldet `AttributeType: 'Virtual'`** und muss über
+`AttributeTypeName === 'MultiSelectPicklistType'` gerettet werden, sonst
+verschwindet eine echte, transportierbare Spalte. **Der Service filtert NICHT,
+er markiert nur** (`ColumnRef.derivedReason`) — was die offene Query bereits
+selektiert, bleibt im Picker sichtbar (`pickerKeep`, beim Öffnen **eingefroren**,
+nicht von `pickedColumns` abgeleitet: sonst verschwände die Zeile beim Abwählen
+unter dem Cursor). Dasselbe Filter gilt für die Match-Spalten-Auswahl.
 UI: `TransferHubWorkspace` (Master-Detail) + `TransferPackageDialog` +
 `TransferEntryDialog` (wide, remount per key) + generischer `SearchSelect`
 (`.sselect*`-Klassen). Save im View-Modus löst das View-FetchXML VOR dem Write

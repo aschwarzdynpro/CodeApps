@@ -252,6 +252,18 @@ export interface ColumnRef {
   logicalName: string
   displayName: string
   attributeType: string
+  /**
+   * Why the picker keeps this column out of the way by default — the derived
+   * siblings Dataverse generates next to a real column (`inv_priorityname` is
+   * the label of the choice `inv_priority`, `<money>_base` the base-currency
+   * twin, `<lookup>name` the target's name) plus unreadable virtuals.
+   *
+   * They are noise in a 200-column list and useless for a transfer: the target
+   * side derives them itself, so the executor could never write them. Not
+   * dropped in the service, only flagged — a column the query already selects
+   * must stay visible, or it could not be removed again.
+   */
+  derivedReason?: string
 }
 
 /** Result of a source-environment preview run. */

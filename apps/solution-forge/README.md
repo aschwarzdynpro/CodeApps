@@ -283,7 +283,10 @@ nach Typ.
   Paket = Name + Ziel-Umgebungen (Multi-Select aus der Env-Registry) +
   Reihenfolge; Eintrag = Quell-Umgebung → Quell-Tabelle (durchsuchbarer
   Metadaten-Picker) → Filter & Spalten per **System-View** oder **FetchXML**
-  (pretty-printed im Editor, Validierung, durchsuchbarer Spalten-Picker,
+  (pretty-printed im Editor, Validierung, durchsuchbarer Spalten-Picker —
+  **ohne** die abgeleiteten Geschwister-Spalten wie `inv_priorityname`, die
+  Dataverse neben jeder Choice/Lookup generiert und die das Ziel selbst
+  ableitet; selektiert die Query bereits eine, bleibt sie sichtbar —,
   **Daten-Preview** + aktualisierbare Row-Count-Spalte; Zeilen-Klick öffnet
   den Editor, der Query-Zellen-Tooltip zeigt das ausführbare Fetch), dazu
   **Record-Matching** (GUID-Upsert oder fachliche Match-Spalten, max. 5)

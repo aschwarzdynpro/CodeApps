@@ -301,6 +301,38 @@ export function formatDuration(ms: number): string {
   return parts.join(' ')
 }
 
+/**
+ * Why the column picker should keep an attribute out of the way — undefined for
+ * an ordinary column.
+ *
+ * Same metadata `utils/odataQuery.classifyColumn` reads, applied for a
+ * different reason: these columns are not unselectable, they are **unwritable**.
+ * Dataverse derives them on the target side from the real column beside them,
+ * so putting one in a transfer query adds a row to a 200-item list and nothing
+ * to the transfer.
+ *
+ * `AttributeOf` is the decisive one — set on exactly the generated siblings the
+ * picker was cluttered with (`inv_priorityname` for the choice `inv_priority`,
+ * `<lookup>name`, `<money>_base`). ⚠ A MultiSelect choice reports
+ * `AttributeType: 'Virtual'` and has to be rescued by its type name, or a real,
+ * transferable column would silently disappear from the picker.
+ */
+export function derivedColumnReason(
+  attribute: Record<string, unknown>,
+): string | undefined {
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+  const attributeOf = str(attribute.AttributeOf)
+  if (attributeOf) return `derived from ${attributeOf}`
+  if (attribute.IsValidForRead === false) return 'not readable'
+  const typeName = str(
+    (attribute.AttributeTypeName as { Value?: unknown } | undefined)?.Value ??
+      attribute.AttributeTypeName,
+  )
+  if (str(attribute.AttributeType) === 'Virtual' && typeName !== 'MultiSelectPicklistType')
+    return 'virtual attribute'
+  return undefined
+}
+
 /** Split a comma string (record storage format) — trimmed, de-duplicated. */
 export function parseCsvList(value: string | null | undefined): string[] {
   if (!value) return []

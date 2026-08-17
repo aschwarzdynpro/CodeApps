@@ -62,6 +62,14 @@ const COLUMNS: Record<string, ColumnRef[]> = {
     { logicalName: 'cust_name', displayName: 'Name', attributeType: 'String' },
     { logicalName: 'cust_paymenttermid', displayName: 'Payment Term', attributeType: 'Uniqueidentifier' },
     { logicalName: 'statecode', displayName: 'Status', attributeType: 'State' },
+    // The generated label sibling of `statecode` — hidden in the picker, so the
+    // filter is visible offline instead of only against a real environment.
+    {
+      logicalName: 'statecodename',
+      displayName: 'Status (label)',
+      attributeType: 'Virtual',
+      derivedReason: 'derived from statecode',
+    },
   ],
   cust_pricelist: [
     { logicalName: 'cust_code', displayName: 'Code', attributeType: 'String' },
