@@ -6,6 +6,60 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.21 — 2026-08-17
+
+**Lookup- und Choice-Spalten zeigen wieder Namen statt GUIDs und Zahlen — und
+die Ursache dahinter war eine Zeile, die mehrere über Monate getrennt notierte
+„Eigenheiten des Konnektors" erklärt. Keine Schema-Änderung, keine neuen
+Flow-Versionen** — der Import braucht weder `provision-model.ps1` noch ein
+erneutes Aktivieren der Executor-Flows.
+
+- **Im Data Transfer blieben Lookup-Spalten in der Preview leer.** Eine
+  Abfrage fordert `<attribute name="inv_subject"/>` an, die Web API liefert die
+  Spalte aber **nie** unter diesem Namen zurück, sondern als
+  `_inv_subject_value`. Die Preview las den Klarnamen — also stand unter einer
+  Überschrift, die Daten versprach, nichts.
+  **Die Übertragungen selbst waren nie betroffen**: der Executor gleicht seit
+  immer beide Schreibweisen ab (`coalesce(item()?[col],
+  item()?['_'+col+'_value'])`). Falsch war ausschließlich die Anzeige — und das
+  ist die unangenehmere Hälfte, weil die Preview das ist, woran jemand
+  entscheidet, ob ein Entry fertig ist. Dasselbe Muster steckte im Fallback für
+  `<all-attributes/>`-Abfragen, wo alle Schlüssel mit führendem `_`
+  herausgefiltert wurden: dort fehlten die Lookups nicht nur inhaltlich,
+  sondern ganz.
+- **Danach standen GUIDs da statt Namen — und das führte auf die eigentliche
+  Ursache.** `prefer` ist der dritte Parameter der Konnektor-Operation, und die
+  zentrale FetchXML-Abfrage der App übergab dort immer `undefined`. Ohne
+  `odata.include-annotations="*"` liefert der Konnektor **überhaupt keine**
+  Anzeigetexte: jeder Lookup ist eine nackte GUID, jede Choice eine nackte
+  Zahl, egal wie sorgfältig der Aufrufer danach sucht.
+  Das erklärt rückwirkend mehrere Befunde, die bisher als getrennte
+  Konnektor-Eigenheiten dokumentiert waren — ein Optionsset, das als
+  `864640001` ankam und deshalb über `stringmap` aufgelöst wird; ein
+  Owner-Feld ohne verlässlichen Anzeigetext, weshalb der Process Comparer
+  stattdessen die Benutzertabelle dazujoint; und die Owner-Spalte, die im
+  Dual-Write-Cockpit aus demselben Grund weggelassen wurde. Der OData Browser
+  war das einzige Feature mit Labels — weil er das einzige ist, das danach
+  fragt.
+  Die Annotationen sind jetzt **einschaltbar, aber nicht Standard**: sie
+  verdoppeln eine breite Zeile grob, und die schweren Abfragen der App
+  (Rollen-Privilegien, Plugin-Traces, Freigaben — Zehntausende Zeilen) lesen
+  nur Rohwerte und würden für nichts bezahlen. Eingeschaltet ist es dort, wo
+  ein Mensch das Ergebnis liest: Data-Transfer-Preview und Import-History.
+  ⚠ **Die bestehenden Umgehungen bleiben absichtlich stehen.** Sie
+  funktionieren und sind an echten Daten erprobt; sie durch die Annotationen zu
+  ersetzen ist eine eigene Änderung mit eigener Prüfung.
+- **Import History: „Erstellt von" war immer leer.** Auch `createdby` ist ein
+  Lookup und wurde unter dem Klarnamen gelesen, konnte also nie einen Wert
+  haben. Aufgefallen war es nie, weil daneben der Publisher steht und der
+  Import-Benutzer ohnehin meist das Systemkonto ist.
+- Beide Schreibweisen laufen nun durch **eine** gemeinsame Stelle, damit die
+  Auflösungsreihenfolge einmal festgelegt und einmal getestet ist:
+  Anzeigetext zuerst, dann Rohwert — und `0` sowie `false` sind Werte, nicht
+  Abwesenheit. Genau dieser Fall kippt bei solchen Ketten gern still.
+
+---
+
 ## 1.0.0.20 — 2026-08-10
 
 **Nur die Dual-Write Maps — dort aber zwei stille Falschaussagen abgestellt und
