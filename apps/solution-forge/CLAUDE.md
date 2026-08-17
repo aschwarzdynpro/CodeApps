@@ -106,6 +106,16 @@ nicht.** Am 2026-08-05 landete eine Versionserhöhung deshalb in Schulz INT-11
 statt im Playground, obwohl `pac org who` unmittelbar davor den Playground
 gezeigt hatte. Profilwahl, Guard und schreibende Aktion gehören immer in
 EINEN Aufruf.
+⚠⚠ **Schlimmer: es kippt auch INNERHALB eines Laufs.** Am 2026-08-17 meldete
+der Eingangs-Guard von `deploy-env.ps1` korrekt INT-11, danach lief
+`power-apps add-flow` — und beim Pre-Push-Check war das **Waldmann**-Profil
+aktiv (der Stand von vor der Session). Die npm-CLI setzt das aktive pac-Profil
+also zurück. Ohne den zweiten Guard wäre die Console in eine fremde
+Kundenumgebung gepusht worden. `deploy-env.ps1` aktiviert das Profil deshalb
+**direkt vor dem Push erneut** (`Select-PacProfile`); der Guard danach bleibt
+trotzdem stehen. ⚠ `Enabled = $false` in der Registry schützt hier **nicht** —
+das verhindert nur den Aufruf *für* diese Umgebung, nicht dass ein Push für
+eine andere dort landet.
 
 ## Architektur
 

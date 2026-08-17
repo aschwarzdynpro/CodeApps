@@ -127,16 +127,24 @@ if (-not $cfg.Enabled) {
 
 Set-Location $appDir
 
-# 1) pac-Profil per Name finden + aktivieren (kein fixer Index — Indizes driften)
-$list = pac auth list
-$line = $list | Where-Object { $_ -match ("\b" + [regex]::Escape($cfg.ProfileName) + "\b") } | Select-Object -First 1
-if (-not $line) {
-  throw "Kein pac-Profil '$($cfg.ProfileName)' fuer $($cfg.OrgUrl) gefunden. Anlegen: pac auth create --deviceCode --environment $($cfg.OrgUrl)"
+# pac-Profil per Name finden + aktivieren (kein fixer Index — Indizes driften).
+# Als Funktion, weil das EINMALIGE Aktivieren am Anfang NICHT reicht: 'power-apps
+# add-flow' (Schritt 6) setzt das aktive pac-Profil zurueck — beobachtet am
+# 2026-08-17, wo danach das Waldmann-Profil aktiv war und der Pre-Push-Guard
+# einen Push in die falsche Kundenumgebung abgefangen hat. Deshalb wird direkt
+# vor dem Push erneut aktiviert und erneut geprueft.
+function Select-PacProfile($cfg) {
+  $list = pac auth list
+  $line = $list | Where-Object { $_ -match ("\b" + [regex]::Escape($cfg.ProfileName) + "\b") } | Select-Object -First 1
+  if (-not $line) {
+    throw "Kein pac-Profil '$($cfg.ProfileName)' fuer $($cfg.OrgUrl) gefunden. Anlegen: pac auth create --deviceCode --environment $($cfg.OrgUrl)"
+  }
+  $idx = ([regex]'\[(\d+)\]').Match($line).Groups[1].Value
+  pac auth select --index $idx | Out-Null
 }
-$idx = ([regex]'\[(\d+)\]').Match($line).Groups[1].Value
-pac auth select --index $idx | Out-Null
 
-# 2) GUARD: aktives Org MUSS das Ziel sein (sonst Abbruch)
+# 1) + 2) Profil aktivieren, dann GUARD: aktives Org MUSS das Ziel sein
+Select-PacProfile $cfg
 $who = pac org who 2>&1 | Out-String
 if ($who -notmatch [regex]::Escape($cfg.OrgUrl.TrimEnd('/'))) {
   throw "GUARD: aktives Org ist NICHT $($cfg.OrgUrl).`n$who"
@@ -192,9 +200,12 @@ if (-not $SkipBuild) {
   }
 }
 
-# 8) GUARD re-check + Push
+# 8) Profil ERNEUT aktivieren (add-flow setzt es zurueck), GUARD re-check + Push.
+# Der Re-Check bleibt trotz Re-Select stehen: er ist die Absicherung, die greift,
+# falls das Profil auf einem anderen Weg wegkippt.
+Select-PacProfile $cfg
 $who2 = pac org who 2>&1 | Out-String
-if ($who2 -notmatch [regex]::Escape($cfg.OrgUrl.TrimEnd('/'))) { throw "GUARD (pre-push): aktives Org ist NICHT $($cfg.OrgUrl)." }
+if ($who2 -notmatch [regex]::Escape($cfg.OrgUrl.TrimEnd('/'))) { throw "GUARD (pre-push): aktives Org ist NICHT $($cfg.OrgUrl).`n$who2" }
 if ($NoPush) {
   Write-Host "==== -NoPush: Setup fertig, KEIN Push ($Env) ====" -ForegroundColor Yellow
   Write-Host "power.config.json + Data Sources + Build stehen. Push separat ausfuehren." -ForegroundColor Yellow
