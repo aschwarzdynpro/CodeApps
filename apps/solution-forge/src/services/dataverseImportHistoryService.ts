@@ -9,10 +9,10 @@ import { powerModeReady } from '../PowerProvider'
 import {
   fetchXmlEscape,
   fetchXmlQuery,
-  formattedValue,
   rowNum,
   rowStr,
 } from './currentEnvQuery'
+import { connectorCellValue } from '../utils/connectorRow'
 import { orgUrlForEnvKey } from '../config'
 import { importJobStatusHeuristic, parseImportLog } from '../utils/importLog'
 
@@ -90,8 +90,10 @@ class DataverseImportHistoryService implements ImportHistoryService {
     // Resolve the publisher per solution in the target env (one lightweight
     // query, run in parallel) — the importjob row has no publisher, and the
     // manifest that does is too heavy to load for the list.
+    // Annotations on: `createdby` is a lookup, so the user's name only exists
+    // in the response when they are asked for (100 rows — the cost is noise).
     const [rows, publishers] = await Promise.all([
-      fetchXmlQuery('importjobs', fetchXml, orgUrl),
+      fetchXmlQuery('importjobs', fetchXml, orgUrl, true),
       this.publisherBySolution(orgUrl),
     ])
     return rows.map((row) => {
@@ -108,7 +110,9 @@ class DataverseImportHistoryService implements ImportHistoryService {
         completedOn,
         progress,
         status: importJobStatusHeuristic(progress, completedOn, startedOn),
-        createdBy: formattedValue(row, 'createdby') ?? '',
+        // A lookup arrives as `_createdby_value`, never under the plain name —
+        // reading only the latter left this permanently blank.
+        createdBy: connectorCellValue(row, 'createdby'),
         publisher: publishers.get(solutionName.toLowerCase()) ?? '',
         context: [operationContext, importContext].filter(Boolean).join(' · '),
       }

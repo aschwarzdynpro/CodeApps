@@ -45,22 +45,38 @@ export function fetchXmlEscape(value: string): string {
     .replace(/'/g, '&apos;')
 }
 
+/** `prefer` value that makes the response carry display text. */
+const ANNOTATIONS_PREFER = 'odata.include-annotations="*"'
+
 /**
  * Run one FetchXML query against an environment and return the raw rows.
  * `entitySet` is the OData entity-set name the connector addresses (e.g.
  * `plugintracelogs`), the fetch entity name lives inside the XML. `orgUrl`
  * selects the target environment (defaults to the host env) — the Operate
  * features pass the chosen environment's org URL here to read cross-env.
+ *
+ * `annotations` sets `prefer: odata.include-annotations="*"`, which is what
+ * makes {@link formattedValue} (and `utils/connectorRow`) find display text —
+ * a lookup's target name instead of a GUID, a choice's label instead of its
+ * number. **Without it the connector returns none of that**, which is the real
+ * reason behind several "the connector gives no formatted value" findings in
+ * this codebase.
+ *
+ * It is opt-in rather than the default because annotations roughly double the
+ * payload of a wide row, and the heavy sweeps here (roleprivileges,
+ * plugintracelog, principalobjectaccess — tens of thousands of rows) read raw
+ * values only and would pay for nothing.
  */
 export async function fetchXmlQuery(
   entitySet: string,
   fetchXml: string,
   orgUrl: string = currentOrgUrl(),
+  annotations = false,
 ): Promise<Row[]> {
   const result = await MicrosoftDataverseService.ListRecordsWithOrganization(
     orgUrl || currentOrgUrl(),
     entitySet,
-    undefined,
+    annotations ? ANNOTATIONS_PREFER : undefined,
     undefined,
     undefined,
     undefined,

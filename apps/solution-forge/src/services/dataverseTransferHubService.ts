@@ -37,12 +37,12 @@ import {
   parseCsvList,
   parseFetchXml,
   parseWatermarks,
-  previewColumnsFromRow,
   withDeltaCondition,
   withRowLimit,
   type ColumnPlan,
   type PlanAttributeMeta,
 } from '../utils/transferConfig'
+import { connectorColumns } from '../utils/connectorRow'
 import { Pro_transferpackagesService } from '../generated/services/Pro_transferpackagesService'
 import { Pro_transferentriesService } from '../generated/services/Pro_transferentriesService'
 import { Pro_transferrunsService } from '../generated/services/Pro_transferrunsService'
@@ -807,7 +807,9 @@ class DataverseTransferHubService implements TransferHubService {
     const orgUrl = orgUrlForEnvKey(envKey)
     const info = await this.resolveEntityInfo(orgUrl, tableLogicalName)
     const limited = withRowLimit(fetchXml, maxRows)
-    const rows = await fetchXmlQuery(info.set, limited, orgUrl)
+    // Annotations on: the preview is read by a human deciding whether the
+    // query is right, and a column of GUIDs answers that badly.
+    const rows = await fetchXmlQuery(info.set, limited, orgUrl, true)
 
     const parsed = parseFetchXml(fetchXml)
     let columns =
@@ -815,7 +817,7 @@ class DataverseTransferHubService implements TransferHubService {
         ? parsed.attributes
         : []
     if (columns.length === 0 && rows.length > 0)
-      columns = previewColumnsFromRow(rows[0])
+      columns = connectorColumns(rows[0])
 
     // Best-effort total (same filter, aggregate count) — null for aggregate
     // queries; >50k rows throws and simply leaves the badge off (same

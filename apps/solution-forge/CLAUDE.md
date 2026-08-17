@@ -1163,6 +1163,28 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
 4. Konnektor: **`ListRecords` (ohne Org) ist unzuverlässig** — immer
    `ListRecordsWithOrganization` mit expliziter URL (auch für die eigene
    Umgebung). Org-Parameter = Org-URL ohne Slash.
+   **⚠ Formatted Values gibt es nur auf Anfrage — das erklärt mehrere
+   „der Konnektor liefert keinen Formatted Value"-Befunde weiter unten.**
+   `prefer` ist der **3. Parameter** von `ListRecordsWithOrganization`, und
+   `fetchXmlQuery` übergab dort jahrelang `undefined`. Ohne
+   `odata.include-annotations="*"` kommen **keine**
+   `@OData.Community.Display.V1.FormattedValue`-Schlüssel zurück — Lookups sind
+   nackte GUIDs, Choices nackte Zahlen. `fetchXmlQuery(entitySet, xml, orgUrl,
+   annotations=true)` schaltet sie ein; **opt-in**, weil Annotationen die
+   Payload einer breiten Zeile grob verdoppeln und die großen Sweeps
+   (roleprivileges, plugintracelog, principalobjectaccess — Zehntausende
+   Zeilen) nur Rohwerte lesen. Die bestehenden Umgehungen (stringmap-Labels im
+   Flow Comparer, `systemuser`-Link-Entity für den Owner) bleiben bewusst
+   stehen — sie funktionieren; sie umzubauen ist eine eigene Änderung.
+   **⚠ Und Lookups heißen anders, als die Query sie anfordert:** ein
+   `<attribute name="inv_subject"/>` kommt als `_inv_subject_value` zurück,
+   nie unter dem angeforderten Namen. Wer den Klarnamen liest, bekommt eine
+   leere Zelle unter einer Überschrift, die Daten verspricht (Live-Bug in der
+   Transfer-Hub-Preview 2026-08-16, und still in `importjob.createdby`).
+   Beides zusammen löst die pure function `utils/connectorRow.ts →
+   connectorCellValue` (Vitest): Anzeigetext zuerst, dann Rohwert, beide
+   Schreibweisen — `0`/`false` sind dabei Werte, keine Abwesenheit.
+   `connectorColumns` faltet `_x_value` für `<all-attributes/>`-Queries zurück.
    **Batch-Delete schluckt Fehler:** Der native Client (`getClient`) bündelt
    Deletes in einem `$batch`; ein abgelehnter Sub-Request (z. B. Solution-Delete
    `429 / 0x80071151` „another import/uninstall running") kommt trotzdem in
