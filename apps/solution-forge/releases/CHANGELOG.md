@@ -6,6 +6,53 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.22 — 2026-08-17
+
+**Der Spalten-Picker im Data Transfer zeigt nur noch Spalten, die sich
+übertragen lassen. Keine Schema-Änderung, keine neuen Flow-Versionen** — der
+Import braucht weder `provision-model.ps1` noch ein erneutes Aktivieren der
+Executor-Flows.
+
+- **Die abgeleiteten Geschwister-Spalten sind raus.** Der Picker listete
+  alles, was die Metadaten hergeben — also auch jede Spalte, die Dataverse
+  neben einer echten generiert: `inv_priorityname` als Label der Choice
+  `inv_priority`, `<lookup>name`, `<money>_base`. Bei einer Tabelle mit einer
+  Handvoll Choices verdoppelt das die Liste grob, und **keine** davon ist ein
+  Kandidat für einen Transfer: das Ziel leitet sie selbst ab, der Executor
+  könnte sie also nie schreiben.
+  Zwei Entscheidungen dahinter, die im Betrieb den Unterschied machen:
+  **Der Dienst filtert nicht, er markiert nur.** Selektiert eine bestehende
+  Query bereits eine solche Spalte, bleibt sie im Picker stehen und lässt sich
+  abwählen — würde stattdessen serverseitig gefiltert, hätte man die Spalte im
+  FetchXML und kein Bedienelement mehr, das sie entfernt. Die Merkliste wird
+  beim Öffnen **eingefroren**, nicht aus den aktuellen Häkchen abgeleitet:
+  sonst verschwindet die Zeile beim Abwählen unter dem Cursor.
+  ⚠ **Eine MultiSelect-Choice meldet sich wie die echten virtuellen Spalten**
+  und musste über ihren Typnamen gerettet werden. Ohne das wäre eine echte,
+  transportierbare Spalte aus dem Picker verschwunden — ein stiller Verlust,
+  und der wäre hier schlimmer als eine Zeile zu viel.
+  Dasselbe Filter gilt für die **Match-Spalten**: ein generiertes Label ist
+  keine Grundlage, um einen Zieldatensatz zu finden. Was die Query selbst
+  nennt, bleibt auch dort stehen, damit kein bestehender Eintrag seine
+  Match-Spalte verliert.
+- **Deploy-Skript: das pac-Profil wird direkt vor dem Push erneut aktiviert.**
+  Bisher stand im Handbuch, das aktive Profil überlebe den Wechsel zwischen
+  zwei Aufrufen nicht. Es kippt aber auch **innerhalb eines Laufs**: beim
+  Deploy nach Schulz meldete der Eingangs-Guard korrekt INT-11, danach lief die
+  Flow-Registrierung über die npm-CLI, und beim Pre-Push-Check war das
+  **Waldmann**-Profil aktiv — der Stand von vor der Sitzung. Der zweite Guard
+  hat abgebrochen und ist der einzige Grund, warum die Console nicht in eine
+  fremde Kundenumgebung gepusht wurde.
+  ⚠ Was **nicht** geholfen hätte: Waldmann steht in der Registry auf
+  `Enabled = $false` — das blockiert nur den Aufruf *für* diese Umgebung, nicht
+  einen Push für eine andere, der dort landet. Der Guard bleibt deshalb
+  zusätzlich zum Re-Select bestehen und nennt jetzt auch die Umgebung, die er
+  tatsächlich vorgefunden hat.
+  (Betrifft nur die Entwicklung; im managed Paket ist das Skript nicht
+  enthalten.)
+
+---
+
 ## 1.0.0.21 — 2026-08-17
 
 **Lookup- und Choice-Spalten zeigen wieder Namen statt GUIDs und Zahlen — und
