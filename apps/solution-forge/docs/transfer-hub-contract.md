@@ -298,8 +298,11 @@ flows are **variable-free** (see engine findings below).
 A failing write surfaces as a cell-level error string carrying **the actual
 message** from the failed row, e.g. `update failed for at least one row — last
 error: Entity 'msdyn_decisioncontract' With Id = d22f… Does Not Exist`. Each
-loop gets a `<X>_fails` Query over `result('<loop>')` filtered to
-`status = 'Failed'`, and a `<X>_msg` Compose that reads the first hit through
+loop gets four actions: `<X>_fails` (Query — the failed write action out of
+`result('<loop>')`, matched on name **and** status), `<X>_reps` (Query — its
+failed repetitions, i.e. one per row that did not write), `<X>_texts` (Select
+— the message of each) and `<X>_msg` (Compose — count + de-duplicated
+messages, capped). The message is read through
 `outputs.body.error.message → outputs.body.message → error.message → code`
 (that order because a connector 4xx puts the detail in the body while a
 no-response failure — expression, timeout, cascade — only has the
@@ -318,9 +321,15 @@ Two properties of that design are deliberate and must survive edits:
   to the old generic sentence when the message is empty. Worst case is no
   improvement, never a broken transfer.
 
-⚠ **Exactly one message, not all of them** — `result()` reports only the last
-repetition (see engine findings), so the text says "at least one row" and the
-full set of row-level failures still lives in the child flow's run history.
+The text names **how many rows failed and every distinct message**, e.g.
+`update — 52 row(s) failed: Entity 'msdyn_decisioncontract' With Id = d22f…
+Does Not Exist`. Identical messages are collapsed with `union()` — a missing
+parent hit by 52 rows is one sentence, not 52.
+
+⚠ That count is also the honest reading of the cell counters: `created` /
+`updated` are **attempted** rows, so a cell reporting "6 created, 68 updated"
+alongside "52 row(s) failed" actually landed 16 updates and no creates. The
+message is currently the only place that difference is visible.
 
 **Row limit — hard 5000 per query, guarded.** A connector FetchXML read
 returns at most one 5000-row page (see the engine findings: the pagination
@@ -443,12 +452,17 @@ verified on INT-11, do not re-learn these):**
   plus the `Capped` guard described above; a real fix needs either an
   OData-based read path (where the policy does work) or per-page child-flow
   invocations.
-- **`result('<foreach>')` does not aggregate repetitions** — it returns only
-  the current/last repetition's actions (length 2 for a 2-action loop), so it
-  cannot collect per-row outcomes across iterations.
-  It is still the only in-flow route to a row-level error text, which is why
-  the `<X>_fails`/`<X>_msg` pair above reports one representative message
-  rather than a per-row list.
+- **`result('<foreach>')` DOES aggregate repetitions** — corrected 2026-08-19
+  against a real failed run. It returns **one item per action**, and that
+  item's `outputs` is an **array with one entry per repetition**:
+  `{name, status, code, repetitionCount, outputs:[{name, inputs, outputs:{statusCode, body}, status, code}, …]}`.
+  The earlier note ("only the last repetition, length 2 for a 2-action loop")
+  measured the OUTER length — the number of distinct actions — and read it as
+  the repetition count. Per-row outcomes are therefore fully collectable.
+  ⚠ `outputs` being an array is also the trap: `result(…)[…]?['outputs']?['body']`
+  fails with *"property 'body' cannot be selected. Array elements can only be
+  selected using an integer index"* — filter the array first, then read
+  `item()?['outputs']?['body']` on a repetition.
 - Per-action timings of a flow run are queryable via
   `https://api.flow.microsoft.com/providers/Microsoft.ProcessSimple/environments/
   <envId>/flows/<workflowidunique>/runs/<runName>/actions/<action>/repetitions`

@@ -906,8 +906,12 @@ paralleler Ort** (20 Repetitionen), Payload JSON-sicher über den
 Objekt, Antwort = Zell-JSON via `Response`. Counts = ATTEMPTED rows.
 **Zeilenfehler nennen seit 2026-08-17 die echte Meldung** („update failed
 for at least one row — last error: Entity 'x' With Id = … Does Not Exist“)
-statt nur „see the flow run history“: je Loop ein `*_fails`-Query über `result('<loop>')`
-gefiltert auf `status = 'Failed'`, daraus `*_msg` mit der Fehler-Kette
+statt nur „see the flow run history“ — samt **Anzahl der betroffenen Zeilen**:
+je Loop vier Aktionen — `*_fails` (Query: die fehlgeschlagene Schreibaktion aus
+`result('<loop>')`, gematcht auf Name UND Status), `*_reps` (Query: deren
+fehlgeschlagene **Repetitions** = je eine pro nicht geschriebener Zeile),
+`*_texts` (Select: die Meldung je Zeile) und `*_msg` (Compose: Anzahl +
+`union()`-deduplizierte Meldungen, `take(…,400)`). Gelesen wird über die Kette
 `outputs.body.error.message → outputs.body.message → error.message → code`
 (Reihenfolge aus der MS-Doku; `take(…,400)` deckelt, weil der Parent das
 Zell-JSON per Read-Modify-Write an `pro_log_txt` anhängt). ⚠ **Bewusst
@@ -915,9 +919,16 @@ additiv gebaut:** die Loops schlucken den Fehler NICHT (kein `runAfter:
 Failed` an der Schreibaktion), `*_fail` bleibt also unverändert das
 Fehlersignal, und `Cell_errs` akzeptiert `*_msg` auch als `Failed` ⇒ eine
 kaputte Meldungs-Auswertung fällt auf den alten generischen Satz zurück und
-kann den Lauf nicht brechen. ⚠ **Grenze:** `result()` liefert nur die
-letzte Repetition (s. u.) ⇒ genau EINE Meldung, nicht alle; deshalb heißt
-es „at least one row“ und nicht „N rows“. **Engine-Findings (empirisch
+kann den Lauf nicht brechen (hat am 2026-08-19 live gehalten: der erste
+Entwurf war ein ungültiger Ausdruck, `*_msg` schlug fehl, der Transfer lief
+durch und zeigte den alten Satz). ⚠ **`result()` aggregiert sehr wohl über
+Repetitions** — der alte Repo-Befund war falsch und ist im Contract-Doc
+korrigiert: `outputs` ist ein **Array je Repetition**. Genau daran scheiterte
+der erste Entwurf („property 'body' cannot be selected“) ⇒ erst filtern, dann
+`item()?['outputs']?['body']` lesen. ⚠ Die Meldung ist zugleich der einzige
+Ort, an dem sichtbar wird, dass `created`/`updated` **Versuche** zählen: eine
+Zelle „6 created, 68 updated“ mit „52 row(s) failed“ hat real 16 Updates und
+0 Creates geschrieben. **Engine-Findings (empirisch
 2026-07-23, Details im Contract-Doc):** verschachtelte Foreach laufen IMMER
 sequenziell (`repetitions` zählt nur top-level — deshalb der Child);
 Variablen-Aktionen kosten ~0,25–0,3 s (Run-State-Lock); `UpsertMultiple`&Co
