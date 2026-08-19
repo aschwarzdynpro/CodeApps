@@ -903,9 +903,21 @@ als festes 5-Slot-concat, **max. 5 Match-Spalten**, Ambiguität per
 `indexOf`/`lastIndexOf`-Stringprobe), Row-Loops laufen **top-level = einzig
 paralleler Ort** (20 Repetitionen), Payload JSON-sicher über den
 `string(createArray(x))`-Encoding-Trick, dynamisches `item` als ganzes
-Objekt, Antwort = Zell-JSON via `Response`. Counts = ATTEMPTED rows;
-Zeilenfehler erscheinen als Zell-Fehlerstring (Details in der Child-Run-
-History, keine per-Row-Fehlertexte). **Engine-Findings (empirisch
+Objekt, Antwort = Zell-JSON via `Response`. Counts = ATTEMPTED rows.
+**Zeilenfehler nennen seit 2026-08-17 die echte Meldung** („update failed
+for at least one row — last error: Entity 'x' With Id = … Does Not Exist“)
+statt nur „see the flow run history“: je Loop ein `*_fails`-Query über `result('<loop>')`
+gefiltert auf `status = 'Failed'`, daraus `*_msg` mit der Fehler-Kette
+`outputs.body.error.message → outputs.body.message → error.message → code`
+(Reihenfolge aus der MS-Doku; `take(…,400)` deckelt, weil der Parent das
+Zell-JSON per Read-Modify-Write an `pro_log_txt` anhängt). ⚠ **Bewusst
+additiv gebaut:** die Loops schlucken den Fehler NICHT (kein `runAfter:
+Failed` an der Schreibaktion), `*_fail` bleibt also unverändert das
+Fehlersignal, und `Cell_errs` akzeptiert `*_msg` auch als `Failed` ⇒ eine
+kaputte Meldungs-Auswertung fällt auf den alten generischen Satz zurück und
+kann den Lauf nicht brechen. ⚠ **Grenze:** `result()` liefert nur die
+letzte Repetition (s. u.) ⇒ genau EINE Meldung, nicht alle; deshalb heißt
+es „at least one row“ und nicht „N rows“. **Engine-Findings (empirisch
 2026-07-23, Details im Contract-Doc):** verschachtelte Foreach laufen IMMER
 sequenziell (`repetitions` zählt nur top-level — deshalb der Child);
 Variablen-Aktionen kosten ~0,25–0,3 s (Run-State-Lock); `UpsertMultiple`&Co

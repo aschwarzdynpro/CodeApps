@@ -291,12 +291,36 @@ reports exactly what *would* have happened; the summary is prefixed
 `DRY RUN — would be: …`. Nothing is written in any target.
 
 Semantics: `created`/`updated`/`deactivated`/`deleted` count **attempted**
-rows (partition sizes); a failing write surfaces as a cell-level error string
-("… loop reported row failures — see the flow run history"), the cell's
-`errs` count drives Partial/Failed status, and a crashed child yields an
-error cell ("cell execution failed…"). Per-row error texts are not produced —
-row-level diagnostics live in the child flow's run history. Both flows are
-**variable-free** (see engine findings below).
+rows (partition sizes); the cell's `errs` count drives Partial/Failed status,
+and a crashed child yields an error cell ("cell execution failed…"). Both
+flows are **variable-free** (see engine findings below).
+
+A failing write surfaces as a cell-level error string carrying **the actual
+message** from the failed row, e.g. `update failed for at least one row — last
+error: Entity 'msdyn_decisioncontract' With Id = d22f… Does Not Exist`. Each
+loop gets a `<X>_fails` Query over `result('<loop>')` filtered to
+`status = 'Failed'`, and a `<X>_msg` Compose that reads the first hit through
+`outputs.body.error.message → outputs.body.message → error.message → code`
+(that order because a connector 4xx puts the detail in the body while a
+no-response failure — expression, timeout, cascade — only has the
+action-level error). `take(…, 400)` caps it: the parent appends every cell's
+JSON to `pro_log_txt` by read-modify-write, so an unbounded payload would
+bloat every later append.
+
+Two properties of that design are deliberate and must survive edits:
+
+- **The loops still fail.** No `runAfter: Failed` was added to the write
+  actions, so `<X>_fail` remains exactly the signal it was. Handling the row
+  error inside the loop would flip the foreach to Succeeded and make the
+  failure signal depend on the new message path working.
+- **A broken message read cannot break the cell.** `Cell_errs` lists every
+  `<X>_msg` in its `runAfter` with `Failed`/`Skipped` accepted, and falls back
+  to the old generic sentence when the message is empty. Worst case is no
+  improvement, never a broken transfer.
+
+⚠ **Exactly one message, not all of them** — `result()` reports only the last
+repetition (see engine findings), so the text says "at least one row" and the
+full set of row-level failures still lives in the child flow's run history.
 
 **Row limit — hard 5000 per query, guarded.** A connector FetchXML read
 returns at most one 5000-row page (see the engine findings: the pagination
@@ -422,6 +446,9 @@ verified on INT-11, do not re-learn these):**
 - **`result('<foreach>')` does not aggregate repetitions** — it returns only
   the current/last repetition's actions (length 2 for a 2-action loop), so it
   cannot collect per-row outcomes across iterations.
+  It is still the only in-flow route to a row-level error text, which is why
+  the `<X>_fails`/`<X>_msg` pair above reports one representative message
+  rather than a per-row list.
 - Per-action timings of a flow run are queryable via
   `https://api.flow.microsoft.com/providers/Microsoft.ProcessSimple/environments/
   <envId>/flows/<workflowidunique>/runs/<runName>/actions/<action>/repetitions`
