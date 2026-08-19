@@ -6,6 +6,51 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.23 — 2026-08-19
+
+**Fehlgeschlagene Zeilen im Data Transfer nennen jetzt die echte Fehlermeldung
+statt nur „see the flow run history". Keine Schema-Änderung, aber eine NEUE
+FLOW-VERSION** (Execute Cell) — nach dem Import prüfen, dass die drei
+Transfer-Flows aktiv sind; bei einer Skript-Installation stattdessen
+`installer/deploy-executor-flow.ps1` erneut laufen lassen.
+
+- **Die Meldung, die der Connector ohnehin liefert, steht jetzt im Log.** Bei
+  einem fehlgeschlagenen Schreibvorgang meldete die Zelle bisher „update loop
+  reported row failures — see the flow run history", während die Aktion daneben
+  längst die Antwort hatte: `Entity 'msdyn_decisioncontract' With Id = d22f… Does
+  Not Exist`. Genau dieser Text erscheint nun in der Fehlerliste des Laufs.
+  Je Schreib-Loop filtert ein Query das Ergebnis des Loops auf
+  `status = 'Failed'` und liest die Meldung über die Kette
+  `outputs.body.error.message → outputs.body.message → error.message → code`.
+  Diese Reihenfolge ist aus der Microsoft-Doku übernommen und nicht geraten:
+  ein Connector-4xx legt das Detail in den Response-Body, während ein Fehler
+  **ohne** Antwort — Expression, Timeout, Folgefehler — nur die Meldung auf
+  Aktionsebene hat. Der Text wird auf 400 Zeichen gedeckelt, weil der
+  Eltern-Flow jedes Zell-JSON per Read-Modify-Write an das Run-Log anhängt und
+  ein ungedeckelter Text jedes spätere Anhängen aufblähen würde.
+- **Zwei Dinge tut die Änderung bewusst nicht.** Sie fängt den Fehler *nicht*
+  in der Schleife ab: das wäre der naheliegende Weg gewesen, hätte die Schleife
+  aber auf „erfolgreich" gedreht und damit das bestehende Fehlersignal außer
+  Kraft gesetzt — die Erkennung eines Fehlers hinge dann daran, dass der neue
+  Meldungs-Pfad funktioniert. Die Schleifen scheitern unverändert; die Meldung
+  wird danach gelesen und ist rein additiv.
+  Und sie behauptet **keine Anzahl**: die Flow-Engine liefert nur die letzte
+  Wiederholung einer Schleife zurück, also ist genau **eine** Meldung
+  verfügbar. Deshalb heißt es „at least one row" und nicht „2 rows"; die
+  vollständige Liste aller Zeilenfehler bleibt in der Run-History des
+  Child-Flows.
+- ⚠ **Wirkungsradius war die bestimmende Randbedingung.** Die Fehlerliste wird
+  bei *jedem* Transfer erzeugt. Deshalb ist die Meldungs-Auswertung so
+  verdrahtet, dass ihr eigenes Scheitern akzeptiert wird und auf den alten
+  generischen Satz zurückfällt. Schlimmstenfalls gibt es keine Verbesserung —
+  nie einen kaputten Transfer.
+- ⚠ **Noch nicht an einem echten Fehlerfall verifiziert.** Der reproduzierbare
+  Fall liegt in einer Umgebung, für die hier kein Zugang eingerichtet ist. Die
+  Sicherheitseigenschaft oben ist konstruktiv, dass die Meldung tatsächlich
+  erscheint, bestätigt der nächste echte Fehlversuch.
+
+---
+
 ## 1.0.0.22 — 2026-08-17
 
 **Der Spalten-Picker im Data Transfer zeigt nur noch Spalten, die sich

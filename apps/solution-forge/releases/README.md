@@ -20,7 +20,7 @@ keeps the version bump from landing in a customer environment.
 
 | File | Version | Exported | Contents |
 | --- | --- | --- | --- |
-| `DynamicsProSolutionAdminConsole_1.0.0.22_managed.zip` | 1.0.0.22 | 2026-08-17 | **9** `pro_` tables incl. the three **delta** columns on `pro_transferentry` · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler), host operations on `organization: "current"` · Code App (chunk-split bundle with two **lazily loaded** workspaces, incl. the first-run **Self-Provisioning Wizard**, Role Comparer, the security concept document, the entry dialog's **Write plan**, the OData Browser's **cloud-flow copy buttons** and **record field search**, shareable workspace links, the Dual-Write cockpit's **running-version lookup** and **per-environment view**, **lookup and choice columns resolved to names** in the transfer preview and import history, plus a transfer column picker that offers **only transferable columns**) · 1 connection reference `pro_CR_SAC_Dataverse` · 1 security role `INT \| DEPLOYMENT MANAGER` · **unchanged since 1.0.0.17:** data model and flows |
+| `DynamicsProSolutionAdminConsole_1.0.0.23_managed.zip` | 1.0.0.23 | 2026-08-19 | **9** `pro_` tables incl. the three **delta** columns on `pro_transferentry` · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler), host operations on `organization: "current"` · Code App (chunk-split bundle with two **lazily loaded** workspaces, incl. the first-run **Self-Provisioning Wizard**, Role Comparer, the security concept document, the entry dialog's **Write plan**, the OData Browser's **cloud-flow copy buttons** and **record field search**, shareable workspace links, the Dual-Write cockpit's **running-version lookup** and **per-environment view**, **lookup and choice columns resolved to names** in the transfer preview and import history, plus a transfer column picker that offers **only transferable columns**, and **row-level error messages** in the transfer run log) · **executor flows rebuilt in 1.0.0.23** (Execute Cell) · 1 connection reference `pro_CR_SAC_Dataverse` · 1 security role `INT \| DEPLOYMENT MANAGER` · **unchanged since 1.0.0.17:** the data model |
 
 Only the newest managed export is kept here (managed solutions upgrade
 cumulatively — an older versioned zip can't be imported over a newer one).
@@ -58,8 +58,11 @@ See `docs/transfer-hub-contract.md` for the executor internals and
 
 ## Upgrading an existing installation
 
-A release that adds columns needs a different step depending on how the target
-was installed in the first place — 1.0.0.17 adds three:
+A release that changes the **data model** or the **executor flows** needs a
+different step depending on how the target was installed in the first place.
+Check the changelog lead of the version you are importing: it states both
+explicitly (1.0.0.17 added three columns; 1.0.0.23 changes a flow with no
+schema change at all).
 
 - **Installed from a managed zip:** import the newer zip over it. The columns
   and the rebuilt flows come along; nothing else to do for the data model.
