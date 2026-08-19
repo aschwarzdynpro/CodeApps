@@ -6,6 +6,48 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.24 — 2026-08-19
+
+**Nachbesserung zu 1.0.0.23: die Zeilenfehler-Meldung funktionierte dort nicht.
+Jetzt nennt sie die echte Fehlermeldung UND die Anzahl betroffener Zeilen.
+Keine Schema-Änderung, aber eine NEUE FLOW-VERSION** (Execute Cell) — nach dem
+Import prüfen, dass die drei Transfer-Flows aktiv sind; bei einer
+Skript-Installation stattdessen `installer/deploy-executor-flow.ps1` erneut
+laufen lassen.
+
+- **Was in 1.0.0.23 schiefging.** Der Ausdruck, der die Meldung lesen sollte,
+  war ungültig und schlug zur Laufzeit fehl („property 'body' cannot be
+  selected. Array elements can only be selected using an integer index").
+  Ausgelesen am echten fehlgeschlagenen Lauf beim Kunden. **Das eingebaute
+  Sicherheitsnetz hat dabei gehalten:** die Auswertung durfte scheitern, die
+  Zelle fiel auf den alten generischen Satz zurück, der Transfer lief durch.
+  Schlimmstenfalls keine Verbesserung — genau wie vorgesehen.
+- **Die Ursache war ein falscher Befund in unserer eigenen Dokumentation.**
+  Dort stand, die Flow-Engine liefere für eine Schleife nur die letzte
+  Wiederholung zurück. Tatsächlich liefert sie **ein Element je Aktion**, und
+  dessen `outputs` ist ein **Array mit einem Eintrag je Wiederholung** — bei
+  einer Schleife über 68 Zeilen also 68 Einträge, jeder mit eigenem Status und
+  eigener Antwort. Der alte Befund hatte die äußere Länge gemessen und für die
+  Zahl der Wiederholungen gehalten. Das ist korrigiert; genau diese Fehldeutung
+  hatte mich in 1.0.0.23 die schwächere Variante bauen lassen.
+- **Dadurch ist jetzt mehr möglich als geplant.** Statt einer
+  „repräsentativen" Meldung liest der Flow **alle** fehlgeschlagenen Zeilen,
+  fasst identische Meldungen zusammen und nennt die Anzahl:
+  `update — 52 row(s) failed: Entity 'msdyn_decisioncontract' With Id = d22f…
+  Does Not Exist`. Ein fehlender Elterndatensatz, den 52 Zeilen treffen, ist
+  ein Satz statt 52.
+- ⚠ **Der eigentlich wichtige Nebeneffekt: die Zähler waren irreführend.** Ein
+  Lauf meldete „6 created, 68 updated, 2 errors" — tatsächlich waren 52 der 68
+  Updates und **alle** 6 Creates gescheitert, real geschrieben wurden 16
+  Updates und kein Create. `created`/`updated` zählen laut Contract **Versuche**,
+  aber auf dem Schirm stand das nirgends. Die Zeilenzahl in der Meldung ist
+  derzeit der einzige Ort, an dem diese Lücke sichtbar wird.
+- Diesmal **vor** der Auslieferung gegen die echten Laufdaten durchgerechnet
+  statt angenommen: dieselbe JSON-Antwort der Engine, durch denselben Filter
+  und dieselbe Abbildung.
+
+---
+
 ## 1.0.0.23 — 2026-08-19
 
 **Fehlgeschlagene Zeilen im Data Transfer nennen jetzt die echte Fehlermeldung
