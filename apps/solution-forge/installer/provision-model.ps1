@@ -296,7 +296,13 @@ $columns = @{
     (MemoAttr "${p}_log_txt" 500000 'None' 'Log'),
     # Simulation: the executor partitions and logs as usual but performs no
     # create/update/delete — the log shows what WOULD happen.
-    (BoolAttr "${p}_dryrun_bit" 'None' 'Dry run')
+    (BoolAttr "${p}_dryrun_bit" 'None' 'Dry run'),
+    # "<flow id>|<run id>" of the executor's OWN cloud-flow run, written when
+    # the run is claimed (not when it finishes — a crashed run is exactly the
+    # one you want to open). Cloud-flow runs have no Dataverse table, so the
+    # executor has to record this itself or the log's "see the flow run
+    # history" is an instruction nobody can follow.
+    (StrAttr  "${p}_flowrun_str" 200 'None' 'Flow run')
   )
 }
 foreach ($tbl in $columns.Keys) {

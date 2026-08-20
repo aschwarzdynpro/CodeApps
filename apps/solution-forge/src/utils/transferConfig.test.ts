@@ -9,6 +9,7 @@ import {
   describeEntryValidation,
   fetchTop,
   fetchXmlAttributes,
+  flowRunUrl,
   formatDuration,
   formatFetchXml,
   joinCsvList,
@@ -561,5 +562,38 @@ describe('parseWatermarks', () => {
     expect(parseWatermarks('{"uat":"2026-08-05T09:00:00Z","prod":7,"dev":"  "}')).toEqual({
       uat: '2026-08-05T09:00:00Z',
     })
+  })
+})
+
+describe('flowRunUrl', () => {
+  it('builds the portal deep link from the stored pair', () => {
+    expect(flowRunUrl('env-1', 'flow-1|run-1')).toBe(
+      'https://make.powerautomate.com/environments/env-1/flows/flow-1/runs/run-1',
+    )
+  })
+
+  it('encodes the parts', () => {
+    expect(flowRunUrl('e/1', 'f 1|r 1')).toBe(
+      'https://make.powerautomate.com/environments/e%2F1/flows/f%201/runs/r%201',
+    )
+  })
+
+  it('trims surrounding whitespace around the ids', () => {
+    expect(flowRunUrl('env-1', ' flow-1 | run-1 ')).toBe(
+      'https://make.powerautomate.com/environments/env-1/flows/flow-1/runs/run-1',
+    )
+  })
+
+  it('returns empty for anything incomplete', () => {
+    // Runs from before the column existed, or a flow that did not write it,
+    // must simply show no link rather than a broken one.
+    expect(flowRunUrl('env-1', '')).toBe('')
+    expect(flowRunUrl('env-1', null)).toBe('')
+    expect(flowRunUrl('env-1', 'flow-only')).toBe('')
+    expect(flowRunUrl('env-1', '|run-1')).toBe('')
+    expect(flowRunUrl('env-1', 'flow-1|')).toBe('')
+    expect(flowRunUrl('env-1', ' | ')).toBe('')
+    expect(flowRunUrl(null, 'flow-1|run-1')).toBe('')
+    expect(flowRunUrl(undefined, undefined)).toBe('')
   })
 })

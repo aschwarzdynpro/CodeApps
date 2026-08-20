@@ -588,3 +588,29 @@ export function describeEntryValidation(draft: TransferEntryDraft): string[] {
   }
   return errors
 }
+
+/**
+ * Portal deep link to the executor's own cloud-flow run.
+ *
+ * `pro_flowrun_str` holds `"<flow id>|<run id>"`, written by the parent flow
+ * from `workflow()` when it claims the run. The RAW PIECES are stored rather
+ * than a ready-made URL on purpose: if the link shape turns out wrong, fixing
+ * it here ships with the next app push, while a flow that composed the URL
+ * itself would have to be redeployed in every customer environment.
+ *
+ * Returns '' when anything is missing — the run predates the column, the flow
+ * did not write it, or the environment id is unknown standalone.
+ */
+export function flowRunUrl(
+  environmentId: string | null | undefined,
+  flowRun: string | null | undefined,
+): string {
+  if (!environmentId || !flowRun) return ''
+  const [flowId, runId] = flowRun.split('|')
+  if (!flowId?.trim() || !runId?.trim()) return ''
+  return (
+    `https://make.powerautomate.com/environments/${encodeURIComponent(environmentId)}` +
+    `/flows/${encodeURIComponent(flowId.trim())}` +
+    `/runs/${encodeURIComponent(runId.trim())}`
+  )
+}

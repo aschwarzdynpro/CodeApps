@@ -882,6 +882,24 @@ kann kein XML, nur `replace()`. ⚠ Delta hebt das **5000er-Cap NICHT** auf: der
 Ziel-Read braucht weiter die volle Menge für den Match-Index. Query **erweitern
 backfillt nicht** (alte `modifiedon` bleiben alt) ⇒ „↺ Reset delta"
 (`resetDelta`) leert die Map. Zell-Log führt `"delta":true|false`.
+- **Run-Liste ist IN DER QUERY gedeckelt** (`top`), nicht per `fetchAll` +
+  `slice`: Letzteres pagte die komplette Run-Historie eines Pakets durch und
+  warf sie danach weg — inklusive `pro_log_txt` (Memo, 500.000 Zeichen), und
+  das alle 10 s, solange ein Lauf aktiv ist. Die Kosten wuchsen mit jedem je
+  gelaufenen Run. Deshalb ist **Run-Housekeeping kein Speicher-, sondern ein
+  Laufzeitthema**.
+- **Die beiden Timer hängen an BOOLEANS** (`runActive`/`runExecuting`), nie am
+  `runs`-Array: Mit dem Array in den Deps riss jeder Poll sein eigenes
+  Intervall ab und startete neu, sodass ein beliebiger Reload den nächsten
+  Poll um eine volle Periode verschob.
+- **`pro_flowrun_str` = `"<flow id>|<run id>"` des Executor-Laufs**, vom Parent
+  **beim Claim** geschrieben (nicht beim Finish — ein abgestürzter Lauf ist
+  genau der, den man öffnen will). Der Hub baut daraus den Power-Automate-Link
+  (`flowRunUrl`, Vitest). Gespeichert wird das **rohe Paar, nie eine fertige
+  URL**: Stimmt die Linkform nicht, ist das ein App-Fix statt eines
+  Flow-Redeploys in jeder Kundenumgebung. ⚠ Die URL-Form ist noch nicht
+  empirisch bestätigt. Das Detail klappt jetzt auch **ohne Log** auf, weil ein
+  abgestürzter Executor keins schreibt.
 **Executor-Flow**
 (implementiert + shipbar, **v4 = Parent+Child, komplett variablenfrei**):
 Templates `installer/executor-flow.clientdata.json` (Parent, Platzhalter

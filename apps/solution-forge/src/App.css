@@ -9138,3 +9138,22 @@
   margin: 16px 0 6px;
   font-size: 13px;
 }
+
+/* Link to the executor's own cloud-flow run, above the run's cell log. The
+   log counts rows; only the flow run shows which individual row failed. */
+.thub-run-flowlink {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+.thub-run-flowlink a {
+  font-weight: 600;
+  color: var(--brand);
+  text-decoration: none;
+}
+.thub-run-flowlink a:hover {
+  text-decoration: underline;
+}

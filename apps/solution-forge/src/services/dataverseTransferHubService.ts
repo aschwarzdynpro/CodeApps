@@ -103,7 +103,7 @@ async function fetchAll<T>(
  * regenerating the data source is a manual installer step (gotcha #1).
  */
 const LATE_PACKAGE_COLUMNS = ['pro_recurrence_opt', 'pro_nextrun_dat']
-const LATE_RUN_COLUMNS = ['pro_dryrun_bit']
+const LATE_RUN_COLUMNS = ['pro_dryrun_bit', 'pro_flowrun_str']
 // pro_deltafetchxml_txt is written but never selected — up to a megabyte, and
 // only the executor reads it.
 const LATE_ENTRY_COLUMNS = ['pro_deltamode_opt', 'pro_deltawatermarks_txt']
@@ -205,6 +205,7 @@ function toRun(row: Pro_transferruns): TransferRun {
     summary: row.pro_summary_str ?? '',
     log: row.pro_log_txt ?? '',
     dryRun: late(row, 'pro_dryrun_bit') === true,
+    flowRun: (late(row, 'pro_flowrun_str') as string | null) ?? '',
   }
 }
 
@@ -538,15 +539,27 @@ class DataverseTransferHubService implements TransferHubService {
     }
   }
 
+  /**
+   * The newest runs of a package. Bounded IN THE QUERY, deliberately not with
+   * `fetchAll` + slice: that paged through the package's ENTIRE run history
+   * and only then kept 20 — including `pro_log_txt`, a memo of up to 500,000
+   * characters per row. The run list is also polled every 10 s while a run is
+   * active, so the cost grew with every run ever executed.
+   */
   async listRuns(packageId: string, top = 20): Promise<TransferRun[]> {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockTransferHubService.listRuns(packageId, top)
-    const rows = await fetchAll((o) => Pro_transferrunsService.getAll(o), {
+    const result = await Pro_transferrunsService.getAll({
       select: RUN_SELECT as string[],
       filter: `_pro_package_ref_value eq ${packageId}`,
       orderBy: ['createdon desc'],
+      top,
     })
-    return rows.slice(0, top).map(toRun)
+    if (!result.success || !result.data) {
+      console.warn('[transfer] run list failed — result:', result)
+      throw new Error('Reading the run history failed.')
+    }
+    return result.data.map(toRun)
   }
 
   // ---- source-environment reads (connector) -------------------------------

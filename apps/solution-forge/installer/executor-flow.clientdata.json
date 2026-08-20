@@ -55,6 +55,7 @@
               "recordId": "@triggerOutputs()?['body/pro_transferrunid']",
               "item/pro_status_opt": 867520001,
               "item/pro_startedon_dat": "@{utcNow()}",
+              "item/pro_flowrun_str": "@{workflow()?['name']}|@{workflow()?['run']?['name']}",
               "item/pro_log_txt": ""
             }
           }

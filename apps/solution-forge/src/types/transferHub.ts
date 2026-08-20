@@ -227,6 +227,13 @@ export interface TransferRun {
   log: string
   /** Simulation: the executor counts and logs but writes nothing. */
   dryRun: boolean
+  /**
+   * `"<flow id>|<run id>"` of the executor's own cloud-flow run, written when
+   * the run is claimed. Empty for runs that predate the column. Turn it into a
+   * link with `flowRunUrl` — the log's row-level failures point at the flow
+   * run history, and this is the only way to find the right one.
+   */
+  flowRun: string
 }
 
 /** A source-environment table candidate (from EntityDefinitions). */

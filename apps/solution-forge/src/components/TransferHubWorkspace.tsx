@@ -6,9 +6,15 @@ import type {
   TransferRunStatus,
 } from '../types/transferHub'
 import { transferHubService } from '../services/transferHubService'
-import { formatDuration, formatFetchXml, parseRunLog } from '../utils/transferConfig'
+import {
+  flowRunUrl,
+  formatDuration,
+  formatFetchXml,
+  parseRunLog,
+} from '../utils/transferConfig'
 import type { SiblingEntry } from '../utils/columnPlanReport'
 import { ENVIRONMENTS } from '../config'
+import { usePower } from '../PowerProvider'
 import { formatDateTime, formatRelative } from '../utils/format'
 import { ConfirmDialog } from './ConfirmDialog'
 import { TransferPackageDialog } from './TransferPackageDialog'
@@ -81,6 +87,8 @@ const RUN_STATUS_LABELS: Record<TransferRunStatus, string> = {
 }
 
 export function TransferHubWorkspace() {
+  /** Needed to build the portal link to the executor's own flow run. */
+  const { environmentId } = usePower()
   const [packages, setPackages] = useState<TransferPackage[] | null>(null)
   const [selectedId, setSelectedId] = useState('')
   const [entries, setEntries] = useState<TransferEntry[] | null>(null)
@@ -182,24 +190,35 @@ export function TransferHubWorkspace() {
     }
   }, [selectedId, loadEntries, loadRuns])
 
+  /**
+   * Both timers below key off these BOOLEANS, never off `runs` itself. With
+   * the array in the dependencies every poll replaced it, tore the interval
+   * down and started a fresh one — so any unrelated reload silently pushed the
+   * next poll a full period into the future. A boolean only changes when a run
+   * actually starts or ends, so the interval survives its own polling.
+   */
+  const runActive = (runs ?? []).some(
+    (r) => r.status === 'queued' || r.status === 'running',
+  )
+  const runExecuting = (runs ?? []).some((r) => r.status === 'running')
+
   // While a run is queued/running, poll its status — the external executor
   // writes progress into pro_transferrun.
   useEffect(() => {
-    if (!selectedId) return
-    if (!runs?.some((r) => r.status === 'queued' || r.status === 'running')) return
+    if (!selectedId || !runActive) return
     const timer = setInterval(() => {
       void loadRuns(selectedId)
     }, 10000)
     return () => clearInterval(timer)
-  }, [runs, selectedId, loadRuns])
+  }, [runActive, selectedId, loadRuns])
 
   // 1s ticker drives the live Duration column while a run is executing.
   const [nowTick, setNowTick] = useState(() => Date.now())
   useEffect(() => {
-    if (!runs?.some((r) => r.status === 'running')) return
+    if (!runExecuting) return
     const timer = setInterval(() => setNowTick(Date.now()), 1000)
     return () => clearInterval(timer)
-  }, [runs])
+  }, [runExecuting])
 
   /** Elapsed (running, vs. now) or final (finished) duration — null when n/a. */
   const runDuration = (run: TransferRun): string | null => {
@@ -254,7 +273,6 @@ export function TransferHubWorkspace() {
    * NOT lock (they read the config only when they fire). The 10s run polling
    * releases the lock automatically.
    */
-  const runActive = (runs ?? []).some((r) => r.status === 'queued' || r.status === 'running')
   const lockHint = 'Locked while a run is queued or running.'
 
   const runAction = async (id: string, action: () => Promise<void>) => {
@@ -763,14 +781,35 @@ export function TransferHubWorkspace() {
                                 )}
                               </td>
                             </tr>
-                            {expandedRunId === run.id && run.log && (
+                            {expandedRunId === run.id &&
+                              (run.log || flowRunUrl(environmentId, run.flowRun)) && (
                               <tr className="thub-preview-tr">
                                 <td colSpan={RUN_COLUMNS}>
                                   {(() => {
+                                    const flowUrl = flowRunUrl(environmentId, run.flowRun)
                                     const logRows = parseRunLog(run.log)
+                                    const flowLink = flowUrl ? (
+                                      <div className="thub-run-flowlink">
+                                        <a href={flowUrl} target="_blank" rel="noopener noreferrer">
+                                          ↗ Open this executor run in Power Automate
+                                        </a>
+                                        <span className="muted">
+                                          Row-level failures are only visible there — the log
+                                          reports counts, not individual rows.
+                                        </span>
+                                      </div>
+                                    ) : null
+                                    if (!run.log) return flowLink
                                     if (!logRows)
-                                      return <pre className="thub-run-log">{run.log}</pre>
+                                      return (
+                                        <>
+                                          {flowLink}
+                                          <pre className="thub-run-log">{run.log}</pre>
+                                        </>
+                                      )
                                     return (
+                                      <>
+                                      {flowLink}
                                       <div className="thub-table-wrap">
                                         <table className="ops-table thub-run-details">
                                           <thead>
@@ -829,6 +868,7 @@ export function TransferHubWorkspace() {
                                           </tbody>
                                         </table>
                                       </div>
+                                      </>
                                     )
                                   })()}
                                 </td>

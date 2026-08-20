@@ -40,6 +40,7 @@ schedule unless you build that separately):
 | `pro_startedon_dat` / `pro_finishedon_dat` | DateTime | Written by the executor. |
 | `pro_summary_str` | String(1000) | One-line result written by the executor. |
 | `pro_log_txt` | Memo | Result JSON written by the executor (shown in the hub). |
+| `pro_flowrun_str` | String(200) | `"<flow id>\|<run id>"` of the executor's OWN cloud-flow run, from `workflow()`. Written **when the run is claimed**, not when it finishes — a crashed run is precisely the one worth opening. The hub turns it into a Power Automate deep link. Store the raw pair, never a composed URL: a wrong link shape is then fixed in the app instead of by redeploying the flow in every customer environment. |
 | `createdon` / `createdby` | audit | Who requested the run, when. |
 
 **Executor protocol:**
@@ -479,6 +480,9 @@ Gotchas for the real executor build:
 - **No Dataverse entity set for cloud-flow run history** (`flowruns`/
   `flowsessions` → 404) — run diagnostics live in the Power Automate portal,
   which is why the executor MUST write its own `pro_log_txt`/`pro_summary_str`.
+  For the same reason it records **which** run it was in `pro_flowrun_str`:
+  the cell log says "see the flow run history" for row-level failures, and
+  without that reference nobody can find the right run among hundreds.
 
 ## Example (Web API read the pipeline would do)
 

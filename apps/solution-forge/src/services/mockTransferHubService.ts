@@ -234,6 +234,7 @@ const runs: TransferRun[] = [
       2,
     ),
     dryRun: false,
+    flowRun: 'mock-flow-1|mock-run-1',
   },
 ]
 
@@ -385,6 +386,8 @@ class MockTransferHubService implements TransferHubService {
       summary: '',
       log: '',
       dryRun: opts.dryRun === true,
+      // Written by the executor when it claims the run — not at queue time.
+      flowRun: '',
     }
     runs.unshift(run)
     return { ...run }
