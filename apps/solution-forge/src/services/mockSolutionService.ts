@@ -292,7 +292,7 @@ export class MockSolutionService {
           requiredObjectId: 'dep-4',
           requiredType: 20,
           requiredTypeName: 'Security Role',
-          requiredName: 'SST | Monteur',
+          requiredName: 'DYN | Field Service',
           dependentObjectId: 'c-f4711-8',
           dependentType: 80,
           dependentTypeName: 'Model-driven App',

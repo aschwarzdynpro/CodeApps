@@ -41,19 +41,19 @@ interface Seed {
 
 const SEEDS: Seed[] = [
   {
-    typeName: 'Schulz.Plugins.Account.AccountPostUpdate',
+    typeName: 'Contoso.Plugins.Account.AccountPostUpdate',
     messageName: 'Update',
     primaryEntity: 'account',
     baseMs: 120,
     cascade: [
       {
-        typeName: 'Schulz.Plugins.Contact.ContactCascadeSync',
+        typeName: 'Contoso.Plugins.Contact.ContactCascadeSync',
         messageName: 'Update',
         primaryEntity: 'contact',
         ms: 60,
       },
       {
-        typeName: 'Schulz.Plugins.Shared.AuditStamp',
+        typeName: 'Contoso.Plugins.Shared.AuditStamp',
         messageName: 'Update',
         primaryEntity: 'contact',
         ms: 25,
@@ -61,21 +61,21 @@ const SEEDS: Seed[] = [
     ],
   },
   {
-    typeName: 'Schulz.Plugins.Order.SalesOrderPreCreate',
+    typeName: 'Contoso.Plugins.Order.SalesOrderPreCreate',
     messageName: 'Create',
     primaryEntity: 'salesorder',
     baseMs: 340,
     failEvery: 7,
   },
   {
-    typeName: 'Schulz.Plugins.Pricing.RecalculateTotals',
+    typeName: 'Contoso.Plugins.Pricing.RecalculateTotals',
     messageName: 'Update',
     primaryEntity: 'salesorder',
     // The deliberately slow one — dominates the performance heatmap.
     baseMs: 2600,
   },
   {
-    typeName: 'Schulz.Plugins.Shared.TelemetryForwarder',
+    typeName: 'Contoso.Plugins.Shared.TelemetryForwarder',
     messageName: 'RetrieveMultiple',
     primaryEntity: 'account',
     baseMs: 15,
