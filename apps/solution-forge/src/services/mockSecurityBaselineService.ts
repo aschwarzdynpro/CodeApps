@@ -76,7 +76,7 @@ async function seed(): Promise<void> {
       envKeys,
       roleCount,
       frozenOn: new Date(Date.now() - 1000 * 60 * 60 * 24 * 45).toISOString(),
-      frozenBy: 'Andy Schwarz',
+      frozenBy: 'Alan Turing',
       notes: 'Stand nach dem Sicherheits-Review.',
     },
     payload: serializeBaseline(payload),

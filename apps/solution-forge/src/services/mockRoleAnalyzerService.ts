@@ -162,7 +162,7 @@ const USERS: PrincipalRef[] = [
   { id: 'u-0002', name: 'Niels Bohr', type: 'user' },
   { id: 'u-0003', name: 'Lise Meitner', type: 'user' },
   { id: 'u-0004', name: 'Max Planck', type: 'user' },
-  { id: 'u-0006', name: 'Andy Schwarz', type: 'user' },
+  { id: 'u-0006', name: 'Alan Turing', type: 'user' },
 ]
 
 const TEAMS: PrincipalRef[] = [

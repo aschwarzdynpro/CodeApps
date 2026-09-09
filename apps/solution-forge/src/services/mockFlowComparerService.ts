@@ -13,8 +13,8 @@ const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 
 /** A few users for the owner display + picker offline. */
 const MOCK_USERS: UserRef[] = [
-  { id: 'u1', name: 'Andy Schwarz', username: 'andy.schwarz@contoso.com' },
-  { id: 'u2', name: 'Vanessa Raffler', username: 'vanessa.raffler@contoso.com' },
+  { id: 'u1', name: 'Alan Turing', username: 'alan.turing@contoso.com' },
+  { id: 'u2', name: 'Emmy Noether', username: 'emmy.noether@contoso.com' },
   {
     id: 'u3',
     name: 'Service Account — Integration',

@@ -52,7 +52,7 @@ const META = {
   envKeys: ENVS,
   envLabel: (key: string) => key.toUpperCase(),
   frozenOn: '2026-05-01T10:00:00.000Z',
-  frozenBy: 'Andy Schwarz',
+  frozenBy: 'Alan Turing',
   generatedAt: new Date('2026-08-04T12:00:00.000Z'),
 }
 
@@ -167,7 +167,7 @@ describe('buildSecurityConcept', () => {
   it('renders a header, the environment table and the roles', () => {
     const doc = buildSecurityConcept(payload, META)
     expect(doc.markdown).toContain('# Security concept — Freigabe Q2')
-    expect(doc.markdown).toContain('by Andy Schwarz')
+    expect(doc.markdown).toContain('by Alan Turing')
     expect(doc.markdown).toContain('| DEV *(reference)* | 2 | 1 | 1 |')
     expect(doc.markdown).toContain('### Vertrieb Süd')
     expect(doc.markdown).toContain('`account`')

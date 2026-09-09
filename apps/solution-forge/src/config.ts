@@ -13,41 +13,42 @@ import type { EnvironmentDef } from './types/comparison'
 
 // Project defaults — not secrets; env vars override them at build time.
 // (.env files are gitignored repo-wide, so the defaults live here.)
-const DEFAULT_ENVIRONMENT_ID = '431783f6-367c-eb49-984b-4e70e4c0424d'
+const DEFAULT_ENVIRONMENT_ID = '00000000-0000-0000-0000-000000000000'
 
 /**
- * Default environments for the ALM comparison (Schulz). The installer
- * overrides these per customer by writing a `VITE_ENVIRONMENTS` JSON array to
- * `.env.local` at build time (see {@link ENVIRONMENTS}); the planned further
- * upgrade is a Dataverse control table (`pro_environmentconfig`) read at
- * startup. The connector's GetOrganizations() can validate the URLs against
- * what the signed-in user can actually reach.
+ * Placeholder environments, matching the fictional Contoso tenant the offline
+ * demo data uses. They are NEVER what a real installation runs on: the deploy
+ * script writes `VITE_ENVIRONMENTS` + `VITE_ENVIRONMENT_ID` into `.env.local`
+ * at build time, and `pro_environmentconfig` overrides both again at startup.
+ * These only surface where neither exists — local dev and the mock demo — so
+ * they deliberately name no real customer, and the ids are all zeroes rather
+ * than a real environment's GUID.
  */
 const DEFAULT_ENVIRONMENTS: EnvironmentDef[] = [
   {
     key: 'dev',
-    label: 'INT-11 · current',
-    url: 'https://operations-d365-schulz-int-11.crm4.dynamics.com',
-    environmentId: '431783f6-367c-eb49-984b-4e70e4c0424d',
+    label: 'DEV · current',
+    url: 'https://contoso-dev.crm4.dynamics.com',
+    environmentId: '00000000-0000-0000-0000-000000000000',
     isCurrent: true,
   },
   {
     key: 'uat',
     label: 'UAT',
-    url: 'https://operations-d365-schulz-uat-1-1.crm4.dynamics.com',
-    environmentId: '2eaa34de-dcf1-e949-86d9-82d9fd748045',
+    url: 'https://contoso-uat.crm4.dynamics.com',
+    environmentId: '00000000-0000-0000-0000-000000000001',
   },
   {
     key: 'prod',
     label: 'PROD',
-    url: 'https://operations-d365-schulz-prod.crm4.dynamics.com',
-    environmentId: '0cb8d3e7-faf3-eb34-a648-e3e309c3164d',
+    url: 'https://contoso-prod.crm4.dynamics.com',
+    environmentId: '00000000-0000-0000-0000-000000000002',
   },
 ]
 
 /** Compare/Dependency-Check target environments. Customer-specific value comes
  *  from the installer via `VITE_ENVIRONMENTS` (a JSON array of EnvironmentDef);
- *  falls back to the Schulz defaults for local dev. */
+ *  falls back to the placeholder defaults above for local dev. */
 function parseEnvironments(): EnvironmentDef[] {
   const raw = import.meta.env.VITE_ENVIRONMENTS as string | undefined
   if (!raw) return DEFAULT_ENVIRONMENTS
@@ -60,12 +61,13 @@ function parseEnvironments(): EnvironmentDef[] {
   return DEFAULT_ENVIRONMENTS
 }
 // `let`, not `const`: hydrated from the Dataverse config tables at startup via
-// applyRuntimeConfig(). The build-time value (VITE / Schulz default) is the
+// applyRuntimeConfig(). The build-time value (VITE / placeholder default) is the
 // fallback used until that load completes. Consumers read these as ES live
 // bindings, so they pick up the hydrated values on the next access.
 export let ENVIRONMENTS: EnvironmentDef[] = parseEnvironments()
-const DEFAULT_ADO_ORG_URL = 'https://dev.azure.com/SchulzD365'
-const DEFAULT_ADO_PROJECT = 'D365UO'
+// Placeholders only — hydrated from pro_workbenchsettings at startup.
+const DEFAULT_ADO_ORG_URL = 'https://dev.azure.com/contoso'
+const DEFAULT_ADO_PROJECT = 'D365'
 
 /**
  * Environment helpers for the Operate features (Trace Explorer / Job Monitor
@@ -125,9 +127,9 @@ const adoAccount = (url: string): string =>
   url.replace(/\/+$/, '').split('/').pop() ?? ''
 
 /** Organisation ("account") name for connector calls — the last path
- *  segment of the org URL, e.g. "SchulzD365". Empty when unconfigured. */
+ *  segment of the org URL, e.g. "contoso". Empty when unconfigured. */
 export let ADO_ACCOUNT: string = adoAccount(ADO_ORG_URL)
-/** Project name for connector calls, e.g. "D365UO". */
+/** Project name for connector calls, e.g. "D365". */
 export let ADO_PROJECT_NAME: string = ADO_PROJECT
 
 /**

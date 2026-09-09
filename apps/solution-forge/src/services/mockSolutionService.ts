@@ -53,7 +53,7 @@ const MOCK_USERS: { id: string; name: string; username: string }[] = [
   { id: 'u-0003', name: 'Lise Meitner', username: 'lise.meitner@dynpro.de' },
   { id: 'u-0004', name: 'Max Planck', username: 'max.planck@dynpro.de' },
   { id: 'u-0005', name: 'Albert Einstein', username: 'a.einstein@dynpro.de' },
-  { id: 'u-0006', name: 'Andy Schwarz', username: 'andy.schwarz@dynpro.de' },
+  { id: 'u-0006', name: 'Alan Turing', username: 'alan.turing@dynpro.de' },
 ]
 
 /** Sample work items matching the seeded solutions' DevOps ids. */

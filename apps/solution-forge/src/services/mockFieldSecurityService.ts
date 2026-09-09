@@ -38,7 +38,7 @@ const PROFILES: FieldSecurityProfile[] = [
       perm('contact', 'pro_nationalid', { canReadUnmasked: true }),
       perm('systemuser', 'pro_bankaccount', { canUpdate: true }),
     ],
-    userNames: ['Andy Schwarz', 'Marie Curie'],
+    userNames: ['Alan Turing', 'Marie Curie'],
     teamNames: ['HR Team'],
   },
   {

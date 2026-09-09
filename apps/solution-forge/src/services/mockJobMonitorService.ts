@@ -102,7 +102,7 @@ const MOCK_FLOWS: FlowInfo[] = [
     workflowIdUnique: 'u-flow-0001',
     name: 'PA | SCHED | Invoice Export',
     stateCode: 1,
-    ownerName: 'Andy Schwarz',
+    ownerName: 'Alan Turing',
     modifiedOn: new Date(Date.now() - 3 * 86_400_000).toISOString(),
   },
   {
@@ -118,7 +118,7 @@ const MOCK_FLOWS: FlowInfo[] = [
     workflowIdUnique: 'u-flow-0003',
     name: 'PA | SCHED | Heartbeat Integration Hub',
     stateCode: 1,
-    ownerName: 'Andy Schwarz',
+    ownerName: 'Alan Turing',
     modifiedOn: new Date(Date.now() - 30 * 86_400_000).toISOString(),
   },
 ]
