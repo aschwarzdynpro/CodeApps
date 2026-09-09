@@ -1,32 +1,56 @@
 # Audit Explorer
 
-A Power Apps **code app** that turns the Dataverse **audit history** into an
-interactive dashboard with **drill-down** — from aggregate trends all the way
-down to a single field-level change.
+A Power Apps **code app** for interrogating the Dataverse **audit history** —
+built around the questions people actually arrive with, not around a dashboard.
 
 Built on the official Power Apps Vite template (React 19 + TypeScript + Vite +
 `@microsoft/power-apps`).
 
-## Features
+## Why it is shaped this way
 
-- **Overview dashboard** — KPIs (total / Create / Update / Delete, active users,
-  tables touched), a stacked **activity timeline** by day, and bar charts for
-  *events by table* and *most active users*
-- **Audited-tables slicer** — a list of every table that has auditing enabled
-  (a superset of the tables with activity); click one to **filter all tiles and
-  charts** to that table, click again or *Clear* to reset
-- **Drill-down**: Overview → click a table/user → list of audit events → click
-  an event → **field-level diff** (old value → new value), with a breadcrumb
-  to walk back up
-- **Global filters** that persist across drilling: date range (7 / 30 / all
-  days), operation (click a KPI), and free-text search
-- Runs locally with **mock data**, ready to swap in the real Dataverse audit API
+The obvious design — load a time window, show charts, let the user filter down —
+does not survive contact with a real environment. A busy UAT environment holds
+**32,000 audit rows in 30 days** and 124,000 overall, well past any sane client
+row cap. Worse, a truncated aggregate looks exactly like a complete one, so the
+dashboard would answer compliance questions with confident, wrong numbers.
 
-## Drill-down levels
+Every question people actually ask is *narrow*: about one record, one person, or
+one column. So the app asks first and loads second. Each mode turns its question
+into a single server-side filter, and the row cap becomes a safety net instead of
+a design constraint.
 
-1. **Overview** — aggregated charts and KPIs across the filtered range
-2. **List** — every audit event for the selected table or user
-3. **Detail** — the audit record with each changed column shown as old → new
+| Mode | Input | Filter | Typical result |
+| --- | --- | --- | --- |
+| **Record** | pasted form URL / GUID, or table + name search | `_objectid_value eq …` | tens of rows |
+| **Person** | user + time window | `_userid_value eq … and createdon ge …` | hundreds |
+| **Field** | table + column + window | `objecttypecode eq … and createdon ge …` | bounded by the column |
+| **Activity** | time window | `createdon ge …` | the whole window — the one place the cap can bite |
+
+Measured against UAT before building: an `objectid` filter cuts 123,804 rows to
+4; a `userid` filter cuts 32,038 to 229.
+
+## Result views
+
+- **Record** leads with an identity card (table, display name, logical name,
+  audited range, deep link) followed by the change history.
+- **Record / Person** list events that **expand in place**. Comparing two or
+  three changes side by side is the normal forensic move, so several rows can be
+  open at once and there is no drill-down to walk back out of.
+- **Field** gets its own **value-history table** — `old → new` belongs in the
+  row, not behind an expander. That is the "who changed prices, from what, to
+  what" screen, and it is the thing Dataverse offers nowhere out of the box.
+- Rows cross-link **laterally** into the other modes (this record / this person)
+  and out to the record's form in the model-driven app.
+
+Each mode keeps its own query and answer, so switching tabs never leaves one
+mode's result under another mode's form.
+
+### Empty results
+
+An empty result says that auditing **may not be enabled** for the table or
+column. For audit data "nothing found" usually means "not audited" rather than
+"never changed", and on a compliance question the silent reading is the
+expensive one.
 
 ## Project layout
 
@@ -34,93 +58,129 @@ Built on the official Power Apps Vite template (React 19 + TypeScript + Vite +
 src/
 ├── main.tsx              # mounts the app inside <PowerProvider>
 ├── PowerProvider.tsx     # initializes the Power Apps SDK (local fallback)
-├── App.tsx               # dashboard shell + drill-down view state
-├── types/audit.ts        # audit domain model
+├── App.tsx               # mode shell, per-mode query state, lateral navigation
+├── config.ts             # build-time org URL for deep links
+├── types/audit.ts        # audit domain model + AuditQuery
 ├── services/
 │   ├── auditService.ts          # AuditService interface + exported singleton
-│   ├── dataverseAuditService.ts # real impl (audit table + RetrieveAuditDetails)
+│   ├── dataverseAuditService.ts # real impl (audit + systemuser + RetrieveAuditDetails)
 │   ├── mockAuditService.ts      # fallback impl over the sample log
 │   └── mockData.ts              # seeded, deterministic sample audit log
-├── hooks/useAudit.ts     # data loading
-├── components/           # KpiCards, Timeline, BarChart, EventList, EventDetail…
-└── utils/format.ts       # dates, operation colors, aggregation helpers
+├── hooks/
+│   ├── useAuditQuery.ts  # one bounded question, answer cached per query object
+│   └── useAudit.ts       # whole-window load for the activity dashboard
+├── components/           # ModeTabs, query forms, EventAccordion, FieldChangeTable…
+├── views/ActivityView.tsx # the volume dashboard (KPIs, timeline, charts)
+└── utils/                # formatting, record-reference parsing
 ```
 
 ### Data layer
 
 The UI depends only on the `AuditService` interface:
 
-- `list()` — events for the aggregates and the event list (from the `audit` table)
-- `getChanges()` — the lazy field-level diff (from `RetrieveAuditDetails`)
-- `listAuditedTables()` — tables with auditing enabled, for the slicer (from
-  table metadata: `EntityDefinitions` filtered on `IsAuditEnabled`)
+- `search(query)` — one bounded question (record / person / field)
+- `list(options)` — a whole time window, for the activity dashboard
+- `getChanges(id)` — field diff via `RetrieveAuditDetails`, only used when the
+  inline payload is unavailable
+- `findUsers`, `listTables`, `listAttributes`, `findRecords` — picker sources
+
+Rows select **`changedata`**, which carries the whole old/new diff inline. That
+removes a `RetrieveAuditDetails` round trip per opened row and is what makes a
+column-level question answerable at all — OData cannot reach into the JSON, so
+the column is narrowed client-side inside an already bounded set. The column is
+requested optimistically and dropped for the session if the runtime refuses it.
 
 The exported singleton is the **Dataverse** implementation, which **auto-falls
-back to mock data** whenever the generated data source isn't present — so local
-dev just works, and going live never touches the UI.
+back to mock data** whenever the host isn't a Power Platform environment — so
+local dev just works.
 
 ## Run locally
 
 The service layer statically imports the generated Dataverse client, so the
-generated artifacts must exist before the first build. Run the connection
-steps below **once**, then:
+generated artifacts must exist before the first build. Run the connection steps
+below **once**, then:
 
 ```bash
 npm install
 npm run dev
 ```
 
-`power.config.json`, `.power/` and `src/generated/` are env-specific or
-generated and **not committed** — each contributor re-creates them with the
-commands below.
+`power.config.json`, `.power/`, `src/generated/` and `.env.local` are
+env-specific or generated and **not committed** — each contributor re-creates
+them with the commands below.
 
-The Power Apps SDK runtime hosts the app at the "Local Play" URL once
-`power-apps init` has registered it. At runtime, any error reaching Dataverse
-(missing client, no auth) silently falls back to the seeded mock log in
-`src/services/mockData.ts`, so the dashboard stays usable.
+## Connect to a Dataverse environment
 
-## Connect to the Dataverse audit data
-
-Prerequisites: an environment with **code apps enabled**, **auditing turned on**
-for the org and the tables/columns you care about, a **Power Apps Premium**
-license, and **PAC CLI ≥ 1.46**.
+Prerequisites: **code apps enabled** for the environment (Admin Center →
+Environment → Settings → Product → Features — off by default), **auditing turned
+on** for the org and the tables you care about, a **Power Apps Premium** license,
+and **PAC CLI ≥ 1.46**.
 
 ```bash
 npm install -g @microsoft/power-apps
 
-# 1. Authenticate + register the app in your environment
+# 1. Authenticate + register the app in the target environment
 pac auth create --environment <ENV-ID>
-power-apps init --display-name "Audit Explorer" --environment-id <ENV-ID>
+pac code init --environment <ENV-ID> --displayName "Audit Explorer" \
+  --buildPath "./dist" --fileEntryPoint "index.html" --appUrl "http://localhost:3000"
 
-# 2. Add the audit table → generates src/generated/services/AuditsService.ts
+# 2. Tables first…
 pac code add-data-source -a dataverse -t audit
+pac code add-data-source -a dataverse -t systemuser
 
-# 3. For the field-level diff, add the RetrieveAuditDetails function
-power-apps add-dataverse-api --api-name RetrieveAuditDetails
-# (use `power-apps find-dataverse-api --search RetrieveAuditDetails` if unsure)
+# 3. …then the API. Order matters — see the gotcha below.
+npx power-apps add-dataverse-api --api-name RetrieveAuditDetails
 
-# 4. Test against real data, then publish
-npm install
-npm run dev                        # open the "Local Play" URL
+# 4. Build and publish
 npm run build
-power-apps push
+pac code push
 ```
 
-The service layer in `src/services/dataverseAuditService.ts` is already
-wired against the generated `AuditsService` and `RetrieveAuditDetailsService`
-classes:
+> **Gotcha:** `pac code add-data-source` scans `.power/schemas/dataverse/` and
+> chokes on the API schema file that `add-dataverse-api` leaves there
+> (*"The JSON does not represent a valid data source"*). Add all **tables
+> first** and APIs **last**. If you have to add a table later, move
+> `RetrieveAuditDetails.Schema.json` aside and put it back afterwards.
 
-- `list()` calls `AuditsService.getAll(...)` with a tight `$select` and maps
-  rows into `AuditEvent`.
-- `getChanges()` calls `RetrieveAuditDetailsService.RetrieveAuditDetails(id)`
-  and flattens the `AttributeAuditDetail`'s `OldValue` / `NewValue` into
-  `AttributeChange[]`.
-- `listAuditedTables()` derives the slicer list from the distinct tables seen
-  in the log. The code app data client has no direct `EntityDefinitions`
-  access, so tables that are audited but quiet won't appear until they have
-  at least one event.
+> **Gotcha:** `pac code push --environment <id>` does **not** retarget the push.
+> The target comes from `power.config.json`; the flag only sets the auth
+> context, and the push reports success against the *old* environment. One
+> config equals one environment — `pac code init` refuses to run while a config
+> exists, so switching targets means removing `power.config.json` **and**
+> `.power/` first.
 
-The dashboard, hooks and components stay unchanged. Dataverse auditing docs:
+### Deep links into the model-driven app (`VITE_ORG_URL`)
+
+The "open in Dynamics" links need the Dataverse org URL, which cannot be
+discovered at runtime: `getContext()` exposes only `environmentId`, and
+`RetrieveCurrentOrganization` cannot be generated as a data source — its
+`EndpointAccessType` enum parameter makes the generator look for a *table* of
+that name and 404.
+
+So it is a build-time setting. `.env` documents it and deliberately leaves it
+empty; set the real value per deployment in `.env.local` (git-ignored):
+
+```
+VITE_ORG_URL=https://operations-d365-schulz-uat-1-1.crm4.dynamics.com
+```
+
+When unset, the links are simply hidden rather than pointing at a foreign
+tenant.
+
+## Known limits
+
+- **Owner is not current state.** The record card shows the owner from the last
+  audited ownership change, labelled as such. The record's own row is not
+  queryable — the app has data sources for `audit` and `systemuser` only.
+- **Record search only finds audited records.** The quick-search runs over the
+  audit log for the same reason.
+- **Table and column pickers are fed from the log**, so a table that is audited
+  but quiet will not appear. There is no `EntityDefinitions` access from a code
+  app, so `IsAuditEnabled` cannot be queried.
+- **Audit privileges apply.** A user without *View Audit History* / *View Audit
+  Summary* sees an empty app.
+
+Dataverse auditing docs:
 <https://learn.microsoft.com/en-us/power-apps/developer/data-platform/auditing/overview>
 
 See [`../../docs/SETUP.md`](../../docs/SETUP.md) for the general workflow.
