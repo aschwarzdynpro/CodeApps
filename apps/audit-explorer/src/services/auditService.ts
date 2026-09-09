@@ -1,18 +1,26 @@
-import type { AttributeChange, AuditEvent, AuditedTable } from '../types/audit'
+import type {
+  AttributeChange,
+  AuditEvent,
+  AuditQuery,
+  AuditedTable,
+  UserRef,
+} from '../types/audit'
 import { dataverseAuditService } from './dataverseAuditService'
 
 /**
  * Service contract for reading audit data.
  *
- * - `list()` powers the dashboard aggregates and the event list (from the
- *   Dataverse `audit` table).
- * - `getChanges()` resolves the field-level old/new diff for one event
- *   (from `RetrieveAuditDetails`), loaded lazily when an event is opened.
+ * Two entry points, deliberately different in shape:
+ *
+ * - `search()` answers a concrete question (which record / who / which column).
+ *   Each query kind becomes one bounded server-side filter, so the result is
+ *   limited by the question itself. This is what the three explorer modes use.
+ * - `list()` loads a whole time window for the activity dashboard. It is the
+ *   only unbounded read left and therefore the only one where the row cap can
+ *   realistically bite.
  *
  * The exported singleton is the Dataverse-backed implementation, which falls
  * back to mock data automatically when no environment/data source is wired up.
- * The dashboard and hooks only depend on this interface, so going live never
- * touches the UI.
  */
 export interface AuditListOptions {
   /**
@@ -44,13 +52,22 @@ export interface AuditListResult {
 }
 
 export interface AuditService {
-  /**
-   * Returns audit events (newest first), the slicer's table list, and whether
-   * the row cap truncated the result — in a single round trip.
-   */
+  /** Answers one bounded question. Used by the record/person/field modes. */
+  search(query: AuditQuery): Promise<AuditListResult>
+  /** Loads a whole time window for the activity dashboard. */
   list(options?: AuditListOptions): Promise<AuditListResult>
   /** Returns the attribute-level changes for a single audit record. */
   getChanges(auditId: string): Promise<AttributeChange[]>
+  /** Type-ahead over users, for the person mode's picker. */
+  findUsers(term: string): Promise<UserRef[]>
+  /** Tables seen in the recent log, for the field mode's table picker. */
+  listTables(sinceDays: number): Promise<AuditedTable[]>
+  /**
+   * Column logical names seen changing on a table recently, for the field
+   * mode's attribute picker. Empty when the runtime cannot deliver the inline
+   * change payload — callers then fall back to free-text entry.
+   */
+  listAttributes(table: string, sinceDays: number): Promise<string[]>
 }
 
 export const auditService: AuditService = dataverseAuditService

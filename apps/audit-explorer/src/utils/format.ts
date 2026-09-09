@@ -57,6 +57,18 @@ export function countBy<T>(
     .sort((a, b) => b.value - a.value)
 }
 
+/**
+ * Windows offered by the bounded query modes. No "all time" here on purpose:
+ * record and person questions are already limited by their lookup, and an
+ * unbounded field question over a busy table is exactly the shape that made
+ * the row cap bite in the first place.
+ */
+export const QUERY_RANGES = [
+  { label: '7 days', days: 7 },
+  { label: '30 days', days: 30 },
+  { label: '90 days', days: 90 },
+] as const
+
 export const DATE_RANGES = [
   { label: '7 days', days: 7 },
   { label: '30 days', days: 30 },

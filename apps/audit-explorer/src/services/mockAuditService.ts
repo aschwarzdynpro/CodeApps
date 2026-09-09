@@ -1,4 +1,10 @@
-import type { AttributeChange, AuditedTable } from '../types/audit'
+import type {
+  AttributeChange,
+  AuditEvent,
+  AuditQuery,
+  AuditedTable,
+  UserRef,
+} from '../types/audit'
 import type { AuditListOptions, AuditListResult } from './auditService'
 import { mockAuditEvents } from './mockData'
 
@@ -22,22 +28,66 @@ const MOCK_AUDITED_TABLES: AuditedTable[] = [
  * and is used automatically whenever the real Dataverse data source isn't
  * available (e.g. plain local `npm run dev` before `pac code add-data-source`).
  *
- * The sample log is small enough that no cap can bite, so `list()` always
- * reports `truncated: false`. Unlike the Dataverse implementation it can serve
- * a genuine superset of audited tables — including ones with no events.
+ * The sample log is small enough that no cap can bite, so results always report
+ * `truncated: false`. Unlike the Dataverse implementation it can serve a
+ * genuine superset of audited tables — including ones with no events.
  */
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/** The sample log has no user ids, so derive a stable one from the name. */
+function mockUserId(name: string): string {
+  return `mock-user-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+}
+
+function cutoffOf(sinceDays: number | undefined): number | undefined {
+  return sinceDays !== undefined && Number.isFinite(sinceDays)
+    ? Date.now() - sinceDays * 86_400_000
+    : undefined
+}
+
+function within(event: AuditEvent, cutoff: number | undefined): boolean {
+  return cutoff === undefined || new Date(event.createdOn).getTime() >= cutoff
+}
+
 export class MockAuditService {
+  async search(query: AuditQuery): Promise<AuditListResult> {
+    await delay(250)
+    let events: AuditEvent[]
+    switch (query.kind) {
+      case 'record':
+        events = mockAuditEvents.filter((e) => e.recordId === query.recordId)
+        break
+      case 'user': {
+        const cutoff = cutoffOf(query.sinceDays)
+        events = mockAuditEvents.filter(
+          (e) => mockUserId(e.user.name) === query.userId && within(e, cutoff),
+        )
+        break
+      }
+      case 'field': {
+        const cutoff = cutoffOf(query.sinceDays)
+        events = mockAuditEvents.filter(
+          (e) =>
+            e.tableLogicalName === query.table &&
+            within(e, cutoff) &&
+            (!query.attribute ||
+              e.changes.some((c) => c.attribute === query.attribute)),
+        )
+        break
+      }
+    }
+    return {
+      events: events.map((e) => ({ ...e })),
+      tables: MOCK_AUDITED_TABLES.map((t) => ({ ...t })),
+      truncated: false,
+    }
+  }
+
   async list(options?: AuditListOptions): Promise<AuditListResult> {
     await delay(400)
-    const sinceDays = options?.sinceDays
-    const cutoff =
-      sinceDays !== undefined && Number.isFinite(sinceDays)
-        ? Date.now() - sinceDays * 86_400_000
-        : undefined
+    const cutoff = cutoffOf(options?.sinceDays)
     const events = mockAuditEvents
-      .filter((e) => cutoff === undefined || new Date(e.createdOn).getTime() >= cutoff)
+      .filter((e) => within(e, cutoff))
       .map((e) => ({ ...e }))
     return {
       events,
@@ -49,6 +99,37 @@ export class MockAuditService {
   async getChanges(auditId: string): Promise<AttributeChange[]> {
     await delay(150)
     return mockAuditEvents.find((e) => e.id === auditId)?.changes ?? []
+  }
+
+  async findUsers(term: string): Promise<UserRef[]> {
+    await delay(150)
+    const needle = term.trim().toLowerCase()
+    if (needle.length < 2) return []
+    const seen = new Map<string, UserRef>()
+    for (const e of mockAuditEvents) {
+      if (!e.user.name.toLowerCase().includes(needle)) continue
+      const id = mockUserId(e.user.name)
+      if (!seen.has(id)) {
+        seen.set(id, { id, name: e.user.name, initials: e.user.initials })
+      }
+    }
+    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  /** The sample list is static — no time window to apply. */
+  async listTables(): Promise<AuditedTable[]> {
+    await delay(200)
+    return MOCK_AUDITED_TABLES.map((t) => ({ ...t }))
+  }
+
+  async listAttributes(table: string): Promise<string[]> {
+    await delay(150)
+    const seen = new Set<string>()
+    for (const e of mockAuditEvents) {
+      if (e.tableLogicalName !== table) continue
+      for (const c of e.changes) seen.add(c.attribute)
+    }
+    return [...seen].sort((a, b) => a.localeCompare(b))
   }
 }
 

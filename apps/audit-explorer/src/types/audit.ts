@@ -2,6 +2,12 @@
 export type AuditOperation = 'Create' | 'Update' | 'Delete' | 'Access'
 
 export interface AuditUser {
+  /**
+   * systemuserid, when the source knows it. Optional because the sample log
+   * has no real user ids — lateral navigation to the person mode is offered
+   * only where this is present.
+   */
+  id?: string
   name: string
   initials: string
 }
@@ -47,4 +53,44 @@ export interface AuditedTable {
   logicalName: string
   /** Friendly display name, e.g. "Account". */
   displayName: string
+}
+
+/** A person who can be picked as the subject of a person query. */
+export interface UserRef {
+  /** systemuserid */
+  id: string
+  name: string
+  initials: string
+}
+
+/**
+ * What the user is asking. Every shape maps to one bounded server-side filter,
+ * which is the whole point of the query-first design: the result set is limited
+ * by the question, not by a row cap applied after the fact.
+ */
+export type AuditQuery =
+  | { kind: 'record'; recordId: string; table?: string }
+  | { kind: 'user'; userId: string; userName: string; sinceDays: number }
+  | {
+      kind: 'field'
+      table: string
+      tableName: string
+      /** Logical name of the watched column; undefined means "any column". */
+      attribute?: string
+      sinceDays: number
+    }
+
+/**
+ * One row of the field-mode result. Field mode does not show events but the
+ * value history of a single column, so old -> new is the row itself rather
+ * than something hidden behind an expander.
+ */
+export interface FieldChangeRow {
+  eventId: string
+  createdOn: string
+  recordId: string
+  recordName: string
+  user: AuditUser
+  oldValue: string
+  newValue: string
 }
