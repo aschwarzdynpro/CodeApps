@@ -84,16 +84,16 @@ const FAILED_LOG = `<?xml version="1.0" encoding="utf-16"?>
       <result result="failure" errorcode="0x80048033" errortext="The import of solution: deploy_q3 failed. Required components are missing in the target environment." />
       <MissingDependencies>
         <MissingDependency>
-          <Required type="61" schemaName="hso_/scripts/account.js" displayName="account.js" solution="CoreScripts (1.0.0.3)" />
+          <Required type="61" schemaName="pro_/scripts/account.js" displayName="account.js" solution="CoreScripts (1.0.0.3)" />
           <Dependent type="60" schemaName="account_main" displayName="Account Main Form" parentSchemaName="account" parentDisplayName="Account" />
         </MissingDependency>
         <MissingDependency>
-          <Required type="2" schemaName="hso_creditscore" displayName="Credit Score" solution="Active" parentSchemaName="account" parentDisplayName="Account" />
-          <Dependent type="26" schemaName="hso_hotaccounts" displayName="Hot Accounts" parentSchemaName="account" parentDisplayName="Account" />
+          <Required type="2" schemaName="pro_creditscore" displayName="Credit Score" solution="Active" parentSchemaName="account" parentDisplayName="Account" />
+          <Dependent type="26" schemaName="pro_hotaccounts" displayName="Hot Accounts" parentSchemaName="account" parentDisplayName="Account" />
         </MissingDependency>
         <MissingDependency>
-          <Required type="10064" schemaName="hso_sharedsftp" displayName="SFTP - SSH" solution="IntegrationBase (2.1.0.0)" />
-          <Dependent type="29" schemaName="hso_invoiceexport" displayName="PA | SCHED | Invoice Export" />
+          <Required type="10064" schemaName="pro_sharedsftp" displayName="SFTP - SSH" solution="IntegrationBase (2.1.0.0)" />
+          <Dependent type="29" schemaName="pro_invoiceexport" displayName="PA | SCHED | Invoice Export" />
         </MissingDependency>
       </MissingDependencies>
     </solutionManifest>

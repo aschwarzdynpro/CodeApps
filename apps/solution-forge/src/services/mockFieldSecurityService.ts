@@ -34,9 +34,9 @@ const PROFILES: FieldSecurityProfile[] = [
     name: 'HR – full',
     isManaged: false,
     columns: [
-      perm('contact', 'hso_salary', { canUpdate: true, canReadUnmasked: true }),
-      perm('contact', 'hso_nationalid', { canReadUnmasked: true }),
-      perm('systemuser', 'hso_bankaccount', { canUpdate: true }),
+      perm('contact', 'pro_salary', { canUpdate: true, canReadUnmasked: true }),
+      perm('contact', 'pro_nationalid', { canReadUnmasked: true }),
+      perm('systemuser', 'pro_bankaccount', { canUpdate: true }),
     ],
     userNames: ['Andy Schwarz', 'Marie Curie'],
     teamNames: ['HR Team'],
@@ -47,8 +47,8 @@ const PROFILES: FieldSecurityProfile[] = [
     isManaged: false,
     columns: [
       // Same columns as HR but read-only (masked national id).
-      perm('contact', 'hso_salary', { canRead: false }),
-      perm('account', 'hso_creditscore', { canRead: true }),
+      perm('contact', 'pro_salary', { canRead: false }),
+      perm('account', 'pro_creditscore', { canRead: true }),
     ],
     userNames: ['Niels Bohr'],
     teamNames: ['Sales DE'],
@@ -57,7 +57,7 @@ const PROFILES: FieldSecurityProfile[] = [
     id: 'fsp-legacy',
     name: 'Legacy pilot (unused)',
     isManaged: false,
-    columns: [perm('account', 'hso_creditscore', { canUpdate: true })],
+    columns: [perm('account', 'pro_creditscore', { canUpdate: true })],
     // Assigned to nobody — a dead profile.
     userNames: [],
     teamNames: [],

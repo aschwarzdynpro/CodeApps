@@ -89,7 +89,7 @@ const UNITS_MAPPING = `{
 }`
 
 const TIME_REPORT_MAPPING = `{
-  "name": "[Time Report Main Table] - [sst_timereportses]",
+  "name": "[Time Report Main Table] - [pro_timereportses]",
   "leftEnvironmentType": "AX",
   "centerEnvironmentType": "CRM",
   "rightEnvironmentType": "UNDEFINED",
@@ -98,14 +98,14 @@ const TIME_REPORT_MAPPING = `{
       "id": "001",
       "sourceSchema": "SSTTimeReportMainEntity",
       "sourceEnvironmentType": "AX",
-      "destinationSchema": "sst_timereportses",
+      "destinationSchema": "pro_timereportses",
       "destinationEnvironmentType": "CRM",
       "sourceFilter": "",
       "fieldMappings": [
-        { "syncDirection": 3, "sourceField": "TIMEREPORTID", "destinationField": "sst_name", "isSystemGenerated": true },
-        { "syncDirection": 3, "sourceField": "WORKERPERSONNELNUMBER", "destinationField": "sst_worker.cdm_workernumber", "destinationLookupFieldRelatedEntity": "cdm_workers", "isSystemGenerated": false },
-        { "syncDirection": 3, "sourceField": "REPORTINGPERIOD", "destinationField": "sst_reportingperiod", "isSystemGenerated": false },
-        { "syncDirection": 2, "sourceField": "APPROVALSTATUS", "destinationField": "sst_approvalstatus", "valueTransforms": [ { "transformType": "ValueMap", "valueMap": { "draft": "1", "submitted": "2", "approved": "3", "rejected": "4" }, "createValuesOnDestination": false } ], "isSystemGenerated": false }
+        { "syncDirection": 3, "sourceField": "TIMEREPORTID", "destinationField": "pro_name", "isSystemGenerated": true },
+        { "syncDirection": 3, "sourceField": "WORKERPERSONNELNUMBER", "destinationField": "pro_worker.cdm_workernumber", "destinationLookupFieldRelatedEntity": "cdm_workers", "isSystemGenerated": false },
+        { "syncDirection": 3, "sourceField": "REPORTINGPERIOD", "destinationField": "pro_reportingperiod", "isSystemGenerated": false },
+        { "syncDirection": 2, "sourceField": "APPROVALSTATUS", "destinationField": "pro_approvalstatus", "valueTransforms": [ { "transformType": "ValueMap", "valueMap": { "draft": "1", "submitted": "2", "approved": "3", "rejected": "4" }, "createValuesOnDestination": false } ], "isSystemGenerated": false }
       ]
     }
   ]
@@ -117,7 +117,7 @@ const MAPS: DualWriteMapSummary[] = [
     // Runs at 2.0.2.3 while a parked 9.9.9.9 sits on top of it — the drift the
     // cockpit must surface instead of silently showing 9.9.9.9.
     id: 'dw-po-line',
-    name: 'sst_[msdyn_purchaseorderproducts - CDS purchase order line entity]',
+    name: 'pro_[msdyn_purchaseorderproducts - CDS purchase order line entity]',
     version: '2.0.2.3',
     versionKind: 'live',
     liveVersion: '2.0.2.3',
@@ -136,7 +136,7 @@ const MAPS: DualWriteMapSummary[] = [
     // F&O → CE map: Dataverse holds no runtime config, so the newest saved
     // version is shown and labelled as unproven.
     id: 'dw-units',
-    name: 'sst_[uoms - Units]',
+    name: 'pro_[uoms - Units]',
     version: '2.0.0.2',
     versionKind: 'saved',
     latestSavedVersion: '2.0.0.2',
@@ -152,7 +152,7 @@ const MAPS: DualWriteMapSummary[] = [
   },
   {
     id: 'dw-timereport',
-    name: 'sst_[sst_timereportses - Time Report Main Table]',
+    name: 'pro_[pro_timereportses - Time Report Main Table]',
     version: '0.0.0.1',
     versionKind: 'live',
     liveVersion: '0.0.0.1',
@@ -162,7 +162,7 @@ const MAPS: DualWriteMapSummary[] = [
     hasUnmanagedLayer: false,
     sourceSchema: 'SSTTimeReportMainEntity',
     sourceEnv: 'AX',
-    destinationSchema: 'sst_timereportses',
+    destinationSchema: 'pro_timereportses',
     destinationEnv: 'CRM',
     direction: 3,
     modifiedOn: '2026-06-20T14:30:00Z',

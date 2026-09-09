@@ -45,35 +45,35 @@ function envKeys(): string[] {
 
 const ENV_VAR_SEEDS: EnvVarSeed[] = [
   {
-    schema: 'hso_ApiBaseUrl',
+    schema: 'pro_ApiBaseUrl',
     display: 'API Base URL',
     typeCode: 100000000,
     default: '',
     values: { dev: 'https://dev.api.contoso.com', uat: 'https://uat.api.contoso.com', prod: undefined },
   },
   {
-    schema: 'hso_MaxBatchSize',
+    schema: 'pro_MaxBatchSize',
     display: 'Max Batch Size',
     typeCode: 100000001,
     default: '100',
     values: { dev: '250', uat: undefined, prod: undefined },
   },
   {
-    schema: 'hso_FeatureFlags',
+    schema: 'pro_FeatureFlags',
     display: 'Feature Flags',
     typeCode: 100000003,
     default: '{}',
     values: { dev: '{"newWizard":true}', uat: '{"newWizard":true}', prod: '{"newWizard":false}' },
   },
   {
-    schema: 'hso_ServiceAccountSecret',
+    schema: 'pro_ServiceAccountSecret',
     display: 'Service Account Secret',
     typeCode: ENV_VAR_TYPE_SECRET,
     default: '',
     values: { dev: 'kv-ref-dev', uat: 'kv-ref-uat', prod: 'kv-ref-prod' },
   },
   {
-    schema: 'hso_PilotOnlySetting',
+    schema: 'pro_PilotOnlySetting',
     display: 'Pilot Only Setting',
     typeCode: 100000002,
     default: '',
@@ -84,20 +84,20 @@ const ENV_VAR_SEEDS: EnvVarSeed[] = [
 
 const CONN_REF_SEEDS: ConnRefSeed[] = [
   {
-    logical: 'hso_sharedcommondataservice',
+    logical: 'pro_sharedcommondataservice',
     display: 'Dataverse (current)',
     connector: 'shared_commondataserviceforapps',
     bound: { dev: true, uat: true, prod: true },
   },
   {
-    logical: 'hso_sharedoffice365',
+    logical: 'pro_sharedoffice365',
     display: 'Office 365 Outlook',
     connector: 'shared_office365',
     // Unbound in UAT — a run-time break waiting to happen.
     bound: { dev: true, uat: false, prod: true },
   },
   {
-    logical: 'hso_sharedsftp',
+    logical: 'pro_sharedsftp',
     display: 'SFTP – SSH',
     connector: 'shared_sftpwithssh',
     // Absent in PROD (not transported yet).
@@ -194,7 +194,7 @@ class MockEnvConfigService implements EnvConfigService {
     // mix of active and draft flows, Office 365 by two active flows, the SFTP
     // one by none (orphan).
     return {
-      hso_sharedcommondataservice: {
+      pro_sharedcommondataservice: {
         active: 5,
         inactive: 2,
         flows: [
@@ -207,7 +207,7 @@ class MockEnvConfigService implements EnvConfigService {
           { id: 'u-flow-cds-07', name: 'PA | Project | Retired rollup', active: false },
         ],
       },
-      hso_sharedoffice365: {
+      pro_sharedoffice365: {
         active: 2,
         inactive: 0,
         flows: [
@@ -215,7 +215,7 @@ class MockEnvConfigService implements EnvConfigService {
           { id: 'u-flow-o365-02', name: 'PA | Digest | Daily summary mail', active: true },
         ],
       },
-      hso_sharedsftp: { active: 0, inactive: 0, flows: [] },
+      pro_sharedsftp: { active: 0, inactive: 0, flows: [] },
     }
   }
 }
