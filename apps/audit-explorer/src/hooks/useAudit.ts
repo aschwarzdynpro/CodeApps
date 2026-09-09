@@ -5,6 +5,11 @@ import type { AuditEvent, AuditedTable } from '../types/audit'
 interface UseAuditResult {
   events: AuditEvent[]
   auditedTables: AuditedTable[]
+  /**
+   * True when the row cap cut the result short. The dashboard must surface
+   * this — every aggregate is then a lower bound over the newest events only.
+   */
+  truncated: boolean
   loading: boolean
   error: string | null
   reload: () => void
@@ -21,6 +26,7 @@ interface UseAuditResult {
 export function useAudit(rangeDays: number): UseAuditResult {
   const [events, setEvents] = useState<AuditEvent[]>([])
   const [auditedTables, setAuditedTables] = useState<AuditedTable[]>([])
+  const [truncated, setTruncated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -29,12 +35,12 @@ export function useAudit(rangeDays: number): UseAuditResult {
     setError(null)
     try {
       const sinceDays = Number.isFinite(rangeDays) ? rangeDays : undefined
-      const [events, tables] = await Promise.all([
-        auditService.list({ sinceDays }),
-        auditService.listAuditedTables(),
-      ])
-      setEvents(events)
-      setAuditedTables(tables)
+      // One round trip: the slicer's tables come back with the events, so they
+      // can't disagree with the tiles and cost no second paging run.
+      const result = await auditService.list({ sinceDays })
+      setEvents(result.events)
+      setAuditedTables(result.tables)
+      setTruncated(result.truncated)
     } catch {
       setError('Could not load audit data.')
     } finally {
@@ -49,5 +55,5 @@ export function useAudit(rangeDays: number): UseAuditResult {
     void load()
   }, [load])
 
-  return { events, auditedTables, loading, error, reload: () => void load() }
+  return { events, auditedTables, truncated, loading, error, reload: () => void load() }
 }

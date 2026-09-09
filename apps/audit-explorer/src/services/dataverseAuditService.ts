@@ -4,7 +4,7 @@ import type {
   AuditOperation,
   AuditedTable,
 } from '../types/audit'
-import type { AuditListOptions } from './auditService'
+import type { AuditListOptions, AuditListResult } from './auditService'
 import { mockAuditService } from './mockAuditService'
 import { powerModeReady } from '../PowerProvider'
 import { AuditsService } from '../generated/services/AuditsService'
@@ -90,6 +90,30 @@ function toAuditEvent(raw: Audits): AuditEvent {
     user: { name: userName, initials: initialsFrom(userName) },
     changes: [],
   }
+}
+
+/**
+ * Distinct tables present in a page of audit rows, sorted by display name.
+ *
+ * This is the slicer's only possible source here: the code app data client
+ * exposes per-table metadata and Custom APIs, but no OData query against
+ * `EntityDefinitions`, so `IsAuditEnabled` can't be filtered on. Tables that
+ * are audited but quiet therefore stay hidden until they have an event.
+ */
+function toAuditedTables(rows: Audits[]): AuditedTable[] {
+  const seen = new Map<string, AuditedTable>()
+  for (const raw of rows) {
+    const row = raw as Audits & Record<string, unknown>
+    const logical = raw.objecttypecode
+    if (!logical || seen.has(logical)) continue
+    seen.set(logical, {
+      logicalName: logical,
+      displayName: formatted(row, 'objecttypecode') ?? logical,
+    })
+  }
+  return [...seen.values()].sort((a, b) =>
+    a.displayName.localeCompare(b.displayName),
+  )
 }
 
 /**
@@ -194,8 +218,30 @@ function mapAuditDetail(detail: AttributeAuditDetail | undefined): AttributeChan
  * connector runtime serves ~500 rows per page regardless of `top`, so every
  * 500 rows of cap cost one sequential round trip (skipToken paging) —
  * 25,000 means up to 50 requests on a large log. Raise with care.
+ *
+ * Hitting the cap is not a silent condition: {@link fetchAuditRows} reports it
+ * and `list()` passes it up so the dashboard can mark its numbers incomplete.
  */
 const ROW_CAP = 25_000
+
+/**
+ * Build the server-side `createdon` filter for a day window. Applying the
+ * range in the query is what makes the range selector work at all: paging is
+ * newest-first, so without it the cap fills with the most recent days no
+ * matter which range is selected.
+ */
+function rangeFilter(sinceDays: number | undefined): string | undefined {
+  if (sinceDays === undefined || !Number.isFinite(sinceDays)) return undefined
+  const cutoff = new Date(Date.now() - sinceDays * 86_400_000).toISOString()
+  return `createdon ge ${cutoff}`
+}
+
+/** Page of audit rows plus whether {@link ROW_CAP} cut the result short. */
+interface AuditRowPage {
+  /** Null only when the very first page failed — callers fall back to mock. */
+  rows: Audits[] | null
+  truncated: boolean
+}
 
 export class DataverseAuditService {
   /**
@@ -207,7 +253,7 @@ export class DataverseAuditService {
     select: string[]
     orderBy?: string[]
     filter?: string
-  }): Promise<Audits[] | null> {
+  }): Promise<AuditRowPage> {
     const rows: Audits[] = []
     let skipToken: string | undefined
     do {
@@ -217,31 +263,30 @@ export class DataverseAuditService {
       })
       if (!result.success || !result.data) {
         console.warn('[audit] page fetch failed — result:', result)
-        return rows.length ? rows : null
+        // A failure mid-way leaves an incomplete set: report it as truncated
+        // so partial data is never presented as a total.
+        return { rows: rows.length ? rows : null, truncated: rows.length > 0 }
       }
       rows.push(...result.data)
       skipToken = result.skipToken
     } while (skipToken && rows.length < ROW_CAP)
-    if (skipToken) {
+    const truncated = Boolean(skipToken)
+    if (truncated) {
       console.warn(
         `[audit] stopped paging at the ${ROW_CAP}-row cap — oldest events in range are truncated`,
       )
     }
-    return rows
+    return { rows, truncated }
   }
 
-  async list(options?: AuditListOptions): Promise<AuditEvent[]> {
+  async list(options?: AuditListOptions): Promise<AuditListResult> {
     const mode = await powerModeReady
     if (mode !== 'power-platform') return mockAuditService.list(options)
     try {
-      const sinceDays = options?.sinceDays
       // Push the date range into the query — newest-first paging otherwise
       // returns the same most-recent slice regardless of the selected range.
-      const filter =
-        sinceDays !== undefined && Number.isFinite(sinceDays)
-          ? `createdon ge ${new Date(Date.now() - sinceDays * 86_400_000).toISOString()}`
-          : undefined
-      const rows = await this.fetchAuditRows({
+      const filter = rangeFilter(options?.sinceDays)
+      const { rows, truncated } = await this.fetchAuditRows({
         select: SELECT_FIELDS,
         orderBy: ['createdon desc'],
         ...(filter ? { filter } : {}),
@@ -255,8 +300,13 @@ export class DataverseAuditService {
         rows.length,
         'rows from Dataverse',
         filter ? `(filter: ${filter})` : '(no filter)',
+        truncated ? '— TRUNCATED at the row cap' : '',
       )
-      return rows.map(toAuditEvent)
+      return {
+        events: rows.map(toAuditEvent),
+        tables: toAuditedTables(rows),
+        truncated,
+      }
     } catch (err) {
       console.warn('[audit] list() threw, falling back to mock:', err)
       return mockAuditService.list(options)
@@ -284,49 +334,6 @@ export class DataverseAuditService {
     } catch (err) {
       console.warn('[audit] getChanges() threw, falling back to mock:', err)
       return mockAuditService.getChanges(auditId)
-    }
-  }
-
-  /**
-   * Derive the slicer list from the distinct tables present in the audit log.
-   *
-   * The Power Apps code app data client only exposes per-table metadata
-   * (`getEntityMetadata`) and Custom APIs — there is no direct OData query
-   * against `EntityDefinitions`, so we can't filter on `IsAuditEnabled` from
-   * here. Reading the log itself yields exactly the tables with activity in
-   * the selected window, which is what the slicer shows anyway. Tables that
-   * are audited but quiet won't appear until they have at least one event.
-   */
-  async listAuditedTables(): Promise<AuditedTable[]> {
-    const mode = await powerModeReady
-    if (mode !== 'power-platform') return mockAuditService.listAuditedTables()
-    try {
-      const rows = await this.fetchAuditRows({
-        select: ['objecttypecode'],
-      })
-      if (!rows) {
-        console.warn('[audit] listAuditedTables() falling back to mock')
-        return mockAuditService.listAuditedTables()
-      }
-      const seen = new Map<string, AuditedTable>()
-      for (const raw of rows) {
-        const row = raw as Audits & Record<string, unknown>
-        const logical = raw.objecttypecode
-        if (!logical || seen.has(logical)) continue
-        seen.set(logical, {
-          logicalName: logical,
-          displayName: formatted(row, 'objecttypecode') ?? logical,
-        })
-      }
-      return [...seen.values()].sort((a, b) =>
-        a.displayName.localeCompare(b.displayName),
-      )
-    } catch (err) {
-      console.warn(
-        '[audit] listAuditedTables() threw, falling back to mock:',
-        err,
-      )
-      return mockAuditService.listAuditedTables()
     }
   }
 }

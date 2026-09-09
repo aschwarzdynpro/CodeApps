@@ -23,13 +23,34 @@ export interface AuditListOptions {
   sinceDays?: number
 }
 
+export interface AuditListResult {
+  /** Audit events in the requested window, newest first. */
+  events: AuditEvent[]
+  /**
+   * Tables to offer in the slicer. Returned together with the events rather
+   * than by a second query: the Dataverse implementation can only source them
+   * from the log itself, so a separate call would page exactly the same rows
+   * a second time — and could disagree with `events` under truncation.
+   * Implementations backed by real metadata may return a superset.
+   */
+  tables: AuditedTable[]
+  /**
+   * True when the row cap cut the result short: the oldest events in the
+   * selected range are missing. Every count derived from `events` is then a
+   * lower bound, not a total — the UI has to say so, because a truncated
+   * audit aggregate is indistinguishable from a complete one.
+   */
+  truncated: boolean
+}
+
 export interface AuditService {
-  /** Returns audit events, newest first. */
-  list(options?: AuditListOptions): Promise<AuditEvent[]>
+  /**
+   * Returns audit events (newest first), the slicer's table list, and whether
+   * the row cap truncated the result — in a single round trip.
+   */
+  list(options?: AuditListOptions): Promise<AuditListResult>
   /** Returns the attribute-level changes for a single audit record. */
   getChanges(auditId: string): Promise<AttributeChange[]>
-  /** Returns all Dataverse tables that currently have auditing enabled. */
-  listAuditedTables(): Promise<AuditedTable[]>
 }
 
 export const auditService: AuditService = dataverseAuditService

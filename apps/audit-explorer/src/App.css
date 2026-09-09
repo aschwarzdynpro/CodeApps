@@ -645,3 +645,18 @@
   color: #c0392b;
   border-color: #c0392b;
 }
+/* Truncated result set — a warning that has to read as a caveat on the
+   numbers, so it sits inline above the tiles rather than replacing them. */
+.state--warning {
+  background: #fff8e6;
+  border: 1px solid #e0a800;
+  border-style: solid;
+  color: #6b4e00;
+  text-align: left;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.state--warning strong {
+  color: #8a5a00;
+}

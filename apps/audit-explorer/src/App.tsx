@@ -29,7 +29,7 @@ function App() {
   // Table slicer (logical name) — set from the audited-tables list.
   const [tableFilter, setTableFilter] = useState<string | null>(null)
 
-  const { events, auditedTables, loading, error } = useAudit(rangeDays)
+  const { events, auditedTables, truncated, loading, error } = useAudit(rangeDays)
 
   const [view, setView] = useState<View>({ level: 'overview' })
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -154,6 +154,18 @@ function App() {
         search={search}
         onSearchChange={setSearch}
       />
+
+      {/* Sits above every view: the list and the drill-down show counts too,
+          and a truncated aggregate is indistinguishable from a complete one
+          unless we say so. */}
+      {!loading && !error && truncated && (
+        <div className="state state--warning" role="status">
+          <strong>Incomplete data.</strong> The row limit was reached, so only
+          the most recent events in this range were loaded — older ones are
+          missing. Every count and chart below is a <em>lower bound</em>, not a
+          total. Narrow the date range for complete figures.
+        </div>
+      )}
 
       {loading && <div className="state">Loading audit data…</div>}
       {error && <div className="state state--error">{error}</div>}
