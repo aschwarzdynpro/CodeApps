@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { AuditEvent, AuditUser, FieldChangeRow } from '../types/audit'
+import { recordUrl } from '../config'
 import { formatDateTime } from '../utils/format'
 
 type SortKey = 'date' | 'user' | 'record'
@@ -8,6 +9,8 @@ interface FieldChangeTableProps {
   events: AuditEvent[]
   /** Logical name of the watched column. */
   attribute: string
+  /** Logical name of the table, for the deep links. */
+  table?: string
   onOpenRecord?: (recordId: string, table?: string) => void
   onOpenPerson?: (user: AuditUser) => void
 }
@@ -23,6 +26,7 @@ interface FieldChangeTableProps {
 export function FieldChangeTable({
   events,
   attribute,
+  table,
   onOpenRecord,
   onOpenPerson,
 }: FieldChangeTableProps) {
@@ -83,6 +87,17 @@ export function FieldChangeTable({
               </button>
             ) : (
               row.recordName || '—'
+            )}
+            {recordUrl(table, row.recordId) && (
+              <a
+                className="row-open"
+                href={recordUrl(table, row.recordId) ?? undefined}
+                target="_blank"
+                rel="noreferrer"
+                title="Open this record in Dynamics"
+              >
+                ↗
+              </a>
             )}
           </span>
           <span className="fc-old">{row.oldValue || '—'}</span>

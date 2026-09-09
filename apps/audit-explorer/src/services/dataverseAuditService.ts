@@ -4,6 +4,7 @@ import type {
   AuditOperation,
   AuditQuery,
   AuditedTable,
+  RecordHit,
   UserRef,
 } from '../types/audit'
 import type { AuditListOptions, AuditListResult } from './auditService'
@@ -535,6 +536,68 @@ export class DataverseAuditService {
     } catch (err) {
       console.warn('[audit] listTables() threw:', err)
       return mockAuditService.listTables()
+    }
+  }
+
+  /**
+   * Distinct records of a table, newest activity first, optionally narrowed by
+   * a substring of the record's primary name.
+   *
+   * The name only exists as an OData formatted-value annotation, so it cannot
+   * be filtered server-side; the scan is bounded by table, window and
+   * {@link PICKER_CAP} instead, and matching happens here.
+   */
+  async findRecords(
+    table: string,
+    term: string,
+    sinceDays: number,
+  ): Promise<RecordHit[]> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform')
+      return mockAuditService.findRecords(table, term)
+    try {
+      const range = rangeFilter(sinceDays)
+      const filter = [`objecttypecode eq '${table}'`, range]
+        .filter(Boolean)
+        .join(' and ')
+      const { rows } = await this.fetchAuditRows(
+        {
+          select: ['auditid', 'createdon', 'objecttypecode', '_objectid_value'],
+          orderBy: ['createdon desc'],
+          filter,
+        },
+        PICKER_CAP,
+        false,
+      )
+      if (!rows) return []
+      const needle = term.trim().toLowerCase()
+      const hits = new Map<string, RecordHit>()
+      for (const raw of rows) {
+        const row = raw as Audits & Record<string, unknown>
+        const recordId = raw._objectid_value
+        if (!recordId) continue
+        const existing = hits.get(recordId)
+        if (existing) {
+          existing.count += 1
+          continue
+        }
+        hits.set(recordId, {
+          recordId,
+          recordName: formatted(row, '_objectid_value') ?? recordId,
+          table: raw.objecttypecode ?? table,
+          tableName: formatted(row, 'objecttypecode') ?? table,
+          count: 1,
+          // Rows arrive newest-first, so the first sighting is the latest.
+          lastChange: raw.createdon,
+        })
+      }
+      const matches = [...hits.values()].filter(
+        (hit) => !needle || hit.recordName.toLowerCase().includes(needle),
+      )
+      return matches.slice(0, 50)
+    } catch (err) {
+      console.warn('[audit] findRecords() threw:', err)
+      return []
     }
   }
 

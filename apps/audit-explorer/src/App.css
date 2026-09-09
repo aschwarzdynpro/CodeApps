@@ -801,13 +801,18 @@
   color: var(--muted);
 }
 .acc-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+}
+.acc-main {
+  flex: 1;
   display: grid;
   grid-template-columns: 18px 130px auto minmax(120px, 1fr) minmax(140px, 1.2fr) minmax(150px, 1fr) 70px;
   align-items: center;
   gap: 10px;
-  width: 100%;
+  min-width: 0;
   border: none;
-  border-bottom: 1px solid var(--border);
   background: none;
   padding: 9px 14px;
   font-size: 13px;
@@ -816,6 +821,17 @@
 }
 .acc-row:hover { background: #f7f9fc; }
 .acc-row--open { background: #f1f4f9; }
+/* Deep link out to the record, always reachable without expanding the row. */
+.acc-open, .row-open {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  color: #2f6fed;
+  text-decoration: none;
+  font-size: 14px;
+}
+.acc-open:hover, .row-open:hover { background: #e6eefc; }
+.row-open { padding: 0 0 0 6px; }
 .acc-caret { color: var(--muted); }
 .acc-time { color: var(--muted); font-variant-numeric: tabular-nums; }
 .acc-table { color: var(--muted); }
@@ -907,3 +923,101 @@
 .empty-prompt { margin: 0 0 6px; font-size: 15px; color: var(--text); }
 .empty-example { margin: 0; font-size: 13px; color: var(--muted); }
 .empty--none { border-style: solid; border-color: #e0a800; background: #fffdf7; }
+
+/* ---------- Record mode: two ways in ---------- */
+
+.query-bar--stacked { flex-direction: column; align-items: stretch; }
+.query-row {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.method-switch { display: flex; gap: 4px; }
+.method {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.method--active {
+  background: #e6eefc;
+  border-color: #2f6fed;
+  color: #2f6fed;
+  font-weight: 500;
+}
+
+/* Quick-search results, shown inline under the search row. */
+.hit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.hit-list li + li { border-top: 1px solid var(--border); }
+.hit-list button {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.hit-list button:hover { background: #f1f4f9; }
+.hit-name { font-weight: 500; }
+.hit-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+/* ---------- Record identity card ---------- */
+
+.record-head {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.record-head-main {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.record-table {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.record-name { margin: 0; font-size: 18px; }
+.record-link { font-size: 13px; color: #2f6fed; text-decoration: none; }
+.record-link:hover { text-decoration: underline; }
+.record-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 32px;
+  margin: 12px 0 0;
+}
+.record-meta div { display: flex; flex-direction: column; gap: 2px; }
+.record-meta dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.record-meta dd { margin: 0; font-size: 13px; }
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}

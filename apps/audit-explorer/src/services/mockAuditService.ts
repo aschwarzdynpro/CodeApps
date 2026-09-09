@@ -3,6 +3,7 @@ import type {
   AuditEvent,
   AuditQuery,
   AuditedTable,
+  RecordHit,
   UserRef,
 } from '../types/audit'
 import type { AuditListOptions, AuditListResult } from './auditService'
@@ -120,6 +121,32 @@ export class MockAuditService {
   async listTables(): Promise<AuditedTable[]> {
     await delay(200)
     return MOCK_AUDITED_TABLES.map((t) => ({ ...t }))
+  }
+
+  async findRecords(table: string, term: string): Promise<RecordHit[]> {
+    await delay(200)
+    const needle = term.trim().toLowerCase()
+    const hits = new Map<string, RecordHit>()
+    for (const e of mockAuditEvents) {
+      if (e.tableLogicalName !== table) continue
+      const existing = hits.get(e.recordId)
+      if (existing) {
+        existing.count += 1
+        if (e.createdOn > existing.lastChange) existing.lastChange = e.createdOn
+        continue
+      }
+      hits.set(e.recordId, {
+        recordId: e.recordId,
+        recordName: e.recordName,
+        table: e.tableLogicalName,
+        tableName: e.tableName,
+        count: 1,
+        lastChange: e.createdOn,
+      })
+    }
+    return [...hits.values()]
+      .filter((hit) => !needle || hit.recordName.toLowerCase().includes(needle))
+      .sort((a, b) => b.lastChange.localeCompare(a.lastChange))
   }
 
   async listAttributes(table: string): Promise<string[]> {

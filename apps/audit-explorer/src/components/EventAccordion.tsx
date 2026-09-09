@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { AttributeChange, AuditEvent } from '../types/audit'
 import { auditService } from '../services/auditService'
+import { recordUrl } from '../config'
 import { OperationBadge } from './OperationBadge'
 import { formatDateTime, formatDate, dayKey } from '../utils/format'
 
@@ -70,6 +71,7 @@ export function EventAccordion({
       {rows.map(({ day, event }) => {
         const changes = event.changes.length ? event.changes : fetched[event.id]
         const isOpen = Boolean(open[event.id])
+        const openHref = recordUrl(event.tableLogicalName, event.recordId)
         return (
           <div key={event.id}>
             {day && (
@@ -78,28 +80,43 @@ export function EventAccordion({
                 <span className="day-count">{dayCount(day)}</span>
               </div>
             )}
-            <button
-              className={`acc-row ${isOpen ? 'acc-row--open' : ''}`}
-              onClick={() => toggle(event)}
-              aria-expanded={isOpen}
-            >
-              <span className="acc-caret" aria-hidden="true">
-                {isOpen ? '▾' : '▸'}
-              </span>
-              <span className="acc-time">{formatDateTime(event.createdOn)}</span>
-              <OperationBadge operation={event.operation} />
-              {showTable && <span className="acc-table">{event.tableName}</span>}
-              <span className="acc-record">{event.recordName || '—'}</span>
-              <span className="acc-user">
-                <span className="avatar avatar--sm">{event.user.initials}</span>
-                {event.user.name}
-              </span>
-              <span className="acc-count">
-                {changes?.length
-                  ? `${changes.length} field${changes.length > 1 ? 's' : ''}`
-                  : ''}
-              </span>
-            </button>
+            <div className={`acc-row ${isOpen ? 'acc-row--open' : ''}`}>
+              <button
+                className="acc-main"
+                onClick={() => toggle(event)}
+                aria-expanded={isOpen}
+              >
+                <span className="acc-caret" aria-hidden="true">
+                  {isOpen ? '▾' : '▸'}
+                </span>
+                <span className="acc-time">
+                  {formatDateTime(event.createdOn)}
+                </span>
+                <OperationBadge operation={event.operation} />
+                {showTable && <span className="acc-table">{event.tableName}</span>}
+                <span className="acc-record">{event.recordName || '—'}</span>
+                <span className="acc-user">
+                  <span className="avatar avatar--sm">{event.user.initials}</span>
+                  {event.user.name}
+                </span>
+                <span className="acc-count">
+                  {changes?.length
+                    ? `${changes.length} field${changes.length > 1 ? 's' : ''}`
+                    : ''}
+                </span>
+              </button>
+              {openHref && (
+                <a
+                  className="acc-open"
+                  href={openHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Open this record in Dynamics"
+                >
+                  ↗
+                </a>
+              )}
+            </div>
 
             {isOpen && (
               <div className="acc-panel">

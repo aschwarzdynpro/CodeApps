@@ -9,9 +9,13 @@ import { FieldQueryForm } from './components/FieldQueryForm'
 import { EventAccordion } from './components/EventAccordion'
 import { FieldChangeTable } from './components/FieldChangeTable'
 import { EmptyState, NoResults } from './components/EmptyState'
+import { RecordHeader } from './components/RecordHeader'
 import { ActivityView } from './views/ActivityView'
 import type { AuditQuery, AuditUser, UserRef } from './types/audit'
 import { parseDeepLink } from './utils/recordRef'
+
+/** The three modes that hold a query; `activity` loads its own window. */
+type QueryMode = Exclude<ExplorerMode, 'activity'>
 
 /** Default window for a question arrived at laterally rather than typed. */
 const DEFAULT_WINDOW_DAYS = 30
@@ -55,16 +59,25 @@ function App() {
 
   const [initialQuery] = useState(initialRecordQuery)
   const [mode, setMode] = useState<ExplorerMode>('record')
-  const [query, setQuery] = useState<AuditQuery | null>(initialQuery)
+  // One query per mode: a tab keeps its own answer until that tab is asked
+  // again, and switching tabs never leaves another mode's result on screen.
+  const [queries, setQueries] = useState<Record<QueryMode, AuditQuery | null>>({
+    record: initialQuery,
+    person: null,
+    field: null,
+  })
   const [personPreset, setPersonPreset] = useState<UserRef | null>(null)
 
+  const setQuery = (target: QueryMode, next: AuditQuery) =>
+    setQueries((prev) => ({ ...prev, [target]: next }))
+
   // The activity view owns its own loading; keep the query hook idle there.
-  const activeQuery = mode === 'activity' ? null : query
-  const { events, answered, truncated, loading, error } = useAuditQuery(activeQuery)
+  const query = mode === 'activity' ? null : queries[mode]
+  const { events, answered, truncated, loading, error } = useAuditQuery(query)
 
   const openRecord = (recordId: string, table?: string) => {
     setMode('record')
-    setQuery({ kind: 'record', recordId, ...(table ? { table } : {}) })
+    setQuery('record', { kind: 'record', recordId, ...(table ? { table } : {}) })
   }
 
   const openPerson = (user: AuditUser) => {
@@ -76,7 +89,7 @@ function App() {
     }
     setPersonPreset(ref)
     setMode('person')
-    setQuery({
+    setQuery('person', {
       kind: 'user',
       userId: ref.id,
       userName: ref.name,
@@ -94,7 +107,7 @@ function App() {
           <RecordQueryForm
             key={recordPreset ?? 'blank'}
             preset={recordPreset}
-            onSubmit={(ref) => setQuery({ kind: 'record', ...ref })}
+            onSubmit={(ref) => setQuery('record', { kind: 'record', ...ref })}
           />
         )
       case 'person':
@@ -104,7 +117,7 @@ function App() {
             preset={personPreset}
             onSubmit={(user, sinceDays) => {
               setPersonPreset(user)
-              setQuery({
+              setQuery('person', {
                 kind: 'user',
                 userId: user.id,
                 userName: user.name,
@@ -117,7 +130,7 @@ function App() {
         return (
           <FieldQueryForm
             onSubmit={(table, attribute, sinceDays) =>
-              setQuery({
+              setQuery('field', {
                 kind: 'field',
                 table: table.logicalName,
                 tableName: table.displayName,
@@ -170,11 +183,20 @@ function App() {
 
     return (
       <>
-        <div className="result-head">{describeQuery(query, events.length)}</div>
+        {query.kind === 'record' ? (
+          <RecordHeader
+            events={events}
+            recordId={query.recordId}
+            fallbackTable={query.table}
+          />
+        ) : (
+          <div className="result-head">{describeQuery(query, events.length)}</div>
+        )}
         {query.kind === 'field' && query.attribute ? (
           <FieldChangeTable
             events={events}
             attribute={query.attribute}
+            table={query.table}
             onOpenRecord={openRecord}
             onOpenPerson={openPerson}
           />

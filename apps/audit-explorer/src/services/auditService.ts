@@ -3,6 +3,7 @@ import type {
   AuditEvent,
   AuditQuery,
   AuditedTable,
+  RecordHit,
   UserRef,
 } from '../types/audit'
 import { dataverseAuditService } from './dataverseAuditService'
@@ -68,6 +69,15 @@ export interface AuditService {
    * change payload — callers then fall back to free-text entry.
    */
   listAttributes(table: string, sinceDays: number): Promise<string[]>
+  /**
+   * Records of a table whose name matches `term`, for the record mode's
+   * quick-search. Sourced from the audit log — see {@link RecordHit}.
+   */
+  findRecords(
+    table: string,
+    term: string,
+    sinceDays: number,
+  ): Promise<RecordHit[]>
 }
 
 export const auditService: AuditService = dataverseAuditService

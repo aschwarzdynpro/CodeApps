@@ -94,3 +94,22 @@ export interface FieldChangeRow {
   oldValue: string
   newValue: string
 }
+
+/**
+ * A record found through the table quick-search.
+ *
+ * The search runs over the audit log rather than over the table itself: the
+ * code app has data sources for `audit` and `systemuser` only, so arbitrary
+ * business tables are simply not queryable from here. That limitation happens
+ * to match the purpose — a record with no audit history has nothing to show.
+ */
+export interface RecordHit {
+  recordId: string
+  recordName: string
+  table: string
+  tableName: string
+  /** Audit entries seen for this record inside the scanned window. */
+  count: number
+  /** ISO timestamp of the most recent entry. */
+  lastChange: string
+}
