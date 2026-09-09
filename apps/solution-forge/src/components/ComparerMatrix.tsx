@@ -5,7 +5,7 @@ import type {
   DriftMode,
 } from '../types/comparer'
 import { cellHasDrift, rowHasDrift } from '../types/comparer'
-import { ENVIRONMENTS } from '../config'
+import { ENVIRONMENTS, flowDefinitionConfig } from '../config'
 import { formatRelative } from '../utils/format'
 import { processTypeIcon } from '../utils/processType'
 
@@ -95,6 +95,12 @@ export function ComparerMatrix({
   const envKeys = ENVIRONMENTS.map((e) => e.key)
   const hasDefinition =
     showDefinition && result.rows.some((r) => r.definition !== undefined)
+  /**
+   * The customer's OWN definition table, straight from the configuration. The
+   * tooltip used to name one specific customer's table as an example, which
+   * every other installation then read as a claim about their own data.
+   */
+  const definitionTable = flowDefinitionConfig()?.table ?? ''
   const colSpan =
     1 + (selectable ? 1 : 0) + (hasDefinition ? 1 : 0) + ENVIRONMENTS.length
   const allSelected =
@@ -156,7 +162,11 @@ export function ComparerMatrix({
                 className={`cmp-defpill ${
                   row.definitionActive ? 'cmp-defpill--on' : 'cmp-defpill--off'
                 }`}
-                title="Defined desired state (hso_cloudflow)"
+                title={
+                  definitionTable
+                    ? `Defined desired state (${definitionTable})`
+                    : 'Defined desired state'
+                }
               >
                 {row.definition}
               </span>

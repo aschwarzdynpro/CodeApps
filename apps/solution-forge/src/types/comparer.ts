@@ -44,8 +44,9 @@ export interface ComparerRow {
   byEnv: Record<string, ComparerEnvState | null>
   /** A target environment's on/off differs from the host. */
   statusDrift: boolean
-  /** DEFINED overall desired state (flows: hso_cloudflow.hso_flowstate) — the
-   *  label ("On"/"Off") and its on/off, when a definition exists. */
+  /** DEFINED overall desired state (flows: the configured definition table's
+   *  status column, see `flowDefinitionConfig`) — the label ("On"/"Off") and
+   *  its on/off, when a definition exists. */
   definition?: string
   definitionActive?: boolean
 }
@@ -53,8 +54,9 @@ export interface ComparerRow {
 /**
  * How "status drift" is measured:
  * - `current`    — a target env differs from the current (host) env.
- * - `definition` — an env differs from the flow's defined state (hso_cloudflow);
- *                  applies to every env, including the host.
+ * - `definition` — an env differs from the flow's defined state (the
+ *                  customer's own definition table); applies to every env,
+ *                  including the host.
  */
 export type DriftMode = 'current' | 'definition'
 

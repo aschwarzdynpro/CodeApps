@@ -156,7 +156,7 @@ export let DEPLOYMENT_MANAGER_ROLE: string =
  * area" grouping (its label is shown and grouped on).
  */
 export interface FlowDefinitionConfig {
-  /** Definition table logical name (e.g. hso_cloudflow). */
+  /** Definition table logical name — the CUSTOMER's own (e.g. yourprefix_cloudflow). */
   table: string
   /** Boolean / two-options column holding the wanted On/Off state. */
   statusCol: string

@@ -711,8 +711,10 @@ export function ProvisioningWizard({
             <details className="wizard-advanced" open={!!settings.flowDefinition.table}>
               <summary>Flow-Comparer definition source</summary>
               <p className="muted">
-                A table describing the wanted On/Off state of flows (used by the
-                Process Comparer). Leave blank to disable that feature.
+                <strong>Your own</strong> table describing the wanted On/Off state
+                of flows (used by the Process Comparer) — the app has no table of
+                its own for this and makes no assumption about its prefix. Leave
+                blank to disable that feature.
               </p>
               <div className="wizard-field-grid">
                 <label className="wizard-field-block">
@@ -721,7 +723,7 @@ export function ProvisioningWizard({
                     type="text"
                     value={settings.flowDefinition.table}
                     onChange={(e) => patchFlow({ table: e.target.value })}
-                    placeholder="e.g. hso_cloudflow"
+                    placeholder="e.g. yourprefix_cloudflow"
                   />
                 </label>
                 <label className="wizard-field-block">
@@ -730,7 +732,7 @@ export function ProvisioningWizard({
                     type="text"
                     value={settings.flowDefinition.statusCol}
                     onChange={(e) => patchFlow({ statusCol: e.target.value })}
-                    placeholder="e.g. hso_flowstate"
+                    placeholder="e.g. yourprefix_flowstate"
                   />
                 </label>
                 <label className="wizard-field-block">
@@ -739,7 +741,7 @@ export function ProvisioningWizard({
                     type="text"
                     value={settings.flowDefinition.nameCol}
                     onChange={(e) => patchFlow({ nameCol: e.target.value })}
-                    placeholder="e.g. hso_name"
+                    placeholder="e.g. yourprefix_name"
                   />
                 </label>
                 <label className="wizard-field-block">
@@ -748,7 +750,7 @@ export function ProvisioningWizard({
                     type="text"
                     value={settings.flowDefinition.uniqueCol}
                     onChange={(e) => patchFlow({ uniqueCol: e.target.value })}
-                    placeholder="e.g. hso_flowuniqueid"
+                    placeholder="e.g. yourprefix_flowuniqueid"
                   />
                 </label>
                 <label className="wizard-field-block">
@@ -757,7 +759,7 @@ export function ProvisioningWizard({
                     type="text"
                     value={settings.flowDefinition.areaCol}
                     onChange={(e) => patchFlow({ areaCol: e.target.value })}
-                    placeholder="e.g. hso_area"
+                    placeholder="e.g. yourprefix_area"
                   />
                 </label>
               </div>
