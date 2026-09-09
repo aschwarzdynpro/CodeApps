@@ -20,7 +20,7 @@ keeps the version bump from landing in a customer environment.
 
 | File | Version | Exported | Contents |
 | --- | --- | --- | --- |
-| `DynamicsProSolutionAdminConsole_1.0.0.25_managed.zip` | 1.0.0.25 | 2026-09-09 | **9** `pro_` tables — `pro_transferrun` gained **`pro_flowrun_str`** (the executor's own flow-run reference) · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler), host operations on `organization: "current"`, **Execute Package rebuilt in 1.0.0.25** (records its flow run on claim) · Code App (chunk-split bundle with two **lazily loaded** workspaces, incl. the first-run **Self-Provisioning Wizard**, Role Comparer, the security concept document, the entry dialog's **Write plan**, the OData Browser's **cloud-flow copy buttons** and **record field search**, shareable workspace links, the Dual-Write cockpit's **running-version lookup** and **per-environment view**, **lookup and choice columns resolved to names** in the transfer preview and import history, a transfer column picker that offers **only transferable columns**, **row-level error messages** in the transfer run log, and a **deep link to the executor run**) · 1 connection reference `pro_CR_SAC_Dataverse` · 1 security role `INT \| DEPLOYMENT MANAGER` · ⚠ **first data-model change since 1.0.0.17** |
+| `DynamicsProSolutionAdminConsole_1.0.0.26_managed.zip` | 1.0.0.26 | 2026-09-10 | **9** `pro_` tables incl. `pro_transferrun.pro_flowrun_str` · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler), host operations on `organization: "current"` · Code App (chunk-split bundle with two **lazily loaded** workspaces; see the changelog for the feature list) · 1 connection reference `pro_CR_SAC_Dataverse` · 1 security role `INT \| DEPLOYMENT MANAGER` · **no data-model or flow change since 1.0.0.25** · ⚠ first build verified to carry **no other customer's** name, DevOps organisation, environment URLs or prefixes |
 
 Only the newest managed export is kept here (managed solutions upgrade
 cumulatively — an older versioned zip can't be imported over a newer one).
@@ -61,8 +61,8 @@ See `docs/transfer-hub-contract.md` for the executor internals and
 A release that changes the **data model** or the **executor flows** needs a
 different step depending on how the target was installed in the first place.
 Check the changelog lead of the version you are importing: it states both
-explicitly (1.0.0.24 changed a flow with no schema change at all; 1.0.0.25
-changes both — a new column AND the parent flow).
+explicitly (1.0.0.25 changed both — a new column AND the parent flow;
+1.0.0.26 changes neither).
 
 - **Installed from a managed zip:** import the newer zip over it. The columns
   and the rebuilt flows come along; nothing else to do for the data model.

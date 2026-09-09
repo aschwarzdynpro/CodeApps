@@ -134,8 +134,10 @@ export let ADO_PROJECT_NAME: string = ADO_PROJECT
 
 /**
  * TEMPORARY: the Azure DevOps work item panel is disabled until the
- * service-principal access to dev.azure.com/SchulzD365 is sorted out
- * (see TODO.md "Auth auf Service Principal umstellen"). While false, the
+ * service-principal access to the configured Azure DevOps organisation is
+ * sorted out (the org is named in TODO.md, "Auth auf Service Principal
+ * umstellen" — not here: this comment survives minification and ships in the
+ * bundle, so it must not name a customer). While false, the
  * panel is hidden, no work items are fetched, and the DevOps connector is
  * removed from the app so users get no connection prompt at startup.
  * Re-enable: re-add the connector data source (-cr pro_CRDevOps), restore

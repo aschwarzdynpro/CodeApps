@@ -6,6 +6,51 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.26 — 2026-09-10
+
+**Aufräumen für die Auslieferung an fremde Kunden: In Demo-Daten, Oberfläche
+und Build-Werten steckt kein anderer Kunde mehr. Keine Schema-Änderung, keine
+neue Flow-Version** — der Import braucht keine Nachschritte über das Übliche
+hinaus.
+
+- **Demo-Daten tragen keine echten Kundennamen mehr.** Der Plugin Trace
+  Explorer zeigte `Schulz.Plugins.*`, die Env-Config `hso_`-Variablen und
+  -Connection-References, die Dual-Write-Karten `sst_`-Tabellen, die
+  Import-Historie einen realen Publisher. Alles jetzt `pro_` bzw. Contoso —
+  keine willkürliche Wahl, sondern die Konvention, die in dieser Demo ohnehin
+  überall galt: Die Umgebungen, User, Firmen, Teams und Business Units waren
+  längst Contoso, Fabrikam und Northwind.
+  `cust_` bleibt bewusst stehen: kein echtes Kundenpräfix, sondern der
+  neutrale Platzhalter für die Geschäftsdaten, die ein Transfer-Paket bewegt.
+  Die Trennung ist gewollt — **`pro_` ist die Welt der Konsole, `cust_` sind
+  die Kundendaten, mit denen sie arbeitet.**
+- **Auch echte Personennamen sind raus.** Der Name des Autors stand in neun
+  Dateien als Solution-Owner, Import-Autor, Job-Besitzer und Run-Anforderer,
+  dazu ein Kollegenname im Process Comparer. Jetzt Wissenschaftler wie überall
+  sonst in dieser Demo.
+- **Die Oberfläche nennt keine fremde Tabelle mehr.** Der Process Comparer
+  hatte den Tooltip „Defined desired state (hso_cloudflow)" fest verdrahtet —
+  sichtbar in **jeder** Installation, nicht nur in der Demo. Diese Tabelle
+  gehört dem Kunden, die App hat für den Zweck keine eigene; jetzt steht dort
+  die **tatsächlich konfigurierte** Tabelle. Die fünf Platzhalter im
+  Einrichtungs-Assistenten sind neutral (`yourprefix_…`) statt `hso_`, und die
+  Feldbeschreibung sagt jetzt ausdrücklich, dass es **die eigene** Tabelle des
+  Kunden ist — dieses Schweigen war der Grund, warum dort ein fremdes Präfix
+  wie eine Vorgabe aussehen konnte.
+- ⚠ **Und der Fund, der vom Quellcode aus unsichtbar war:** Eine nicht
+  versionierte `.env`-Datei im Projektordner buk die Azure-DevOps-Organisation
+  eines Kunden in **jeden** Build — und damit in **jede** managed Solution, die
+  je exportiert wurde. Das Deploy-Skript schreibt die Build-Werte jetzt selbst,
+  je Umgebung aus seiner eigenen Registry und mit neutralem Standard, sodass
+  eine lokale Datei nicht mehr in ein Auslieferungsartefakt durchschlagen kann.
+  Zur Laufzeit gewinnt ohnehin `pro_workbenchsettings`; die Build-Werte sind
+  nur der Fallback bis zur Hydrierung.
+  Verifiziert wurde diesmal nicht der Quellcode, sondern **das fertige Zip**:
+  keine Treffer mehr auf Kundenname, ADO-Organisation, Umgebungs-URLs,
+  Personennamen oder Fremdpräfixe.
+
+---
+
 ## 1.0.0.25 — 2026-09-09
 
 **Data Transfer: Weg zum Executor-Lauf, und die Run-Liste lädt nicht mehr die

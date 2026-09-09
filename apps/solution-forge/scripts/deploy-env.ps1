@@ -91,6 +91,7 @@ $Registry = @{
     ProfileName = 'SchulzNEW'
     OrgUrl      = 'https://operations-d365-schulz-int-11.crm4.dynamics.com'
     EnvId       = '431783f6-367c-eb49-984b-4e70e4c0424d'
+    Ado         = @{ OrgUrl = 'https://dev.azure.com/SchulzD365'; Project = 'D365UO' }
     AppId       = 'cade30e1-dd5c-4532-82eb-fd8520ba7b29'
     Solution    = 'DynamicsProSolutionAdminConsole'
     Connector   = @{ Mode = 'c'; ConnectionId = '73569138b7c4466d9ee6933ad6e66a3c' }
@@ -162,7 +163,19 @@ $pc = [ordered]@{
 
 # 4) .env.local — Build-Fallback fuer Compare/Dependency (Runtime liest pro_environmentconfig)
 $envJson = $cfg.Envs | ForEach-Object { [pscustomobject]$_ } | ConvertTo-Json -Compress -AsArray
-@("VITE_ENVIRONMENT_ID=$($cfg.EnvId)", "VITE_ENVIRONMENTS=$envJson") -join "`n" | Set-Content .env.local -NoNewline
+# ADO wird IMMER geschrieben, auch ohne Registry-Eintrag: die ungetrackte .env
+# im Repo-Ordner traegt sonst ihre Werte in JEDEN Build — und damit in jede
+# managed Solution, die an fremde Kunden geht. Vom Quellcode aus unsichtbar.
+# Zur Laufzeit gewinnt ohnehin pro_workbenchsettings; das hier ist nur der
+# Fallback bis zur Hydrierung.
+$adoOrg  = if ($cfg.Ado) { $cfg.Ado.OrgUrl }  else { 'https://dev.azure.com/contoso' }
+$adoProj = if ($cfg.Ado) { $cfg.Ado.Project } else { 'D365' }
+@(
+  "VITE_ENVIRONMENT_ID=$($cfg.EnvId)",
+  "VITE_ENVIRONMENTS=$envJson",
+  "VITE_ADO_ORG_URL=$adoOrg",
+  "VITE_ADO_PROJECT=$adoProj"
+) -join "`n" | Set-Content .env.local -NoNewline
 
 # 5) Data Sources (immer gleiches pro_-Schema) + Connector (cr ODER c)
 foreach ($t in 'solution', 'publisher', 'solutioncomponent', 'msdyn_solutioncomponentsummary', 'systemuser', 'role', 'pro_workingsolution', 'pro_workbenchsettings', 'pro_mergerun', 'pro_releasenote', 'pro_environmentconfig', 'pro_transferpackage', 'pro_transferentry', 'pro_transferrun', 'pro_securitysnapshot', 'asyncoperation', 'organization') {
