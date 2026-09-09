@@ -6,6 +6,44 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.25 — 2026-09-09
+
+**Data Transfer: Weg zum Executor-Lauf, und die Run-Liste lädt nicht mehr die
+komplette Historie. ⚠ Diesmal MIT Schema- und Flow-Änderung** — neue Spalte
+`pro_transferrun.pro_flowrun_str` und ein geänderter Parent-Flow. Beim
+Skript-Install müssen `provision-model.ps1` **und**
+`deploy-executor-flow.ps1` erneut laufen; der managed Import bringt beides mit.
+
+- **Link zum Executor-Lauf im Run-Detail.** Bei Zeilenfehlern schrieb der
+  Child-Flow bisher „see the flow run history" ins Zell-Log — viermal, für
+  Update, Create, Delete und Deactivate. Vier Sackgassen: Es hielt **nichts
+  fest, welcher Lauf** das war, und für Cloud-Flow-Runs gibt es keine
+  Dataverse-Tabelle zum Nachschlagen. Der Parent schreibt jetzt seine eigene
+  Lauf-Referenz in `pro_flowrun_str`, der Hub macht daraus einen
+  Power-Automate-Deeplink.
+  Geschrieben wird sie **beim Beanspruchen des Laufs, nicht beim Abschluss**:
+  Ein abgestürzter Executor erreicht seinen Finish-Schritt nie — und genau der
+  Lauf ist der, den man öffnen will. Aus demselben Grund klappt das Detail
+  jetzt auch **ohne Log** auf, denn ein Absturz hinterlässt keins.
+  ⚠ Die Form des Links ist noch nicht empirisch bestätigt. Deshalb liegt in der
+  Spalte das **rohe Paar aus Flow- und Lauf-ID, keine fertige URL**: Stimmt sie
+  nicht, ist die Korrektur ein App-Fix statt eines Flow-Redeploys in jeder
+  Kundenumgebung.
+- **Run-Liste wird in der Abfrage gedeckelt.** Sie lud bisher die **gesamte**
+  Run-Historie eines Pakets und warf sie danach bis auf 20 Zeilen weg —
+  inklusive `pro_log_txt`, einem Memo mit 500.000 Zeichen. Während eines
+  laufenden Transfers passiert das alle 10 Sekunden, die Kosten wuchsen also
+  mit jedem je gelaufenen Run. Jetzt eine begrenzte Abfrage statt einer
+  Paging-Schleife.
+  Nebenbefund: Damit ist **Run-Housekeeping kein Speicherthema**, wie bisher
+  angenommen, sondern ein Laufzeitthema — und es verschlimmert sich von selbst.
+- **Fix:** Die beiden Timer der Run-Ansicht (Status-Poll und Laufzeit-Anzeige)
+  hingen am Run-Array statt an einem Zustand. Jeder Poll riss dadurch sein
+  eigenes Intervall ab und startete neu, sodass ein beliebiger Reload den
+  nächsten Poll um volle 10 Sekunden verschob.
+
+---
+
 ## 1.0.0.24 — 2026-08-19
 
 **Nachbesserung zu 1.0.0.23: die Zeilenfehler-Meldung funktionierte dort nicht.
