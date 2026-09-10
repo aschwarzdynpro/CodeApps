@@ -2,6 +2,7 @@ import { useState } from 'react'
 import './App.css'
 import { usePower } from './PowerProvider'
 import { useAuditQuery } from './hooks/useAuditQuery'
+import { useAuditSettings, useTableAudit } from './hooks/useAuditSettings'
 import { ModeTabs, type ExplorerMode } from './components/ModeTabs'
 import { RecordQueryForm } from './components/RecordQueryForm'
 import { PersonQueryForm } from './components/PersonQueryForm'
@@ -13,6 +14,7 @@ import { RecordHeader } from './components/RecordHeader'
 import { ActivityView } from './views/ActivityView'
 import type { AuditQuery, AuditUser, UserRef } from './types/audit'
 import { parseDeepLink } from './utils/recordRef'
+import { formatRetention, windowExceedsRetention } from './utils/auditFields'
 
 /** The three modes that hold a query; `activity` loads its own window. */
 type QueryMode = Exclude<ExplorerMode, 'activity'>
@@ -74,6 +76,21 @@ function App() {
   // The activity view owns its own loading; keep the query hook idle there.
   const query = mode === 'activity' ? null : queries[mode]
   const { events, answered, truncated, loading, error } = useAuditQuery(query)
+  const settings = useAuditSettings()
+
+  // The table under investigation, when the question names one. Record mode
+  // learns it from the result; field mode carries it in the query.
+  const queriedTable =
+    query?.kind === 'field'
+      ? query.table
+      : query?.kind === 'record'
+        ? (events[0]?.tableLogicalName ?? query.table)
+        : undefined
+  const tableAudit = useTableAudit(queriedTable)
+
+  const windowDays = query && query.kind !== 'record' ? query.sinceDays : undefined
+  const beyondRetention =
+    query !== null && windowExceedsRetention(settings, windowDays)
 
   const openRecord = (recordId: string, table?: string) => {
     setMode('record')
@@ -178,7 +195,15 @@ function App() {
           : query.kind === 'user'
             ? query.userName
             : `${query.tableName}${query.attribute ? ` · ${query.attribute}` : ''}`
-      return <NoResults scope={scope} />
+      return (
+        <NoResults
+          scope={scope}
+          tableAudit={tableAudit}
+          attribute={query.kind === 'field' ? query.attribute : undefined}
+          beyondRetention={beyondRetention}
+          retention={formatRetention(settings.retentionDays)}
+        />
+      )
     }
 
     return (
@@ -231,11 +256,29 @@ function App() {
 
       <ModeTabs mode={mode} onChange={setMode} />
 
+      {/* Org-level auditing off makes every answer in every mode empty, so it
+          belongs above the tabs rather than inside one result. */}
+      {!settings.orgAuditEnabled && (
+        <div className="state state--error" role="status">
+          <strong>Auditing is switched off for this organisation.</strong> No
+          changes are being recorded at all — every result below will be empty
+          regardless of what actually happened.
+        </div>
+      )}
+
       {mode === 'activity' ? (
         <ActivityView />
       ) : (
         <>
           {renderForm()}
+          {beyondRetention && !loading && !error && (
+            <div className="state state--warning" role="status">
+              <strong>Beyond the retention window.</strong> Audit entries are{' '}
+              {formatRetention(settings.retentionDays)}; anything older has been
+              purged. For that stretch an empty result means "no longer
+              recorded", not "nothing happened".
+            </div>
+          )}
           {truncated && !loading && !error && (
             <div className="state state--warning" role="status">
               <strong>Incomplete data.</strong> The row limit was reached, so

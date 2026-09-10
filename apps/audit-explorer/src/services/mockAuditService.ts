@@ -2,8 +2,10 @@ import type {
   AttributeChange,
   AuditEvent,
   AuditQuery,
+  AuditSettings,
   AuditedTable,
   RecordHit,
+  TableAudit,
   UserRef,
 } from '../types/audit'
 import type { AuditListOptions, AuditListResult } from './auditService'
@@ -147,6 +149,37 @@ export class MockAuditService {
     return [...hits.values()]
       .filter((hit) => !needle || hit.recordName.toLowerCase().includes(needle))
       .sort((a, b) => b.lastChange.localeCompare(a.lastChange))
+  }
+
+  /** Sample org: auditing on, 90-day retention — enough to exercise the banner. */
+  async getAuditSettings(): Promise<AuditSettings> {
+    await delay(100)
+    return { orgAuditEnabled: true, retentionDays: 90 }
+  }
+
+  /**
+   * Derives a plausible audit configuration from the sample log: every column
+   * ever seen changing counts as audited, which is true by construction.
+   */
+  async getTableAudit(table: string): Promise<TableAudit | null> {
+    await delay(150)
+    const known = MOCK_AUDITED_TABLES.find((t) => t.logicalName === table)
+    if (!known) return null
+    const seen = new Set<string>()
+    for (const e of mockAuditEvents) {
+      if (e.tableLogicalName !== table) continue
+      for (const c of e.changes) seen.add(c.attribute)
+    }
+    return {
+      logicalName: known.logicalName,
+      displayName: known.displayName,
+      auditEnabled: true,
+      columns: [...seen].sort().map((logicalName) => ({
+        logicalName,
+        displayName: logicalName,
+        auditEnabled: true,
+      })),
+    }
   }
 
   async listAttributes(table: string): Promise<string[]> {

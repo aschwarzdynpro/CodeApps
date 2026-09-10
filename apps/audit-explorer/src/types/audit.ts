@@ -113,3 +113,36 @@ export interface RecordHit {
   /** ISO timestamp of the most recent entry. */
   lastChange: string
 }
+
+/** Org-level audit settings — what the log can possibly contain. */
+export interface AuditSettings {
+  /** `organization.isauditenabled`. When false, nothing is being written. */
+  orgAuditEnabled: boolean
+  /**
+   * `organization.auditretentionperiodv2` in days. `-1` means forever, `null`
+   * that the setting could not be read. Anything older than this window has
+   * been purged — which is a very different answer from "never changed".
+   */
+  retentionDays: number | null
+}
+
+/** Audit configuration of one column. */
+export interface ColumnAudit {
+  logicalName: string
+  displayName: string
+  auditEnabled: boolean
+}
+
+/**
+ * Audit configuration of one table, read from entity metadata.
+ *
+ * This is what turns "no changes found" from a guess into a statement: a table
+ * with auditing off cannot have changes, and a column with auditing off will
+ * never appear in a diff no matter how often it is edited.
+ */
+export interface TableAudit {
+  logicalName: string
+  displayName: string
+  auditEnabled: boolean
+  columns: ColumnAudit[]
+}

@@ -47,10 +47,22 @@ mode's result under another mode's form.
 
 ### Empty results
 
-An empty result says that auditing **may not be enabled** for the table or
-column. For audit data "nothing found" usually means "not audited" rather than
-"never changed", and on a compliance question the silent reading is the
-expensive one.
+Three very different situations look identical on screen: the table or column
+is not audited, the entries existed but retention purged them, or nothing
+actually changed. Left unexplained, an empty result invites the third reading —
+and on a compliance question that is the most expensive mistake the app can
+make.
+
+So the app names the cause instead of hedging. It reads `IsAuditEnabled` from
+entity metadata (per table *and* per column) and the org's
+`auditretentionperiodv2`, then states the verdict outright: *auditing is off for
+this table*, *this question reaches past the retention window*, or *auditing is
+on, so this really is an empty stretch*. Only where metadata is unavailable does
+it fall back to naming the possibilities.
+
+Two banners sit above the results for the same reason: one when org-level
+auditing is off (every answer will be empty), one when the selected window
+reaches past retention.
 
 ## Project layout
 
@@ -83,6 +95,11 @@ The UI depends only on the `AuditService` interface:
 - `getChanges(id)` — field diff via `RetrieveAuditDetails`, only used when the
   inline payload is unavailable
 - `findUsers`, `listTables`, `listAttributes`, `findRecords` — picker sources
+- `getAuditSettings()` — org audit switch + retention, from `organization`
+- `getTableAudit(table)` — `IsAuditEnabled` and column display names, via the
+  SDK's `getEntityMetadata` for an arbitrary table (cached per session; callers
+  tolerate a null answer, since metadata for a table with no data source is not
+  guaranteed to be served)
 
 Rows select **`changedata`**, which carries the whole old/new diff inline. That
 removes a `RetrieveAuditDetails` round trip per opened row and is what makes a
@@ -127,6 +144,7 @@ pac code init --environment <ENV-ID> --displayName "Audit Explorer" \
 # 2. Tables first…
 pac code add-data-source -a dataverse -t audit
 pac code add-data-source -a dataverse -t systemuser
+pac code add-data-source -a dataverse -t organization
 
 # 3. …then the API. Order matters — see the gotcha below.
 npx power-apps add-dataverse-api --api-name RetrieveAuditDetails
@@ -174,9 +192,9 @@ tenant.
   queryable — the app has data sources for `audit` and `systemuser` only.
 - **Record search only finds audited records.** The quick-search runs over the
   audit log for the same reason.
-- **Table and column pickers are fed from the log**, so a table that is audited
-  but quiet will not appear. There is no `EntityDefinitions` access from a code
-  app, so `IsAuditEnabled` cannot be queried.
+- **The table picker is fed from the log**, so a table that is audited but
+  quiet will not appear in the shortlist. The *column* picker comes from entity
+  metadata and does list audited-but-unchanged columns.
 - **Audit privileges apply.** A user without *View Audit History* / *View Audit
   Summary* sees an empty app.
 

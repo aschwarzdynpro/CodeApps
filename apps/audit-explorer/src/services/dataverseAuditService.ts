@@ -3,8 +3,11 @@ import type {
   AuditEvent,
   AuditOperation,
   AuditQuery,
+  AuditSettings,
   AuditedTable,
+  ColumnAudit,
   RecordHit,
+  TableAudit,
   UserRef,
 } from '../types/audit'
 import type { AuditListOptions, AuditListResult } from './auditService'
@@ -13,7 +16,11 @@ import { powerModeReady } from '../PowerProvider'
 import { AuditsService } from '../generated/services/AuditsService'
 import { SystemusersService } from '../generated/services/SystemusersService'
 import { RetrieveAuditDetailsService } from '../generated/services/RetrieveAuditDetailsService'
+import { OrganizationsService } from '../generated/services/OrganizationsService'
 import type { Audits } from '../generated/models/AuditsModel'
+import { getClient } from '@microsoft/power-apps/data'
+import type { EntityMetadata } from '@microsoft/power-apps/data/metadata/dataverse'
+import { dataSourcesInfo } from '../../.power/schemas/appschemas/dataSourcesInfo'
 
 /**
  * Real implementation of {@link AuditService} backed by the Dataverse `audit`
@@ -312,6 +319,41 @@ function queryFilter(query: AuditQuery): string {
   if (range) parts.push(range)
   return parts.join(' and ')
 }
+
+
+/**
+ * Metadata client for tables that are not registered data sources.
+ *
+ * The generated services each expose `getMetadata()` bound to their own table;
+ * to ask about an arbitrary one we issue the same `getEntityMetadata` request
+ * through a shared client. Whether the runtime serves metadata for a table with
+ * no data source is not guaranteed, so every caller tolerates a null answer.
+ */
+const metadataClient = getClient(dataSourcesInfo)
+
+/** `IsAuditEnabled` and friends are BooleanManagedProperty — read `.Value`. */
+function managedBool(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (value && typeof value === 'object' && 'Value' in value) {
+    return Boolean((value as { Value?: unknown }).Value)
+  }
+  return false
+}
+
+/** `DisplayName` is a Label — the readable text sits in UserLocalizedLabel. */
+function label(value: unknown, fallback: string): string {
+  if (value && typeof value === 'object' && 'UserLocalizedLabel' in value) {
+    const local = (value as { UserLocalizedLabel?: { Label?: unknown } })
+      .UserLocalizedLabel
+    if (local && typeof local.Label === 'string' && local.Label !== '') {
+      return local.Label
+    }
+  }
+  return fallback
+}
+
+/** Table metadata is stable within a session, so read each one once. */
+const tableAuditCache = new Map<string, TableAudit | null>()
 
 /** Page of audit rows plus whether the cap cut the result short. */
 interface AuditRowPage {
@@ -626,6 +668,87 @@ export class DataverseAuditService {
     } catch (err) {
       console.warn('[audit] listAttributes() threw:', err)
       return []
+    }
+  }
+
+  /**
+   * Org audit switch and retention window.
+   *
+   * Retention is the quieter of the two traps: past the horizon the rows are
+   * gone, so the app must not let "nothing found" stand for "nothing happened".
+   */
+  async getAuditSettings(): Promise<AuditSettings> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return mockAuditService.getAuditSettings()
+    try {
+      const result = await OrganizationsService.getAll({
+        select: ['organizationid', 'isauditenabled', 'auditretentionperiodv2'],
+      })
+      const org = result.success ? result.data?.[0] : undefined
+      if (!org) {
+        console.warn('[audit] getAuditSettings() got no organization row')
+        return { orgAuditEnabled: true, retentionDays: null }
+      }
+      const retention = org.auditretentionperiodv2
+      return {
+        orgAuditEnabled: Boolean(org.isauditenabled),
+        retentionDays: typeof retention === 'number' ? retention : null,
+      }
+    } catch (err) {
+      console.warn('[audit] getAuditSettings() threw:', err)
+      // Unknown settings must not produce false reassurance: report the org as
+      // enabled (so no bogus "auditing is off" banner) and retention as
+      // unknown (so no bogus "everything is covered" claim either).
+      return { orgAuditEnabled: true, retentionDays: null }
+    }
+  }
+
+  async getTableAudit(table: string): Promise<TableAudit | null> {
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') return mockAuditService.getTableAudit(table)
+    const cached = tableAuditCache.get(table)
+    if (cached !== undefined) return cached
+    try {
+      const result = await metadataClient.executeAsync<
+        unknown,
+        Partial<EntityMetadata>
+      >({
+        dataverseRequest: {
+          action: 'getEntityMetadata',
+          parameters: {
+            tableName: table,
+            options: {
+              metadata: ['LogicalName', 'DisplayName', 'IsAuditEnabled'],
+              schema: { columns: 'all' },
+            },
+          },
+        },
+      })
+      if (!result.success || !result.data) {
+        console.warn('[audit] getTableAudit() unavailable for', table, result)
+        tableAuditCache.set(table, null)
+        return null
+      }
+      const meta = result.data
+      const columns: ColumnAudit[] = (meta.Attributes ?? [])
+        .map((attr) => ({
+          logicalName: attr.LogicalName,
+          displayName: label(attr.DisplayName, attr.LogicalName),
+          auditEnabled: managedBool(attr.IsAuditEnabled),
+        }))
+        .sort((a, b) => a.displayName.localeCompare(b.displayName))
+      const info: TableAudit = {
+        logicalName: meta.LogicalName ?? table,
+        displayName: label(meta.DisplayName, table),
+        auditEnabled: managedBool(meta.IsAuditEnabled),
+        columns,
+      }
+      tableAuditCache.set(table, info)
+      return info
+    } catch (err) {
+      console.warn('[audit] getTableAudit() threw for', table, err)
+      tableAuditCache.set(table, null)
+      return null
     }
   }
 }

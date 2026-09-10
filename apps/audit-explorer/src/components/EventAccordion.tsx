@@ -3,6 +3,7 @@ import type { AttributeChange, AuditEvent } from '../types/audit'
 import { auditService } from '../services/auditService'
 import { recordUrl } from '../config'
 import { OperationBadge } from './OperationBadge'
+import { ChangeTable } from './ChangeTable'
 import { formatDateTime, formatDate, dayKey } from '../utils/format'
 
 interface EventAccordionProps {
@@ -33,11 +34,25 @@ export function EventAccordion({
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const [fetched, setFetched] = useState<Record<string, AttributeChange[]>>({})
   const [busy, setBusy] = useState<Record<string, boolean>>({})
+  // Column display names per table. Metadata is fetched only for tables the
+  // user actually opens, and the service caches it for the session.
+  const [labels, setLabels] = useState<Record<string, Record<string, string>>>({})
+
+  const loadLabels = (table: string) => {
+    if (!table || labels[table]) return
+    void auditService.getTableAudit(table).then((info) => {
+      if (!info) return
+      const map: Record<string, string> = {}
+      for (const column of info.columns) map[column.logicalName] = column.displayName
+      setLabels((prev) => ({ ...prev, [table]: map }))
+    })
+  }
 
   const toggle = (event: AuditEvent) => {
     const isOpen = Boolean(open[event.id])
     setOpen((prev) => ({ ...prev, [event.id]: !isOpen }))
     if (isOpen) return
+    loadLabels(event.tableLogicalName)
     // Rows normally arrive with their diff inline (the `changedata` column).
     // Only when the runtime withheld it do we pay for a detail round trip,
     // and only for operations that can carry column changes at all.
@@ -133,20 +148,11 @@ export function EventAccordion({
                 ) : !changes || changes.length === 0 ? (
                   <div className="note">No column-level changes recorded.</div>
                 ) : (
-                  <div className="changes">
-                    <div className="changes-head">
-                      <span>Field</span>
-                      <span>Old value</span>
-                      <span>New value</span>
-                    </div>
-                    {changes.map((c) => (
-                      <div className="change-row" key={c.attribute}>
-                        <span className="change-attr">{c.attribute}</span>
-                        <span className="change-old">{c.oldValue || '—'}</span>
-                        <span className="change-new">{c.newValue || '—'}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <ChangeTable
+                    changes={changes}
+                    operation={event.operation}
+                    labels={labels[event.tableLogicalName]}
+                  />
                 )}
 
                 <div className="acc-actions">

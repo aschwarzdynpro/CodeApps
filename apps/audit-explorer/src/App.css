@@ -1021,3 +1021,27 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
 }
+
+/* ---------- Diff refinements ---------- */
+
+/* A create has no "old" side, so it renders as a plain field/value list. */
+.changes--create .changes-head,
+.change-row--create {
+  grid-template-columns: minmax(160px, 1fr) 2fr;
+}
+.change-attr { cursor: help; }
+.tech-toggle { display: inline-block; margin-top: 8px; }
+.tech-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* An empty result that metadata proves is genuinely empty reads as neutral,
+   not as a warning — only the inconclusive ones get the amber treatment. */
+.empty--clean {
+  border-style: solid;
+  border-color: var(--border);
+  background: var(--surface);
+}

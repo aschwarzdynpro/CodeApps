@@ -2,8 +2,10 @@ import type {
   AttributeChange,
   AuditEvent,
   AuditQuery,
+  AuditSettings,
   AuditedTable,
   RecordHit,
+  TableAudit,
   UserRef,
 } from '../types/audit'
 import { dataverseAuditService } from './dataverseAuditService'
@@ -78,6 +80,17 @@ export interface AuditService {
     term: string,
     sinceDays: number,
   ): Promise<RecordHit[]>
+  /**
+   * Org-level audit switch and retention window. Both decide what an empty
+   * result is allowed to mean, so the UI loads this once at startup.
+   */
+  getAuditSettings(): Promise<AuditSettings>
+  /**
+   * Audit configuration of one table, from entity metadata. Null when the
+   * runtime will not serve metadata for it — callers then fall back to what
+   * the log itself reveals.
+   */
+  getTableAudit(table: string): Promise<TableAudit | null>
 }
 
 export const auditService: AuditService = dataverseAuditService

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { AuditedTable } from '../types/audit'
+import type { AuditedTable, ColumnAudit, TableAudit } from '../types/audit'
 import { auditService } from '../services/auditService'
 import { QUERY_RANGES } from '../utils/format'
 
@@ -17,15 +17,19 @@ const PICKER_WINDOW_DAYS = 30
 /**
  * Field mode's input: table, then column, then window.
  *
- * Both pickers are fed from the log itself rather than from entity metadata.
- * The code app data client exposes no `EntityDefinitions` query, and reading
- * the log has a useful side effect: it can only offer tables and columns that
- * actually changed, so an empty picker is itself a finding.
+ * The column picker comes from **entity metadata**, which knows display names
+ * and which columns are audited at all — including ones that simply have not
+ * changed yet, and which reading the log could therefore never reveal. Where
+ * the runtime withholds metadata it falls back to the columns seen changing.
+ *
+ * The table list still comes from the log: it names the tables with actual
+ * activity, which is the useful shortlist to choose from.
  */
 export function FieldQueryForm({ onSubmit }: FieldQueryFormProps) {
   const [tables, setTables] = useState<AuditedTable[]>([])
   const [table, setTable] = useState<string>('')
-  const [attributes, setAttributes] = useState<string[]>([])
+  const [attributes, setAttributes] = useState<ColumnAudit[]>([])
+  const [tableAudit, setTableAudit] = useState<TableAudit | null>(null)
   const [attribute, setAttribute] = useState<string>('')
   const [sinceDays, setSinceDays] = useState<number>(30)
   const [loadingTables, setLoadingTables] = useState(true)
@@ -48,11 +52,29 @@ export function FieldQueryForm({ onSubmit }: FieldQueryFormProps) {
   const loadAttributes = useCallback(async () => {
     if (!table) {
       setAttributes([])
+      setTableAudit(null)
       return
     }
     setLoadingAttrs(true)
     try {
-      setAttributes(await auditService.listAttributes(table, PICKER_WINDOW_DAYS))
+      // Metadata is the better source: it carries display names and knows
+      // which columns are audited at all — including ones that simply have not
+      // changed yet, which the log can never reveal.
+      const info = await auditService.getTableAudit(table)
+      setTableAudit(info)
+      if (info) {
+        setAttributes(info.columns.filter((c) => c.auditEnabled))
+        return
+      }
+      // No metadata: fall back to the columns seen changing in the log.
+      const seen = await auditService.listAttributes(table, PICKER_WINDOW_DAYS)
+      setAttributes(
+        seen.map((logicalName) => ({
+          logicalName,
+          displayName: logicalName,
+          auditEnabled: true,
+        })),
+      )
     } finally {
       setLoadingAttrs(false)
     }
@@ -109,8 +131,8 @@ export function FieldQueryForm({ onSubmit }: FieldQueryFormProps) {
               {loadingAttrs ? 'Loading…' : 'Any column'}
             </option>
             {attributes.map((a) => (
-              <option key={a} value={a}>
-                {a}
+              <option key={a.logicalName} value={a.logicalName}>
+                {a.displayName}
               </option>
             ))}
           </select>
@@ -150,6 +172,18 @@ export function FieldQueryForm({ onSubmit }: FieldQueryFormProps) {
       {!loadingTables && tables.length === 0 && (
         <span className="query-hint">
           No audited activity in the last {PICKER_WINDOW_DAYS} days.
+        </span>
+      )}
+      {tableAudit && !tableAudit.auditEnabled && (
+        <span className="query-hint">
+          Auditing is switched off for {tableAudit.displayName} — this table
+          cannot return any changes.
+        </span>
+      )}
+      {tableAudit?.auditEnabled && attributes.length === 0 && !loadingAttrs && (
+        <span className="query-hint">
+          {tableAudit.displayName} is audited, but no individual column is —
+          only record-level events are recorded.
         </span>
       )}
     </form>
