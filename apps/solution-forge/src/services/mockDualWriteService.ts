@@ -96,7 +96,7 @@ const TIME_REPORT_MAPPING = `{
   "legs": [
     {
       "id": "001",
-      "sourceSchema": "SSTTimeReportMainEntity",
+      "sourceSchema": "ContosoTimeReportMainEntity",
       "sourceEnvironmentType": "AX",
       "destinationSchema": "pro_timereportses",
       "destinationEnvironmentType": "CRM",
@@ -160,7 +160,7 @@ const MAPS: DualWriteMapSummary[] = [
     versionCount: 1,
     isManaged: false,
     hasUnmanagedLayer: false,
-    sourceSchema: 'SSTTimeReportMainEntity',
+    sourceSchema: 'ContosoTimeReportMainEntity',
     sourceEnv: 'AX',
     destinationSchema: 'pro_timereportses',
     destinationEnv: 'CRM',

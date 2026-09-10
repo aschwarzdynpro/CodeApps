@@ -20,7 +20,7 @@ const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000).toISOString(
 const JOBS: ImportJobSummary[] = [
   {
     id: 'job-0005',
-    solutionName: 'SSTCoreV2',
+    solutionName: 'ContosoCoreV2',
     startedOn: hoursAgo(1),
     completedOn: hoursAgo(0.98),
     progress: 37,
@@ -120,7 +120,7 @@ const SUCCESS_LOG = (name: string, version: string) =>
 const EMBEDDED_DEP_LOG = (() => {
   const msg =
     'Solution manifest import: FAILURE: The following solution cannot be ' +
-    'imported: SSTCoreV2. Some dependencies are missing. The missing ' +
+    'imported: ContosoCoreV2. Some dependencies are missing. The missing ' +
     'dependencies are : <MissingDependencies canResolveAllMissingDependencies="False">' +
     '<MissingDependency canResolveMissingDependency="False">' +
     '<Required type="connectionreference" displayName="ssid_CRDataverseInternal" ' +
@@ -136,7 +136,7 @@ const EMBEDDED_DEP_LOG = (() => {
       .replace(/"/g, '&quot;')
   return (
     `<importexportxml><solutionManifests><solutionManifest>` +
-    `<UniqueName>SSTCoreV2</UniqueName><Version>2026.0623.4</Version>` +
+    `<UniqueName>ContosoCoreV2</UniqueName><Version>2026.0623.4</Version>` +
     `<result result="failure" errorcode="0x80048033" errortext="${esc(msg)}" />` +
     `</solutionManifest></solutionManifests></importexportxml>`
   )

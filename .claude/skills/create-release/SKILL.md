@@ -123,10 +123,21 @@ beides ist im Quellbaum unsichtbar, also **gegen das Zip prüfen**:
 
 ```bash
 Z=DynamicsProSolutionAdminConsole_<version>_managed.zip
-for pat in Schulz SchulzD365 D365UO operations-d365-schulz hso_ sst_ "Andy Schwarz"; do
-  echo "  $pat: $(unzip -p $Z | grep -o "$pat" | wc -l)"
+for pat in -i:schulz -i:hso -i:waldmann -i:d365uo SST "Andy Schwarz" "Vanessa Raffler"; do
+  case "$pat" in -i:*) f=-oi; p=${pat#-i:} ;; *) f=-o; p=$pat ;; esac
+  echo "  $p: $(unzip -p $Z | grep $f "$p" | wc -l)"
 done
 ```
+
+⚠ **Die Muster sind Tokens, nicht die Schreibweisen, die zuletzt gefunden
+wurden.** Genau daran ist der Sweep dreimal hintereinander vorbeigelaufen:
+`sst_` fand `SSTCoreV2` nicht, `Schulz` fand `Schulz.Plugins` zwar, aber
+`hso_` nicht `hso`. Deshalb **case-insensitiv und ohne Unterstrich** suchen.
+Ausnahme `SST`: klein geschrieben steckt es in `AccessTeams`, `ProcessType`
+und `getAccessToken` (41 Fehltreffer) — groß geschrieben trifft es nur die
+echten. Trennschärfe vor Vollständigkeit, sonst wird der Sweep ignoriert.
+
+Beim ersten Auftreten eines neuen Kunden gehört sein Token hier ergänzt.
 
 ⚠ **`unzip -p $Z` OHNE Muster.** Mit `"*"` matcht unzip keine Pfade mit `/`
 und liest nur einen Bruchteil — am 2026-09-10 waren das 836 KB von 2,17 MB,
