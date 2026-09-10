@@ -115,6 +115,33 @@ danach greppen** — genau das ist der Teil, den ein Import beim Kunden braucht.
 
 Weicht etwas ab: stoppen und klären, nicht veröffentlichen.
 
+### 5b. Sweep: trägt das Paket fremde Kundenspuren?
+
+Das Artefakt geht an fremde Kunden. Build-Werte kommen aus nicht
+versionierten `.env`-Dateien und Platzhalter aus der UI landen mit im Bundle —
+beides ist im Quellbaum unsichtbar, also **gegen das Zip prüfen**:
+
+```bash
+Z=DynamicsProSolutionAdminConsole_<version>_managed.zip
+for pat in Schulz SchulzD365 D365UO operations-d365-schulz hso_ sst_ "Andy Schwarz"; do
+  echo "  $pat: $(unzip -p $Z | grep -o "$pat" | wc -l)"
+done
+```
+
+⚠ **`unzip -p $Z` OHNE Muster.** Mit `"*"` matcht unzip keine Pfade mit `/`
+und liest nur einen Bruchteil — am 2026-09-10 waren das 836 KB von 2,17 MB,
+und ein Treffer blieb deshalb unentdeckt. Eine Prüfung, die stillschweigend
+fast nichts liest, ist schlimmer als keine.
+
+Deshalb **immer eine Kontrollsuche mitlaufen lassen**, deren Treffer im Paket
+stehen MÜSSEN — sonst beweist „0 Treffer" nur, dass nichts gelesen wurde:
+
+```bash
+for pat in pro_transferrun crm4.dynamics.com; do
+  echo "  $pat: $(unzip -p $Z | grep -o "$pat" | wc -l)"
+done   # beide > 0, sonst greift der Sweep nicht
+```
+
 ### 6. CHANGELOG schreiben — aus den Commits, nicht aus dem Gedächtnis
 
 Letztes Release finden und die **vollständigen** Commit-Botschaften lesen,

@@ -6,6 +6,42 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.27 — 2026-09-10
+
+**Filter für die Effektiv-Rechte im Security Role Analyzer. Keine
+Schema-Änderung, keine neue Flow-Version.**
+
+- **User rights lässt sich jetzt eingrenzen.** Ein User mit einer Handvoll
+  Rollen kommt schnell auf mehrere hundert Zeilen Tabelle × Aktion — eine
+  Liste, die niemand von oben nach unten liest. Gefiltert wird nach
+  **Tabelle**, **Privileg** und **gewährender Rolle**, alle drei mit UND.
+- **Die gewährenden Rollen stehen als Chips darüber** und filtern selbst: Klick
+  zeigt nur, was diese Rolle gewährt, Klick auf den aktiven Chip hebt auf.
+  Jeder Chip trägt die **Anzahl der Privilegien**, die er beisteuert — das ist
+  der eigentliche Gewinn: Man sieht, welche Zuweisung die Arbeit macht. Eine
+  **0** sagt das Gegenteil und bleibt deshalb stehen (nur abgedunkelt): eine
+  Rolle, die dem User nichts gewährt, ist ein Befund, kein Rauschen.
+  ⚠ Ein Chip je **Rolle**, nicht je Zuweisungspfad. Eine Rolle, die direkt
+  *und* über ein Team kommt, ist eine Rolle mit einem Rechte-Satz; zwei Chips
+  würden identisch filtern und eine Doppelvergabe suggerieren, die es nicht
+  gibt. Beide Herkünfte stehen im Tooltip.
+  Das Privileg-Auswahlfeld bietet nur die tatsächlich vorkommenden Aktionen,
+  und der Filter wird bei jedem Benutzerwechsel geleert — ein übrig gebliebener
+  Filter würde bei der nächsten Person still Rechte ausblenden.
+- **Letzter fremder Platzhalter aus der Oberfläche entfernt:** Das
+  ADO-Projektfeld im Einrichtungs-Assistenten schlug noch das Projekt eines
+  bestimmten Kunden vor.
+- ⚠ **Und eine Korrektur an der eigenen Prüfung.** Der mit 1.0.0.26 eingeführte
+  Sweep nach fremden Kundenspuren las wegen eines falschen `unzip`-Musters nur
+  **836 KB von 2,17 MB** des Pakets. Die damalige Meldung „keine Treffer" war
+  deshalb nicht belastbar — im vollständigen Durchlauf kam prompt noch ein
+  Treffer zutage (siehe oben). Der Sweep läuft jetzt über das ganze Paket und
+  **immer mit einer Kontrollsuche**, deren Treffer vorhanden sein müssen; sonst
+  beweist „0 Treffer" nur, dass nichts gelesen wurde. Für dieses Release ist
+  beides erfüllt.
+
+---
+
 ## 1.0.0.26 — 2026-09-10
 
 **Aufräumen für die Auslieferung an fremde Kunden: In Demo-Daten, Oberfläche

@@ -703,7 +703,7 @@ export function ProvisioningWizard({
                   type="text"
                   value={settings.adoProject}
                   onChange={(e) => patchSettings({ adoProject: e.target.value })}
-                  placeholder="e.g. D365UO"
+                  placeholder="e.g. MyProject"
                 />
               </label>
             </details>
