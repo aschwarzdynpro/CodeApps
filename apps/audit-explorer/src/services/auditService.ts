@@ -91,6 +91,11 @@ export interface AuditService {
    * the log itself reveals.
    */
   getTableAudit(table: string): Promise<TableAudit | null>
+  /**
+   * Resolve `systemuser,<guid>` / `team,<guid>` references to display names.
+   * Keys not found are simply absent from the result.
+   */
+  resolvePrincipals(refs: string[]): Promise<Record<string, string>>
 }
 
 export const auditService: AuditService = dataverseAuditService

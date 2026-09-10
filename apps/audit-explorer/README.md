@@ -145,6 +145,7 @@ pac code init --environment <ENV-ID> --displayName "Audit Explorer" \
 pac code add-data-source -a dataverse -t audit
 pac code add-data-source -a dataverse -t systemuser
 pac code add-data-source -a dataverse -t organization
+pac code add-data-source -a dataverse -t team
 
 # 3. …then the API. Order matters — see the gotcha below.
 npx power-apps add-dataverse-api --api-name RetrieveAuditDetails
@@ -189,7 +190,10 @@ tenant.
 
 - **Owner is not current state.** The record card shows the owner from the last
   audited ownership change, labelled as such. The record's own row is not
-  queryable — the app has data sources for `audit` and `systemuser` only.
+  queryable, so the *current* owner cannot be read.
+- **Only owner lookups are resolved to names.** `systemuser` and `team` have
+  data sources, so ownership reads as a name. Other lookups in a diff keep a
+  shortened GUID — resolving those would need a data source per target table.
 - **Record search only finds audited records.** The quick-search runs over the
   audit log for the same reason.
 - **The table picker is fed from the log**, so a table that is audited but

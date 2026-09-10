@@ -1,4 +1,6 @@
 import type { AuditEvent } from '../types/audit'
+import { usePrincipalNames } from '../hooks/usePrincipalNames'
+import { parsePrincipalRef, principalKey } from '../utils/principals'
 import { recordUrl } from '../config'
 import { formatDateTime } from '../utils/format'
 
@@ -34,11 +36,14 @@ export function RecordHeader({
   // change the log recorded and label it as exactly that. An unlabelled owner
   // would be read as current state, which on a forensic screen is worse than
   // showing nothing.
-  const ownerChange = events.find((e) =>
-    e.changes.some((c) => c.attribute === 'ownerid'),
-  )
-  const owner = ownerChange?.changes.find((c) => c.attribute === 'ownerid')
-    ?.newValue
+  const ownerChange = events
+    .find((e) => e.changes.some((c) => c.attribute === 'ownerid'))
+    ?.changes.find((c) => c.attribute === 'ownerid')
+  const ownerRef = parsePrincipalRef(ownerChange?.newRaw)
+  const principals = usePrincipalNames([ownerChange?.newRaw])
+  const owner = ownerRef
+    ? (principals[principalKey(ownerRef)] ?? ownerChange?.newValue)
+    : ownerChange?.newValue
 
   return (
     <section className="record-head">

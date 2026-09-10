@@ -14,12 +14,19 @@ export interface AuditUser {
 
 /** Attribute-level change as returned by RetrieveRecordChangeHistory. */
 export interface AttributeChange {
-  /** Display name of the changed column. */
+  /** Logical name of the changed column. */
   attribute: string
-  /** Previous value (empty for Create). */
+  /** Previous value, formatted for display (empty for Create). */
   oldValue: string
-  /** New value (empty for Delete). */
+  /** New value, formatted for display (empty for Delete). */
   newValue: string
+  /**
+   * Unformatted values, kept so lookups can still be resolved later. A lookup
+   * arrives as `entityname,guid` and often without a label; formatting it away
+   * on sight would throw out the only thing a name lookup can work from.
+   */
+  oldRaw?: string
+  newRaw?: string
 }
 
 /**

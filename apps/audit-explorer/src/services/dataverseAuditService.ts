@@ -17,10 +17,12 @@ import { AuditsService } from '../generated/services/AuditsService'
 import { SystemusersService } from '../generated/services/SystemusersService'
 import { RetrieveAuditDetailsService } from '../generated/services/RetrieveAuditDetailsService'
 import { OrganizationsService } from '../generated/services/OrganizationsService'
+import { TeamsService } from '../generated/services/TeamsService'
 import type { Audits } from '../generated/models/AuditsModel'
 import { getClient } from '@microsoft/power-apps/data'
 import type { EntityMetadata } from '@microsoft/power-apps/data/metadata/dataverse'
 import { dataSourcesInfo } from '../../.power/schemas/appschemas/dataSourcesInfo'
+import { parsePrincipalRef } from '../utils/principals'
 
 /**
  * Real implementation of {@link AuditService} backed by the Dataverse `audit`
@@ -126,6 +128,13 @@ function formatAuditValue(value: unknown): string {
   return s
 }
 
+/** The unformatted value as a string, for later lookups. */
+function rawString(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined
+  if (typeof value === 'object') return undefined
+  return String(value)
+}
+
 /** `_bookingstatus_value` becomes `bookingstatus`; other keys pass through. */
 function attributeLabel(key: string): string {
   const lookup = key.match(/^_(.+)_value$/)
@@ -161,6 +170,8 @@ function parseChangeData(raw: string | undefined): AttributeChange[] {
         attribute: attributeLabel(a.logicalName),
         oldValue: a.oldName ?? formatAuditValue(a.oldValue),
         newValue: a.newName ?? formatAuditValue(a.newValue),
+        oldRaw: rawString(a.oldValue),
+        newRaw: rawString(a.newValue),
       }))
   } catch (err) {
     console.warn('[audit] could not parse changedata:', err)
@@ -244,6 +255,8 @@ function mapAuditDetail(detail: AttributeAuditDetail | undefined): AttributeChan
       attribute: attributeLabel(key),
       oldValue: oldSide.formatted[key] ?? formatAuditValue(oldSide.values[key]),
       newValue: newSide.formatted[key] ?? formatAuditValue(newSide.values[key]),
+      oldRaw: rawString(oldSide.values[key]),
+      newRaw: rawString(newSide.values[key]),
     })
   }
   return changes
@@ -354,6 +367,15 @@ function label(value: unknown, fallback: string): string {
 
 /** Table metadata is stable within a session, so read each one once. */
 const tableAuditCache = new Map<string, TableAudit | null>()
+
+/** Resolved owner names, keyed `entityname,guid`. */
+const principalNameCache = new Map<string, string>()
+
+/**
+ * Cap on references per request. The filter is an `or` chain, and a very long
+ * one risks the URL length limit — better two round trips than a 414.
+ */
+const PRINCIPAL_BATCH = 40
 
 /** Page of audit rows plus whether the cap cut the result short. */
 interface AuditRowPage {
@@ -750,6 +772,83 @@ export class DataverseAuditService {
       tableAuditCache.set(table, null)
       return null
     }
+  }
+
+  /**
+   * Resolve `systemuser,<guid>` / `team,<guid>` references to display names.
+   *
+   * Ownership is the one lookup that matters often enough to be worth its own
+   * data sources: `changedata` rarely carries a label for it, and "owner
+   * ae6ca0eb…7743" answers nobody's question. Other lookups keep their
+   * shortened GUID — resolving those would need a data source per table.
+   */
+  async resolvePrincipals(refs: string[]): Promise<Record<string, string>> {
+    const resolved: Record<string, string> = {}
+    const wanted: { entity: string; id: string; key: string }[] = []
+    for (const key of refs) {
+      const cached = principalNameCache.get(key)
+      if (cached !== undefined) {
+        resolved[key] = cached
+        continue
+      }
+      const ref = parsePrincipalRef(key)
+      if (ref) wanted.push({ ...ref, key })
+    }
+    if (wanted.length === 0) return resolved
+
+    const mode = await powerModeReady
+    if (mode !== 'power-platform') {
+      return mockAuditService.resolvePrincipals(refs)
+    }
+
+    const idsOf = (entity: string) =>
+      wanted.filter((w) => w.entity === entity).map((w) => w.id)
+
+    const record = (entity: string, id: string, name: unknown) => {
+      if (typeof name !== 'string' || name === '') return
+      const key = `${entity},${id.toLowerCase()}`
+      principalNameCache.set(key, name)
+      resolved[key] = name
+    }
+
+    // Two explicit passes rather than one generic helper: the generated
+    // services are distinct types with distinct id/name columns, and casting
+    // them into a common shape buys nothing but a lost type check.
+    const userIds = idsOf('systemuser')
+    for (let i = 0; i < userIds.length; i += PRINCIPAL_BATCH) {
+      const slice = userIds.slice(i, i + PRINCIPAL_BATCH)
+      try {
+        const result = await SystemusersService.getAll({
+          select: ['systemuserid', 'fullname'],
+          filter: slice.map((id) => `systemuserid eq ${id}`).join(' or '),
+        })
+        if (!result.success || !result.data) continue
+        for (const row of result.data) {
+          record('systemuser', row.systemuserid, row.fullname)
+        }
+      } catch (err) {
+        console.warn('[audit] resolvePrincipals() user batch failed:', err)
+      }
+    }
+
+    const teamIds = idsOf('team')
+    for (let i = 0; i < teamIds.length; i += PRINCIPAL_BATCH) {
+      const slice = teamIds.slice(i, i + PRINCIPAL_BATCH)
+      try {
+        const result = await TeamsService.getAll({
+          select: ['teamid', 'name'],
+          filter: slice.map((id) => `teamid eq ${id}`).join(' or '),
+        })
+        if (!result.success || !result.data) continue
+        for (const row of result.data) {
+          record('team', row.teamid, row.name)
+        }
+      } catch (err) {
+        console.warn('[audit] resolvePrincipals() team batch failed:', err)
+      }
+    }
+
+    return resolved
   }
 }
 

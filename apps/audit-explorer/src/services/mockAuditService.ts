@@ -182,6 +182,17 @@ export class MockAuditService {
     }
   }
 
+  /** The sample log has no real principals, so hand back a readable stand-in. */
+  async resolvePrincipals(refs: string[]): Promise<Record<string, string>> {
+    await delay(80)
+    const resolved: Record<string, string> = {}
+    for (const key of refs) {
+      const [entity] = key.split(',')
+      resolved[key] = entity === 'team' ? 'Sample Team' : 'Sample User'
+    }
+    return resolved
+  }
+
   async listAttributes(table: string): Promise<string[]> {
     await delay(150)
     const seen = new Set<string>()

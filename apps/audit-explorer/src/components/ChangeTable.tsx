@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { AttributeChange, AuditOperation } from '../types/audit'
 import { partitionChanges } from '../utils/auditFields'
+import { usePrincipalNames } from '../hooks/usePrincipalNames'
+import { parsePrincipalRef, principalKey } from '../utils/principals'
 
 interface ChangeTableProps {
   changes: AttributeChange[]
@@ -24,6 +26,15 @@ interface ChangeTableProps {
 export function ChangeTable({ changes, operation, labels }: ChangeTableProps) {
   const [showTechnical, setShowTechnical] = useState(false)
   const { business, technical } = partitionChanges(changes)
+  // Owner lookups arrive as `systemuser,<guid>` without a label; resolve them
+  // so a reassignment reads as a name instead of an identifier.
+  const principals = usePrincipalNames(
+    changes.flatMap((c) => [c.oldRaw, c.newRaw]),
+  )
+  const display = (formatted: string, raw: string | undefined) => {
+    const ref = parsePrincipalRef(raw)
+    return (ref && principals[principalKey(ref)]) || formatted
+  }
   const shown = showTechnical ? [...business, ...technical] : business
   const nameOf = (attribute: string) => labels?.[attribute] ?? attribute
 
@@ -45,7 +56,9 @@ export function ChangeTable({ changes, operation, labels }: ChangeTableProps) {
               <span className="change-attr" title={c.attribute}>
                 {nameOf(c.attribute)}
               </span>
-              <span className="change-new">{c.newValue || '—'}</span>
+              <span className="change-new">
+                {display(c.newValue, c.newRaw) || '—'}
+              </span>
             </div>
           ))}
         </div>
@@ -72,8 +85,12 @@ export function ChangeTable({ changes, operation, labels }: ChangeTableProps) {
             <span className="change-attr" title={c.attribute}>
               {nameOf(c.attribute)}
             </span>
-            <span className="change-old">{c.oldValue || '—'}</span>
-            <span className="change-new">{c.newValue || '—'}</span>
+            <span className="change-old">
+              {display(c.oldValue, c.oldRaw) || '—'}
+            </span>
+            <span className="change-new">
+              {display(c.newValue, c.newRaw) || '—'}
+            </span>
           </div>
         ))}
       </div>
