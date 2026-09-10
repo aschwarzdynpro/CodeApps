@@ -6,6 +6,34 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.28 — 2026-09-10
+
+**Korrektur zu 1.0.0.27: In den Demo-Daten steckten noch zwei Kunden-Bezeichner.
+Keine Schema-Änderung, keine neue Flow-Version.**
+
+- **Import History und Dual-Write Maps zeigten Kundennamen.** Die Demo
+  importierte eine Solution `SSTCoreV2` und bildete eine F&O-Entität
+  `SSTTimeReportMainEntity` ab. Jetzt `ContosoCoreV2` und
+  `ContosoTimeReportMainEntity`.
+- ⚠ **Warum das drei Durchgänge überlebt hat.** Der Sweep suchte jeweils nach
+  den **Schreibweisen**, die zuletzt gefunden wurden, statt nach dem Token:
+  `sst_` kann `SSTCoreV2` nicht treffen, `hso_` nicht `hso`. Jede Runde
+  entfernte damit genau das, was das Muster der Vorrunde beschrieb — und dieses
+  Muster stammte aus dem, was schon entfernt war.
+  Die Musterliste besteht jetzt aus **Tokens**, case-insensitiv und ohne
+  Unterstrich. Einzige Ausnahme ist `SST`: klein geschrieben steckt es in
+  `AccessTeams`, `ProcessType` und `getAccessToken` — 41 Fehltreffer gegen 5
+  echte. Ein Sweep, der ständig falschen Alarm gibt, wird ignoriert, deshalb
+  bleibt dieses eine Muster großgeschrieben.
+  Neu ist außerdem die Regel, das Token eines Kunden **beim ersten Kontakt**
+  aufzunehmen — so wächst die Liste mit dem Kundenstamm statt mit den Vorfällen.
+
+**Wer 1.0.0.27 bereits importiert hat**, sollte auf 1.0.0.28 gehen: die beiden
+Bezeichner sind dort in den Demo-Daten enthalten (sichtbar nur im Demo-Modus,
+nicht in echten Daten).
+
+---
+
 ## 1.0.0.27 — 2026-09-10
 
 **Filter für die Effektiv-Rechte im Security Role Analyzer. Keine

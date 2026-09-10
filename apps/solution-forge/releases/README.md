@@ -20,7 +20,7 @@ keeps the version bump from landing in a customer environment.
 
 | File | Version | Exported | Contents |
 | --- | --- | --- | --- |
-| `DynamicsProSolutionAdminConsole_1.0.0.27_managed.zip` | 1.0.0.27 | 2026-09-10 | **9** `pro_` tables incl. `pro_transferrun.pro_flowrun_str` · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler), host operations on `organization: "current"` · Code App (chunk-split bundle with two **lazily loaded** workspaces; see the changelog for the feature list) · 1 connection reference `pro_CR_SAC_Dataverse` · 1 security role `INT \| DEPLOYMENT MANAGER` · **no data-model or flow change since 1.0.0.25** · verified over the **complete** package to carry no other customer's name, DevOps organisation, environment URLs or prefixes |
+| `DynamicsProSolutionAdminConsole_1.0.0.28_managed.zip` | 1.0.0.28 | 2026-09-10 | **9** `pro_` tables incl. `pro_transferrun.pro_flowrun_str` · 3 transfer-executor flows (Execute Package / Execute Cell / Scheduler), host operations on `organization: "current"` · Code App (chunk-split bundle with two **lazily loaded** workspaces; see the changelog for the feature list) · 1 connection reference `pro_CR_SAC_Dataverse` · 1 security role `INT \| DEPLOYMENT MANAGER` · **no data-model or flow change since 1.0.0.25** · swept over the complete package with **token** patterns — no other customer's name, solution, entity, DevOps organisation or prefix |
 
 Only the newest managed export is kept here (managed solutions upgrade
 cumulatively — an older versioned zip can't be imported over a newer one).
@@ -62,7 +62,7 @@ A release that changes the **data model** or the **executor flows** needs a
 different step depending on how the target was installed in the first place.
 Check the changelog lead of the version you are importing: it states both
 explicitly (1.0.0.25 changed both — a new column AND the parent flow;
-1.0.0.26 and 1.0.0.27 change neither).
+1.0.0.26 through 1.0.0.28 change neither).
 
 - **Installed from a managed zip:** import the newer zip over it. The columns
   and the rebuilt flows come along; nothing else to do for the data model.
