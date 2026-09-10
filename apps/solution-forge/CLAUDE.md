@@ -178,6 +178,18 @@ State` gibt Erst-Lauf `false`, nach Save `true` ⇒ **offline durchspielbar**.
 abgeklemmt worden (lange als Preview ausgeblendet, aber weiter importiert ⇒
 ~120 kB tot im Bundle).
 
+**User rights — Filter (`utils/effectiveRights.ts`, Vitest):** Die Rechte-Liste
+eines Users erreicht schnell dreistellige Zeilenzahlen, deshalb filtert sie nach
+**Tabelle** (Teilstring), **Privileg** (nur die tatsächlich vorkommenden) und
+**gewährender Rolle** — alle drei mit UND verknüpft. Die Rollen stehen als
+**Chips mit Trefferzahl** darüber; Klick filtert, Klick auf den aktiven Chip
+hebt auf. ⚠ Ein Chip je **Rolle**, nicht je Zuweisungspfad: Eine Rolle, die
+direkt UND über ein Team kommt, ist eine Rolle mit einem Rechte-Satz — zwei
+Chips würden identisch filtern und eine Doppelvergabe suggerieren. Die Chip-Liste
+kommt aus `effective.roles`, nicht aus den Zeilen, damit eine Rolle **ohne**
+Privilegien sichtbar bleibt (Zahl 0) — eine wirkungslose Zuweisung ist ein
+Befund, kein Rauschen. Der Filter wird bei jedem Benutzerwechsel geleert.
+
 **Der Role Analyzer ist seit 2026-08-04 wieder angeschlossen — als einziger
 Workspace `React.lazy`.** Er ist das Fundament der Security-Konzept-Ausbau-
 stufe und war zugleich die **Live-Probe für das Lazy-Loading-Thema**: sein

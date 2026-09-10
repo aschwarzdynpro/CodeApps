@@ -1206,7 +1206,12 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <li>
                 <strong>User rights</strong> lists one user's effective table
                 privileges with the <strong>path each grant came from</strong>{' '}
-                (“← role X ← team Y”); <strong>Reverse lookup</strong> answers
+                (“← role X ← team Y”). The granting roles sit above it as{' '}
+                <strong>chips with the number of privileges each contributes</strong>{' '}
+                — click one to see only what that role grants (a{' '}
+                <strong>0</strong> means the assignment grants nothing at all).
+                The list itself filters by table and privilege.{' '}
+                <strong>Reverse lookup</strong> answers
                 “who can &lt;action&gt; on &lt;table&gt;?”.{' '}
                 <strong>Hygiene</strong> flags unassigned roles and users
                 holding a lot of roles.

@@ -15,6 +15,14 @@ import type {
 import { PRIVILEGE_ACTIONS } from '../types/roles'
 import type { WorkingSolution } from '../types/solution'
 import { depthLabel, depthShort } from '../utils/privileges'
+import {
+  EMPTY_EFFECTIVE_FILTER,
+  actionsPresent,
+  effectiveRoleChips,
+  filterEffectiveEntries,
+  isFilterActive,
+  type EffectiveFilter,
+} from '../utils/effectiveRights'
 import { analyzeCoreRoles } from '../utils/coreRoles'
 import { roleAnalyzerService } from '../services/roleAnalyzerService'
 import { isCurrentEnvKey } from '../config'
@@ -204,6 +212,9 @@ export function RoleAnalyzer({
     roles: RoleAssignmentPath[]
   } | null>(null)
   const [effectiveLoading, setEffectiveLoading] = useState(false)
+  /** Narrows the rights table by table / privilege / granting role. */
+  const [rightsFilter, setRightsFilter] =
+    useState<EffectiveFilter>(EMPTY_EFFECTIVE_FILTER)
 
   useEffect(() => {
     // `searchUsers` reads the same snapshot, so without the model guard the
@@ -221,6 +232,8 @@ export function RoleAnalyzer({
   const openUser = (user: PrincipalRef) => {
     setSelectedUser(user)
     setEffective(null)
+    // A filter left over from the previous user would silently hide rights.
+    setRightsFilter(EMPTY_EFFECTIVE_FILTER)
     setEffectiveLoading(true)
     roleAnalyzerService
       .getEffectiveRights(user.id, envKey)
@@ -587,25 +600,70 @@ export function RoleAnalyzer({
               {effectiveLoading && (
                 <div className="state">Aggregating effective rights…</div>
               )}
-              {selectedUser && effective && (
+              {selectedUser && effective && (() => {
+                const chips = effectiveRoleChips(
+                  effective.entries,
+                  effective.roles,
+                )
+                const visible = filterEffectiveEntries(
+                  effective.entries,
+                  rightsFilter,
+                )
+                const actions = actionsPresent(
+                  effective.entries,
+                  PRIVILEGE_ACTIONS,
+                )
+                const filtered = isFilterActive(rightsFilter)
+                const patch = (next: Partial<EffectiveFilter>) =>
+                  setRightsFilter((prev) => ({ ...prev, ...next }))
+                return (
                 <>
                   <div className="card roles-user-roles">
                     <strong>{selectedUser.name}</strong> —{' '}
-                    {effective.roles.length === 0 ? (
+                    {chips.length === 0 ? (
                       <span className="muted">no security roles.</span>
                     ) : (
-                      <ul>
-                        {effective.roles.map((p, i) => (
-                          <li key={i}>
-                            {p.roleName}{' '}
-                            <span className="muted">
-                              {p.via === 'direct'
-                                ? '(direct)'
-                                : `← team “${p.teamName}”`}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
+                      <span className="muted">
+                        {chips.length} role{chips.length === 1 ? '' : 's'}; click
+                        one to see only what it grants.
+                      </span>
+                    )}
+                    {chips.length > 0 && (
+                      <div className="chips roles-rolechips">
+                        {chips.map((chip) => {
+                          const active =
+                            rightsFilter.rootRoleId === chip.rootRoleId
+                          const how = [
+                            chip.direct ? 'direct' : '',
+                            ...chip.teams.map((t) => `team “${t}”`),
+                          ].filter(Boolean).join(' · ')
+                          return (
+                            <button
+                              key={chip.rootRoleId}
+                              className={`chip ${active ? 'chip--active' : ''} ${
+                                chip.count === 0 ? 'roles-rolechip--empty' : ''
+                              }`}
+                              // Clicking the active chip clears it — the only
+                              // way back to "all roles" without a reset button.
+                              onClick={() =>
+                                patch({
+                                  rootRoleId: active ? '' : chip.rootRoleId,
+                                })
+                              }
+                              title={
+                                chip.count === 0
+                                  ? `${how} — grants none of this user's table privileges`
+                                  : `${how} — grants ${chip.count} of this user's table privileges`
+                              }
+                            >
+                              {chip.roleName}
+                              <span className="roles-rolechip-count">
+                                {chip.count}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
                     )}
                     <div className="muted jobs-sample-note">
                       Aggregated client-side from direct + team roles (deepest
@@ -616,6 +674,50 @@ export function RoleAnalyzer({
                   </div>
                   {effective.entries.length > 0 && (
                     <div className="card trace-list">
+                      <div className="trace-toolbar roles-rights-filter">
+                        <input
+                          className="search"
+                          type="search"
+                          placeholder="Filter table…"
+                          value={rightsFilter.entity}
+                          onChange={(e) => patch({ entity: e.target.value })}
+                          aria-label="Filter the rights by table"
+                        />
+                        <select
+                          value={rightsFilter.action}
+                          onChange={(e) =>
+                            patch({
+                              action: e.target.value as EffectiveFilter['action'],
+                            })
+                          }
+                          aria-label="Filter the rights by privilege"
+                        >
+                          <option value="">All privileges</option>
+                          {actions.map((a) => (
+                            <option key={a} value={a}>
+                              {a}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="muted">
+                          {filtered
+                            ? `${visible.length} of ${effective.entries.length} privileges`
+                            : `${effective.entries.length} privileges`}
+                        </span>
+                        {filtered && (
+                          <button
+                            className="btn btn--small"
+                            onClick={() => setRightsFilter(EMPTY_EFFECTIVE_FILTER)}
+                          >
+                            Clear filter
+                          </button>
+                        )}
+                      </div>
+                      {visible.length === 0 ? (
+                        <div className="state">
+                          No privilege matches the filter.
+                        </div>
+                      ) : (
                       <table className="ops-table">
                         <thead>
                           <tr>
@@ -626,7 +728,7 @@ export function RoleAnalyzer({
                           </tr>
                         </thead>
                         <tbody>
-                          {effective.entries.map((entry) => (
+                          {visible.map((entry) => (
                             <tr key={`${entry.entity}|${entry.action}`}>
                               <td className="trace-type">{entry.entity}</td>
                               <td>{entry.action}</td>
@@ -647,10 +749,12 @@ export function RoleAnalyzer({
                           ))}
                         </tbody>
                       </table>
+                      )}
                     </div>
                   )}
                 </>
-              )}
+                )
+              })()}
             </div>
           )}
 

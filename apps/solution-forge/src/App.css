@@ -4545,6 +4545,38 @@
   margin: 6px 0 0;
   padding-left: 18px;
 }
+/* Granting roles as filter chips. The count is what makes them worth looking
+   at: it says which assignment is actually doing the work — and a 0 says the
+   opposite, so it is dimmed rather than hidden. */
+.roles-rolechips {
+  margin-top: 8px;
+}
+.roles-rolechip-count {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+.chip--active .roles-rolechip-count {
+  background: rgba(255, 255, 255, 0.25);
+}
+.roles-rolechip--empty {
+  opacity: 0.6;
+}
+/* Filter row above the rights table — same furniture as the other toolbars,
+   just without the card's own padding, since it sits inside one. */
+.roles-rights-filter {
+  margin-bottom: 10px;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  background: none;
+}
+.roles-rights-filter .search {
+  max-width: 260px;
+}
 .roles-provenance {
   display: flex;
   flex-direction: column;
