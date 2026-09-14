@@ -725,7 +725,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
-            <h3>🗄️ OData Browser (Operate)</h3>
+            <h3>🗄️ Data Browser (Operate)</h3>
             <p>
               Browse the <strong>Dataverse Web API of any configured
               environment</strong>: pick a table, pick the columns, run, read
@@ -796,11 +796,37 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <strong>FetchXML</strong> tab runs a pasted query directly — the
               table comes from <code>&lt;entity name&gt;</code>, and it returns
               one page of at most 5,000 rows because the connector does not
-              page FetchXML. Finally, the table picker also lists the{' '}
+              page FetchXML. The table picker also lists the{' '}
               <strong>metadata sets</strong> (<code>EntityDefinitions</code> and
               friends) so the schema itself can be browsed with the same grid;
               they have no column list, so the grid takes its columns from the
               response.
+            </p>
+            <p>
+              The <strong>SQL</strong> tab takes Dataverse's read-only T-SQL
+              subset — <code>SELECT</code> with <code>TOP</code>/
+              <code>DISTINCT</code>, <code>INNER</code>/<code>LEFT JOIN</code>,{' '}
+              <code>WHERE</code> (<code>LIKE</code>, <code>IN</code>,{' '}
+              <code>BETWEEN</code>, <code>IS NULL</code>, <code>DATEADD</code>/
+              <code>GETUTCDATE</code>), <code>GROUP BY</code> with{' '}
+              <code>COUNT</code>/<code>SUM</code>/<code>AVG</code>/
+              <code>MIN</code>/<code>MAX</code>, <code>ORDER BY</code>;{' '}
+              <code>FROM</code> takes the logical name. The connector cannot
+              send the Web API's <code>?sql=</code> option, so the statement
+              is <strong>translated to FetchXML and run as that</strong> — the
+              translation is shown under the editor (expand “Translated
+              FetchXML”), errors point at line and column, and “→ FetchXML”
+              opens it in the FetchXML tab. As an extra over the native
+              endpoint, <code>OFFSET … FETCH</code> becomes a FetchXML page.{' '}
+              <strong>Copy URL</strong> yields the real <code>…?sql=</code>{' '}
+              URL for a browser tab or a tool with its own token. The other
+              two tabs offer <strong>→ SQL</strong>: the builder's query and
+              a pasted FetchXML are rewritten as SQL; whatever SQL cannot say
+              (<em>is the current user</em>, a raw <code>$filter</code>, a
+              multi-select <em>contains any of</em>) is dropped{' '}
+              <em>and written as a <code>--</code> comment on top</em>, never
+              silently. SQL statements join the history and can be saved
+              like any other query.
             </p>
             <p>
               ⚠ <strong>Queries run as the connector service principal</strong>,
@@ -808,9 +834,8 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               and field-level security, which is why the menu item is
               deployment-manager gated. The note above the tabs can be
               collapsed to save room; the <strong>🛡 shield</strong> next to
-              the tabs keeps saying so and brings it back. <strong>Read-only.</strong> IntelliSense
-              and the single-record view with lookup drill-through are the next
-              steps (see <code>docs/odata-browser-plan.md</code>).
+              the tabs keeps saying so and brings it back. <strong>Read-only</strong>{' '}
+              by decision (see <code>docs/odata-browser-plan.md</code>).
             </p>
           </section>
 

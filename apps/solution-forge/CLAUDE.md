@@ -173,7 +173,8 @@ delete-all-then-recreate (Env-Config hat keine eingehenden Refs). Derselbe
 Wizard dient im Edit-Modus (Menüpunkt) zum Nachpflegen; Mock: `getProvisioning-
 State` gibt Erst-Lauf `false`, nach Save `true` ⇒ **offline durchspielbar**.
 
-**Operate-Gruppe** — im Menü stehen **Plugin Traces**, **OData Browser** und
+**Operate-Gruppe** — im Menü stehen **Plugin Traces**, **Data Browser** (bis
+2026-09-14 „OData Browser"; Tab-Key und Dateinamen heißen weiter `odata*`) und
 **Role Analyzer**. Job Monitor und Role Analyzer waren am 2026-07-29
 abgeklemmt worden (lange als Preview ausgeblendet, aber weiter importiert ⇒
 ~120 kB tot im Bundle).
@@ -215,7 +216,7 @@ so): das **PenaltyGame/GameOverlay**-Easter-Egg, das der Comparer während
 Bulk-Läufen einblendete — Fortschritt zeigen die Inline-Progressbar
 (`.cmp-bulkbar`) und die `ActivityBar`. ⚠ Das **CSS der entfernten Features
 steht noch in `App.css`** (eine Datei für alles); nicht blind purgen,
-`.ops-table` & Co. teilen sich Traces/Import History/OData Browser.
+`.ops-table` & Co. teilen sich Traces/Import History/Data Browser.
 
 Vom folgenden Abschnitt gilt der **Job-Monitor-Teil als Doku für den
 Wiederanschluss**, der Role-Analyzer-Teil beschreibt das aktive Feature: je
@@ -1020,18 +1021,21 @@ Ablehnung Toggle verstecken), (c) SP braucht Leserechte auf Quelltabellen +
 **feste Höhe** (`.thub-entry-modal`, 88vh) — nicht auf max-height
 zurückbauen, sonst clippt das Source-Table-Dropdown im noch kurzen Formular.
 
-**OData Browser** (Operate-Gruppe, Menüpunkt „OData Browser", gated;
-Plan + Entscheidungen: `docs/odata-browser-plan.md`): freies Durchsehen der
-Web API **je Umgebung**. Stand: **P1–P5 fertig** — Tabellen-/Spalten-
+**Data Browser** (Operate-Gruppe, Menüpunkt „Data Browser" — bis 2026-09-14
+„OData Browser", Tab-Key `odata` und alle `odata*`-Dateinamen unverändert —,
+gated; Plan + Entscheidungen: `docs/odata-browser-plan.md`): freies Durchsehen
+der Web API **je Umgebung** in **OData, FetchXML oder SQL**. Stand: **P1–P5
+fertig + SQL-Modus** — Tabellen-/Spalten-
 Picker, `$top`/Seitengröße, Run, Grid, Paging, Copy-URL, Filter-Builder,
 editierbare Raw-Query, Mehrfach-Sortierung, Count, IntelliSense +
 Query-Validierung, **Einzelsatz-Panel mit Lookup-Drill-through, verwandten
 Datensätzen und `$expand`-Auswahl, **Historie/gespeicherte Queries, CSV-/
-JSON-Export, FetchXML-Modus, Metadaten-Sets**. Offen laut Plan: P6 Write.
+JSON-Export, FetchXML-Modus, SQL-Modus, Metadaten-Sets**. Offen laut Plan: P6 Write.
 Dateien: `types/odataBrowser.ts`, `services/metadataCatalog.ts` (+ Service-Trio
 `odataBrowserService`/`dataverse…`/`mock…`), pure Utils
 `utils/odataQuery.ts`/`odataFilter.ts`/`odataFormat.ts`/`odataErrors.ts`/
-`odataSuggest.ts` (alle Vitest), `components/OdataBrowserWorkspace.tsx` +
+`odataSuggest.ts`/`sqlQuery.ts`/`sqlTranslate.ts` (alle Vitest),
+`components/OdataBrowserWorkspace.tsx` +
 `OdataResultGrid.tsx` + `OdataFilterBuilder.tsx` + `QueryInput.tsx` +
 `OdataRecordPanel.tsx` + `OdataQueryLibrary.tsx` (+ `utils/odataRecord.ts`/
 `odataStore.ts`/`odataExport.ts`).
@@ -1177,6 +1181,54 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
   EntityDefinitions-Zeile** ⇒ `meta = null`: kein Spalten-Picker, kein
   Filter-Builder, Grid-Spalten aus `dataKeys`. `validateQuery` bekommt für sie
   ein leeres `entities`-Array, sonst meldete es „kein Entity-Set".
+- **SQL-Modus läuft als FetchXML — der Konnektor kann `?sql=` nicht senden.**
+  Die Web API nimmt die read-only T-SQL-Teilmenge als Query-Option am Entity-
+  Set (`GET /accounts?sql=SELECT …`, funktioniert an INT-11 inkl. Joins,
+  GROUP BY und `@odata.nextLink`-Paging — live geprüft 2026-09-14). Der
+  Konnektor hat dafür keinen Parameter, und der Trick `entityName =
+  "accounts?sql=…"` scheitert, weil sein **API-Hub den Pfadparameter
+  prozent-kodiert** (`…/api/data/v9.1/accounts%3Fsql%3DSELECT%20…` in der
+  `ClientRequestUrl`; Dataverse antwortet darauf mit einer IIS-„Runtime
+  Error"-Seite). Deshalb tut die App, was Dataverse serverseitig tut:
+  `utils/sqlQuery.ts` (pure, Vitest) **parst dieselbe Teilmenge und rendert
+  FetchXML**, das über `runFetchXml` läuft — SELECT/TOP/DISTINCT, INNER/LEFT
+  JOIN → `<link-entity>` (verschachtelt über den Parent-Alias, Self-Join,
+  Zusatz-ON-Filter als `<filter>` im Link), WHERE → `<condition>` (Spalten
+  gejointer Tabellen per `entityname` auf Top-Level), GROUP BY + Aggregate →
+  `aggregate="true"` (Aliase Pflicht ⇒ Auto-Alias `alias_col`; `COUNT(*)` =
+  `count` auf dem Primary Key aus den Metadaten, Fallback `<table>id`),
+  ORDER BY → `<order>` (`entityname` für Link-Spalten, `alias` im Aggregat),
+  `OFFSET…FETCH` → `page`/`count` (das kann der native Endpoint NICHT; OFFSET
+  muss ein Vielfaches der FETCH-Größe sein), `DATEADD`/`GETUTCDATE` werden
+  **zur Übersetzungszeit** zu ISO-Literalen ausgewertet, `_x_value` wird als
+  Lookup-Logical-Name akzeptiert. Alle erzeugten Konstrukte sind an INT-11
+  verifiziert (`entityname`-Condition, `<order entityname>`, nested link,
+  outer + eigener Filter, Aggregat über Join, page/count). Die Übersetzung
+  steht **live unter dem Editor** (Details „Translated FetchXML") — was
+  gesendet wird, ist nie ein Geheimnis; Fehler kommen mit `line, column`
+  (`describePosition`). Keine Service-Änderung: SQL nutzt `runFetchXml`, also
+  eine Seite à max. 5000 Zeilen, kein Load more. „Copy URL" liefert die
+  **native** `…?sql=`-URL (für Browser/Postman mit eigenem Token).
+- **„→ SQL" ist bewusst verlustbehaftet und sagt es.** `utils/sqlTranslate.ts`
+  (Vitest, jsdom für den FetchXML-Teil): `odataToSql` (Builder-Query; `$expand`
+  → `LEFT JOIN` über `meta.lookups` + Primary Key des Ziels; ohne `$select`
+  nur PK + Name, weil SQL kein `SELECT *` kann) und `fetchXmlToSql` (DOM;
+  Link-Filter landen im `ON`, damit ein Outer Join seine Bedeutung behält;
+  `count/page` → `OFFSET…FETCH`). Was SQL nicht sagen kann — `EqualUserId`/
+  `EqualBusinessId`, `ContainValues`, Raw-`$filter`, `eq-userid`-Familie,
+  `dategrouping` — wird **weggelassen UND als `--`-Kommentarzeile über das
+  Statement geschrieben** (`withNoteHeader`); der SQL-Tokenizer überliest
+  Kommentare. Ein still verengtes oder erweitertes Statement ist der einzige
+  Fehler, den dieses Modul nie haben darf. Relative Datumsoperatoren werden
+  gegen `GETUTCDATE()`/`DATEADD` gerendert, `today`/`thismonth`/… als
+  UTC-Halboffen-Bereiche aus `now` (injizierbar).
+- **Historie/Saved kennen `kind: 'sql'`** (`StoredQuery.kind`, fehlend =
+  OData; `kindOf`), Dedupe in `addToHistory` über Text **und** Kind; die
+  Library zeigt SQL einzeilig mit Badge, `applyStored` öffnet den SQL-Tab und
+  läuft. Save im SQL-Tab speichert den Text unter `sqlEntity.logicalName`.
+- `sqlEntity` ist bewusst **kein `useMemo`**: über das narrowed `sqlPreview`
+  kann der React-Compiler die manuelle Memoization nicht erhalten und der
+  Lint (`react-hooks/preserve-manual-memoization`) bricht — plain `find`.
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
@@ -1485,6 +1537,19 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
     entscheidet (nicht mehr `DEPENDENCY_SPECS[type] && …`). Die „required by"-Seite
     nutzt `listMergeComponents` (löst Sub-Komponenten-Namen wie Forms/Spalten).
     Alles best-effort in eigenem try/catch.
+14. **Der Konnektor-API-Hub prozent-kodiert Pfadparameter — `entityName` kann
+    keinen Query-String schmuggeln.** `ListRecords(WithOrganization)` mit
+    `entityName = "accounts?sql=SELECT …"` erreicht Dataverse als
+    `…/api/data/v9.1/accounts%3Fsql%3DSELECT%20…` (belegt über die
+    `ClientRequestUrl` einer Flow-API-Fehlantwort, 2026-09-14) und endet in
+    einer IIS-„Runtime Error"-Seite; vorkodiert wird doppelt kodiert. Gilt
+    für jede Web-API-Query-Option ohne eigenen Konnektor-Parameter (`sql`,
+    `$count`, `$apply`, `$search`) — die Liste der Konnektor-Parameter IST die
+    Grenze (`$select/$filter/$orderby/$expand/$top/$skiptoken/fetchXml`).
+    Ausweg im Data Browser: SQL clientseitig nach FetchXML übersetzen
+    (`utils/sqlQuery.ts`). Der native `?sql=`-Endpoint selbst funktioniert
+    (direkt mit Token geprüft, inkl. `@odata.nextLink`), nur nicht über den
+    Konnektor.
 
 ## Offen / Nächstes
 

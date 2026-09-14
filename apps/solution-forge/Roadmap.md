@@ -164,13 +164,14 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       404en" ist damit widerlegt (Gotcha #10 präzisiert: betrifft Bilder, nicht
       JS-Chunks). `LazyWorkspace.tsx` (Suspense + Error Boundary) bleibt die
       Hülle für jeden Lazy-Workspace. **Offen: den Rest umstellen** — die
-      dicken Brocken zuerst (OData Browser, Transfer Hub, Analyze/Detective,
+      dicken Brocken zuerst (Data Browser, Transfer Hub, Analyze/Detective,
       Comparer, User Settings), damit der ~624 kB-App-Chunk auf den Kern
       schrumpft.
 
 ## Team & Komfort
 
-- [~] ⭐ **OData Browser** (Menüpunkt „OData Browser", Operate-Gruppe, gated):
+- [~] ⭐ **Data Browser** (Menüpunkt „Data Browser" — bis 2026-09-14 „OData
+      Browser", Tab-Key bleibt `odata` —, Operate-Gruppe, gated):
       je Umgebung durch die Datenbank browsen. Läuft komplett über den
       vorhandenen Konnektor — keine neuen Data Sources. **v1 read-only**, die
       CRUD-Architektur (Interface, `WRITE_ENABLED`-Flag, Seams) ist mitgebaut.
@@ -216,6 +217,21 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
         der Konnektor pagt dort nicht); **Metadaten-Sets** (`EntityDefinitions`,
         `GlobalOptionSetDefinitions`, `RelationshipDefinitions`) im
         Tabellen-Picker, Grid-Spalten aus der Antwort abgeleitet.
+  - [x] **SQL-Modus** *(2026-09-14)* — dritter Reiter für die read-only
+        T-SQL-Teilmenge der Web API (`?sql=`). Der Konnektor kann die Option
+        nicht senden (sein API-Hub kodiert den Pfadparameter, `accounts?sql=`
+        kommt als `accounts%3Fsql%3D` an — live an INT-11 belegt), deshalb
+        **Parser + FetchXML-Renderer** (`utils/sqlQuery.ts`, Vitest): SELECT/
+        TOP/DISTINCT, INNER/LEFT JOIN → `link-entity` (auch verschachtelt und
+        Self-Join), WHERE → `condition` (Join-Spalten via `entityname`),
+        GROUP BY + Aggregate → `aggregate="true"`, ORDER BY, `OFFSET…FETCH`
+        → `page`/`count`, `DATEADD`/`GETUTCDATE` zur Übersetzungszeit
+        ausgewertet. Übersetzung sichtbar (einklappbares FetchXML), Fehler mit
+        Zeile/Spalte, Copy der nativen `?sql=`-URL, „→ FetchXML". Rückweg
+        **„→ SQL"** aus dem OData-Builder (`odataToSql`, `$expand` → LEFT
+        JOIN) und aus FetchXML (`fetchXmlToSql`, DOM) in `utils/sqlTranslate.ts`
+        — Verluste als `--`-Kommentar über dem Statement. SQL in Historie/
+        Saved (`StoredQuery.kind`).
   - [ ] **P6 Write** *(eigene Entscheidung)* — `WRITE_ENABLED` scharfschalten.
 - [x] **Environment-Links (Referenz)**: eigener Menüpunkt mit den ständig
       gebrauchten URLs — **je Umgebung** (System-App, OData/Web API,

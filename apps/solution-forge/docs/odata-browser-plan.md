@@ -384,3 +384,35 @@ Built and tested in v1, **not** reachable from the UI:
 - UI seams: `canWrite = WRITE_ENABLED && isDeploymentManager` — every write
   affordance is already behind it, so switching on is a flag plus three method
   bodies, not a refactor.
+
+## 13. SQL mode (shipped 2026-09-14)
+
+Third tab next to OData and FetchXML, menu item renamed **Data Browser**
+(tab key `odata` and file names unchanged).
+
+**The transport finding that shaped it.** Dataverse's Web API accepts a
+read-only T-SQL subset as a query option on the entity set
+(`GET /accounts?sql=SELECT …`, docs: *Use SQL to query data with the Web
+API*). Verified directly against INT-11 with a bearer token: joins, `GROUP
+BY`, annotations and `@odata.nextLink` paging all work. The connector
+**cannot reach it**: `sql` is not among its parameters, and its API hub
+percent-encodes the `entityName` path parameter, so `accounts?sql=…` arrives
+as `accounts%3Fsql%3D…` (seen in a Flow-API `ClientRequestUrl`) and Dataverse
+answers with an IIS runtime-error page. Pre-encoding double-encodes.
+
+**Decision:** do what Dataverse does server-side — parse the same subset and
+render FetchXML, then run it through the existing `runFetchXml` path. No
+service change, no new data source.
+
+| Piece | File | Notes |
+| --- | --- | --- |
+| Tokenizer + parser + FetchXML renderer | `utils/sqlQuery.ts` (Vitest, no DOM) | `SELECT`/`DISTINCT`/`TOP`, `INNER`/`LEFT JOIN` → `<link-entity>` (nested via parent alias, self join, extra `ON` filters inside the link), `WHERE` → `<condition>` (`entityname` for joined columns), `GROUP BY` + `COUNT/SUM/AVG/MIN/MAX` → `aggregate="true"` with auto aliases, `ORDER BY` (`entityname` / `alias`), `OFFSET … FETCH` → `page`/`count`, `DATEADD`/`GETUTCDATE` evaluated at translation time, `_x_value` accepted. Errors carry a character position → `line, column`. |
+| OData → SQL, FetchXML → SQL | `utils/sqlTranslate.ts` (Vitest, jsdom) | Lossy by nature; every dropped part is a `--` comment on top of the statement (`withNoteHeader`). `$expand` → `LEFT JOIN` via `meta.lookups` + target primary key. |
+| UI | `OdataBrowserWorkspace.tsx` | SQL card with live "Translated FetchXML" preview, notes/errors as chips, Run (Ctrl+Enter), ☆ Save, Copy URL (the **native** `?sql=` URL), → FetchXML. "→ SQL" buttons in the OData actions and the FetchXML card. History/saved carry `kind: 'sql'`. |
+
+Every FetchXML construct the renderer emits was verified live on INT-11
+(2026-09-14): `entityname` on a top-level condition, `<order entityname>` at
+entity level, nested links, outer join with its own `<filter>`, aggregate over
+a join, `page`/`count`. The native endpoint rejects `OFFSET … FETCH`; the SQL
+tab supports it as a FetchXML page on purpose (an extra, documented in the
+notes chip).

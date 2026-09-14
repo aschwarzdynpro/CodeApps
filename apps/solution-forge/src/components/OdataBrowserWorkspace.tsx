@@ -38,7 +38,14 @@ import {
 import type { SuggestContext } from '../utils/odataSuggest'
 import { OdataFilterBuilder } from './OdataFilterBuilder'
 import { QueryInput } from './QueryInput'
-import { parseFetchXml } from '../utils/transferConfig'
+import { formatFetchXml, parseFetchXml } from '../utils/transferConfig'
+import {
+  describePosition,
+  sqlToFetchXml,
+  sqlWebApiUrl,
+  type SqlRenderResult,
+} from '../utils/sqlQuery'
+import { fetchXmlToSql, odataToSql, withNoteHeader } from '../utils/sqlTranslate'
 import { orgUrlForEnvKey } from '../config'
 import { OperateEnvPicker } from './OperateEnvPicker'
 import { SearchSelect, type SearchSelectOption } from './SearchSelect'
@@ -47,6 +54,7 @@ import { OdataQueryLibrary } from './OdataQueryLibrary'
 import { PromptDialog } from './PromptDialog'
 import {
   addToHistory,
+  kindOf,
   loadHistory,
   loadIdentityDismissed,
   loadSaved,
@@ -86,8 +94,16 @@ import {
  * (`utils/odataSuggest`) and the query is statically checked before it is sent
  * (`validateQuery`) — non-blocking, since the metadata can be stale. Rows open
  * into a record panel with lookup drill-through, and the workspace also hosts
- * the FetchXML path, the query library and the exports. Read-only: the write
- * seams exist but are switched off (`docs/odata-browser-plan.md` §12).
+ * the FetchXML path, the SQL path, the query library and the exports.
+ * Read-only: the write seams exist but are switched off
+ * (`docs/odata-browser-plan.md` §12).
+ *
+ * **SQL runs as FetchXML.** The connector cannot pass the Web API's `?sql=`
+ * option (see `utils/sqlQuery.ts`), so the SQL tab parses the statement,
+ * renders FetchXML and runs *that* — with the translation shown, so what is
+ * sent is never a secret. The other two tabs offer "→ SQL" (`odataToSql` /
+ * `fetchXmlToSql`), and everything a translation had to drop is written as
+ * `--` comment lines on top of the statement.
  */
 /**
  * Metadata sets, offered next to the real tables. They are addressable like
@@ -114,6 +130,14 @@ const FETCHXML_PLACEHOLDER = [
   '    <attribute name="name" />',
   '  </entity>',
   '</fetch>',
+].join('\n')
+
+const SQL_PLACEHOLDER = [
+  'SELECT TOP 50 a.name, a.statecode, c.fullname',
+  'FROM account AS a',
+  'LEFT JOIN contact AS c ON a.primarycontactid = c.contactid',
+  "WHERE a.statecode = 0 AND a.name LIKE 'A%'",
+  'ORDER BY a.name',
 ].join('\n')
 
 const isMetadataSet = (entitySet: string): boolean =>
@@ -166,9 +190,11 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     new Map(),
   )
 
-  /** OData builder vs. raw FetchXML — two different query paths. */
-  const [mode, setMode] = useState<'odata' | 'fetchxml'>('odata')
+  /** OData builder, raw FetchXML or SQL — three query paths, one grid. */
+  const [mode, setMode] = useState<'odata' | 'fetchxml' | 'sql'>('odata')
   const [fetchXml, setFetchXml] = useState('')
+  const [sql, setSql] = useState('')
+  const [sqlUrlCopied, setSqlUrlCopied] = useState(false)
 
   const [history, setHistory] = useState<StoredQuery[]>(() =>
     loadHistory(envKey),
@@ -620,10 +646,16 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     [query, meta, entities],
   )
 
-  /** Load a stored query back into the builder and run it. */
+  /** Load a stored query back into the builder (or the SQL tab) and run it. */
   const applyStored = (entry: StoredQuery) => {
     setLibraryOpen(false)
     setRawDraft(null)
+    if (kindOf(entry) === 'sql') {
+      setSql(entry.path)
+      setMode('sql')
+      void runSql(entry.path)
+      return
+    }
     // Read the table from the path alone — its columns (and therefore its
     // filter) can only be parsed once that table's metadata is loaded.
     const entitySet = entitySetOf(entry.path)
@@ -655,13 +687,15 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
 
   const saveCurrent = (name: string) => {
     setSavePromptOpen(false)
-    if (!queryPath) return
+    const isSql = mode === 'sql'
+    if (isSql ? !sql.trim() : !queryPath) return
     setSaved((prev) => {
       const next = upsertSaved(prev, {
         id: newEntryId(),
         name,
-        path: queryPath,
-        table,
+        path: isSql ? sql.trim() : queryPath,
+        ...(isSql ? { kind: 'sql' as const } : {}),
+        table: isSql ? (sqlEntity?.logicalName ?? '') : table,
         at: Date.now(),
       })
       saveSaved(envKey, next)
@@ -732,6 +766,138 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     } finally {
       if (seq === runSeq.current) setRunning(false)
     }
+  }
+
+  // --- SQL -----------------------------------------------------------------
+
+  /**
+   * The statement translated to FetchXML, live while typing. Cheap enough to
+   * recompute per keystroke, and it is what makes the preview honest: the
+   * FetchXML on screen is byte-for-byte what Run will send.
+   */
+  const sqlPreview: SqlRenderResult | null = useMemo(() => {
+    if (!sql.trim()) return null
+    return sqlToFetchXml(sql, {
+      primaryIdOf: (table) =>
+        entities.find((e) => e.logicalName === table)?.primaryIdAttribute,
+    })
+  }, [sql, entities])
+
+  /**
+   * The table a SQL statement addresses, if the environment has it. A plain
+   * `find` — the React compiler memoizes it, and a manual `useMemo` over the
+   * narrowed `sqlPreview` is one it cannot preserve.
+   */
+  const sqlEntityName = sqlPreview?.ok ? sqlPreview.entity : null
+  const sqlEntity =
+    sqlEntityName === null
+      ? null
+      : (entities.find((e) => e.logicalName === sqlEntityName) ?? null)
+
+  /** Run a SQL statement — via its FetchXML translation, same path as the FetchXML tab. */
+  const runSql = async (text: string) => {
+    const statement = text.trim()
+    if (!statement) return
+    const translated = sqlToFetchXml(statement, {
+      primaryIdOf: (table) =>
+        entities.find((e) => e.logicalName === table)?.primaryIdAttribute,
+    })
+    if (!translated.ok) {
+      fail(
+        new OdataQueryError(
+          translated.error,
+          `At ${describePosition(statement, translated.position)}. Dataverse SQL is a read-only T-SQL subset — see the note under the editor.`,
+        ),
+      )
+      return
+    }
+    const ref = entities.find((e) => e.logicalName === translated.entity)
+    if (!ref) {
+      fail(
+        new OdataQueryError(
+          `“${translated.entity}” is not a table in this environment.`,
+          'FROM takes the logical name (account, contact, pro_workingsolution), not the entity-set name.',
+        ),
+      )
+      return
+    }
+    const seq = ++runSeq.current
+    setRunning(true)
+    setError(null)
+    setHint(null)
+    try {
+      const result = await odataBrowserService.runFetchXml(
+        envKey,
+        ref.entitySet,
+        translated.fetchXml,
+      )
+      if (seq !== runSeq.current) return
+      setRows(result.rows)
+      setSkipToken(null)
+      setDurationMs(result.durationMs)
+      setRanQuery(null)
+      setTable(ref.logicalName)
+      setHistory((prev) => {
+        const next = addToHistory(prev, {
+          id: newEntryId(),
+          path: statement,
+          kind: 'sql',
+          table: ref.logicalName,
+          at: Date.now(),
+        })
+        saveHistory(envKey, next)
+        return next
+      })
+    } catch (err) {
+      if (seq === runSeq.current) fail(err)
+    } finally {
+      if (seq === runSeq.current) setRunning(false)
+    }
+  }
+
+  /** The builder's query, rewritten as SQL, opened in the SQL tab. */
+  const openSqlFromOData = () => {
+    if (!query.entitySet) return
+    const translated = odataToSql(query, { columns: metaByKey, meta, entities })
+    setSql(withNoteHeader(translated.sql, translated.notes))
+    setError(null)
+    setHint(null)
+    setMode('sql')
+  }
+
+  /** The FetchXML editor's content, rewritten as SQL, opened in the SQL tab. */
+  const openSqlFromFetch = () => {
+    const translated = fetchXmlToSql(fetchXml)
+    if (!translated.ok) {
+      fail(new OdataQueryError(translated.error))
+      return
+    }
+    setSql(withNoteHeader(translated.sql, translated.notes))
+    setError(null)
+    setHint(null)
+    setMode('sql')
+  }
+
+  /** The SQL statement's FetchXML translation, opened in the FetchXML tab. */
+  const openFetchFromSql = () => {
+    if (!sqlPreview?.ok) return
+    setFetchXml(formatFetchXml(sqlPreview.fetchXml))
+    setError(null)
+    setHint(null)
+    setMode('fetchxml')
+  }
+
+  /**
+   * The native `?sql=` URL — the endpoint the connector cannot reach, for a
+   * browser tab or a tool that has its own token.
+   */
+  const copySqlUrl = () => {
+    if (!sqlEntity) return
+    void navigator.clipboard?.writeText(
+      sqlWebApiUrl(orgUrlForEnvKey(envKey), sqlEntity.entitySet, sql),
+    )
+    setSqlUrlCopied(true)
+    window.setTimeout(() => setSqlUrlCopied(false), 1600)
   }
 
   /** Parse the edited raw line back into the query state. */
@@ -827,6 +993,12 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
           FetchXML
         </button>
         <button
+          className={`subtab ${mode === 'sql' ? 'subtab--active' : ''}`}
+          onClick={() => setMode('sql')}
+        >
+          SQL
+        </button>
+        <button
           className={`odb-identity-toggle ${
             identityDismissed ? '' : 'odb-identity-toggle--on'
           }`}
@@ -863,11 +1035,122 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
           />
           <div className="odb-fetch-actions">
             <button
+              className="btn btn--small"
+              onClick={openSqlFromFetch}
+              disabled={!fetchXml.trim()}
+              title="Rewrite this FetchXML as a Dataverse SQL statement and open it in the SQL tab"
+            >
+              → SQL
+            </button>
+            <button
               className="btn btn--primary btn--small"
               onClick={() => void runFetch()}
               disabled={running || !fetchXml.trim()}
             >
               {running ? 'Running…' : '▶ Run FetchXML'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mode === 'sql' && (
+        <div className="card odb-fetch odb-sql">
+          <div className="odb-builder-row">
+            <span className="odb-builder-label">SQL</span>
+            <span className="muted">
+              Dataverse's read-only T-SQL subset — <code>SELECT</code> with{' '}
+              <code>TOP</code>/<code>DISTINCT</code>, <code>INNER</code>/
+              <code>LEFT JOIN</code>, <code>WHERE</code>, <code>GROUP BY</code>{' '}
+              + aggregates, <code>ORDER BY</code>; <code>FROM</code> takes the
+              logical name. It runs as the FetchXML shown below (the connector
+              cannot send <code>?sql=</code>), so it returns one page of at
+              most 5000 rows.{' '}
+              <a
+                href="https://learn.microsoft.com/power-apps/developer/data-platform/webapi/query/sql"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Supported SQL ↗
+              </a>
+            </span>
+          </div>
+          <textarea
+            className="odb-fetch-input"
+            spellCheck={false}
+            rows={8}
+            value={sql}
+            placeholder={SQL_PLACEHOLDER}
+            onChange={(e) => setSql(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault()
+                void runSql(sql)
+              }
+            }}
+            aria-label="SQL statement"
+          />
+          {sqlPreview && !sqlPreview.ok && (
+            <div className="odb-checks">
+              <span className="odb-check odb-check--error">
+                ✕ {sqlPreview.error} (at {describePosition(sql, sqlPreview.position)})
+              </span>
+            </div>
+          )}
+          {sqlPreview?.ok && (sqlPreview.notes.length > 0 || !sqlEntity) && (
+            <div className="odb-checks">
+              {!sqlEntity && entities.length > 0 && (
+                <span className="odb-check odb-check--error">
+                  ✕ “{sqlPreview.entity}” is not a table in this environment.
+                </span>
+              )}
+              {sqlPreview.notes.map((note) => (
+                <span key={note} className="odb-check odb-check--warn">
+                  ⚠ {note}
+                </span>
+              ))}
+            </div>
+          )}
+          {sqlPreview?.ok && (
+            <details className="odb-sql-preview">
+              <summary>
+                Translated FetchXML — what Run sends
+                {sqlEntity ? ` to ${sqlEntity.entitySet}` : ''}
+              </summary>
+              <pre>{formatFetchXml(sqlPreview.fetchXml)}</pre>
+            </details>
+          )}
+          <div className="odb-fetch-actions">
+            <button
+              className="btn btn--small"
+              onClick={() => setSavePromptOpen(true)}
+              disabled={!sql.trim()}
+              title="Save this statement under a name (this environment only)"
+            >
+              ☆ Save
+            </button>
+            <button
+              className="btn btn--small"
+              onClick={copySqlUrl}
+              disabled={!sqlEntity}
+              title="Copy the native Web API URL (…?sql=…) — for a browser tab or a tool with its own token; the browser itself runs the FetchXML translation"
+            >
+              {sqlUrlCopied ? '✓ Copied' : 'Copy URL'}
+            </button>
+            <button
+              className="btn btn--small"
+              onClick={openFetchFromSql}
+              disabled={!sqlPreview?.ok}
+              title="Open the translated FetchXML in the FetchXML tab"
+            >
+              → FetchXML
+            </button>
+            <button
+              className="btn btn--primary btn--small"
+              onClick={() => void runSql(sql)}
+              disabled={running || !sqlPreview?.ok || !sqlEntity}
+              title="Run (Ctrl+Enter)"
+            >
+              {running ? 'Running…' : '▶ Run SQL'}
             </button>
           </div>
         </div>
@@ -1226,6 +1509,20 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
               <button className="btn btn--small" onClick={copyUrl}>
                 {copied ? '✓ Copied' : 'Copy URL'}
               </button>
+              <button
+                className="btn btn--small"
+                onClick={openSqlFromOData}
+                // An unapplied edit means the builder still holds the OLD
+                // query — translating that would not be what is on screen.
+                disabled={rawDraft !== null || !query.entitySet}
+                title={
+                  rawDraft !== null
+                    ? 'Apply the edited query first — the translation reads the builder.'
+                    : 'Rewrite this query as a Dataverse SQL statement and open it in the SQL tab'
+                }
+              >
+                → SQL
+              </button>
             </span>
           </div>
 
@@ -1301,7 +1598,7 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
         <PromptDialog
           title="Save query"
           label="Name"
-          initialValue={table}
+          initialValue={mode === 'sql' ? (sqlEntity?.logicalName ?? '') : table}
           placeholder="e.g. Open accounts with revenue"
           confirmLabel="Save"
           hint={

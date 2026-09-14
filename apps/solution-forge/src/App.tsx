@@ -185,7 +185,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     // Operations views over a chosen environment. Trace Explorer is open to
     // everyone (its destructive actions are deployment-manager-gated inside
-    // the workspace); the OData Browser is gated as a whole because it reads
+    // the workspace); the Data Browser is gated as a whole because it reads
     // as the connector service principal.
     //
     // The Role Analyzer is back (it is the foundation of the security-concept
@@ -203,7 +203,10 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { key: 'traces', label: 'Plugin Traces', icon: '🧵', gated: false },
       // Reads any table of any configured environment through the connector,
       // i.e. as the service principal — gated, and the workspace says so.
-      { key: 'odata', label: 'OData Browser', icon: '🗄️', gated: true },
+      // "Data Browser" since the SQL tab (2026-09-14): OData, FetchXML and
+      // SQL against any environment. The key stays `odata` — deep links and
+      // the file names keep working.
+      { key: 'odata', label: 'Data Browser', icon: '🗄️', gated: true },
       { key: 'roles', label: 'Role Analyzer', icon: '🛡', gated: true },
       // Moves configuration data BETWEEN environments — that is an operations
       // job, not part of building a release, which is what Manage is about.
@@ -250,7 +253,7 @@ const TAB_TITLES: Record<Tab, string> = {
   pluginCompare: 'Plugin Comparer',
   roleCompare: 'Role Comparer',
   traces: 'Plugin Trace Explorer',
-  odata: 'OData Browser',
+  odata: 'Data Browser',
   roles: 'Security Role Analyzer',
   links: 'Environment Links',
   setup: 'Environment Setup',
@@ -400,7 +403,7 @@ function App() {
   const [userSettingsEnvKey, setUserSettingsEnvKey] = useState<string>(() =>
     currentEnvKey(),
   )
-  // OData Browser — its own target environment (browsing UAT/PROD data is the
+  // Data Browser — its own target environment (browsing UAT/PROD data is the
   // normal case, so it must not drag the Operate selection along).
   const [odataEnvKey, setOdataEnvKey] = useState<string>(() => currentEnvKey())
   // Sidebar collapse (icon-only) — remembered across sessions.
@@ -1755,7 +1758,7 @@ function App() {
         />
       )}
 
-      {/* The OData Browser remounts on env change — table, columns and result
+      {/* The Data Browser remounts on env change — table, columns and result
           all belong to one environment's schema, so a reset is the honest
           behaviour rather than carrying a stale query across. */}
       {!error && tab === 'odata' && isDeploymentManager && (

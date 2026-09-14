@@ -9189,3 +9189,41 @@
 .thub-run-flowlink a:hover {
   text-decoration: underline;
 }
+
+/* Data Browser — SQL tab */
+.odb-sql-preview {
+  margin-top: 10px;
+  font-size: 12px;
+}
+.odb-sql-preview summary {
+  cursor: pointer;
+  color: var(--muted, #666);
+  user-select: none;
+}
+.odb-sql-preview pre {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre;
+}
+.odb-fetch-actions {
+  gap: 8px;
+}
+.odb-library-kind {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted, #666);
+  vertical-align: middle;
+}
