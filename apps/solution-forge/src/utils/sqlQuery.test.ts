@@ -4,6 +4,7 @@ import {
   isoDate,
   parseSql,
   renderFetchXml,
+  sqlFromTable,
   sqlToFetchXml,
   sqlWebApiUrl,
   tokenizeSql,
@@ -294,6 +295,21 @@ describe('renderFetchXml', () => {
     if (!parsed.ok) return
     const rendered = renderFetchXml(parsed.statement)
     expect(rendered.ok).toBe(true)
+  })
+})
+
+describe('sqlFromTable', () => {
+  it('reads the FROM table from a parsable statement', () => {
+    expect(sqlFromTable('SELECT a.name FROM account AS a WHERE a.statecode = 0')).toBe('account')
+  })
+
+  it('falls back to a lenient scan when the parser rejects the statement', () => {
+    expect(sqlFromTable('SELECT * FROM [contact] c -- from nowhere')).toBe('contact')
+    expect(sqlFromTable('/* from x */ SELECT LEN(name) FROM pro_workingsolution')).toBe('pro_workingsolution')
+  })
+
+  it('returns null without a FROM', () => {
+    expect(sqlFromTable('SELECT 1')).toBeNull()
   })
 })
 

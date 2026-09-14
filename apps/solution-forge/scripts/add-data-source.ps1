@@ -41,9 +41,86 @@ finally {
 }
 
 # Re-insert the hand-maintained blocks if the regeneration dropped them
-# (the generator only knows schema files; these two are defined here).
-if ((Test-Path $dsInfo) -and -not (Select-String -Path $dsInfo -Pattern '"addsolutioncomponent"' -Quiet)) {
-  $block = @'
+# (the generator only knows schema files; these three are defined here).
+# Each block is checked on its own — add-flow has been seen to drop one and
+# keep another (gotcha #1).
+function Restore-HandBlock($dsInfo, $marker, $block) {
+  if (Select-String -Path $dsInfo -Pattern $marker -Quiet) { return }
+  $content = Get-Content $dsInfo -Raw
+  $anchor = "export const dataSourcesInfo = {"
+  $content = $content.Replace($anchor, "$anchor`n$block")
+  Set-Content -Path $dsInfo -Value $content -NoNewline
+  Write-Host "Re-inserted the $marker block into dataSourcesInfo.ts."
+}
+
+if (Test-Path $dsInfo) {
+  # Native Web API SQL option (Data Browser SQL tab) — GET {entitySet}?sql=…
+  # through the code app's own Dataverse data source. The `?sql=` lives in
+  # the path template on purpose: the SDK encodes only the {placeholders}.
+  Restore-HandBlock $dsInfo '"executesql"' @'
+  "executesql": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "",
+    "dataSourceType": "Dataverse",
+    "apis": {
+      "ExecuteSql": {
+        "path": "/api/data/v9.2/{entitySetName}?sql={sql}",
+        "method": "GET",
+        "parameters": [
+          {
+            "name": "entitySetName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "sql",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responseInfo": {
+          "200": {
+            "type": "object"
+          }
+        }
+      },
+      "ExecuteSqlPage": {
+        "path": "/api/data/v9.2/{entitySetName}?sql={sql}&$skiptoken={skiptoken}",
+        "method": "GET",
+        "parameters": [
+          {
+            "name": "entitySetName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "sql",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "skiptoken",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responseInfo": {
+          "200": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+'@
+
+  Restore-HandBlock $dsInfo '"retrievemissingdependencies"' @'
   "retrievemissingdependencies": {
     "tableId": "",
     "version": "",
@@ -69,6 +146,9 @@ if ((Test-Path $dsInfo) -and -not (Select-String -Path $dsInfo -Pattern '"addsol
       }
     }
   },
+'@
+
+  Restore-HandBlock $dsInfo '"addsolutioncomponent"' @'
   "addsolutioncomponent": {
     "tableId": "",
     "version": "",
@@ -125,11 +205,6 @@ if ((Test-Path $dsInfo) -and -not (Select-String -Path $dsInfo -Pattern '"addsol
     }
   },
 '@
-  $content = Get-Content $dsInfo -Raw
-  $anchor = "export const dataSourcesInfo = {"
-  $content = $content.Replace($anchor, "$anchor`n$block")
-  Set-Content -Path $dsInfo -Value $content -NoNewline
-  Write-Host "Re-inserted the addsolutioncomponent + retrievemissingdependencies blocks into dataSourcesInfo.ts."
 }
 
 exit $exit

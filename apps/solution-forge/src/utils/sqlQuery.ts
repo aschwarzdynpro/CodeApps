@@ -1,19 +1,18 @@
 /**
- * Data Browser — the SQL path.
+ * Data Browser — SQL parsing, linting and the SQL → FetchXML translation.
  *
  * Dataverse accepts a read-only T-SQL subset on the Web API
  * (`GET /<entityset>?sql=SELECT …`, see
  * https://learn.microsoft.com/power-apps/developer/data-platform/webapi/query/sql).
- * The Dataverse **connector cannot send it**: `sql` is not one of its query
- * parameters, and its API hub percent-encodes the path parameter, so
- * `entityName = "accounts?sql=…"` reaches Dataverse as
- * `accounts%3Fsql%3D…` and dies with an IIS runtime error (verified against
- * INT-11 on 2026-09-14 — the native `?sql=` works there, the encoded path does
- * not).
+ * The SQL tab **runs statements natively** on that endpoint through the code
+ * app's own Dataverse data source (`services/executeSqlService.ts`); this
+ * module is the client side of it: it reads the FROM table (`sqlFromTable`,
+ * needed for the entity-set URL), lints the statement against the documented
+ * subset before it is sent (non-blocking — Dataverse decides), and translates
+ * a statement to FetchXML for the "→ FetchXML" button.
  *
- * So the browser does what Dataverse does server-side: it **parses the same
- * T-SQL subset and renders FetchXML**, which the connector runs like any
- * other FetchXML. Everything the docs list as supported maps 1:1 —
+ * The parser understands exactly the documented subset, and the renderer
+ * maps it 1:1 onto FetchXML —
  * `SELECT`/`DISTINCT`/`TOP`, `INNER`/`LEFT JOIN` (→ `<link-entity>`), the
  * `WHERE` operators (→ `<condition>`, joined-table columns via `entityname`),
  * `GROUP BY` + aggregates (→ `aggregate="true"`), `ORDER BY`. Two things are
@@ -1281,7 +1280,20 @@ export function renderFetchXml(
   return { ok: true, fetchXml, entity: main.table, notes: [...new Set(notes)] }
 }
 
-/** Parse + render in one go — what the workspace calls. */
+/**
+ * The FROM table of a statement — parsed when the parser can read it,
+ * otherwise a lenient regex (comments stripped), so a statement the parser
+ * rejects still finds its entity set and Dataverse gets to decide.
+ */
+export function sqlFromTable(text: string): string | null {
+  const parsed = parseSql(text)
+  if (parsed.ok) return parsed.statement.from.table
+  const stripped = text.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
+  const match = stripped.match(/\bfrom\s+\[?([A-Za-z_][A-Za-z0-9_]*)\]?/i)
+  return match ? match[1] : null
+}
+
+/** Parse + render in one go — the "→ FetchXML" translation. */
 export function sqlToFetchXml(
   text: string,
   ctx: SqlRenderContext = {},

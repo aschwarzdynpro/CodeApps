@@ -596,12 +596,16 @@ nach Typ.
     T-SQL-Teilmenge von Dataverse (`SELECT`/`TOP`/`DISTINCT`, `INNER`/`LEFT
     JOIN`, `WHERE` mit `LIKE`/`IN`/`BETWEEN`/`IS NULL`/`DATEADD`/`GETUTCDATE`,
     `GROUP BY` + `COUNT`/`SUM`/`AVG`/`MIN`/`MAX`, `ORDER BY`, `FROM` mit dem
-    logischen Namen). Weil der Konnektor die Web-API-Option `?sql=` nicht
-    transportieren kann, wird das Statement **nach FetchXML übersetzt und so
-    ausgeführt** — die Übersetzung steht einklappbar unter dem Editor,
-    Fehler nennen Zeile/Spalte, „→ FetchXML" öffnet sie im FetchXML-Reiter,
-    `OFFSET … FETCH` wird zur FetchXML-Seite; **Copy URL** liefert die echte
-    `…?sql=`-URL für Browser/Tools mit eigenem Token. Umgekehrt haben OData-
+    logischen Namen). Das Statement läuft **nativ** über die Web-API-Option
+    `?sql=` — durch die eigene Dataverse-Data-Source der App, weil der
+    Konnektor sie nicht transportieren kann. Deshalb ist dieser Reiter
+    anders als die beiden anderen: er läuft **als angemeldeter User** (nicht
+    als SP), **nur gegen die Host-Umgebung** und liefert **Rohwerte** (keine
+    Formatted Values); „Load more" folgt dem Paging-Cursor. Ein Lint unter
+    dem Editor meldet, was die dokumentierte Teilmenge nicht erlaubt
+    (Zeile/Spalte), blockiert aber nie; „→ FetchXML" übersetzt das Statement
+    in den FetchXML-Reiter; **Copy URL** liefert die echte `…?sql=`-URL.
+    Umgekehrt haben OData-
     und FetchXML-Reiter einen **„→ SQL"-Knopf**: Builder-Query bzw. FetchXML
     werden als SQL umgeschrieben; was SQL nicht sagen kann (EqualUserId,
     Raw-`$filter`, ContainValues) fällt weg und steht als `--`-Kommentar

@@ -445,6 +445,26 @@ class MockOdataBrowserService implements OdataBrowserService {
     return { rows: seed.rows, skipToken: null, durationMs: 200 }
   }
 
+  async runSql(
+    _envKey: string,
+    entitySet: string,
+    _sql: string,
+    _skipToken: string | null = null,
+  ): Promise<QueryResult> {
+    void _envKey
+    void _sql
+    void _skipToken
+    await delay(200)
+    const seed = SEEDS.find((s) => s.ref.entitySet === entitySet)
+    if (!seed)
+      throw new OdataQueryError(
+        `No HTTP resource was found that matches “${entitySet}”.`,
+      )
+    // The mock cannot execute SQL — it returns the seeded rows so the tab is
+    // demoable, without pretending the statement was applied.
+    return { rows: seed.rows, skipToken: null, durationMs: 200 }
+  }
+
   async getRecord(
     _envKey: string,
     entitySet: string,

@@ -41,12 +41,13 @@ import { QueryInput } from './QueryInput'
 import { formatFetchXml, parseFetchXml } from '../utils/transferConfig'
 import {
   describePosition,
+  sqlFromTable,
   sqlToFetchXml,
   sqlWebApiUrl,
   type SqlRenderResult,
 } from '../utils/sqlQuery'
 import { fetchXmlToSql, odataToSql, withNoteHeader } from '../utils/sqlTranslate'
-import { orgUrlForEnvKey } from '../config'
+import { isCurrentEnvKey, orgUrlForEnvKey } from '../config'
 import { OperateEnvPicker } from './OperateEnvPicker'
 import { SearchSelect, type SearchSelectOption } from './SearchSelect'
 import { OdataResultGrid } from './OdataResultGrid'
@@ -98,12 +99,15 @@ import {
  * Read-only: the write seams exist but are switched off
  * (`docs/odata-browser-plan.md` §12).
  *
- * **SQL runs as FetchXML.** The connector cannot pass the Web API's `?sql=`
- * option (see `utils/sqlQuery.ts`), so the SQL tab parses the statement,
- * renders FetchXML and runs *that* — with the translation shown, so what is
- * sent is never a secret. The other two tabs offer "→ SQL" (`odataToSql` /
- * `fetchXmlToSql`), and everything a translation had to drop is written as
- * `--` comment lines on top of the statement.
+ * **SQL runs natively** on the Web API's `?sql=` option — through the code
+ * app's own Dataverse data source (`runSql` → `executeSqlService`), because
+ * the connector cannot carry it (gotcha #14). That makes the SQL tab the odd
+ * one out: it runs **as the signed-in user** and **against the host
+ * environment only**, and its rows come **without annotations**. The parser
+ * in `utils/sqlQuery.ts` only lints (non-blocking) and finds the FROM table.
+ * The other two tabs offer "→ SQL" (`odataToSql` / `fetchXmlToSql`), the SQL
+ * tab offers "→ FetchXML"; everything a translation had to drop is written
+ * as `--` comment lines on top of the statement.
  */
 /**
  * Metadata sets, offered next to the real tables. They are addressable like
@@ -194,6 +198,8 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   const [mode, setMode] = useState<'odata' | 'fetchxml' | 'sql'>('odata')
   const [fetchXml, setFetchXml] = useState('')
   const [sql, setSql] = useState('')
+  /** The statement the rows on screen came from — "Load more" re-sends it. */
+  const [sqlRan, setSqlRan] = useState<string | null>(null)
   const [sqlUrlCopied, setSqlUrlCopied] = useState(false)
 
   const [history, setHistory] = useState<StoredQuery[]>(() =>
@@ -771,9 +777,10 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   // --- SQL -----------------------------------------------------------------
 
   /**
-   * The statement translated to FetchXML, live while typing. Cheap enough to
-   * recompute per keystroke, and it is what makes the preview honest: the
-   * FetchXML on screen is byte-for-byte what Run will send.
+   * The statement parsed (and rendered to FetchXML) live while typing. The
+   * run is native, so this is a **lint**, not what gets sent: a parse error
+   * shows as a warning and the statement still goes to Dataverse, which has
+   * the last word. The rendered FetchXML feeds the "→ FetchXML" button.
    */
   const sqlPreview: SqlRenderResult | null = useMemo(() => {
     if (!sql.trim()) return null
@@ -784,38 +791,47 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
   }, [sql, entities])
 
   /**
-   * The table a SQL statement addresses, if the environment has it. A plain
-   * `find` — the React compiler memoizes it, and a manual `useMemo` over the
-   * narrowed `sqlPreview` is one it cannot preserve.
+   * The table a SQL statement addresses, if the environment has it — read
+   * leniently (`sqlFromTable`), so a statement the linter cannot parse still
+   * resolves its entity set. A plain `find` — the React compiler memoizes
+   * it, and a manual `useMemo` over the narrowed `sqlPreview` is one it
+   * cannot preserve.
    */
-  const sqlEntityName = sqlPreview?.ok ? sqlPreview.entity : null
+  const sqlEntityName = sql.trim() ? sqlFromTable(sql) : null
   const sqlEntity =
     sqlEntityName === null
       ? null
       : (entities.find((e) => e.logicalName === sqlEntityName) ?? null)
+  /** SQL is native, so it only reaches the app's own environment. */
+  const sqlHostOnly = !isCurrentEnvKey(envKey)
 
-  /** Run a SQL statement — via its FetchXML translation, same path as the FetchXML tab. */
-  const runSql = async (text: string) => {
+  /**
+   * Run a SQL statement natively (`?sql=`). `token`/`append` continue a page
+   * for "Load more". Nothing is validated client-side beyond finding the
+   * FROM table — Dataverse answers the statement, and its fault is shown.
+   */
+  const runSql = async (
+    text: string,
+    token: string | null = null,
+    append = false,
+  ) => {
     const statement = text.trim()
     if (!statement) return
-    const translated = sqlToFetchXml(statement, {
-      primaryIdOf: (table) =>
-        entities.find((e) => e.logicalName === table)?.primaryIdAttribute,
-    })
-    if (!translated.ok) {
+    const fromTable = sqlFromTable(statement)
+    if (!fromTable) {
       fail(
         new OdataQueryError(
-          translated.error,
-          `At ${describePosition(statement, translated.position)}. Dataverse SQL is a read-only T-SQL subset — see the note under the editor.`,
+          'No FROM table found in the statement.',
+          'The entity set of the request comes from FROM — write it as the logical name (account, contact, pro_workingsolution).',
         ),
       )
       return
     }
-    const ref = entities.find((e) => e.logicalName === translated.entity)
+    const ref = entities.find((e) => e.logicalName === fromTable)
     if (!ref) {
       fail(
         new OdataQueryError(
-          `“${translated.entity}” is not a table in this environment.`,
+          `“${fromTable}” is not a table in this environment.`,
           'FROM takes the logical name (account, contact, pro_workingsolution), not the entity-set name.',
         ),
       )
@@ -826,17 +842,22 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
     setError(null)
     setHint(null)
     try {
-      const result = await odataBrowserService.runFetchXml(
+      const result = await odataBrowserService.runSql(
         envKey,
         ref.entitySet,
-        translated.fetchXml,
+        statement,
+        token,
       )
       if (seq !== runSeq.current) return
-      setRows(result.rows)
-      setSkipToken(null)
+      setRows((prev) =>
+        append && prev ? [...prev, ...result.rows] : result.rows,
+      )
+      setSkipToken(result.skipToken)
       setDurationMs(result.durationMs)
       setRanQuery(null)
+      setSqlRan(statement)
       setTable(ref.logicalName)
+      if (append) return
       setHistory((prev) => {
         const next = addToHistory(prev, {
           id: newEntryId(),
@@ -1062,9 +1083,10 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
               <code>TOP</code>/<code>DISTINCT</code>, <code>INNER</code>/
               <code>LEFT JOIN</code>, <code>WHERE</code>, <code>GROUP BY</code>{' '}
               + aggregates, <code>ORDER BY</code>; <code>FROM</code> takes the
-              logical name. It runs as the FetchXML shown below (the connector
-              cannot send <code>?sql=</code>), so it returns one page of at
-              most 5000 rows.{' '}
+              logical name. Runs <strong>natively</strong> on the Web API's{' '}
+              <code>?sql=</code> option — <strong>as you</strong>, not as the
+              service principal, and <strong>against the host environment
+              only</strong>; rows come raw (no formatted labels).{' '}
               <a
                 href="https://learn.microsoft.com/power-apps/developer/data-platform/webapi/query/sql"
                 target="_blank"
@@ -1089,35 +1111,35 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
             }}
             aria-label="SQL statement"
           />
-          {sqlPreview && !sqlPreview.ok && (
+          {/* Lint chips — warnings, never a gate: the statement is sent as
+              written and Dataverse decides. Only a missing/unknown FROM table
+              blocks, because without it there is no URL to send it to. */}
+          {(sqlHostOnly ||
+            (sqlPreview && !sqlPreview.ok) ||
+            (sql.trim() !== '' && !sqlEntity && entities.length > 0)) && (
             <div className="odb-checks">
-              <span className="odb-check odb-check--error">
-                ✕ {sqlPreview.error} (at {describePosition(sql, sqlPreview.position)})
-              </span>
-            </div>
-          )}
-          {sqlPreview?.ok && (sqlPreview.notes.length > 0 || !sqlEntity) && (
-            <div className="odb-checks">
-              {!sqlEntity && entities.length > 0 && (
+              {sqlHostOnly && (
                 <span className="odb-check odb-check--error">
-                  ✕ “{sqlPreview.entity}” is not a table in this environment.
+                  ✕ SQL runs natively against the host environment only —
+                  switch the target above, or use OData / FetchXML here.
                 </span>
               )}
-              {sqlPreview.notes.map((note) => (
-                <span key={note} className="odb-check odb-check--warn">
-                  ⚠ {note}
+              {sql.trim() !== '' && !sqlEntity && entities.length > 0 && (
+                <span className="odb-check odb-check--error">
+                  ✕{' '}
+                  {sqlEntityName
+                    ? `“${sqlEntityName}” is not a table in this environment.`
+                    : 'No FROM table found — the request needs its entity set.'}
                 </span>
-              ))}
+              )}
+              {sqlPreview && !sqlPreview.ok && (
+                <span className="odb-check odb-check--warn">
+                  ⚠ {sqlPreview.error} (at{' '}
+                  {describePosition(sql, sqlPreview.position)}) — sent anyway,
+                  Dataverse decides.
+                </span>
+              )}
             </div>
-          )}
-          {sqlPreview?.ok && (
-            <details className="odb-sql-preview">
-              <summary>
-                Translated FetchXML — what Run sends
-                {sqlEntity ? ` to ${sqlEntity.entitySet}` : ''}
-              </summary>
-              <pre>{formatFetchXml(sqlPreview.fetchXml)}</pre>
-            </details>
           )}
           <div className="odb-fetch-actions">
             <button
@@ -1132,7 +1154,7 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
               className="btn btn--small"
               onClick={copySqlUrl}
               disabled={!sqlEntity}
-              title="Copy the native Web API URL (…?sql=…) — for a browser tab or a tool with its own token; the browser itself runs the FetchXML translation"
+              title="Copy the Web API URL this tab calls (…?sql=…) — for a browser tab or a tool with its own token"
             >
               {sqlUrlCopied ? '✓ Copied' : 'Copy URL'}
             </button>
@@ -1140,15 +1162,19 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
               className="btn btn--small"
               onClick={openFetchFromSql}
               disabled={!sqlPreview?.ok}
-              title="Open the translated FetchXML in the FetchXML tab"
+              title={
+                sqlPreview?.ok
+                  ? 'Translate this statement to FetchXML and open it in the FetchXML tab'
+                  : 'Translation needs a statement the parser can read'
+              }
             >
               → FetchXML
             </button>
             <button
               className="btn btn--primary btn--small"
               onClick={() => void runSql(sql)}
-              disabled={running || !sqlPreview?.ok || !sqlEntity}
-              title="Run (Ctrl+Enter)"
+              disabled={running || !sqlEntity || sqlHostOnly}
+              title="Run natively via ?sql= (Ctrl+Enter)"
             >
               {running ? 'Running…' : '▶ Run SQL'}
             </button>
@@ -1702,7 +1728,11 @@ export function OdataBrowserWorkspace({ envKey, onEnvChange }: Props) {
             </button>
             <button
               className="btn btn--small"
-              onClick={() => void execute(query, skipToken, true, metaByKey)}
+              onClick={() =>
+                mode === 'sql'
+                  ? void runSql(sqlRan ?? sql, skipToken, true)
+                  : void execute(query, skipToken, true, metaByKey)
+              }
               disabled={!skipToken || running}
             >
               {running ? 'Loading…' : 'Load more'}

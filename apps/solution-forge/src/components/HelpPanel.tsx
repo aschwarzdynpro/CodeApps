@@ -811,22 +811,27 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <code>GETUTCDATE</code>), <code>GROUP BY</code> with{' '}
               <code>COUNT</code>/<code>SUM</code>/<code>AVG</code>/
               <code>MIN</code>/<code>MAX</code>, <code>ORDER BY</code>;{' '}
-              <code>FROM</code> takes the logical name. The connector cannot
-              send the Web API's <code>?sql=</code> option, so the statement
-              is <strong>translated to FetchXML and run as that</strong> — the
-              translation is shown under the editor (expand “Translated
-              FetchXML”), errors point at line and column, and “→ FetchXML”
-              opens it in the FetchXML tab. As an extra over the native
-              endpoint, <code>OFFSET … FETCH</code> becomes a FetchXML page.{' '}
-              <strong>Copy URL</strong> yields the real <code>…?sql=</code>{' '}
-              URL for a browser tab or a tool with its own token. The other
-              two tabs offer <strong>→ SQL</strong>: the builder's query and
-              a pasted FetchXML are rewritten as SQL; whatever SQL cannot say
-              (<em>is the current user</em>, a raw <code>$filter</code>, a
-              multi-select <em>contains any of</em>) is dropped{' '}
-              <em>and written as a <code>--</code> comment on top</em>, never
-              silently. SQL statements join the history and can be saved
-              like any other query.
+              <code>FROM</code> takes the logical name. The statement runs{' '}
+              <strong>natively</strong> on the Web API's <code>?sql=</code>{' '}
+              option through the app's own Dataverse data source — which
+              makes this tab different from the other two in three ways: it
+              runs <strong>as you</strong> (not as the service principal), it
+              reaches the <strong>host environment only</strong> (the picker
+              above says so when another one is selected), and the rows come{' '}
+              <strong>raw</strong> (no formatted labels — the native call
+              cannot ask for annotations). <strong>Load more</strong> follows
+              the server's paging cursor. A lint under the editor flags what
+              the documented subset does not allow (with line and column) but
+              never blocks — Dataverse has the last word. <strong>Copy
+              URL</strong> yields the real <code>…?sql=</code> URL, and{' '}
+              <strong>→ FetchXML</strong> translates the statement into the
+              FetchXML tab. The other two tabs offer <strong>→ SQL</strong>:
+              the builder's query and a pasted FetchXML are rewritten as SQL;
+              whatever SQL cannot say (<em>is the current user</em>, a raw{' '}
+              <code>$filter</code>, a multi-select <em>contains any of</em>)
+              is dropped <em>and written as a <code>--</code> comment on
+              top</em>, never silently. SQL statements join the history and
+              can be saved like any other query.
             </p>
             <p>
               ⚠ <strong>Queries run as the connector service principal</strong>,

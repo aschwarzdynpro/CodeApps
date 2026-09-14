@@ -34,7 +34,82 @@ $dsInfoPath = Join-Path $appDir '.power\schemas\appschemas\dataSourcesInfo.ts'
 # handgepflegten retrievemissingdependencies-Block (gotcha #1/#12; addsolution-
 # component bleibt, daher greift das Re-Insert in add-data-source.ps1 hier NICHT).
 # Template gespiegelt aus scripts/add-data-source.ps1 (dort die Quelle der Wahrheit).
+# The Data Browser's SQL tab needs the hand-maintained `executesql` block too
+# (native `GET {entitySet}?sql=…`); same anchor, same re-insert rule.
+function Restore-ExecuteSql($dsInfo) {
+  if (-not (Test-Path $dsInfo)) { return }
+  if (Select-String -Path $dsInfo -Pattern '"executesql"' -Quiet) { return }
+  $block = @'
+  "executesql": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "",
+    "dataSourceType": "Dataverse",
+    "apis": {
+      "ExecuteSql": {
+        "path": "/api/data/v9.2/{entitySetName}?sql={sql}",
+        "method": "GET",
+        "parameters": [
+          {
+            "name": "entitySetName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "sql",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responseInfo": {
+          "200": {
+            "type": "object"
+          }
+        }
+      },
+      "ExecuteSqlPage": {
+        "path": "/api/data/v9.2/{entitySetName}?sql={sql}&$skiptoken={skiptoken}",
+        "method": "GET",
+        "parameters": [
+          {
+            "name": "entitySetName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "sql",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "skiptoken",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responseInfo": {
+          "200": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+'@
+  $content = Get-Content $dsInfo -Raw
+  $anchor = "export const dataSourcesInfo = {"
+  $content = $content.Replace($anchor, "$anchor`n$block")
+  Set-Content -Path $dsInfo -Value $content -NoNewline
+  Write-Host "Re-inserted executesql block into dataSourcesInfo.ts."
+}
+
 function Restore-RetrieveMissingDependencies($dsInfo) {
+  Restore-ExecuteSql $dsInfo
   if (-not (Test-Path $dsInfo)) { return }
   if (Select-String -Path $dsInfo -Pattern '"retrievemissingdependencies"' -Quiet) { return }
   $block = @'
