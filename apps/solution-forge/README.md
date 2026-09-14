@@ -7,9 +7,8 @@ Release Notes und Timeline pflegen, Releases prüfen (**Deployment
 Readiness** vor dem Import, **Analyze** mit Compare / Layer Inspector /
 App Sharing danach), Konfigurations-Cockpits (Env Config, Audit Config,
 Dual-Write Maps, Import History, User Settings, Process- &
-Plugin-Comparer, Plugin Traces), ein **Data Browser** (OData, FetchXML und
-SQL) zum freien Durchsehen der Datenbank je Umgebung — plus der
-**Configuration Data Transfer
+Plugin-Comparer, Plugin Traces), ein **OData Browser** zum freien Durchsehen
+der Datenbank je Umgebung — plus der **Configuration Data Transfer
 Hub**, der Konfigurationsdaten über mitinstallierte Executor-Cloud-Flows
 zwischen Umgebungen transportiert.
 
@@ -62,7 +61,7 @@ nach Typ.
   (Deployment Readiness, Analyze, Env Config, Audit Config, Dual-Write Maps,
   Import History, User Settings, Process Comparer, Plugin Comparer,
   Role Comparer),
-  **Operate** (Plugin Traces, Data Browser, Role Analyzer, Data Transfer) und
+  **Operate** (Plugin Traces, OData Browser, Role Analyzer, Data Transfer) und
   **Reference** (Links, Environment Setup). Die Gruppen sind **aufklappbar und es ist immer
   genau eine offen** — 21 Einträge passen sonst nicht auf einen
   Notebook-Bildschirm. Welche offen ist, folgt automatisch dem aktiven
@@ -512,7 +511,7 @@ nach Typ.
   jeweiligen Feature-Tab öffnen. Der Detective orchestriert nur die
   vorhandenen Services (kein eigener Datenpfad).
 - **Operate-Gruppe** (Betriebssicht; im Menü **Plugin Traces**,
-  **Data Browser** und **Role Analyzer**). Der **Role Analyzer ist seit dem
+  **OData Browser** und **Role Analyzer**). Der **Role Analyzer ist seit dem
   2026-08-04 wieder angeschlossen** — als Fundament der Security-Konzept-
   Features — und wird als einziger Workspace **bei Bedarf nachgeladen**
   (`React.lazy`, eigener Chunk ~62 kB / 18 kB gzip). Damit ist er zurück, ohne
@@ -546,9 +545,8 @@ nach Typ.
     (`organization.plugintracelogsetting`, 0/1/2) mit Confirm-Warnung bei
     „All" — Umschalten nur für Deployment Manager, läuft als angemeldeter
     User (natives `organization`-Update).
-  - **🗄️ Data Browser** *(gated; bis 2026-09 „OData Browser")* — freies
-    Durchsehen der Datenbank je Umgebung über die Dataverse Web API, in
-    **OData, FetchXML oder SQL**: Tabelle wählen (Liste + Suche aus
+  - **🗄️ OData Browser** *(gated)* — freies Durchsehen der Datenbank je
+    Umgebung über die Dataverse Web API: Tabelle wählen (Liste + Suche aus
     `EntityDefinitions`, Systemtabellen zuschaltbar), Spalten per Picker
     (nicht selektierbare Spalten sind ausgegraut samt Grund — abgeleitet,
     virtuell, Datei/Bild; **Lookups werden automatisch als `_x_value`**
@@ -592,25 +590,7 @@ nach Typ.
     Zeilen — der Konnektor pagt dort nicht), und die **Metadaten-Sets**
     (`EntityDefinitions`, `GlobalOptionSetDefinitions`,
     `RelationshipDefinitions`) stehen im Tabellen-Picker, um das Schema selbst
-    zu durchsuchen. Der dritte Reiter **SQL** nimmt die read-only
-    T-SQL-Teilmenge von Dataverse (`SELECT`/`TOP`/`DISTINCT`, `INNER`/`LEFT
-    JOIN`, `WHERE` mit `LIKE`/`IN`/`BETWEEN`/`IS NULL`/`DATEADD`/`GETUTCDATE`,
-    `GROUP BY` + `COUNT`/`SUM`/`AVG`/`MIN`/`MAX`, `ORDER BY`, `FROM` mit dem
-    logischen Namen). Das Statement läuft **nativ** über die Web-API-Option
-    `?sql=` — durch die eigene Dataverse-Data-Source der App, weil der
-    Konnektor sie nicht transportieren kann. Deshalb ist dieser Reiter
-    anders als die beiden anderen: er läuft **als angemeldeter User** (nicht
-    als SP), **nur gegen die Host-Umgebung** und liefert **Rohwerte** (keine
-    Formatted Values); „Load more" folgt dem Paging-Cursor. Ein Lint unter
-    dem Editor meldet, was die dokumentierte Teilmenge nicht erlaubt
-    (Zeile/Spalte), blockiert aber nie; „→ FetchXML" übersetzt das Statement
-    in den FetchXML-Reiter; **Copy URL** liefert die echte `…?sql=`-URL.
-    Umgekehrt haben OData-
-    und FetchXML-Reiter einen **„→ SQL"-Knopf**: Builder-Query bzw. FetchXML
-    werden als SQL umgeschrieben; was SQL nicht sagen kann (EqualUserId,
-    Raw-`$filter`, ContainValues) fällt weg und steht als `--`-Kommentar
-    über dem Statement — nie still. SQL-Statements landen in Historie und
-    gespeicherten Queries. **Read-only**; Details laut
+    zu durchsuchen. **Read-only**; Details laut
     [`docs/odata-browser-plan.md`](docs/odata-browser-plan.md).
   - **📡 Job Monitor** *(aus der App entfernt — Code im Repo)* — „Ist die Async-Verarbeitung gesund?" in < 10 s:
     **Health**-Kacheln (Failed 24 h, Waiting-Backlog + älteste wartende Op,

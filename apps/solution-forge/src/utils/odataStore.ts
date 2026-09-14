@@ -10,22 +10,12 @@
  * degrades to "no history" rather than breaking the workspace.
  */
 
-/**
- * Which query language an entry holds. Absent = `odata` (entries written
- * before the SQL tab existed carry no kind).
- */
-export type StoredQueryKind = 'odata' | 'sql'
-
 export interface StoredQuery {
   id: string
   /** Set on saved queries, absent for plain history entries. */
   name?: string
-  /**
-   * The query text: an OData path (`/accounts?$select=name&$top=50`) or, for
-   * `kind: 'sql'`, the SQL statement itself.
-   */
+  /** The query path, e.g. `/accounts?$select=name&$top=50`. */
   path: string
-  kind?: StoredQueryKind
   /** Logical name of the table, for the list display. */
   table: string
   /** Epoch millis — when it was run or saved. */
@@ -57,9 +47,7 @@ export function addToHistory(
   entry: StoredQuery,
   limit = HISTORY_LIMIT,
 ): StoredQuery[] {
-  const withoutDuplicate = list.filter(
-    (item) => item.path !== entry.path || kindOf(item) !== kindOf(entry),
-  )
+  const withoutDuplicate = list.filter((item) => item.path !== entry.path)
   return [entry, ...withoutDuplicate].slice(0, Math.max(1, limit))
 }
 
@@ -75,11 +63,6 @@ export function upsertSaved(
   return [entry, ...rest].sort((a, b) =>
     (a.name ?? '').localeCompare(b.name ?? ''),
   )
-}
-
-/** The language of an entry, defaulting old entries to OData. */
-export function kindOf(entry: Pick<StoredQuery, 'kind'>): StoredQueryKind {
-  return entry.kind === 'sql' ? 'sql' : 'odata'
 }
 
 export function removeById(list: StoredQuery[], id: string): StoredQuery[] {

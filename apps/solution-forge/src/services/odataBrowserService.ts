@@ -70,19 +70,6 @@ export interface OdataBrowserService {
     fetchXml: string,
   ): Promise<QueryResult>
   /**
-   * Run a SQL statement natively on the Web API's `?sql=` option through the
-   * code app's own Dataverse data source — **as the signed-in user, host
-   * environment only** (the connector has no `sql` parameter, gotcha #14).
-   * `entitySet` is the FROM table's entity set; `skipToken` continues a page
-   * from `QueryResult.skipToken`. Rows come without annotations.
-   */
-  runSql(
-    envKey: string,
-    entitySet: string,
-    sql: string,
-    skipToken?: string | null,
-  ): Promise<QueryResult>
-  /**
    * One record with every column. No `$select` on purpose — the record panel
    * exists to show what is actually stored, and guessing a column list would
    * defeat that.

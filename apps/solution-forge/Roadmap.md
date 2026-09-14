@@ -164,14 +164,13 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       404en" ist damit widerlegt (Gotcha #10 präzisiert: betrifft Bilder, nicht
       JS-Chunks). `LazyWorkspace.tsx` (Suspense + Error Boundary) bleibt die
       Hülle für jeden Lazy-Workspace. **Offen: den Rest umstellen** — die
-      dicken Brocken zuerst (Data Browser, Transfer Hub, Analyze/Detective,
+      dicken Brocken zuerst (OData Browser, Transfer Hub, Analyze/Detective,
       Comparer, User Settings), damit der ~624 kB-App-Chunk auf den Kern
       schrumpft.
 
 ## Team & Komfort
 
-- [~] ⭐ **Data Browser** (Menüpunkt „Data Browser" — bis 2026-09-14 „OData
-      Browser", Tab-Key bleibt `odata` —, Operate-Gruppe, gated):
+- [~] ⭐ **OData Browser** (Menüpunkt „OData Browser", Operate-Gruppe, gated):
       je Umgebung durch die Datenbank browsen. Läuft komplett über den
       vorhandenen Konnektor — keine neuen Data Sources. **v1 read-only**, die
       CRUD-Architektur (Interface, `WRITE_ENABLED`-Flag, Seams) ist mitgebaut.
@@ -217,23 +216,13 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
         der Konnektor pagt dort nicht); **Metadaten-Sets** (`EntityDefinitions`,
         `GlobalOptionSetDefinitions`, `RelationshipDefinitions`) im
         Tabellen-Picker, Grid-Spalten aus der Antwort abgeleitet.
-  - [x] **SQL-Modus** *(2026-09-14)* — dritter Reiter für die read-only
-        T-SQL-Teilmenge der Web API (`?sql=`), **nativ ausgeführt**: der
-        Konnektor kann die Option nicht senden (sein API-Hub kodiert den
-        Pfadparameter, `accounts?sql=` kommt als `accounts%3Fsql%3D` an — live
-        an INT-11 belegt), die **native Dataverse-Data-Source der App** kann es
-        (Hand-Block `executesql` in `dataSourcesInfo.ts`, Pfad-Template
-        `{entitySetName}?sql={sql}`, `services/executeSqlService.ts`) — als
-        angemeldeter User, nur Host-Env, Rohwerte, Paging via `$skiptoken`.
-        `utils/sqlQuery.ts` (Vitest) parst die Teilmenge als **Lint** (nicht
-        blockierend), liefert die FROM-Tabelle für die URL und rendert
-        FetchXML für „→ FetchXML". Rückweg **„→ SQL"** aus dem OData-Builder
-        (`odataToSql`, `$expand` → LEFT JOIN) und aus FetchXML
-        (`fetchXmlToSql`, DOM) in `utils/sqlTranslate.ts` — Verluste als
-        `--`-Kommentar über dem Statement. SQL in Historie/Saved
-        (`StoredQuery.kind`). Verify-on-first-run: erster echter Lauf im
-        Player.
   - [ ] **P6 Write** *(eigene Entscheidung)* — `WRITE_ENABLED` scharfschalten.
+  - [x] ~~**SQL-Modus** (`?sql=`)~~ — **verworfen 2026-09-14.** Gebaut
+        (nativer Reiter + Übersetzer OData/FetchXML ⇄ SQL), dann per Revert
+        entfernt: der Web-API-Endpoint ist cross-env aus der Code App nicht
+        erreichbar (Konnektor kodiert den Pfad, native Data Source kennt nur
+        die Host-Org). Vorgabe: gegen jede Umgebung oder gar nicht.
+        Details Gotcha #14 in `CLAUDE.md`.
 - [x] **Environment-Links (Referenz)**: eigener Menüpunkt mit den ständig
       gebrauchten URLs — **je Umgebung** (System-App, OData/Web API,
       Diagnostics, classic Advanced Settings/Rollen/Systemaufträge, Maker &

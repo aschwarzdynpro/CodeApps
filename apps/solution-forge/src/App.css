@@ -9189,19 +9189,3 @@
 .thub-run-flowlink a:hover {
   text-decoration: underline;
 }
-
-/* Data Browser — SQL tab */
-.odb-fetch-actions {
-  gap: 8px;
-}
-.odb-library-kind {
-  margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--muted, #666);
-  vertical-align: middle;
-}

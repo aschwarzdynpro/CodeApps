@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { kindOf, type StoredQuery } from '../utils/odataStore'
+import type { StoredQuery } from '../utils/odataStore'
 import { formatRelative } from '../utils/format'
 
 /**
@@ -74,13 +74,8 @@ export function OdataQueryLibrary({
               <button className="odb-library-item" onClick={() => onPick(entry)}>
                 <span className="odb-library-name">
                   {entry.name ?? entry.table}
-                  {kindOf(entry) === 'sql' && (
-                    <span className="odb-library-kind">SQL</span>
-                  )}
                 </span>
-                {/* SQL is written over several lines — one line keeps the
-                    list scannable; the full text comes back on pick. */}
-                <code>{entry.path.replace(/\s+/g, ' ').trim()}</code>
+                <code>{entry.path}</code>
                 <span className="muted odb-library-when">
                   {formatRelative(new Date(entry.at).toISOString())}
                 </span>

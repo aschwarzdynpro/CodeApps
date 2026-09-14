@@ -173,8 +173,7 @@ delete-all-then-recreate (Env-Config hat keine eingehenden Refs). Derselbe
 Wizard dient im Edit-Modus (Menüpunkt) zum Nachpflegen; Mock: `getProvisioning-
 State` gibt Erst-Lauf `false`, nach Save `true` ⇒ **offline durchspielbar**.
 
-**Operate-Gruppe** — im Menü stehen **Plugin Traces**, **Data Browser** (bis
-2026-09-14 „OData Browser"; Tab-Key und Dateinamen heißen weiter `odata*`) und
+**Operate-Gruppe** — im Menü stehen **Plugin Traces**, **OData Browser** und
 **Role Analyzer**. Job Monitor und Role Analyzer waren am 2026-07-29
 abgeklemmt worden (lange als Preview ausgeblendet, aber weiter importiert ⇒
 ~120 kB tot im Bundle).
@@ -216,7 +215,7 @@ so): das **PenaltyGame/GameOverlay**-Easter-Egg, das der Comparer während
 Bulk-Läufen einblendete — Fortschritt zeigen die Inline-Progressbar
 (`.cmp-bulkbar`) und die `ActivityBar`. ⚠ Das **CSS der entfernten Features
 steht noch in `App.css`** (eine Datei für alles); nicht blind purgen,
-`.ops-table` & Co. teilen sich Traces/Import History/Data Browser.
+`.ops-table` & Co. teilen sich Traces/Import History/OData Browser.
 
 Vom folgenden Abschnitt gilt der **Job-Monitor-Teil als Doku für den
 Wiederanschluss**, der Role-Analyzer-Teil beschreibt das aktive Feature: je
@@ -1021,21 +1020,18 @@ Ablehnung Toggle verstecken), (c) SP braucht Leserechte auf Quelltabellen +
 **feste Höhe** (`.thub-entry-modal`, 88vh) — nicht auf max-height
 zurückbauen, sonst clippt das Source-Table-Dropdown im noch kurzen Formular.
 
-**Data Browser** (Operate-Gruppe, Menüpunkt „Data Browser" — bis 2026-09-14
-„OData Browser", Tab-Key `odata` und alle `odata*`-Dateinamen unverändert —,
-gated; Plan + Entscheidungen: `docs/odata-browser-plan.md`): freies Durchsehen
-der Web API **je Umgebung** in **OData, FetchXML oder SQL**. Stand: **P1–P5
-fertig + SQL-Modus** — Tabellen-/Spalten-
+**OData Browser** (Operate-Gruppe, Menüpunkt „OData Browser", gated;
+Plan + Entscheidungen: `docs/odata-browser-plan.md`): freies Durchsehen der
+Web API **je Umgebung**. Stand: **P1–P5 fertig** — Tabellen-/Spalten-
 Picker, `$top`/Seitengröße, Run, Grid, Paging, Copy-URL, Filter-Builder,
 editierbare Raw-Query, Mehrfach-Sortierung, Count, IntelliSense +
 Query-Validierung, **Einzelsatz-Panel mit Lookup-Drill-through, verwandten
 Datensätzen und `$expand`-Auswahl, **Historie/gespeicherte Queries, CSV-/
-JSON-Export, FetchXML-Modus, SQL-Modus, Metadaten-Sets**. Offen laut Plan: P6 Write.
+JSON-Export, FetchXML-Modus, Metadaten-Sets**. Offen laut Plan: P6 Write.
 Dateien: `types/odataBrowser.ts`, `services/metadataCatalog.ts` (+ Service-Trio
 `odataBrowserService`/`dataverse…`/`mock…`), pure Utils
 `utils/odataQuery.ts`/`odataFilter.ts`/`odataFormat.ts`/`odataErrors.ts`/
-`odataSuggest.ts`/`sqlQuery.ts`/`sqlTranslate.ts` (alle Vitest),
-`components/OdataBrowserWorkspace.tsx` +
+`odataSuggest.ts` (alle Vitest), `components/OdataBrowserWorkspace.tsx` +
 `OdataResultGrid.tsx` + `OdataFilterBuilder.tsx` + `QueryInput.tsx` +
 `OdataRecordPanel.tsx` + `OdataQueryLibrary.tsx` (+ `utils/odataRecord.ts`/
 `odataStore.ts`/`odataExport.ts`).
@@ -1181,64 +1177,6 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
   EntityDefinitions-Zeile** ⇒ `meta = null`: kein Spalten-Picker, kein
   Filter-Builder, Grid-Spalten aus `dataKeys`. `validateQuery` bekommt für sie
   ein leeres `entities`-Array, sonst meldete es „kein Entity-Set".
-- **SQL-Modus läuft NATIV über die Web-API-Option `?sql=` — durch die
-  eigene Dataverse-Data-Source der App, NICHT über den Konnektor.** Die Web
-  API nimmt die read-only T-SQL-Teilmenge als Query-Option am Entity-Set
-  (`GET /accounts?sql=SELECT …`, an INT-11 inkl. Joins, GROUP BY und
-  `@odata.nextLink`-Paging live geprüft 2026-09-14). Der Konnektor hat dafür
-  keinen Parameter, und `entityName = "accounts?sql=…"` scheitert an seinem
-  API-Hub (Gotcha #14). Der **`customapi`-Executor des SDK** verhält sich
-  anders: er ersetzt nur die `{platzhalter}` per `encodeURIComponent` und
-  hängt das Pfad-Template sonst **wörtlich** an die Host-Org-URL (`GET` per
-  `sendHttp` mit dynamischem Dataverse-Token). Deshalb steht `?sql={sql}` im
-  Template des Hand-Blocks **`executesql`** in `dataSourcesInfo.ts` (Ops
-  `ExecuteSql` = `{entitySetName}?sql={sql}`, `ExecuteSqlPage` = `…&$skiptoken=
-  {skiptoken}` — zwei Ops, weil ein leeres `$skiptoken=` abgelehnt würde; alle
-  Parameter `in: "path"`, damit sie genau einmal kodiert werden). Client
-  `services/executeSqlService.ts` (Muster RetrieveMissingDependencies), Block
-  wird von `scripts/add-data-source.ps1` **und** `deploy-env.ps1`
-  (`Restore-ExecuteSql`) re-inserted. Konsequenzen, die der Reiter offen
-  sagt: läuft **als angemeldeter User** (nicht SP), **nur Host-Env**
-  (`dataverseOdataBrowserService.runSql` wirft bei `!isCurrentEnvKey`, die UI
-  deaktiviert Run mit Hinweis), **keine Annotationen** (der Executor sendet
-  keinen `Prefer`-Header ⇒ Rohwerte, Formatted-Toggle wirkungslos), Paging
-  über `skipTokenFrom(nextLink)` + `ExecuteSqlPage` („Load more" ist
-  mode-aware). `utils/sqlQuery.ts` (pure, Vitest) ist damit **Lint + FROM-
-  Extraktion + Übersetzung**, nicht der Ausführungspfad: `sqlFromTable`
-  (Parser, sonst Regex-Fallback) liefert die Tabelle für die Entity-Set-URL;
-  Parse-Fehler erscheinen als **Warn-Chip mit Zeile/Spalte und werden
-  trotzdem gesendet** (Dataverse entscheidet — gleiche Linie wie
-  `validateQuery`); der FetchXML-Renderer bedient „→ FetchXML" (verifizierte
-  Konstrukte: `entityname`-Condition, `<order entityname>`, nested link,
-  outer + eigener Filter, Aggregat über Join, page/count). „Copy URL" =
-  dieselbe native URL für Browser/Postman. ⚠ **Verify-on-first-run:** der
-  native `?sql=`-Aufruf durch den Code-App-Executor ist aus dem SDK-Quelltext
-  abgeleitet (`dataverseDataOperationExecutor.js`, `case 'customapi'`) und
-  noch nicht im Player gelaufen — beim ersten echten Lauf prüfen, dass die
-  URL mit `?sql=` unverändert ankommt (Fehlerbild sonst: 404/„Resource not
-  found for the segment").
-- **„→ SQL" ist bewusst verlustbehaftet und sagt es.** `utils/sqlTranslate.ts`
-  (Vitest, jsdom für den FetchXML-Teil): `odataToSql` (Builder-Query; `$expand`
-  → `LEFT JOIN` über `meta.lookups` + Primary Key des Ziels; ohne `$select`
-  nur PK + Name, weil SQL kein `SELECT *` kann) und `fetchXmlToSql` (DOM;
-  Link-Filter landen im `ON`, damit ein Outer Join seine Bedeutung behält;
-  `count/page` → `OFFSET…FETCH`). Was SQL nicht sagen kann — `EqualUserId`/
-  `EqualBusinessId`, `ContainValues`, Raw-`$filter`, `eq-userid`-Familie,
-  `dategrouping` — wird **weggelassen UND als `--`-Kommentarzeile über das
-  Statement geschrieben** (`withNoteHeader`); der SQL-Tokenizer überliest
-  Kommentare. Ein still verengtes oder erweitertes Statement ist der einzige
-  Fehler, den dieses Modul nie haben darf. Relative Datumsoperatoren werden
-  gegen `GETUTCDATE()`/`DATEADD` gerendert, `today`/`thismonth`/… als
-  UTC-Halboffen-Bereiche aus `now` (injizierbar).
-- **Historie/Saved kennen `kind: 'sql'`** (`StoredQuery.kind`, fehlend =
-  OData; `kindOf`), Dedupe in `addToHistory` über Text **und** Kind; die
-  Library zeigt SQL einzeilig mit Badge, `applyStored` öffnet den SQL-Tab und
-  läuft. Save im SQL-Tab speichert den Text unter `sqlEntity.logicalName`.
-  Der Mock (`mockOdataBrowserService.runSql`) liefert die Seed-Zeilen des
-  Entity-Sets, ohne das Statement anzuwenden.
-- `sqlEntity` ist bewusst **kein `useMemo`**: über das narrowed `sqlPreview`
-  kann der React-Compiler die manuelle Memoization nicht erhalten und der
-  Lint (`react-hooks/preserve-manual-memoization`) bricht — plain `find`.
 
 ## ⚠️ Gotchas (alle hart erarbeitet — nicht erneut stolpern)
 
@@ -1294,10 +1232,6 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
    `retrievemissingdependencies`-Block oben in `dataSourcesInfo.ts` wieder
    einsetzen, Vorlage steht im Script). Nach jedem add-flow prüfen:
    `grep '"retrievemissingdependencies"' .power/schemas/appschemas/dataSourcesInfo.ts`.
-   **Seit 2026-09-14 gibt es drei Hand-Blöcke** (`executesql` für den
-   nativen SQL-Reiter dazu); `add-data-source.ps1` prüft jetzt **jeden Block
-   einzeln** (`Restore-HandBlock`), `deploy-env.ps1` ruft `Restore-ExecuteSql`
-   mit — nach add-flow zusätzlich `grep '"executesql"'` prüfen.
 2. **`publisherid@odata.bind` lowercase** — das generierte Modell behauptet
    `PublisherId@odata.bind`, Dataverse lehnt das ab (0x80048d19).
 3. Entity-Set der Webressourcen heißt **`webresourceset`** (nicht
@@ -1551,23 +1485,32 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
     entscheidet (nicht mehr `DEPENDENCY_SPECS[type] && …`). Die „required by"-Seite
     nutzt `listMergeComponents` (löst Sub-Komponenten-Namen wie Forms/Spalten).
     Alles best-effort in eigenem try/catch.
-14. **Der Konnektor-API-Hub prozent-kodiert Pfadparameter — `entityName` kann
-    keinen Query-String schmuggeln.** `ListRecords(WithOrganization)` mit
-    `entityName = "accounts?sql=SELECT …"` erreicht Dataverse als
-    `…/api/data/v9.1/accounts%3Fsql%3DSELECT%20…` (belegt über die
-    `ClientRequestUrl` einer Flow-API-Fehlantwort, 2026-09-14) und endet in
-    einer IIS-„Runtime Error"-Seite; vorkodiert wird doppelt kodiert. Gilt
-    für jede Web-API-Query-Option ohne eigenen Konnektor-Parameter (`sql`,
-    `$count`, `$apply`, `$search`) — die Liste der Konnektor-Parameter IST die
-    Grenze (`$select/$filter/$orderby/$expand/$top/$skiptoken/fetchXml`).
-    Der native `?sql=`-Endpoint selbst funktioniert (direkt mit Token
-    geprüft, inkl. `@odata.nextLink`), nur nicht über den Konnektor. **Ausweg
-    = die native Dataverse-Data-Source der App:** ihr `customapi`-Executor
-    ersetzt nur `{platzhalter}` und lässt den Rest des Pfad-Templates
-    wörtlich stehen ⇒ `"/api/data/v9.2/{entitySetName}?sql={sql}"` als
-    Hand-Block (`executesql`, Data-Browser-Abschnitt). Preis: User-Identität
-    statt SP, nur Host-Env, kein `Prefer`-Header. Dasselbe Muster trägt jede
-    Web-API-Query-Option, die der Konnektor nicht kennt — host-seitig.
+14. **SQL (`?sql=`) im OData Browser: gebaut, verworfen, NICHT erneut
+    versuchen — cross-env gibt es keinen Transport.** Der Web-API-Endpoint
+    `GET /<entityset>?sql=SELECT …` (read-only T-SQL-Teilmenge) funktioniert an
+    INT-11 direkt mit Token (Joins, GROUP BY, `@odata.nextLink`-Paging — live
+    geprüft 2026-09-14). Aber aus der Code App erreicht ihn nichts über die
+    Host-Umgebung hinaus: (a) der **Konnektor** hat keinen `sql`-Parameter, und
+    sein API-Hub **prozent-kodiert Pfadparameter** — `entityName =
+    "accounts?sql=…"` kommt als `…/api/data/v9.1/accounts%3Fsql%3DSELECT%20…`
+    an (belegt über die `ClientRequestUrl` einer Flow-API-Antwort) und endet in
+    einer IIS-„Runtime Error"-Seite; vorkodiert wird doppelt kodiert; keine
+    Konnektor-Op reicht einen Query-String oder ein rohes `$batch` mit
+    `organization` durch; die MCP-Ops haben kein `organization`. (b) Die
+    **native Dataverse-Data-Source** der App könnte es — der `customapi`-
+    Executor des SDK ersetzt nur `{platzhalter}` (encodeURIComponent) und
+    lässt ein Pfad-Template wie `/api/data/v9.2/{entitySetName}?sql={sql}`
+    sonst wörtlich (Hand-Block nach dem RetrieveMissingDependencies-Muster) —
+    aber **nur gegen die Host-Org, als angemeldeter User, ohne `Prefer`-
+    Header**; für andere Orgs gibt es kein Token. Entscheidung des Product
+    Owners: SQL muss gegen jede Umgebung laufen, sonst gar nicht ⇒ Feature
+    (nativer Reiter + SQL-Parser/FetchXML-Renderer + OData/FetchXML→SQL-
+    Übersetzer) wurde per Revert entfernt (Commits `b9b9c40`/`1eb608f`, im
+    Git-Log zum Nachlesen). Dasselbe gilt für jede Web-API-Query-Option ohne
+    Konnektor-Parameter (`$count`, `$apply`, `$search`): host-seitig ginge der
+    Template-Trick, cross-env nicht. Ein Wiederanlauf bräuchte eine neue
+    Transportschicht (z. B. Executor-Flow mit HTTP-Konnektor je Umgebung) —
+    eigene Architekturentscheidung.
 
 ## Offen / Nächstes
 

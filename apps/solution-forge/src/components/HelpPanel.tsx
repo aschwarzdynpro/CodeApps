@@ -725,7 +725,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className="help-section">
-            <h3>🗄️ Data Browser (Operate)</h3>
+            <h3>🗄️ OData Browser (Operate)</h3>
             <p>
               Browse the <strong>Dataverse Web API of any configured
               environment</strong>: pick a table, pick the columns, run, read
@@ -796,42 +796,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               <strong>FetchXML</strong> tab runs a pasted query directly — the
               table comes from <code>&lt;entity name&gt;</code>, and it returns
               one page of at most 5,000 rows because the connector does not
-              page FetchXML. The table picker also lists the{' '}
+              page FetchXML. Finally, the table picker also lists the{' '}
               <strong>metadata sets</strong> (<code>EntityDefinitions</code> and
               friends) so the schema itself can be browsed with the same grid;
               they have no column list, so the grid takes its columns from the
               response.
-            </p>
-            <p>
-              The <strong>SQL</strong> tab takes Dataverse's read-only T-SQL
-              subset — <code>SELECT</code> with <code>TOP</code>/
-              <code>DISTINCT</code>, <code>INNER</code>/<code>LEFT JOIN</code>,{' '}
-              <code>WHERE</code> (<code>LIKE</code>, <code>IN</code>,{' '}
-              <code>BETWEEN</code>, <code>IS NULL</code>, <code>DATEADD</code>/
-              <code>GETUTCDATE</code>), <code>GROUP BY</code> with{' '}
-              <code>COUNT</code>/<code>SUM</code>/<code>AVG</code>/
-              <code>MIN</code>/<code>MAX</code>, <code>ORDER BY</code>;{' '}
-              <code>FROM</code> takes the logical name. The statement runs{' '}
-              <strong>natively</strong> on the Web API's <code>?sql=</code>{' '}
-              option through the app's own Dataverse data source — which
-              makes this tab different from the other two in three ways: it
-              runs <strong>as you</strong> (not as the service principal), it
-              reaches the <strong>host environment only</strong> (the picker
-              above says so when another one is selected), and the rows come{' '}
-              <strong>raw</strong> (no formatted labels — the native call
-              cannot ask for annotations). <strong>Load more</strong> follows
-              the server's paging cursor. A lint under the editor flags what
-              the documented subset does not allow (with line and column) but
-              never blocks — Dataverse has the last word. <strong>Copy
-              URL</strong> yields the real <code>…?sql=</code> URL, and{' '}
-              <strong>→ FetchXML</strong> translates the statement into the
-              FetchXML tab. The other two tabs offer <strong>→ SQL</strong>:
-              the builder's query and a pasted FetchXML are rewritten as SQL;
-              whatever SQL cannot say (<em>is the current user</em>, a raw{' '}
-              <code>$filter</code>, a multi-select <em>contains any of</em>)
-              is dropped <em>and written as a <code>--</code> comment on
-              top</em>, never silently. SQL statements join the history and
-              can be saved like any other query.
             </p>
             <p>
               ⚠ <strong>Queries run as the connector service principal</strong>,
@@ -839,8 +808,9 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
               and field-level security, which is why the menu item is
               deployment-manager gated. The note above the tabs can be
               collapsed to save room; the <strong>🛡 shield</strong> next to
-              the tabs keeps saying so and brings it back. <strong>Read-only</strong>{' '}
-              by decision (see <code>docs/odata-browser-plan.md</code>).
+              the tabs keeps saying so and brings it back. <strong>Read-only.</strong> IntelliSense
+              and the single-record view with lookup drill-through are the next
+              steps (see <code>docs/odata-browser-plan.md</code>).
             </p>
           </section>
 

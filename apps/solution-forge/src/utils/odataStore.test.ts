@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   addToHistory,
-  kindOf,
   removeById,
   sanitize,
   upsertSaved,
@@ -88,20 +87,5 @@ describe('sanitize', () => {
   it('survives a corrupted payload', () => {
     expect(sanitize(undefined)).toEqual([])
     expect(sanitize({ not: 'an array' })).toEqual([])
-  })
-})
-
-describe('kindOf', () => {
-  it('defaults entries without a kind to odata', () => {
-    expect(kindOf({})).toBe('odata')
-    expect(kindOf({ kind: 'sql' })).toBe('sql')
-  })
-
-  it('keeps an OData path and an identical SQL text apart in the history', () => {
-    const odata = { id: '1', path: 'x', table: 'account', at: 1 }
-    const sql = { id: '2', path: 'x', table: 'account', at: 2, kind: 'sql' as const }
-    const list = addToHistory([odata], sql)
-    expect(list).toHaveLength(2)
-    expect(addToHistory(list, { ...sql, id: '3', at: 3 }).map((e) => e.id)).toEqual(['3', '1'])
   })
 })

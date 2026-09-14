@@ -13,8 +13,7 @@ import type { OdataBrowserService } from './odataBrowserService'
 import { mockOdataBrowserService } from './mockOdataBrowserService'
 import { powerModeReady } from '../PowerProvider'
 import { MicrosoftDataverseService } from '../generated/services/MicrosoftDataverseService'
-import { envByKey, isCurrentEnvKey, orgUrlForEnvKey } from '../config'
-import { ExecuteSqlService } from './executeSqlService'
+import { envByKey, orgUrlForEnvKey } from '../config'
 import {
   cachedEntitySets,
   clearMetadataCache,
@@ -212,40 +211,6 @@ class DataverseOdataBrowserService implements OdataBrowserService {
       }
     } catch (err) {
       throw this.toQueryError(err, envKey, entitySet)
-    }
-  }
-
-  async runSql(
-    envKey: string,
-    entitySet: string,
-    sql: string,
-    skipToken: string | null = null,
-  ): Promise<QueryResult> {
-    const mode = await powerModeReady
-    if (mode !== 'power-platform')
-      return mockOdataBrowserService.runSql(envKey, entitySet, sql, skipToken)
-    if (!entitySet) throw new OdataQueryError('No entity set for this statement.')
-    // The native data source addresses the app's own environment — there is
-    // no `organization` to point elsewhere, and the connector cannot carry
-    // `sql`. Refusing here beats silently querying the host under a UAT label.
-    if (!isCurrentEnvKey(envKey))
-      throw new OdataQueryError(
-        `SQL runs natively against the host environment only — “${envByKey(envKey)?.label ?? envKey}” cannot be queried this way.`,
-        'The Web API `?sql=` option goes through the code app’s own Dataverse data source (as you), which only knows the app’s environment; the connector has no `sql` parameter. Switch the target to the host environment, or use the OData / FetchXML tabs for the others.',
-      )
-    const started = performance.now()
-    const result = skipToken
-      ? await ExecuteSqlService.ExecuteSqlPage(entitySet, sql, skipToken)
-      : await ExecuteSqlService.ExecuteSql(entitySet, sql)
-    const durationMs = Math.round(performance.now() - started)
-    if (!result.success) throw this.toQueryError(result, envKey, entitySet)
-    const data = result.data as
-      | { value?: OdataRow[]; '@odata.nextLink'?: unknown }
-      | undefined
-    return {
-      rows: data?.value ?? [],
-      skipToken: skipTokenFrom(data?.['@odata.nextLink']),
-      durationMs,
     }
   }
 
