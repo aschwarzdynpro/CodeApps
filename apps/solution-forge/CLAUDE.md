@@ -92,6 +92,21 @@ gotcha #1) und pusht über `power-apps push` (npm-CLI, Schulz-Tenant angemeldet;
 richtet nur ein (Config + Data Sources + Build), ohne Flow/Push. **`pac code push`
 für Schulz strippt die Flow-Registrierung → „Connection reference not found".**
 
+⚠ **npm-CLI-Konto (`power-apps add-flow`/`push`) — „Multiple accounts found"
+oder Login im falschen Tenant** (2026-09-16, kostete eine Stunde): die npm-CLI
+hält ihren eigenen MSAL-Cache (`~/.powerapps-cli/cache/auth/msal_cache.json`,
+DPAPI-verschlüsselt, Client-ID `9cee029c-6210-4654-90bb-17e6e9d36617`). Bei
+**>1 Konto bricht sie hart ab**; bei 0 Konten oder abgelaufenem Refresh-Token
+öffnet sie den **Browser ohne Kontoauswahl** — der nimmt per SSO das
+Standardkonto (hier `aschwarz@hso.com`, Tenant `9bc096ab…`) ⇒ Push scheitert
+mit `ServiceToServiceEnvironmentNotFound`, und danach liegen wieder zwei
+Konten im Cache. **Fix:** `npx power-apps logout` (leert ALLES), dann das
+Schulz-Konto per **Device Code** in denselben Cache anmelden:
+`node scripts/login-npm-cli.mjs` (Authority fest auf Schulz-Tenant
+`24686796-cf09-4d11-ac19-9ab3819f3491`, Scope `service.powerapps.com/.default`;
+der Refresh-Token gilt für alle Ressourcen). Danach findet die CLI genau ein
+Konto und läuft still. Playground (`pac code push`) ist davon nicht betroffen.
+
 ## Release (managed Export)
 
 Sagt der Nutzer **„Release erzeugen"**, gilt der Skill
