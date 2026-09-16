@@ -23,6 +23,32 @@ import type { RuntimeConfig } from '../config'
 import { dataverseSolutionService } from './dataverseSolutionService'
 
 /**
+ * What the caller of `mergeIntoDeployment()` already knows. The Merge
+ * Workbench has just loaded the solution list and the per-source component
+ * plan the user is looking at; handing both over spares the merge the same
+ * reads a second time (the target's read is what used to make the start of a
+ * merge look stuck).
+ */
+export interface MergeOptions {
+  /**
+   * The solution list the caller works from (must contain the target and the
+   * sources). Skips `listSolutions()` inside the merge.
+   */
+  solutions?: readonly WorkingSolution[]
+  /**
+   * Source components as loaded by `listMergeComponents()`, keyed by solution
+   * id. Sources missing from the map are read inside the merge.
+   */
+  sourceComponents?: ReadonlyMap<string, readonly SolutionComponentInfo[]>
+  /**
+   * Fired for each preparation step before the first component is processed
+   * (reading the release solution, loading sources), so the UI can show
+   * activity while `onProgress` hasn't fired yet.
+   */
+  onPhase?: (phase: string) => void
+}
+
+/**
  * Service contract for the Solution Administration Console workbench.
  *
  * - `listSolutions()` powers the workbench list (unmanaged solutions from the
@@ -234,11 +260,14 @@ export interface SolutionService {
    * Adds every component of the source solutions to the target deployment
    * solution. Already-present components are skipped, not duplicated.
    * @param onProgress optional callback fired after each processed component.
+   * @param options data the caller already holds (so the merge doesn't re-read
+   *   it) and a phase callback for the preparation before the first component.
    */
   mergeIntoDeployment(
     targetUniqueName: string,
     sourceSolutionIds: string[],
     onProgress?: (done: number, total: number, current?: string) => void,
+    options?: MergeOptions,
   ): Promise<MergeResult>
   /**
    * Merge history of a release solution: the logged merge runs (counts,

@@ -27,6 +27,7 @@ import type {
   ReachableOrg,
 } from '../types/provisioning'
 import type { RuntimeConfig } from '../config'
+import type { MergeOptions } from './solutionService'
 import { LAYER_IGNORED_TYPES } from './componentLayerNames'
 import {
   mockComponentsBySolutionId,
@@ -548,11 +549,16 @@ export class MockSolutionService {
     targetUniqueName: string,
     sourceSolutionIds: string[],
     onProgress?: (done: number, total: number, current?: string) => void,
+    options?: MergeOptions,
   ): Promise<MergeResult> {
     const target = this.solutions.find(
       (s) => s.uniqueName === targetUniqueName,
     )
     if (!target) throw new Error(`Unknown target solution ${targetUniqueName}`)
+    // Mirror the real service's preparation phase so the UI's phase text is
+    // demoable offline.
+    options?.onPhase?.('Reading the release solution')
+    await delay(400)
     const targetComponents = this.components.get(target.id) ?? []
     // Mirrors the real service: objectId → rootBehavior, because a table
     // already present as a shell can still be widened (see mergePlan.ts).

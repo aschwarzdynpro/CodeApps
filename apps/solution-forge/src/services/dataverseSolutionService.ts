@@ -18,7 +18,7 @@ import {
   DEPLOYMENT_STATUS_NONE,
   isClosedWorkItemState,
 } from '../types/solution'
-import type { SolutionService } from './solutionService'
+import type { MergeOptions, SolutionService } from './solutionService'
 import { mockSolutionService } from './mockSolutionService'
 import { hostUserHints, powerModeReady } from '../PowerProvider'
 import {
@@ -2829,6 +2829,7 @@ export class DataverseSolutionService implements SolutionService {
     targetUniqueName: string,
     sourceSolutionIds: string[],
     onProgress?: (done: number, total: number, current?: string) => void,
+    options?: MergeOptions,
   ): Promise<MergeResult> {
     const mode = await powerModeReady
     if (mode !== 'power-platform')
@@ -2836,22 +2837,54 @@ export class DataverseSolutionService implements SolutionService {
         targetUniqueName,
         sourceSolutionIds,
         onProgress,
+        options,
       )
 
-    // Resolve target id + the components already present, so re-merges skip
-    // instead of failing. Keyed by objectId → rootBehavior: for tables, mere
-    // presence is not enough to decide (see decideMergeAction).
-    const solutions = await this.listSolutions()
+    // Resolve the target. The workbench hands its solution list over; only
+    // without one do we read the solution table again.
+    const solutions = options?.solutions
+      ? [...options.solutions]
+      : await this.listSolutions()
     const target = solutions.find((s) => s.uniqueName === targetUniqueName)
     if (!target) throw new Error(`Unknown target solution ${targetUniqueName}`)
-    const targetBehavior = new Map<string, number | undefined>()
-    for (const c of await this.listMergeComponents(target.id))
-      targetBehavior.set(c.objectId.toLowerCase(), c.rootBehavior)
 
-    const queue: SolutionComponentInfo[] = []
-    for (const id of sourceSolutionIds) {
-      queue.push(...(await this.listMergeComponents(id)))
+    // The components already present in the target, so re-merges skip
+    // instead of failing. Keyed by objectId → rootBehavior: for tables, mere
+    // presence is not enough to decide (see decideMergeAction). Only those
+    // two fields are needed, so this reads the raw solutioncomponent rows
+    // alone — no summary view, no name resolution. The release is usually the
+    // largest solution involved; resolving its names cost more than the
+    // whole merge and was never displayed.
+    options?.onPhase?.('Reading the release solution')
+    const targetRows = await this.fetchRawComponents(target.id)
+    if (!targetRows)
+      throw new Error(
+        `Could not read the components of ${target.title} — merge aborted before any change.`,
+      )
+    const targetBehavior = new Map<string, number | undefined>()
+    for (const row of targetRows) {
+      if (!row.objectid) continue
+      targetBehavior.set(
+        row.objectid.toLowerCase(),
+        row.rootcomponentbehavior !== undefined
+          ? Number(row.rootcomponentbehavior)
+          : undefined,
+      )
     }
+
+    // Source components: reuse what the workbench plan already loaded, read
+    // the rest in parallel. Queue order stays the order of the sources.
+    const perSource = await Promise.all(
+      sourceSolutionIds.map(async (id) => {
+        const known = options?.sourceComponents?.get(id)
+        if (known) return [...known]
+        options?.onPhase?.(
+          `Loading ${solutions.find((s) => s.id === id)?.title ?? 'source solution'}`,
+        )
+        return this.listMergeComponents(id)
+      }),
+    )
+    const queue: SolutionComponentInfo[] = perSource.flat()
 
     // The release may restrict which component types it accepts: an allow-list
     // (empty = all) and an exclude-list applied on top.

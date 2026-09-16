@@ -70,9 +70,16 @@ export function MergeWorkbench({
   // The component currently being added — shown live during the merge so a
   // long run isn't a silent spinner.
   const [currentItem, setCurrentItem] = useState<string | null>(null)
+  // Preparation step of a running merge (reading the release solution, …) —
+  // shown until the first component is processed, so the merge never looks
+  // stuck before the bar moves.
+  const [phase, setPhase] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Guards against out-of-order plan responses when toggling quickly.
   const planRequest = useRef(0)
+  // The per-source component lists behind the current plan. Handed to the
+  // merge so it doesn't read (and name-resolve) the same sources again.
+  const planComponents = useRef(new Map<string, SolutionComponentInfo[]>())
 
   const buildPlan = async (ids: Set<string>) => {
     if (ids.size === 0) {
@@ -85,11 +92,15 @@ export function MergeWorkbench({
     try {
       const perSolution = await Promise.all(
         [...ids].map(async (id) => ({
+          id,
           solution: solutions.find((s) => s.id === id),
           components: await solutionService.listMergeComponents(id),
         })),
       )
       if (request !== planRequest.current) return
+      planComponents.current = new Map(
+        perSolution.map(({ id, components }) => [id, components]),
+      )
       const byObject = new Map<
         string,
         { component: SolutionComponentInfo; sources: string[] }
@@ -182,14 +193,21 @@ export function MergeWorkbench({
     if (!target) return
     setProgress([0, plan?.length ?? 0])
     setCurrentItem(null)
+    setPhase(null)
     setError(null)
     try {
       const res = await solutionService.mergeIntoDeployment(
         target.uniqueName,
         [...selected],
         (done, total, current) => {
+          setPhase(null)
           setProgress([done, total])
           setCurrentItem(current ?? null)
+        },
+        {
+          solutions,
+          sourceComponents: planComponents.current,
+          onPhase: setPhase,
         },
       )
       // The outcome banner lives at App level (survives the reload onMerged
@@ -200,6 +218,7 @@ export function MergeWorkbench({
     } finally {
       setProgress(null)
       setCurrentItem(null)
+      setPhase(null)
     }
   }
 
@@ -367,10 +386,16 @@ export function MergeWorkbench({
               />
             </div>
             <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-              Merging {progress[0]} / {progress[1]}
-              {progress[1] > 0 &&
-                ` (${Math.round((progress[0] / progress[1]) * 100)}%)`}
-              {currentItem && ` — adding ${currentItem}`}
+              {phase && progress[0] === 0 ? (
+                <>Preparing — {phase}…</>
+              ) : (
+                <>
+                  Merging {progress[0]} / {progress[1]}
+                  {progress[1] > 0 &&
+                    ` (${Math.round((progress[0] / progress[1]) * 100)}%)`}
+                  {currentItem && ` — adding ${currentItem}`}
+                </>
+              )}
             </div>
           </div>
         )}

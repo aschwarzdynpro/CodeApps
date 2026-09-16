@@ -426,6 +426,12 @@ hat ihre eigene Checkliste in [`TODO.md`](TODO.md).
       (Restore + Wieder-Öffnen)
 - [x] Kollisions-Radar, Komponenten-Suche, Work-Item-Gruppierung
 - [x] Merge mit Plan, Konflikt-Markierung und Status-Logging
+- [x] Merge-Vorbereitung ohne Blindflug (2026-09-16): Ziel roh gelesen,
+      Quellen aus dem Plan wiederverwendet, Phasen-Text vor dem ersten
+      Fortschritt
+- [ ] Merge-Loop mit begrenzter Parallelität (3–4 `AddSolutionComponent`
+      gleichzeitig, zwei Wellen: Tabellen zuerst) — Dataverse-Locking auf
+      der Ziel-Solution vorher an INT-11 verifizieren, Schalter in config.ts
 - [x] Merge-Historie: jeder Merge schreibt eine `pro_mergerun`-Zeile (Counts +
       Quell-Solutions + hinzugefügte Komponenten als kompaktes JSON in einer
       Multiline-Spalte, keine Kind-Tabelle); im Detail der Release-Solution als

@@ -1217,6 +1217,20 @@ Kernpunkte, die beim Weiterbauen nicht verloren gehen dürfen:
    vollständige Tabellen-Zeile. Weniger Zeilen = **mehr** Inhalt. Wer
    Komponenten-Counts als Erfolgssignal benutzt (Plan, Analyze, Diff), darf
    daraus keinen Verlust ableiten.
+   **Vorbereitungsphase (seit 2026-09-16):** `mergeIntoDeployment` liest das
+   **Ziel nur roh** (`fetchRawComponents` → objectId + rootcomponentbehavior,
+   mehr braucht `decideMergeAction` nicht) — KEIN `listMergeComponents` für
+   die Release, denn dessen Summary-Join + Namensauflösung (EntityDefinitions
+   `$expand=Attributes` je 10 Tabellen, Forms/Views-Lookups) kostete auf der
+   größten Solution mehr als der ganze Merge und wurde nie angezeigt. Die
+   Quellen kommen per `MergeOptions.sourceComponents` aus dem Plan der
+   Workbench (`planComponents`-Ref, Key = Solution-ID), fehlende werden
+   parallel nachgeladen; `MergeOptions.solutions` spart `listSolutions()`.
+   `onPhase` meldet die Vorbereitungsschritte, die UI zeigt „Preparing — …"
+   bis der erste `onProgress` feuert. Scheitert der Roh-Read des Ziels, wird
+   **abgebrochen** (vorher: stiller Fallback bis zum Mock ⇒ alles neu
+   hinzugefügt). Der Loop selbst ist weiterhin sequenziell (Parallelität
+   empirisch ungeprüft, siehe Roadmap).
 
 1. **Generator-Bug:** Jedes `pac code add-data-source` bricht an
    `AddSolutionComponent.Schema.json` ab UND wirft die handgepflegten
