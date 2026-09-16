@@ -6,6 +6,46 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## 1.0.0.29 — 2026-09-16
+
+**Der Merge in eine Release-Solution startet sofort sichtbar — die stille
+Wartezeit am Anfang ist weg. Keine Schema-Änderung, keine neue Flow-Version.**
+
+- **Warum ein Merge minutenlang „nichts tat".** Vor dem ersten Fortschritts-
+  Callback lief die **Release-Solution** — die größte beteiligte Solution —
+  durch dieselbe Komponentenauflösung wie die Quellen: Summary-Join plus
+  vollständige Namensauflösung (`EntityDefinitions` mit `$expand=Attributes`
+  je 10 Tabellen, Lookups für Formulare/Ansichten). Für das Ziel wird davon
+  nichts angezeigt; die Merge-Entscheidung braucht nur `objectId` +
+  `rootcomponentbehavior`. Anschließend wurden alle Quellen **erneut und
+  nacheinander** gelesen, obwohl die Workbench sie für den Plan gerade erst
+  geladen hatte. Die UI zeigte dabei `Merging 0 / N (0 %)`.
+- **Ziel wird nur roh gelesen.** Ein einziger paged Read der
+  `solutioncomponent`-Zeilen der Release; die Summary-Tabelle und die
+  Metadaten-Lookups entfallen für das Ziel komplett. Scheitert dieser Read,
+  **bricht der Merge vor der ersten Änderung ab** — vorher fiel er still bis
+  auf die Demo-Liste zurück und hätte alles neu hinzugefügt.
+- **Der Plan wird wiederverwendet.** Die Workbench gibt dem Merge ihre
+  Solution-Liste und die Komponenten je Quelle mit; nur fehlende Quellen
+  werden nachgeladen, jetzt parallel. Die Reihenfolge der Queue (Tabellen vor
+  ihren Spalten, Quellen in Auswahlreihenfolge) bleibt unverändert.
+- **Fortschritt ab Sekunde 0.** Bis zur ersten hinzugefügten Komponente steht
+  „Preparing — Reading the release solution…" statt einer leeren 0 %-Leiste.
+- **Grenze:** Die `AddSolutionComponent`-Aufrufe selbst laufen weiterhin
+  **sequenziell** (ein Roundtrip je Komponente). Parallelität ist als
+  Roadmap-Punkt notiert, aber erst nach einem Test gegen Dataverse-Locking
+  auf der Ziel-Solution — nicht blind.
+- **Versucht und wieder ausgebaut: ein SQL-Tab im Data Browser.** Dataverse
+  bietet eine Web-API-Option `?sql=` für eine T-SQL-Teilmenge; die Bedingung
+  war, dass sie gegen **jede** konfigurierte Umgebung läuft. Dafür gibt es
+  keinen Transport: der Konnektor kodiert den Pfad-Parameter (`?sql=` kommt
+  als `%3Fsql%3D` an, IIS-Fehler), die native Data Source der Code App
+  erreicht nur die eigene Umgebung, und für fremde Orgs existiert kein Token.
+  Der Befund ist als Gotcha im Handbuch festgehalten, damit der Versuch nicht
+  wiederholt wird; im Paket ist davon nichts enthalten.
+
+---
+
 ## 1.0.0.28 — 2026-09-10
 
 **Korrektur zu 1.0.0.27: In den Demo-Daten steckten noch zwei Kunden-Bezeichner.
