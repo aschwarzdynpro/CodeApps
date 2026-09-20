@@ -121,15 +121,53 @@ von Hand pflegen. `ApprovalCockpit.tsx` importiert daraus nur `GeneratedComponen
 bis die Datei erzeugt ist, meldet der Editor an dieser einen Zeile einen ungelösten
 Import.
 
+## Deployment-Stand
+
+| | |
+| --- | --- |
+| Umgebung | ASC SFA CS Playground — `https://ascsfacs.crm4.dynamics.com` |
+| App | Sales Hub (`msdynce_saleshub`), App ID `53fc8147-cb62-ed11-9562-000d3a24f3d4` |
+| Page ID | `845b5c02-e107-478b-ae41-65555d89cf32` |
+| Sitemap | Seite ist in die Navigation der App eingehängt (unmanaged Layer auf Sales Hub) |
+| Datenquellen | als App-Komponenten registriert |
+| PAC CLI | 2.12.2 (braucht .NET **10** — das Tool-Asset liegt unter `tools/net10.0/`) |
+
+Upload-Befehl siehe unten; `--solution` gibt es bei `pac model genpage upload`
+nicht, die Seite landet in der Default-Solution.
+
+## Befunde aus der Umgebung
+
+- **Spaltennamen bestätigt.** `generate-types` liefert alle tabellenspezifischen
+  Spalten genau so, wie sie hier verwendet werden. Die drei System-Spalten
+  (`_ownerid_value`, `_createdby_value`, `createdon`) stehen **nicht** im
+  generierten Tabellentyp — sie liegen auf der `TableRow<>`-Basis der Runtime.
+  Beleg: der generierte Typ enthält deren Shadow-Namen (`createdbyname`,
+  `owningbusinessunitname`), und eine FetchXML-Abfrage mit `ownerid`, `createdon`
+  und `createdby` wird von Dataverse akzeptiert.
+- **`GeneratedComponentProps` hat nur `dataApi`** — kein `pageInput`. Die Seite
+  nutzt auch keines.
+- **Beide Approval-Tabellen sind leer.** `msdyn_flow_approval` und
+  `msdyn_flow_approvalrequest` existieren in der Umgebung (sie kommen mit der
+  Flow-Solution), enthalten aber null Zeilen. Die Seite rendert deshalb ihren
+  Leerzustand, bis ein Approval-Flow gelaufen ist oder Testdaten angelegt wurden.
+- **Die Umgebung ist einsprachig Englisch (LCID 1033).** Die UI-Texte dieser Seite
+  sind deutsch — bewusst, weil Repo und Team deutsch sind, aber es passt nicht zur
+  Spracheinstellung der Umgebung.
+
 ## Offen
 
-1. **Umgebung, Ziel-App und Solution** stehen noch nicht fest — ohne sie kein
-   `generate-types` und kein Upload.
+1. **Eigene Solution** `pro_ApprovalCockpitGenPage` (Publisher `DynamicsPro`,
+   Prefix `pro`) ist **nicht** angelegt — der `pac solution import` wurde in der
+   Session blockiert. Das Paket ist gebaut und der Weg steht fest: importieren,
+   dann die Seite per `pac solution add-solution-component` als Komponente
+   aufnehmen. Ohne eigene Solution liegt die Seite in der Default-Solution und
+   lässt sich nicht sauber transportieren.
 2. **Phase 2 — Genehmigen/Ablehnen** über den Approvals-Connector, inklusive
-   Bulk-Aktion wie in der Code App.
-3. **Lokalisierung**: die UI-Texte sind derzeit fest deutsch. Sobald
-   `pac model list-languages` die aktivierten Sprachen der Umgebung zeigt, kann die
-   Seite auf das Localization-Pattern der Genpage-Regeln umgestellt werden.
+   Bulk-Aktion wie in der Code App. Jetzt möglich, weil die Umgebung feststeht:
+   Connections auflisten, Connection Reference anlegen, Operation ermitteln.
+3. **Sprache** der UI-Texte entscheiden (siehe Befunde).
+4. **Visuelle Prüfung** in der App steht aus — im Container gibt es keine
+   authentifizierte Browser-Session.
 
 ## Geprüft
 
