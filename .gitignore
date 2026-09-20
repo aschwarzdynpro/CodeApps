@@ -14,6 +14,9 @@ build/
 power.local.json
 *.pa.local
 
+# Generative Pages – aus der Zielumgebung generierte Typen
+RuntimeTypes.ts
+
 # Environment & Secrets
 .env
 .env.*
