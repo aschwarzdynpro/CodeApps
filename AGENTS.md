@@ -32,7 +32,7 @@ CodeApps/
 │   ├── audit-explorer/     # Code App: Dataverse-Audit-History, query-first
 │   ├── sales-dashboard/    # Code App: Sales Dashboard GVL (Waldmann), Fassung eines Legacy-Dashboards
 │   ├── approval-cockpit/   # Code App: Genehmigungs-Inbox, nur Mock-Daten (kein power.config.json)
-│   └── mein-tag/           # Gen Page in Sales Hub: Aktivitäten nach Fälligkeit + stille Opps/Leads
+│   └── my-day/             # Gen Page in Sales Hub (Waldmann): Termine/Aufgaben/Projektaufgaben + Leads/Projekte/Anfragen/Workorders
 ├── docs/                   # SETUP.md (neue App anlegen), IDEAS*.md, HANDOVER.md (Audit Explorer)
 ├── marketing/              # Sales-Deck + Handout der Solution Administration Console
 ├── .claude/skills/         # create-release (managed Export + GitHub-Release, nur solution-forge)
@@ -51,9 +51,9 @@ Console" (npm-Name `solution-administration-console`).
 ## Konventionen
 
 - **Commits:** Conventional Commits mit App-Scope —
-  `feat(solution-forge): …`, `fix(audit-explorer): …`, `feat(mein-tag): …`,
+  `feat(solution-forge): …`, `fix(audit-explorer): …`, `feat(my-day): …`,
   `docs(repo): …`, `release(solution-forge): managed export 1.0.0.NN`.
-  Betreff in der Sprache der App-Doku (solution-forge Englisch, mein-tag
+  Betreff in der Sprache der App-Doku (solution-forge Englisch, my-day
   Deutsch), Body erklärt das Warum. Trailer `Co-Authored-By: Claude …`
   bleibt; keine „Generated with Claude Code"-Zeile.
 - **Branches:** `main` ist Arbeits- und Release-Branch; Features auf
@@ -142,7 +142,7 @@ Mock, gitignore für `power.config.json`/`src/generated/`) und die App in
 
 # Generative Pages
 
-Die Erfahrungen hier stammen aus dem Bau von `apps/mein-tag/` (Muster-
+Die Erfahrungen hier stammen aus dem Bau von `apps/my-day/` (Muster-
 Implementierung) und einer inzwischen verworfenen Gen Page für das Approval
 Cockpit (September 2026; der Code liegt in der Git-Historie bis Commit
 9b405c4).
@@ -158,7 +158,7 @@ Aggregation in der Abfrage (Zeilen holen, im Client rechnen).
 
 Ablage: liegt eine Code App daneben, kommt die Gen Page in
 `apps/<name>/genpage/`; ist die Gen Page die App, liegt sie direkt in
-`apps/<name>/` (so bei `mein-tag`). Pro Gen Page:
+`apps/<name>/` (so bei `my-day`). Pro Gen Page:
 
 | Datei | Zweck | im Git |
 | --- | --- | --- |
@@ -207,7 +207,7 @@ Ordner `plugins/model-apps/` — `references/rules.md`, `data-caching.md`,
 2. Manifest: `node <plugin>/scripts/generate-page-manifest.js <dir> <slug>`.
 3. `pac model genpage generate-types --data-sources "…" --output-file
    ./RuntimeTypes.ts` und jede selektierte Spalte gegen die Datei prüfen.
-4. Seite schreiben (Muster: `apps/mein-tag/MeinTag.tsx`).
+4. Seite schreiben (Muster: `apps/my-day/MyDay.tsx`).
 5. Type-Check in einer Scratch-Kopie: echte `RuntimeTypes.ts` + Ambient-Stub
    für `TableRow`, `BaseTableRegistrations`, `BaseUxAgentDataApi` +
    `tsconfig` mit `jsx: react`, `strict`, `skipLibCheck`; `npm install` der
@@ -269,10 +269,34 @@ Ordner `plugins/model-apps/` — `references/rules.md`, `data-caching.md`,
   Option-Value-Prefix 45500.
 - Approval-Tabellen vorhanden, aber leer. `activitypointer` 28 offen (26 dem
   Konto), `lead` 2, `opportunity` 1 (gehört „Test Testerich").
-- Deployte Gen Page: Mein Tag `f74b6eee-f039-4919-a3c6-ce0eb34a7c2d`.
-  Die Approval-Cockpit-Seite `845b5c02-…` ist per `pac model genpage remove`
+- Deployte Gen Page: „Mein Tag" `f74b6eee-f039-4919-a3c6-ce0eb34a7c2d` —
+  der deutsche Vorläufer von `apps/my-day/` (Aktivitäten + stille
+  Opportunities/Leads; Code in der Git-Historie bis Commit 49e7dec). Die
+  Approval-Cockpit-Seite `845b5c02-…` ist per `pac model genpage remove`
   aus der Sitemap gelöst; die Seitenzeile selbst existiert in Dataverse
   weiter.
+
+## Umgebung Waldmann D365 DEV (Stand 2026-09-21)
+
+- `https://waldmann-dev.crm4.dynamics.com`, Env-ID
+  `33146d71-4fe8-e1d7-af2f-f80fe968fc47`; pac-Profil `Waldmann` ist ein
+  Application User (SP), zum Testen im Browser das Konto
+  `AAD_ADM_HSO_Schwarz@waldmann.onmicrosoft.com` (Systemuser
+  `5355b148-5eff-ee11-9f89-000d3aad2055`). Details in
+  `apps/sales-dashboard/README.md` und im Memory.
+- Drei Sprachen (1033 en-US, 1031 de-DE, 1036 fr-FR) ⇒ Gen Pages hier mit
+  Übersetzungswörterbuch nach `localization.md`.
+- Sales Hub: App-ID `1273fbf5-a1ff-ee11-9f89-000d3aad2055`
+  (`msdynce_saleshub`). Publisher-Prefix `wal`, Option-Value-Prefix 956980.
+- Projekt-Datenmodell: `wal_projectinquiry` (Projektanfrage, Primärfeld
+  `wal_topic_txt`) → `wal_project` (Projekt; Rollen `_wal_areasalesmanager_id_value`
+  = GVL, `_wal_keyaccountmanager_id_value`, `_wal_projectmanager_id_value`)
+  → `msdyn_workorder` (Field-Service-Workorder mit `_wal_project_id_value`).
+  `wal_projecttask` ist eine Custom Activity (`activityid`, `scheduledend`,
+  `wal_category_opt`). Workorder „offen" = `statecode 0` und
+  `msdyn_systemstatus` nicht Completed/Posted/Canceled.
+- Gen Page „My Day" (`apps/my-day/`): gebaut und type-geprüft, **Upload
+  steht aus** — Befehl und Datenlage in `apps/my-day/README.md`.
 
 ## Was Gen Pages hier gut können und was nicht
 
@@ -281,5 +305,5 @@ Gut: mehrere Tabellen auf einem Screen, Seiten aus einem Datensatz heraus
 geführte Abläufe mit mehreren `createRow`. Schlecht: alles, was
 Konnektoren zum Handeln braucht, Metadaten, Cross-Environment (das ist
 solution-forge), Dateien, Nutzer ohne MDA-Lizenz. Kandidatenliste und
-Bewertung: Pipeline-Kanban, Account 360, „Mein Tag" (gebaut),
+Bewertung: Pipeline-Kanban, Account 360, „My Day" (gebaut),
 Lead-Qualifizierungs-Wizard, Angebotsvergleich.
