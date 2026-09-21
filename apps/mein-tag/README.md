@@ -3,11 +3,11 @@
 Eine Seite in **Sales Hub**, die drei Ansichten ersetzt: die eigenen offenen
 Aktivitäten nach Fälligkeit gebuckelt, dazu die Opportunities und Leads, die seit
 N Tagen still liegen. Gleiches Muster wie das
-[Approval Cockpit](../../approval-cockpit/genpage/) — nur mit Tabellen, die im
+[Approval Cockpit](../approval-cockpit/genpage/) — nur mit Tabellen, die im
 Playground tatsächlich Daten haben.
 
-Es gibt hier keine Code-App-Zwilling; der Ordner `genpage/` steht allein, damit
-später einer daneben passt.
+Anders als beim Approval Cockpit gibt es hier keinen Code-App-Zwilling — die
+Gen Page *ist* die App, deshalb liegen ihre Dateien direkt in `apps/mein-tag/`.
 
 ## Datenmodell
 
