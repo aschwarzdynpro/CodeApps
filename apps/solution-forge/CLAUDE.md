@@ -131,6 +131,19 @@ Kundenumgebung gepusht worden. `deploy-env.ps1` aktiviert das Profil deshalb
 trotzdem stehen. ⚠ `Enabled = $false` in der Registry schützt hier **nicht** —
 das verhindert nur den Aufruf *für* diese Umgebung, nicht dass ein Push für
 eine andere dort landet.
+⚠ **Tote pac-Auth ⇒ App ohne Datenzugriff (2026-09-16, Schulz INT-11).** Die
+Tokens des Schulz-Kontos waren am 11.09. widerrufen worden (`AADSTS50173`).
+Der alte Guard matchte nur die Org-URL im `pac org who`-Text — und die
+**Fehlermeldung** „Could not connect to … at https://<ziel>/" enthält genau
+diese URL; alle 18 `add-data-source`-Aufrufe scheiterten still (`| Out-Null`),
+`add-flow` (npm-CLI, eigene Auth) lief durch, und `power-apps push` veröffent-
+lichte die App mit **leeren `connectionReferences`/`databaseReferences`** —
+nur der Flow war registriert, jeder Dataverse-Zugriff lief ins Leere.
+`deploy-env.ps1` prüft seitdem `Assert-PacOrg` (Exit-Code + `Org URL:`-Zeile +
+kein Fehlertext), lässt `add-data-source`-Fehler abbrechen und verifiziert vor
+dem Push mit `Assert-PowerConfig`, dass Dataverse-Konnektor + alle 17 Tabellen
+in `power.config.json` stehen. Symptom bei Token-Widerruf: `pac auth delete
+--name SchulzNEW` + `pac auth create --deviceCode … --name SchulzNEW`.
 
 ## Architektur
 

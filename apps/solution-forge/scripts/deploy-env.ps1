@@ -144,13 +144,28 @@ function Select-PacProfile($cfg) {
   pac auth select --index $idx | Out-Null
 }
 
-# 1) + 2) Profil aktivieren, dann GUARD: aktives Org MUSS das Ziel sein
-Select-PacProfile $cfg
-$who = pac org who 2>&1 | Out-String
-if ($who -notmatch [regex]::Escape($cfg.OrgUrl.TrimEnd('/'))) {
-  throw "GUARD: aktives Org ist NICHT $($cfg.OrgUrl).`n$who"
+# GUARD: aktives Org MUSS das Ziel sein UND die Verbindung muss stehen.
+# NICHT nur auf die URL matchen: die pac-FEHLERMELDUNG bei toter Auth ("Could
+# not connect to the Dataverse organization at https://<ziel>/ ... AADSTS50173")
+# enthaelt die Ziel-URL selbst — genau so ist am 2026-09-16 ein Push mit LEERER
+# power.config.json (kein Konnektor, keine Tabellen) nach Schulz INT-11
+# durchgerutscht, nachdem die Tokens des Kontos am 11.09. widerrufen worden waren.
+function Assert-PacOrg($cfg, [string]$stage) {
+  $who = pac org who 2>&1 | Out-String
+  $exit = $LASTEXITCODE
+  $orgLine = ($who -split "`r?`n" | Where-Object { $_ -match '^\s*Org URL:' }) -join ''
+  $ok = ($exit -eq 0) -and
+        ($who -notmatch 'Could not connect|AADSTS|Error') -and
+        ($orgLine -match [regex]::Escape($cfg.OrgUrl.TrimEnd('/')))
+  if (-not $ok) {
+    throw "GUARD ($stage): aktives Org ist NICHT (verbunden mit) $($cfg.OrgUrl). Bei AADSTS-/Token-Fehlern: pac auth delete --name $($cfg.ProfileName); pac auth create --deviceCode --environment $($cfg.OrgUrl) --name $($cfg.ProfileName)`n$who"
+  }
+  Write-Host "GUARD ok ($stage): $($cfg.OrgUrl) aktiv + verbunden" -ForegroundColor Green
 }
-Write-Host "GUARD ok: $($cfg.OrgUrl) aktiv" -ForegroundColor Green
+
+# 1) + 2) Profil aktivieren, dann GUARD
+Select-PacProfile $cfg
+Assert-PacOrg $cfg 'start'
 
 # 3) power.config.json (Basis — Connector/Tabellen fuellt der Generator unten)
 $pc = [ordered]@{
@@ -178,15 +193,45 @@ $adoProj = if ($cfg.Ado) { $cfg.Ado.Project } else { 'D365' }
 ) -join "`n" | Set-Content .env.local -NoNewline
 
 # 5) Data Sources (immer gleiches pro_-Schema) + Connector (cr ODER c)
-foreach ($t in 'solution', 'publisher', 'solutioncomponent', 'msdyn_solutioncomponentsummary', 'systemuser', 'role', 'pro_workingsolution', 'pro_workbenchsettings', 'pro_mergerun', 'pro_releasenote', 'pro_environmentconfig', 'pro_transferpackage', 'pro_transferentry', 'pro_transferrun', 'pro_securitysnapshot', 'asyncoperation', 'organization') {
-  & .\scripts\add-data-source.ps1 -a dataverse -t $t 2>&1 | Select-Object -Last 1 | Out-Null
+# Jeder Aufruf MUSS gelingen — Fehler werden nicht mehr verschluckt (frueher
+# '| Select-Object -Last 1 | Out-Null': 18 stille Fehlschlaege am 2026-09-16,
+# die App ging ohne eine einzige Data Source nach INT-11).
+$DataSourceTables = @('solution', 'publisher', 'solutioncomponent', 'msdyn_solutioncomponentsummary', 'systemuser', 'role', 'pro_workingsolution', 'pro_workbenchsettings', 'pro_mergerun', 'pro_releasenote', 'pro_environmentconfig', 'pro_transferpackage', 'pro_transferentry', 'pro_transferrun', 'pro_securitysnapshot', 'asyncoperation', 'organization')
+function Invoke-AddDataSource([string]$label, [string[]]$pacArgs) {
+  $out = & .\scripts\add-data-source.ps1 @pacArgs 2>&1 | Out-String
+  if ($LASTEXITCODE -ne 0 -or $out -match 'Could not connect|AADSTS|(?m)^\s*Error') {
+    throw "add-data-source '$label' FAILED (exit $LASTEXITCODE) — Push abgebrochen.`n$out"
+  }
+  Write-Host "  + $label" -ForegroundColor DarkGray
+}
+foreach ($t in $DataSourceTables) {
+  Invoke-AddDataSource $t @('-a', 'dataverse', '-t', $t)
 }
 if ($cfg.Connector.Mode -eq 'cr') {
-  & .\scripts\add-data-source.ps1 -a shared_commondataserviceforapps -cr $cfg.Connector.Ref -s $cfg.Connector.Solution 2>&1 | Select-Object -Last 1
+  Invoke-AddDataSource "connector cr=$($cfg.Connector.Ref)" @('-a', 'shared_commondataserviceforapps', '-cr', $cfg.Connector.Ref, '-s', $cfg.Connector.Solution)
 }
 else {
-  & .\scripts\add-data-source.ps1 -a shared_commondataserviceforapps -c $cfg.Connector.ConnectionId 2>&1 | Select-Object -Last 1
+  Invoke-AddDataSource "connector c=$($cfg.Connector.ConnectionId)" @('-a', 'shared_commondataserviceforapps', '-c', $cfg.Connector.ConnectionId)
 }
+
+# Verifikation: power.config.json muss den Dataverse-Konnektor UND alle Tabellen
+# tragen — sonst wuerde eine App ohne jeden Datenzugriff veroeffentlicht.
+function Assert-PowerConfig([string]$stage) {
+  $pcj = Get-Content power.config.json -Raw | ConvertFrom-Json
+  $crs = @($pcj.connectionReferences.PSObject.Properties | ForEach-Object { $_.Value })
+  $hasDataverse = [bool]($crs | Where-Object { $_.id -match 'shared_commondataserviceforapps' })
+  $ds = @()
+  $cds = $pcj.databaseReferences.'default.cds'
+  if ($cds -and $cds.dataSources) {
+    $ds = @($cds.dataSources.PSObject.Properties | ForEach-Object { $_.Value.logicalName })
+  }
+  $missing = @($DataSourceTables | Where-Object { $_ -notin $ds })
+  if (-not $hasDataverse -or $missing.Count -gt 0) {
+    throw "power.config.json unvollstaendig ($stage) — Push abgebrochen. Dataverse-Konnektor: $hasDataverse; fehlende Tabellen: $($missing -join ', ')"
+  }
+  Write-Host "power.config.json ok ($stage): Dataverse-Konnektor + $($ds.Count) Data Sources" -ForegroundColor Green
+}
+Assert-PowerConfig 'post-data-sources'
 
 # Snapshot zur Referenz (gitignored)
 New-Item -ItemType Directory -Force (Join-Path $appDir 'deploy') | Out-Null
@@ -217,8 +262,9 @@ if (-not $SkipBuild) {
 # Der Re-Check bleibt trotz Re-Select stehen: er ist die Absicherung, die greift,
 # falls das Profil auf einem anderen Weg wegkippt.
 Select-PacProfile $cfg
-$who2 = pac org who 2>&1 | Out-String
-if ($who2 -notmatch [regex]::Escape($cfg.OrgUrl.TrimEnd('/'))) { throw "GUARD (pre-push): aktives Org ist NICHT $($cfg.OrgUrl).`n$who2" }
+Assert-PacOrg $cfg 'pre-push'
+# add-flow schreibt power.config.json um — Konnektor/Tabellen muessen noch da sein.
+Assert-PowerConfig 'pre-push'
 if ($NoPush) {
   Write-Host "==== -NoPush: Setup fertig, KEIN Push ($Env) ====" -ForegroundColor Yellow
   Write-Host "power.config.json + Data Sources + Build stehen. Push separat ausfuehren." -ForegroundColor Yellow
