@@ -2,8 +2,8 @@
 
 Eine Seite in **Sales Hub**, die drei Ansichten ersetzt: die eigenen offenen
 Aktivitäten nach Fälligkeit gebuckelt, dazu die Opportunities und Leads, die seit
-N Tagen still liegen. Gleiches Muster wie das
-[Approval Cockpit](../approval-cockpit/genpage/) — nur mit Tabellen, die im
+N Tagen still liegen. Gleiches Muster wie die inzwischen verworfene Gen Page
+des Approval Cockpits (Git-Historie bis 9b405c4) — nur mit Tabellen, die im
 Playground tatsächlich Daten haben.
 
 Anders als beim Approval Cockpit gibt es hier keinen Code-App-Zwilling — die

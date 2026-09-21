@@ -57,12 +57,3 @@ and serves the sample data in `src/services/mockData.ts`.
    ```
 
 See [`../../docs/SETUP.md`](../../docs/SETUP.md) for the full workflow.
-
-## Also available as a generative page
-
-The same cockpit exists a second time as a **generative page** for model-driven
-apps in [`genpage/`](genpage/). That version is read-only and runs against the
-real Power Automate approval tables (`msdyn_flow_approvalrequest` /
-`msdyn_flow_approval`) instead of the mock service — see
-[`genpage/README.md`](genpage/README.md) for the differences and the deployment
-steps.

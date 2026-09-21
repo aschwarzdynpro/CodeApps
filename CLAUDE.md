@@ -4,8 +4,9 @@ Monorepo für Power Apps **Code Apps** (Vite + React 19, `apps/<name>/`) und
 **Generative Pages** (React 17 + Fluent UI V9, eine `.tsx`, in einer
 model-driven App). App-spezifisches Wissen liegt in `apps/<name>/CLAUDE.md`
 bzw. `README.md`; hier steht, was repo-weit gilt. Die Gen-Page-Erfahrungen
-unten stammen aus dem Bau von `apps/approval-cockpit/genpage/` und
-`apps/mein-tag/` (September 2026).
+unten stammen aus dem Bau von `apps/mein-tag/` und einer inzwischen
+verworfenen Gen Page für das Approval Cockpit (September 2026; der Code liegt
+in der Git-Historie bis Commit 9b405c4).
 
 ## Generative Pages
 
@@ -48,6 +49,8 @@ Ordner `plugins/model-apps/` — `references/rules.md`, `data-caching.md`,
 - `pac env fetch --xmlFile <fetchxml>` ist der schnellste Blick in die Daten
   (kein `top` zusammen mit Paging; `aggregate="true"` + `count` funktioniert).
   Es gibt **keinen** PAC-Befehl, der Datenzeilen schreibt.
+- `pac model genpage remove` löst eine Seite nur aus der Sitemap; **ein
+  `delete` gibt es nicht** — die `uxagentproject`-Zeile bleibt in Dataverse.
 - `pac model genpage upload` hat **kein** `--solution`. Die Seite landet in
   der Default-Solution; eine eigene Solution ist ein Schritt danach
   (`pac solution import` eines minimalen Pakets, dann
@@ -122,9 +125,10 @@ Ordner `plugins/model-apps/` — `references/rules.md`, `data-caching.md`,
   Option-Value-Prefix 45500.
 - Approval-Tabellen vorhanden, aber leer. `activitypointer` 28 offen (26 dem
   Konto), `lead` 2, `opportunity` 1 (gehört „Test Testerich").
-- Deployte Gen Pages: Approval Cockpit
-  `845b5c02-e107-478b-ae41-65555d89cf32`, Mein Tag
-  `f74b6eee-f039-4919-a3c6-ce0eb34a7c2d`.
+- Deployte Gen Page: Mein Tag `f74b6eee-f039-4919-a3c6-ce0eb34a7c2d`.
+  Die Approval-Cockpit-Seite `845b5c02-…` ist per `pac model genpage remove`
+  aus der Sitemap gelöst; die Seitenzeile selbst existiert in Dataverse
+  weiter — PAC hat kein `delete`, das geht nur im Maker-Portal.
 
 ### Was Gen Pages hier gut können und was nicht
 
