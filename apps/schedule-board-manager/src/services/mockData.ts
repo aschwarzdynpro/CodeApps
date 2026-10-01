@@ -315,6 +315,10 @@ export const MOCK_PRINCIPALS: PrincipalRef[] = [
   { id: 'b0000000-0000-4000-8000-000000000002', type: 'user', name: 'Jonas Feldmann', detail: 'jonas.feldmann@contoso.example' },
   { id: 'b0000000-0000-4000-8000-000000000003', type: 'user', name: 'Aylin Demir', detail: 'aylin.demir@contoso.example' },
   { id: 'b0000000-0000-4000-8000-000000000004', type: 'user', name: 'Per Andersen', detail: 'per.andersen@contoso.example' },
+  { id: 'b0000000-0000-4000-8000-000000000005', type: 'user', name: 'Jörg Albrecht', detail: 'joerg.albrecht@contoso.example' },
+  { id: 'b0000000-0000-4000-8000-000000000006', type: 'user', name: 'Jörn Brandt', detail: 'joern.brandt@contoso.example' },
+  { id: 'b0000000-0000-4000-8000-000000000007', type: 'user', name: 'Björn Ostermann', detail: 'bjoern.ostermann@contoso.example' },
+  { id: 'b0000000-0000-4000-8000-000000000008', type: 'user', name: 'Brandt, Jörn (extern)', detail: 'ext.brandt@contoso.example' },
   { id: 'c0000000-0000-4000-8000-000000000001', type: 'team', name: 'Disposition Nord', detail: 'Team' },
   { id: 'c0000000-0000-4000-8000-000000000002', type: 'team', name: 'Montageleitung', detail: 'Team' },
 ]

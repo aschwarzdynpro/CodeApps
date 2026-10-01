@@ -2,6 +2,7 @@ import { MicrosoftDataverseService as Dv } from '../generated/services/Microsoft
 import { SystemusersService } from '../generated/services/SystemusersService'
 import { TeamsService } from '../generated/services/TeamsService'
 import { ORG_URL } from '../config'
+import { SEARCH_LIMIT, rankPrincipals, searchWords } from '../utils/principalSearch'
 import {
   levelOfMask,
   type PrincipalRef,
@@ -156,19 +157,21 @@ async function teamsByIds(ids: string[]): Promise<Map<string, PrincipalRef>> {
 }
 
 export async function searchPrincipals(term: string): Promise<PrincipalRef[]> {
-  const t = term.trim().replace(/'/g, "''")
-  if (t.length < 2) return []
+  const words = searchWords(term).map((w) => w.replace(/'/g, "''"))
+  if (words.length === 0) return []
+  const userFilter = words.map((w) => `(contains(fullname,'${w}') or contains(internalemailaddress,'${w}'))`).join(' and ')
+  const teamFilter = words.map((w) => `contains(name,'${w}')`).join(' and ')
   const [users, teams] = await Promise.all([
     SystemusersService.getAll({
       select: ['systemuserid', 'fullname', 'internalemailaddress'],
       // accessmode 3/4/5 = non-interactive, support, delegated admin — not dispatchers.
-      filter: `(contains(fullname,'${t}') or contains(internalemailaddress,'${t}')) and isdisabled eq false and accessmode ne 3 and accessmode ne 4 and accessmode ne 5`,
+      filter: `${userFilter} and isdisabled eq false and accessmode ne 3 and accessmode ne 4 and accessmode ne 5`,
       orderBy: ['fullname asc'],
-      top: 15,
+      top: SEARCH_LIMIT,
     }),
     TeamsService.getAll({
       select: ['teamid', 'name'],
-      filter: `contains(name,'${t}')`,
+      filter: teamFilter,
       orderBy: ['name asc'],
       top: 10,
     }),
@@ -183,7 +186,7 @@ export async function searchPrincipals(term: string): Promise<PrincipalRef[]> {
   if (teams.success) {
     for (const r of teams.data as unknown as Row[]) out.push({ id: str(r.teamid), type: 'team', name: str(r.name), detail: 'Team' })
   }
-  return out
+  return rankPrincipals(out, term)
 }
 
 export async function setShare(boardId: string, principal: PrincipalRef, level: ShareLevel, existing: boolean): Promise<void> {

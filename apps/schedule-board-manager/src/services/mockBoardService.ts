@@ -1,6 +1,7 @@
 import type { Board, BoardContent, BoardSummary, LookupKey } from '../types/board'
 import { ACCESS, BOARD_LOOKUPS, ConflictError, levelOfMask } from '../types/board'
 import type { BoardService } from './boardService'
+import { matchesAll, rankPrincipals, searchWords } from '../utils/principalSearch'
 import {
   MOCK_BOOKING_SETUPS,
   MOCK_PRINCIPALS,
@@ -156,8 +157,9 @@ export const mockBoardService: BoardService = {
     ),
 
   searchPrincipals: (term) => {
-    const t = term.trim().toLowerCase()
-    return delay(t.length < 2 ? [] : MOCK_PRINCIPALS.filter((p) => p.name.toLowerCase().includes(t) || p.detail?.toLowerCase().includes(t)))
+    const words = searchWords(term)
+    if (words.length === 0) return delay([])
+    return delay(rankPrincipals(MOCK_PRINCIPALS.filter((p) => matchesAll(p, words)), term))
   },
 
   setShare: (boardId, principal, level) => {

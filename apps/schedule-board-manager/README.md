@@ -18,7 +18,7 @@ Boards übertragen. Außerdem korrigiert sie zwei Fehler der Vorlage (siehe unte
 | --- | --- |
 | **Boards** | Liste mit Freigabeart, Status und Besitzer; Reihenfolge der Tabs ändern (`msdyn_ordernumber`); Kopieren (Name, Freigabe, Position, optional mit Datensatz-Freigaben); Aktivieren/Deaktivieren; Löschen; Export als JSON; Link zum Datensatz-Formular |
 | **Filterlayout** | Felder des Ressourcenfilter-Bereichs bearbeiten (Konfiguration hinter `msdyn_filterlayout`): Beschriftung, Key, Tabelle/Spalte, Mehrfachauswahl, Reihenfolge, entfernen, neue Felder (Datensätze einer Tabelle / Auswahlwerte einer Spalte). Zeigt, welche Boards das Layout teilen, warnt bei Feldern, die die Ressourcenabfrage nicht auswertet, und kann eine Kopie nur für das aktuelle Board anlegen und zuweisen. XML-Reiter, Diff-Vorschau, Verlauf |
-| **Freigaben** | Für Boards mit „Bestimmte Personen“: wer das Board sieht (Benutzer und Teams, aus `principalobjectaccess`), Stufe „Lesen“ oder „Lesen & Bearbeiten“ ändern, entfernen, neue Benutzer/Teams suchen und freigeben |
+| **Freigaben** | Für Boards mit „Bestimmte Personen“: wer das Board sieht (Benutzer und Teams, aus `principalobjectaccess`), Stufe „Lesen“ oder „Lesen & Bearbeiten“ ändern, entfernen, neue Benutzer/Teams per Live-Suche finden (ab 2 Zeichen, mehrere Wörter grenzen ein: „jör bus“ → Jörn Busch) und freigeben |
 | **Bearbeiten** | Formular nach dem MS-[Field-Mapping](https://learn.microsoft.com/en-us/dynamics365/guidance/resources/field-service-schedule-board-settings-field-mapping): Board-Ansicht, Farben, Schedule Assistant, Karte, Sonstiges (inkl. der 3 Konfigurations-Lookups), eigene Web-Ressource, Schedule-Typen (`SlotMetadataCollection`), Anforderungsbereiche (`UnscheduledTabs`, hinzufügen/sortieren/entfernen). Nicht gesetzte Felder zeigen den Wert des Default-Boards an. Roh-JSON-Editor als Fallback |
 | **Speichern** | Vorschau aller geänderten Felder (Diff bis auf die einzelnen JSON-Werte), es werden nur geänderte Spalten geschrieben; Konfliktprüfung über `versionnumber`; der vorherige Stand landet im Verlauf (lokal im Browser, die letzten 10) und lässt sich als Entwurf zurückladen |
 | **Vergleichen** | Zwei Boards Feld für Feld, filterbar nach Bereich; „Von A nach B übertragen“ springt mit vorausgewählten Feldern in den Bulk |
@@ -77,6 +77,7 @@ src/
 │   ├── boardRules.ts        # Schutz, Kopieren, Diff, Bulk-Auswahl
 │   ├── filterLayout.ts      # Filterlayout-XML: parsen, Felder ändern, Diff, Abfrage-Abgleich
 │   ├── queryAnalysis.ts     # Ressourcenabfrage: welcher $input-Key filtert wo und wie
+│   ├── principalSearch.ts   # Benutzer-/Team-Suche: Wörter, Abgleich, Sortierung
 │   └── snapshots.ts         # lokaler Verlauf + JSON-Download
 ├── services/
 │   ├── boardService.ts      # Interface + Auswahl Dataverse/Mock
@@ -162,7 +163,7 @@ Oberfläche durch, damit ein Schreibvorgang nie scheinbar gelingt.
 ```bash
 npm install
 npm run dev      # http://localhost:3000 — ohne Host: Mock-Daten (Badge oben rechts)
-npm run test     # Vitest: settingsModel, boardRules, filterLayout (jsdom), queryAnalysis
+npm run test     # Vitest: settingsModel, boardRules, filterLayout (jsdom), queryAnalysis, principalSearch
 npm run build    # tsc -b && vite build
 npm run lint
 ```
