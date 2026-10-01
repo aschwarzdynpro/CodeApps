@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { BoardContent } from '../types/board'
 import { parseSettings } from '../utils/settingsModel'
+import { Textarea } from '@fluentui/react-components'
 
 interface Props {
   draft: BoardContent
@@ -31,7 +32,7 @@ function JsonArea({
         <h3>{label}</h3>
         {error ? <span className="badge badge--error">Ungültig: {error}</span> : <span className="badge badge--ok">gültig</span>}
       </div>
-      <textarea
+      <Textarea
         className="input input--mono json-area__text"
         spellCheck={false}
         value={text}

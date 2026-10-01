@@ -48,3 +48,14 @@ h3,
 p {
   margin: 0;
 }
+
+/*
+ * FluentProvider paints its own background and font — keep the app's. It
+ * also copies this class onto popup portals, which must stay unstyled.
+ */
+.fluent-root:not([data-portal-node]) {
+  background: var(--bg);
+  min-height: 100vh;
+  font-size: 14px;
+  color: var(--text);
+}

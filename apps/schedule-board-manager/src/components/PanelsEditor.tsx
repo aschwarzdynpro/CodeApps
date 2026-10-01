@@ -1,6 +1,9 @@
 import { useRefData } from '../hooks/refData'
 import { getAt, jsonEqual, setAt, type Json, type JsonObject } from '../utils/settingsModel'
 import { ViewSelect } from './fields'
+import { Btn } from './ui'
+import { Input } from '@fluentui/react-components'
+import { AddRegular, ArrowDownRegular, ArrowUpRegular, DeleteRegular } from '@fluentui/react-icons'
 
 interface Props {
   settings: JsonObject
@@ -43,7 +46,7 @@ export function PanelsEditor({ settings, original, onChange }: Props) {
         return (
           <div className="panel-row" key={i}>
             <span className="panel-row__index">{i + 1}</span>
-            <input
+            <Input
               className="input"
               aria-label={`Titel Bereich ${i + 1}`}
               value={typeof tab.Title === 'string' ? tab.Title : ''}
@@ -56,26 +59,16 @@ export function PanelsEditor({ settings, original, onChange }: Props) {
               onChange={(v) => onChange(setAt(settings, ['UnscheduledTabs', i, 'UnscheduledView'], v))}
             />
             <div className="panel-row__actions">
-              <button className="icon-btn" onClick={() => move(i, i - 1)} disabled={i === 0} aria-label="Nach oben">
-                ↑
-              </button>
-              <button className="icon-btn" onClick={() => move(i, i + 1)} disabled={i === tabs.length - 1} aria-label="Nach unten">
-                ↓
-              </button>
-              <button
-                className="icon-btn icon-btn--danger"
-                onClick={() => write(tabs.filter((_, j) => j !== i))}
-                aria-label="Bereich entfernen"
-              >
-                ✕
-              </button>
+              <Btn small kind="ghost" icon={<ArrowUpRegular />} onClick={() => move(i, i - 1)} disabled={i === 0} aria-label="Nach oben" />
+              <Btn small kind="ghost" icon={<ArrowDownRegular />} onClick={() => move(i, i + 1)} disabled={i === tabs.length - 1} aria-label="Nach unten" />
+              <Btn small kind="ghost" icon={<DeleteRegular />} onClick={() => write(tabs.filter((_, j) => j !== i))} aria-label="Bereich entfernen" />
             </div>
           </div>
         )
       })}
-      <button className="btn btn--small" onClick={add}>
-        + Bereich hinzufügen
-      </button>
+      <Btn small icon={<AddRegular />} onClick={add}>
+        Bereich hinzufügen
+      </Btn>
     </div>
   )
 }

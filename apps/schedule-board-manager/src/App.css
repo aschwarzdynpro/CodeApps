@@ -35,25 +35,6 @@
   flex: 1;
 }
 
-.nav-btn {
-  border: none;
-  background: none;
-  padding: 8px 12px;
-  border-radius: 6px;
-  color: var(--muted);
-}
-
-.nav-btn:hover {
-  background: var(--surface-2);
-  color: var(--text);
-}
-
-.nav-btn--active {
-  background: var(--brand-soft);
-  color: var(--brand);
-  font-weight: 600;
-}
-
 .mode {
   font-size: 12px;
   padding: 3px 10px;
@@ -219,23 +200,7 @@
 }
 
 .tabs {
-  display: flex;
-  gap: 2px;
   border-bottom: 1px solid var(--border);
-}
-
-.tab {
-  border: none;
-  background: none;
-  padding: 8px 14px;
-  border-bottom: 2px solid transparent;
-  color: var(--muted);
-}
-
-.tab--active {
-  color: var(--brand);
-  border-bottom-color: var(--brand);
-  font-weight: 600;
 }
 
 .savebar {
@@ -375,45 +340,30 @@
 /* ---------- inputs ---------- */
 .input {
   width: 100%;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  font: inherit;
-  color: inherit;
-}
-
-input.input,
-select.input {
-  height: 34px;
-}
-
-.input:focus {
-  outline: 2px solid var(--brand-soft);
-  border-color: var(--brand);
-}
-
-.input:disabled {
-  background: var(--surface-2);
-  color: var(--muted);
 }
 
 .input--narrow {
   max-width: 160px;
 }
 
-.input--mono {
+.input--level {
+  width: 190px;
+  flex-shrink: 0;
+}
+
+.input--mono,
+.input--mono input,
+.input--mono textarea {
   font-family: Consolas, 'Cascadia Mono', monospace;
   font-size: 12px;
 }
 
-.input--area {
-  resize: vertical;
+.input--area textarea {
   min-height: 80px;
 }
 
 .input--invalid {
-  border-color: var(--danger);
+  border-color: var(--danger) !important;
 }
 
 .color-input {
@@ -433,7 +383,7 @@ select.input {
 }
 
 .color-input .input {
-  max-width: 120px;
+  max-width: 140px;
 }
 
 .form-row {
@@ -454,87 +404,6 @@ select.input {
 
 .form-row--inline .input {
   min-width: 220px;
-}
-
-.form-check {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 3px 0;
-}
-
-/* ---------- buttons ---------- */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.btn:hover:not(:disabled) {
-  background: var(--surface-2);
-}
-
-.btn:disabled {
-  opacity: 0.5;
-}
-
-.btn--primary {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: #fff;
-}
-
-.btn--primary:hover:not(:disabled) {
-  background: #115ea3;
-}
-
-.btn--danger {
-  color: var(--danger);
-  border-color: #f1b5c0;
-}
-
-.btn--danger:hover:not(:disabled) {
-  background: var(--danger-soft);
-}
-
-.btn--ghost {
-  border-color: transparent;
-  color: var(--brand);
-}
-
-.btn--small {
-  padding: 3px 10px;
-  font-size: 13px;
-}
-
-.icon-btn {
-  border: none;
-  background: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  color: var(--muted);
-  font-size: 15px;
-}
-
-.icon-btn:hover:not(:disabled) {
-  background: var(--surface-2);
-  color: var(--text);
-}
-
-.icon-btn:disabled {
-  opacity: 0.35;
-}
-
-.icon-btn--danger:hover:not(:disabled) {
-  color: var(--danger);
 }
 
 /* ---------- badges, notices ---------- */
@@ -706,8 +575,12 @@ select.input {
 }
 
 .json-area__text {
+  width: 100%;
+}
+
+.json-area__text textarea {
   min-height: 380px;
-  resize: vertical;
+  max-height: none;
   line-height: 1.45;
 }
 
@@ -764,32 +637,6 @@ select.input {
   max-width: 260px;
 }
 
-.segmented {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-  background: var(--surface);
-}
-
-.segmented button {
-  border: none;
-  background: none;
-  padding: 6px 12px;
-  border-right: 1px solid var(--border);
-  font-size: 13px;
-}
-
-.segmented button:last-child {
-  border-right: none;
-}
-
-.segmented .is-active {
-  background: var(--brand-soft);
-  color: var(--brand);
-  font-weight: 600;
-}
-
 .bulk {
   display: grid;
   grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr);
@@ -836,56 +683,10 @@ select.input {
 }
 
 /* ---------- modal & toast ---------- */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(16, 24, 40, 0.35);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 50;
-  padding: 24px;
-}
-
-.modal {
-  background: var(--surface);
-  border-radius: 12px;
-  width: min(520px, 100%);
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 20px 50px rgba(16, 24, 40, 0.25);
-}
-
-.modal--wide {
-  width: min(980px, 100%);
-}
-
-.modal__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px 8px;
-}
-
-.modal__header h2 {
-  font-size: 17px;
-}
-
 .modal__body {
-  padding: 8px 20px 16px;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-.modal__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 12px 20px;
-  border-top: 1px solid var(--border);
 }
 
 .toast {
@@ -1042,8 +843,8 @@ select.input {
 }
 
 .input--warn {
-  border-color: var(--changed);
-  background: var(--warn-soft);
+  border-color: var(--changed) !important;
+  background: var(--warn-soft) !important;
 }
 
 .control-table td {
@@ -1051,7 +852,28 @@ select.input {
 }
 
 .control-table .input {
-  min-width: 120px;
+  min-width: 110px;
+}
+
+/* Label and key share the space; Fluent inputs would otherwise size to ~200px. */
+.control-table td:nth-child(2) .input,
+.control-table td:nth-child(3) .input {
+  width: 100%;
+  max-width: 165px;
+}
+
+.control-table td:nth-child(2) .fui-Input__input,
+.control-table td:nth-child(3) .fui-Input__input {
+  min-width: 0;
+}
+
+.control-table__entity {
+  max-width: 330px;
+}
+
+.control-table__entity .input {
+  min-width: 0;
+  flex: 1;
 }
 
 .control-table__entity {
@@ -1061,6 +883,11 @@ select.input {
 
 .control-table__actions {
   white-space: nowrap;
+  width: 1%;
+}
+
+.control-table__actions .fui-Button {
+  min-width: 0;
 }
 
 .add-control {
@@ -1161,8 +988,8 @@ select.input {
   margin: 6px 0;
 }
 
-.page__header .segmented {
-  margin: 6px 0 8px;
+.page__header .tabs--sub {
+  margin: 4px 0 8px;
 }
 
 /* ---------- import ---------- */
@@ -1233,4 +1060,66 @@ select.input {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* ---------- file drop ---------- */
+.filedrop {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  max-width: 640px;
+  border: 1px dashed var(--border-strong, #c4c9d4);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.filedrop--over {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.filedrop__icon {
+  font-size: 28px;
+  color: var(--brand);
+  flex-shrink: 0;
+}
+
+.filedrop__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.filedrop__text strong {
+  overflow-wrap: anywhere;
+}
+
+/* ---------- fluent dialog ---------- */
+.dialog--wide {
+  max-width: min(1000px, 95vw);
+  width: 100%;
+}
+
+/* ---------- suggestions (Combobox) ---------- */
+.suggest__value {
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: 12px;
+}
+
+.suggest__value {
+  display: block;
+}
+
+.suggest__detail {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.checklist .fui-Checkbox {
+  display: flex;
 }

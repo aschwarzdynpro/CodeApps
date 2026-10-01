@@ -5,6 +5,9 @@ import { useLoad } from '../hooks/useLoad'
 import { diffContent, type BulkSelection, type ChangeArea } from '../utils/boardRules'
 import { topLevelKey } from '../utils/settingsFields'
 import { DiffTable } from './DiffTable'
+import { Btn, Select } from './ui'
+import { Input, Tab, TabList } from '@fluentui/react-components'
+import { ArrowSwapRegular, SearchRegular } from '@fluentui/react-icons'
 
 /** Fields that identify a board rather than configure it — never transferred. */
 const IDENTITY_COLUMNS = ['msdyn_tabname', 'msdyn_ordernumber', 'msdyn_sharetype']
@@ -66,14 +69,13 @@ export function CompareView({ boards, onTransfer }: Props) {
   const picker = (value: string, onChange: (v: string) => void, label: string) => (
     <label className="form-row form-row--inline">
       <span>{label}</span>
-      <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
-        {boards.map((b) => (
-          <option key={b.id} value={b.id}>
-            {b.name}
-            {b.active ? '' : ' (inaktiv)'}
-          </option>
-        ))}
-      </select>
+      <Select
+        className="input"
+        aria-label={`Board ${label}`}
+        value={value}
+        options={boards.map((b) => ({ value: b.id, label: `${b.name}${b.active ? '' : ' (inaktiv)'}` }))}
+        onChange={onChange}
+      />
     </label>
   )
 
@@ -85,9 +87,15 @@ export function CompareView({ boards, onTransfer }: Props) {
       </header>
       <div className="toolbar">
         {picker(leftId, setLeftId, 'A')}
-        <button className="icon-btn" aria-label="Seiten tauschen" onClick={() => { setLeftId(rightId); setRightId(leftId) }}>
-          ⇄
-        </button>
+        <Btn
+          kind="ghost"
+          icon={<ArrowSwapRegular />}
+          aria-label="Seiten tauschen"
+          onClick={() => {
+            setLeftId(rightId)
+            setRightId(leftId)
+          }}
+        />
         {picker(rightId, setRightId, 'B')}
       </div>
       {error ? <div className="notice notice--error">{error}</div> : null}
@@ -95,17 +103,17 @@ export function CompareView({ boards, onTransfer }: Props) {
       {left && right ? (
         <>
           <div className="toolbar">
-            <div className="segmented">
+            <TabList size="small" selectedValue={area} onTabSelect={(_, d) => setArea(d.value as typeof area)}>
               {AREAS.map((a) => (
-                <button key={a.value} className={area === a.value ? 'is-active' : ''} onClick={() => setArea(a.value)}>
+                <Tab key={a.value} value={a.value}>
                   {a.label} ({a.value === 'all' ? changes.length : changes.filter((c) => c.area === a.value).length})
-                </button>
+                </Tab>
               ))}
-            </div>
-            <input className="input" placeholder="Einstellung suchen …" value={query} onChange={(e) => setQuery(e.target.value)} />
-            <button className="btn btn--primary" disabled={leftId === rightId || changes.length === 0} onClick={transfer}>
+            </TabList>
+            <Input className="input" contentBefore={<SearchRegular />} aria-label="Einstellung suchen" placeholder="Einstellung suchen …" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <Btn kind="primary" disabled={leftId === rightId || changes.length === 0} onClick={transfer}>
               Von A nach B übertragen …
-            </button>
+            </Btn>
           </div>
           <DiffTable
             changes={visible}

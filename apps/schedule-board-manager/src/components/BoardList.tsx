@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { Input } from '@fluentui/react-components'
+import { ArrowDownRegular, ArrowUpRegular, SearchRegular } from '@fluentui/react-icons'
+import { Btn } from './ui'
 import { SHARE_TYPE, SHARE_TYPE_LABEL, type BoardSummary } from '../types/board'
 
 interface Props {
@@ -48,8 +51,10 @@ export function BoardList({ boards, selectedId, onSelect, onSaveOrder }: Props) 
   return (
     <aside className="sidebar">
       <div className="sidebar__head">
-        <input
+        <Input
           className="input"
+          contentBefore={<SearchRegular />}
+          aria-label="Board oder Besitzer suchen"
           placeholder="Board oder Besitzer suchen …"
           value={query}
           disabled={ordering !== null}
@@ -57,17 +62,17 @@ export function BoardList({ boards, selectedId, onSelect, onSaveOrder }: Props) 
         />
         {ordering ? (
           <div className="sidebar__order-actions">
-            <button className="btn btn--small" onClick={() => setOrdering(null)} disabled={saving}>
+            <Btn small onClick={() => setOrdering(null)} disabled={saving}>
               Abbrechen
-            </button>
-            <button className="btn btn--small btn--primary" onClick={saveOrder} disabled={saving}>
+            </Btn>
+            <Btn small kind="primary" onClick={saveOrder} disabled={saving}>
               {saving ? 'Speichert …' : 'Reihenfolge speichern'}
-            </button>
+            </Btn>
           </div>
         ) : (
-          <button className="btn btn--small btn--ghost" onClick={() => setOrdering(boards.slice())}>
+          <Btn small kind="ghost" onClick={() => setOrdering(boards.slice())}>
             Reihenfolge ändern
-          </button>
+          </Btn>
         )}
       </div>
       <ul className="board-list">
@@ -91,17 +96,15 @@ export function BoardList({ boards, selectedId, onSelect, onSaveOrder }: Props) 
               </button>
               {ordering ? (
                 <span className="board-item__move">
-                  <button className="icon-btn" onClick={() => move(i, i - 1)} disabled={i === 0} aria-label="Nach oben">
-                    ↑
-                  </button>
-                  <button
-                    className="icon-btn"
+                  <Btn small kind="ghost" icon={<ArrowUpRegular />} onClick={() => move(i, i - 1)} disabled={i === 0} aria-label="Nach oben" />
+                  <Btn
+                    small
+                    kind="ghost"
+                    icon={<ArrowDownRegular />}
                     onClick={() => move(i, i + 1)}
                     disabled={i === list.length - 1}
                     aria-label="Nach unten"
-                  >
-                    ↓
-                  </button>
+                  />
                 </span>
               ) : null}
             </li>

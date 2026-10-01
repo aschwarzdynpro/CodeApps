@@ -5,6 +5,8 @@ import { planOwnerChange, protectionOf, type OwnerPlanRow, type OwnerPlanStatus 
 import type { Notify } from './BoardDetail'
 import { PrincipalLabel, PrincipalPicker } from './PrincipalPicker'
 import { OwnerNotes } from './OwnerDialog'
+import { Btn } from './ui'
+import { Checkbox } from '@fluentui/react-components'
 
 interface Props {
   boards: BoardSummary[]
@@ -68,13 +70,17 @@ export function BulkOwnerView({ boards, notify, onDone }: Props) {
           <h2>1. Boards</h2>
           <fieldset className="checklist">
             {assignable.map((b) => (
-              <label key={b.id} className="form-check">
-                <input type="checkbox" checked={targetIds.includes(b.id)} onChange={(e) => toggle(b.id, e.target.checked)} />
-                <span>
-                  {b.name} <span className="muted small">· {b.ownerName}</span>
-                  {!b.active ? <span className="badge badge--inactive">Inaktiv</span> : null}
-                </span>
-              </label>
+              <Checkbox
+                key={b.id}
+                checked={targetIds.includes(b.id)}
+                onChange={(e) => toggle(b.id, e.target.checked)}
+                label={
+                  <>
+                    {b.name} <span className="muted small">· {b.ownerName}</span>
+                    {!b.active ? <span className="badge badge--inactive">Inaktiv</span> : null}
+                  </>
+                }
+              />
             ))}
           </fieldset>
           <p className="muted small">System-Boards gehören SYSTEM und fehlen hier.</p>
@@ -85,8 +91,8 @@ export function BulkOwnerView({ boards, notify, onDone }: Props) {
           {owner ? (
             <div className="owner-line">
               <PrincipalLabel p={owner} />
-              <button
-                className="btn btn--small"
+              <Btn
+                small
                 disabled={busy}
                 onClick={() => {
                   setOwner(null)
@@ -94,22 +100,23 @@ export function BulkOwnerView({ boards, notify, onDone }: Props) {
                 }}
               >
                 Andere Person
-              </button>
+              </Btn>
             </div>
           ) : (
             <PrincipalPicker
               exclude={new Set()}
               owners
               action={(p) => (
-                <button
-                  className="btn btn--small btn--primary"
+                <Btn
+                  small
+                  kind="primary"
                   onClick={() => {
                     setOwner(p)
                     setDone(null)
                   }}
                 >
                   Auswählen
-                </button>
+                </Btn>
               )}
             />
           )}
@@ -153,9 +160,9 @@ export function BulkOwnerView({ boards, notify, onDone }: Props) {
             </tbody>
           </table>
           <div className="toolbar">
-            <button className="btn btn--danger" disabled={busy || outcomes !== null || toChange.length === 0} onClick={apply}>
+            <Btn kind="danger" disabled={busy || outcomes !== null || toChange.length === 0} onClick={apply}>
               {busy ? 'Ändert …' : `${toChange.length} Board${toChange.length === 1 ? '' : 's'} an ${owner.name} übergeben`}
-            </button>
+            </Btn>
           </div>
         </div>
       ) : null}

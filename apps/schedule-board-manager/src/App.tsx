@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { Tab, TabList } from '@fluentui/react-components'
 import './App.css'
 import { usePower } from './PowerProvider'
 import type { BoardService } from './services/boardService'
@@ -66,20 +67,17 @@ export default function App() {
             </span>
             Schedule Board Manager
           </div>
-          <nav className="topbar__nav">
-            {(
-              [
-                ['boards', 'Boards'],
-                ['compare', 'Vergleichen'],
-                ['bulk', 'Mehrere anpassen'],
-                ['import', 'Importieren'],
-              ] as [View, string][]
-            ).map(([v, label]) => (
-              <button key={v} className={`nav-btn${view === v ? ' nav-btn--active' : ''}`} onClick={() => setView(v)}>
-                {label}
-              </button>
-            ))}
-          </nav>
+          <TabList
+            className="topbar__nav"
+            selectedValue={view}
+            onTabSelect={(_, d) => setView(d.value as View)}
+            aria-label="Bereiche"
+          >
+            <Tab value="boards">Boards</Tab>
+            <Tab value="compare">Vergleichen</Tab>
+            <Tab value="bulk">Mehrere anpassen</Tab>
+            <Tab value="import">Importieren</Tab>
+          </TabList>
           <span className={`mode mode--${mode}`} title={mode === 'local-mock' ? 'Kein Power-Apps-Host — Beispieldaten im Speicher' : 'Dataverse'}>
             {ready ? (mode === 'local-mock' ? 'Mock-Daten' : 'Dataverse') : '…'}
           </span>

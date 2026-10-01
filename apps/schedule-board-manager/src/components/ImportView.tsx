@@ -26,6 +26,8 @@ import { ORG_URL } from '../config'
 import { DiffTable } from './DiffTable'
 import { Modal } from './Modal'
 import type { Notify } from './BoardDetail'
+import { Btn, FilePicker, Select } from './ui'
+import { Checkbox, Input, Radio, RadioGroup } from '@fluentui/react-components'
 
 interface Props {
   boards: BoardSummary[]
@@ -172,18 +174,12 @@ export function ImportView({ boards, notify, onImported }: Props) {
       </header>
 
       <div className="import">
-        <label className="form-row">
-          <span>Export-Datei (.board.json)</span>
-          <input
-            className="input"
-            type="file"
-            accept=".json,application/json"
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (f) void readFile(f)
-            }}
-          />
-        </label>
+        <FilePicker
+          accept=".json,application/json"
+          fileName={loaded?.fileName ?? null}
+          hint="Export-Datei eines Boards (.board.json)"
+          onFile={(f) => void readFile(f)}
+        />
         {reading ? <p className="muted">Lese Datei und Zielumgebung …</p> : null}
         {fileError ? <div className="notice notice--error">{fileError}</div> : null}
 
@@ -205,50 +201,46 @@ export function ImportView({ boards, notify, onImported }: Props) {
 
             <section className="import__block">
               <h2>1. Ziel</h2>
-              <label className="form-check">
-                <input type="radio" name="import-mode" checked={modeKind === 'new'} onChange={() => setModeKind('new')} />
-                <span>Als neues Board anlegen</span>
-              </label>
+              <RadioGroup value={modeKind} onChange={(_, d) => setModeKind(d.value as 'new' | 'replace')} aria-label="Ziel">
+              <Radio value="new" label="Als neues Board anlegen" />
               {modeKind === 'new' ? (
                 <div className="import__indent">
                   <label className="form-row">
                     <span>Name</span>
-                    <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+                    <Input className="input" value={name} onChange={(e) => setName(e.target.value)} />
                   </label>
                   {nameTaken ? <p className="field__hint warn">Ein Board mit diesem Namen gibt es schon.</p> : null}
                   <label className="form-row">
                     <span>Freigabe</span>
-                    <select className="input" value={shareType} onChange={(e) => setShareType(Number(e.target.value))}>
-                      {[SHARE_TYPE.everyone, SHARE_TYPE.justMe, SHARE_TYPE.specificPeople].map((v) => (
-                        <option key={v} value={v}>
-                          {SHARE_TYPE_LABEL[v]}
-                        </option>
-                      ))}
-                    </select>
+                    <Select
+                      className="input"
+                      aria-label="Freigabe"
+                      value={String(shareType)}
+                      options={[SHARE_TYPE.everyone, SHARE_TYPE.justMe, SHARE_TYPE.specificPeople].map((v) => ({ value: String(v), label: SHARE_TYPE_LABEL[v] }))}
+                      onChange={(v) => setShareType(Number(v))}
+                    />
                   </label>
                   <p className="muted small">Wird als letzter Tab einsortiert. Besitzer bist du; Datensatz-Freigaben kommen nicht mit.</p>
                 </div>
               ) : null}
-              <label className="form-check">
-                <input type="radio" name="import-mode" checked={modeKind === 'replace'} onChange={() => setModeKind('replace')} />
-                <span>Bestehendes Board ersetzen</span>
-              </label>
+              <Radio value="replace" label="Bestehendes Board ersetzen" />
               {modeKind === 'replace' ? (
                 <div className="import__indent">
-                  <select className="input" value={replaceId} onChange={(e) => setReplaceId(e.target.value)} aria-label="Board, das ersetzt wird">
-                    <option value="">— Board wählen —</option>
-                    {replaceable.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    className="input"
+                    aria-label="Board, das ersetzt wird"
+                    placeholder="Board wählen …"
+                    value={replaceId}
+                    options={replaceable.map((b) => ({ value: b.id, label: b.name }))}
+                    onChange={setReplaceId}
+                  />
                   <p className="muted small">
                     Name, Reihenfolge, Freigabe und Besitzer bleiben; alles andere kommt aus der Datei. Der bisherige Stand landet im
                     Verlauf des Boards. System-Boards lassen sich nicht ersetzen.
                   </p>
                 </div>
               ) : null}
+              </RadioGroup>
             </section>
 
             <section className="import__block">
@@ -289,10 +281,7 @@ export function ImportView({ boards, notify, onImported }: Props) {
                     {n + 3}. {sec.title}
                   </h2>
                   {sec.kind === 'record' ? (
-                    <label className="form-check">
-                      <input type="checkbox" checked={includeFilterValues} onChange={(e) => setIncludeFilterValues(e.target.checked)} />
-                      <span>Gespeicherte Filterwerte übernehmen</span>
-                    </label>
+                    <Checkbox label="Gespeicherte Filterwerte übernehmen" checked={includeFilterValues} onChange={(e) => setIncludeFilterValues(e.target.checked)} />
                   ) : null}
                   {sec.kind !== 'record' || includeFilterValues ? (
                     <>
@@ -333,9 +322,9 @@ export function ImportView({ boards, notify, onImported }: Props) {
             ) : null}
 
             <div className="toolbar">
-              <button className="btn btn--primary" disabled={!canReview} onClick={openReview}>
+              <Btn kind="primary" disabled={!canReview} onClick={openReview}>
                 Vorschau &amp; Importieren
-              </button>
+              </Btn>
               {missingCount > 0 ? (
                 <span className="muted small">
                   {missingCount} Bezug{missingCount === 1 ? '' : 'e'} ohne Ziel — werden entfernt.
@@ -413,9 +402,9 @@ function ConfigRow({
               {same === true ? ' · Inhalt gleich' : same === false ? ' · Inhalt abweichend' : ''}
             </span>
             {same === false ? (
-              <button className="btn btn--small btn--ghost" onClick={() => setShowDiff((v) => !v)}>
+              <Btn small kind="ghost" onClick={() => setShowDiff((v) => !v)}>
                 {showDiff ? 'Inhalte ausblenden' : 'Inhalte vergleichen'}
-              </button>
+              </Btn>
             ) : null}
             {showDiff ? (
               <div className="import__compare">
@@ -435,34 +424,35 @@ function ConfigRow({
         )}
       </td>
       <td>
-        <select
+        <Select
           className="input"
-          value={c.action}
           aria-label={`Aktion für ${c.source.name}`}
-          onChange={(e) => onChange({ action: e.target.value as ConfigAction })}
-        >
-          {sameType.length > 0 ? <option value="use">Vorhandene verwenden</option> : null}
-          {canUpdate ? <option value="update">Vorhandene mit Datei-Inhalt überschreiben</option> : null}
-          {canCreate ? <option value="create">Neu anlegen</option> : null}
-          <option value="clear">Leer lassen</option>
-        </select>
+          value={c.action}
+          options={[
+            ...(sameType.length > 0 ? [{ value: 'use', label: 'Vorhandene verwenden' }] : []),
+            ...(canUpdate ? [{ value: 'update', label: 'Vorhandene mit Datei-Inhalt überschreiben' }] : []),
+            ...(canCreate ? [{ value: 'create', label: 'Neu anlegen' }] : []),
+            { value: 'clear', label: 'Leer lassen' },
+          ]}
+          onChange={(v) => onChange({ action: v as ConfigAction })}
+        />
         {c.action === 'use' ? (
-          <select
+          <Select
             className="input"
-            value={c.useId ?? ''}
             aria-label={`Vorhandene Konfiguration für ${c.source.name}`}
-            onChange={(e) => onChange({ useId: e.target.value || null })}
-          >
-            <option value="">— wählen —</option>
-            {sameType.map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.name}
-              </option>
-            ))}
-          </select>
+            placeholder="wählen …"
+            value={c.useId ?? ''}
+            options={sameType.map((x) => ({ value: x.id, label: x.name }))}
+            onChange={(v) => onChange({ useId: v || null })}
+          />
         ) : null}
         {c.action === 'create' ? (
-          <input className="input" value={c.createName} aria-label="Name der neuen Konfiguration" onChange={(e) => onChange({ createName: e.target.value })} />
+          <Input
+            className="input"
+            aria-label="Name der neuen Konfiguration"
+            value={c.createName}
+            onChange={(e) => onChange({ createName: e.target.value })}
+          />
         ) : null}
         {c.action === 'update' && usedBy.length > 0 ? (
           <p className="field__hint warn">Wirkt auch auf: {usedBy.map((b) => b.name).join(', ')}</p>
@@ -500,14 +490,13 @@ function RefRow({ choice: r, prepared, onChange }: { choice: RefChoice; prepared
         {r.kind === 'record' ? (
           removed ? '—' : r.status === 'unchecked' ? <code className="small">{r.sourceId}</code> : 'vorhanden'
         ) : (
-          <select className="input" value={r.targetId ?? ''} aria-label={`Ziel für ${sourceLabel}`} onChange={(e) => onChange(e.target.value || null)}>
-            <option value="">— entfernen —</option>
-            {options.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <Select
+            className="input"
+            aria-label={`Ziel für ${sourceLabel}`}
+            value={r.targetId ?? ''}
+            options={[{ value: '', label: '— entfernen —' }, ...options.map((o) => ({ value: o.id, label: o.label }))]}
+            onChange={(v) => onChange(v || null)}
+          />
         )}
       </td>
       <td>
@@ -554,12 +543,12 @@ function ReviewDialog({
       wide
       footer={
         <>
-          <button className="btn" onClick={onClose} disabled={busy}>
+          <Btn onClick={onClose} disabled={busy}>
             Abbrechen
-          </button>
-          <button className="btn btn--primary" onClick={onConfirm} disabled={busy || (mode.kind === 'replace' && changes.length === 0)}>
+          </Btn>
+          <Btn kind="primary" onClick={onConfirm} disabled={busy || (mode.kind === 'replace' && changes.length === 0)}>
             {busy ? 'Importiert …' : 'Importieren'}
-          </button>
+          </Btn>
         </>
       }
     >

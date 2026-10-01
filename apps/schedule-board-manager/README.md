@@ -75,6 +75,16 @@ Freigabe: 192350000 Jeder · 192350001 Nur ich · 192350002 Bestimmte Personen �
 
 ## Aufbau
 
+Oberfläche mit **Fluent UI v9** (`@fluentui/react-components`) — derselben
+Bibliothek, auf der die Modern Controls von Power Apps aufbauen.
+`components/ui.tsx` kapselt die App-Konventionen: `Btn` (Varianten
+default/primary/danger/ghost), `Select` (Dropdown über eine Wert/Label-Liste,
+`''` = „nicht gesetzt“), `SuggestInput` (Freitext mit Vorschlägen, z. B.
+Tabellen), `FilePicker` (Drop-Zone). Layout und Farben bleiben in `App.css`.
+`FluentProvider` kopiert seine Klasse auf Popup-Portale — Root-Styles deshalb
+nur über `.fluent-root:not([data-portal-node])`, sonst überdeckt ein leeres
+Portal die Seite.
+
 ```
 src/
 ├── PowerProvider.tsx        # Host-Erkennung (Power Apps vs. lokal → Mock)
@@ -100,7 +110,8 @@ src/
 └── components/              # BoardList, BoardDetail, BoardEditor, SlotTypesEditor,
                              # PanelsEditor, RawJsonEditor, DiffTable, CompareView,
                              # BulkView, BulkOwnerView, SharingPanel, OwnerDialog,
-                             # PrincipalPicker, FilterLayoutPanel, FilterFieldPickers, ImportView
+                             # PrincipalPicker, FilterLayoutPanel, FilterFieldPickers, ImportView,
+                             # ui (Fluent-Wrapper), Modal (Fluent Dialog)
 ```
 
 ### Filterlayout

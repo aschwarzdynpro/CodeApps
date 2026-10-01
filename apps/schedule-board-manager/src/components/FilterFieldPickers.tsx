@@ -4,26 +4,14 @@ import { getBoardService, type BoardService } from '../services/boardService'
 import { useLoad } from '../hooks/useLoad'
 import type { NewControl } from '../utils/filterLayout'
 import { KNOWN_KEYS, NON_FILTER_KEYS, analyzeQuery, describeUsage, type KeyUsage } from '../utils/queryAnalysis'
+import { Btn, Select, SuggestInput } from './ui'
+import { Checkbox, Input } from '@fluentui/react-components'
 
 /**
- * Pickers for the filter layout editor: table (datalist over EntityDefinitions,
- * free text still allowed), choice column of a table, and the "add field"
+ * Pickers for the filter layout editor: table (suggestions from
+ * EntityDefinitions, free text still allowed), choice column of a table, and the "add field"
  * form with suggestions derived from the Retrieve Resources Query.
  */
-
-export const TABLES_DATALIST_ID = 'sbm-tables'
-
-export function TablesDatalist({ tables }: { tables: TableRef[] }) {
-  return (
-    <datalist id={TABLES_DATALIST_ID}>
-      {tables.map((t) => (
-        <option key={t.logicalName} value={t.logicalName}>
-          {t.displayName}
-        </option>
-      ))}
-    </datalist>
-  )
-}
 
 export function TableInput({
   value,
@@ -41,13 +29,13 @@ export function TableInput({
   const match = tables.find((t) => t.logicalName === value.trim().toLowerCase())
   return (
     <div className="picker">
-      <input
+      <SuggestInput
         className={`input input--mono${value && tables.length > 0 && !match ? ' input--warn' : ''}`}
-        list={TABLES_DATALIST_ID}
         value={value}
+        suggestions={tables.map((t) => ({ value: t.logicalName, detail: t.displayName }))}
         aria-label={ariaLabel}
         placeholder={placeholder ?? 'Tabelle wählen …'}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
       />
       {value ? (
         <span className={`picker__hint${match || tables.length === 0 ? '' : ' warn'}`}>
@@ -77,15 +65,17 @@ export function ColumnSelect({
   const known = columns.some((c) => c.logicalName === value)
   return (
     <div className="picker">
-      <select className="input input--mono" value={value} aria-label={ariaLabel} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{loading ? 'lade Spalten …' : 'Auswahlspalte wählen …'}</option>
-        {value && !known ? <option value={value}>{value}</option> : null}
-        {columns.map((c) => (
-          <option key={c.logicalName} value={c.logicalName}>
-            {c.displayName} ({c.logicalName})
-          </option>
-        ))}
-      </select>
+      <Select
+        className="input input--mono"
+        aria-label={ariaLabel}
+        value={value}
+        placeholder={loading ? 'lade …' : 'Spalte wählen …'}
+        options={[
+          ...(value && !known ? [{ value, label: value }] : []),
+          ...columns.map((c) => ({ value: c.logicalName, label: `${c.displayName} (${c.logicalName})` })),
+        ]}
+        onChange={onChange}
+      />
       {error ? <span className="picker__hint warn">Metadaten nicht lesbar</span> : null}
       {info === null && table ? <span className="picker__hint warn">Tabelle unbekannt</span> : null}
     </div>
@@ -188,9 +178,9 @@ export function AddControlForm({
                 <li key={s.key} className={spec.key === s.key ? 'is-active' : ''}>
                   <code>{s.key}</code>
                   <span className="muted small">{s.text}</span>
-                  <button className="btn btn--small" onClick={() => void take(s)} disabled={resolving !== null}>
+                  <Btn small onClick={() => void take(s)} disabled={resolving !== null}>
                     {resolving === s.key ? '…' : 'Übernehmen'}
-                  </button>
+                  </Btn>
                 </li>
               ))}
             </ul>
@@ -203,32 +193,32 @@ export function AddControlForm({
       <div className="add-control__grid">
         <label className="form-row">
           <span>Art</span>
-          <select className="input" value={spec.kind} onChange={(e) => setSpec({ ...spec, kind: e.target.value as NewControl['kind'] })}>
-            <option value="lookup">Datensätze</option>
-            <option value="optionset">Auswahlwerte</option>
-            <option value="characteristic">Merkmale</option>
-          </select>
+          <Select
+            className="input"
+            aria-label="Art"
+            value={spec.kind}
+            options={[
+              { value: 'lookup', label: 'Datensätze' },
+              { value: 'optionset', label: 'Auswahlwerte' },
+              { value: 'characteristic', label: 'Merkmale' },
+            ]}
+            onChange={(v) => setSpec({ ...spec, kind: v as NewControl['kind'] })}
+          />
         </label>
         <label className="form-row">
           <span>Key</span>
-          <input
+          <SuggestInput
             className={`input input--mono${unmatched ? ' input--warn' : ''}`}
-            list="sbm-query-keys"
+            aria-label="Key"
             value={spec.key}
             placeholder="z. B. Site"
-            onChange={(e) => setSpec({ ...spec, key: e.target.value })}
+            suggestions={suggestions.map((s) => ({ value: s.key, detail: s.text }))}
+            onChange={(v) => setSpec({ ...spec, key: v })}
           />
-          <datalist id="sbm-query-keys">
-            {suggestions.map((s) => (
-              <option key={s.key} value={s.key}>
-                {s.text}
-              </option>
-            ))}
-          </datalist>
         </label>
         <label className="form-row">
           <span>Beschriftung</span>
-          <input className="input" value={spec.labelId} placeholder="z. B. Ressourcen" onChange={(e) => setSpec({ ...spec, labelId: e.target.value })} />
+          <Input className="input" value={spec.labelId} placeholder="z. B. Ressourcen" onChange={(e) => setSpec({ ...spec, labelId: e.target.value })} />
         </label>
         {needsTable ? (
           <div className="form-row">
@@ -265,13 +255,11 @@ export function AddControlForm({
 
       <div className="toolbar">
         {needsTable ? (
-          <label className="form-check">
-            <input type="checkbox" checked={spec.multi} onChange={(e) => setSpec({ ...spec, multi: e.target.checked })} />
-            <span>Mehrfachauswahl</span>
-          </label>
+          <Checkbox label="Mehrfachauswahl" checked={spec.multi} onChange={(e) => setSpec({ ...spec, multi: e.target.checked })} />
         ) : null}
-        <button
-          className="btn btn--primary btn--small"
+        <Btn
+          small
+          kind="primary"
           disabled={problems.length > 0}
           title={problems.join(' · ')}
           onClick={() => {
@@ -280,7 +268,7 @@ export function AddControlForm({
           }}
         >
           Hinzufügen
-        </button>
+        </Btn>
         {problems.length > 0 && (spec.key || spec.labelId || spec.entity) ? <span className="muted small">{problems.join(' · ')}</span> : null}
       </div>
     </fieldset>

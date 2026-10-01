@@ -1,4 +1,7 @@
-import { useEffect, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import { Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle } from '@fluentui/react-components'
+import { DismissRegular } from '@fluentui/react-icons'
+import { Btn } from './ui'
 
 interface ModalProps {
   title: string
@@ -8,34 +11,23 @@ interface ModalProps {
   wide?: boolean
 }
 
+/** Fluent dialog with the app's title/body/footer layout; Escape and backdrop close it. */
 export function Modal({ title, onClose, children, footer, wide }: ModalProps) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
   return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
-      <div
-        className={`modal${wide ? ' modal--wide' : ''}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <header className="modal__header">
-          <h2>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Schließen">
-            ×
-          </button>
-        </header>
-        <div className="modal__body">{children}</div>
-        <footer className="modal__footer">{footer}</footer>
-      </div>
-    </div>
+    <Dialog
+      open
+      onOpenChange={(_, data) => {
+        if (!data.open) onClose()
+      }}
+    >
+      <DialogSurface className={wide ? 'dialog--wide' : undefined} aria-label={title}>
+        <DialogBody>
+          <DialogTitle action={<Btn kind="ghost" aria-label="Schließen" icon={<DismissRegular />} onClick={onClose} />}>{title}</DialogTitle>
+          <DialogContent className="modal__body">{children}</DialogContent>
+          <DialogActions>{footer}</DialogActions>
+        </DialogBody>
+      </DialogSurface>
+    </Dialog>
   )
 }
 
@@ -56,12 +48,12 @@ export function ConfirmDialog({ title, message, confirmLabel, danger, busy, onCo
       onClose={onClose}
       footer={
         <>
-          <button className="btn" onClick={onClose} disabled={busy}>
+          <Btn onClick={onClose} disabled={busy}>
             Abbrechen
-          </button>
-          <button className={`btn ${danger ? 'btn--danger' : 'btn--primary'}`} onClick={onConfirm} disabled={busy}>
+          </Btn>
+          <Btn kind={danger ? 'danger' : 'primary'} onClick={onConfirm} disabled={busy}>
             {busy ? 'Läuft …' : confirmLabel}
-          </button>
+          </Btn>
         </>
       }
     >

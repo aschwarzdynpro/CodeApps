@@ -27,7 +27,10 @@ import { formatDate } from '../utils/format'
 import { listConfigSnapshots, saveConfigSnapshot } from '../utils/snapshots'
 import { Modal } from './Modal'
 import type { Notify } from './BoardDetail'
-import { AddControlForm, ColumnSelect, TableInput, TablesDatalist } from './FilterFieldPickers'
+import { AddControlForm, ColumnSelect, TableInput } from './FilterFieldPickers'
+import { Btn } from './ui'
+import { Checkbox, Input, Tab, TabList, Textarea } from '@fluentui/react-components'
+import { ArrowDownRegular, ArrowUpRegular, DeleteRegular } from '@fluentui/react-icons'
 
 interface Props {
   board: Board
@@ -143,9 +146,9 @@ export function FilterLayoutPanel({ board, boards, defaults, notify, onBoardChan
             {users.length === 0 ? 'keinem Board' : users.map((u) => u.name).join(', ')}
           </p>
         </div>
-        <button className="btn" onClick={() => setDialog('copy')} disabled={!parsed.ok}>
+        <Btn onClick={() => setDialog('copy')} disabled={!parsed.ok}>
           Als Kopie nur für dieses Board …
-        </button>
+        </Btn>
       </header>
 
       {users.length > 1 ? (
@@ -157,13 +160,13 @@ export function FilterLayoutPanel({ board, boards, defaults, notify, onBoardChan
       {conflict ? (
         <div className="notice notice--error">
           Das Filterlayout wurde zwischenzeitlich geändert. Nicht gespeichert.{' '}
-          <button className="btn btn--small" onClick={() => { setConflict(false); setDraftState(null); reload() }}>
+          <Btn small onClick={() => { setConflict(false); setDraftState(null); reload() }}>
             Neu laden (Entwurf verwerfen)
-          </button>
+          </Btn>
         </div>
       ) : null}
 
-      <nav className="segmented">
+      <TabList size="small" selectedValue={view} onTabSelect={(_, d) => setView(d.value as View)}>
         {(
           [
             ['fields', 'Felder'],
@@ -172,11 +175,11 @@ export function FilterLayoutPanel({ board, boards, defaults, notify, onBoardChan
             ['history', 'Verlauf'],
           ] as [View, string][]
         ).map(([v, label]) => (
-          <button key={v} className={view === v ? 'is-active' : ''} onClick={() => setView(v)}>
+          <Tab key={v} value={v}>
             {label}
-          </button>
+          </Tab>
         ))}
-      </nav>
+      </TabList>
 
       {view === 'fields' ? (
         parsed.ok ? (
@@ -195,7 +198,6 @@ export function FilterLayoutPanel({ board, boards, defaults, notify, onBoardChan
               tables={tables}
               onAdd={(spec) => edit((x) => addControl(x, spec))}
             />
-            <TablesDatalist tables={tables} />
           </>
         ) : (
           <div className="notice notice--error">XML ungültig: {parsed.error} — im Reiter „XML“ korrigieren.</div>
@@ -237,12 +239,12 @@ export function FilterLayoutPanel({ board, boards, defaults, notify, onBoardChan
           <span>
             {changes.length} ungespeicherte Änderung{changes.length === 1 ? '' : 'en'} am Filterlayout
           </span>
-          <button className="btn" onClick={() => setDraftState(null)}>
+          <Btn onClick={() => setDraftState(null)}>
             Verwerfen
-          </button>
-          <button className="btn btn--primary" onClick={() => setDialog('save')} disabled={!parsed.ok}>
+          </Btn>
+          <Btn kind="primary" onClick={() => setDialog('save')} disabled={!parsed.ok}>
             Vorschau &amp; Speichern
-          </button>
+          </Btn>
         </div>
       ) : null}
 
@@ -253,12 +255,12 @@ export function FilterLayoutPanel({ board, boards, defaults, notify, onBoardChan
           onClose={() => setDialog(null)}
           footer={
             <>
-              <button className="btn" onClick={() => setDialog(null)} disabled={busy}>
+              <Btn onClick={() => setDialog(null)} disabled={busy}>
                 Zurück
-              </button>
-              <button className="btn btn--primary" onClick={save} disabled={busy}>
+              </Btn>
+              <Btn kind="primary" onClick={save} disabled={busy}>
                 {busy ? 'Speichert …' : `Für ${users.length} Board${users.length === 1 ? '' : 's'} speichern`}
-              </button>
+              </Btn>
             </>
           }
         >
@@ -341,7 +343,7 @@ function ControlTable({
                 <td>
                   {c.labelId !== null ? (
                     <div className="picker">
-                      <input className="input" value={c.labelId} aria-label={`Beschriftung ${i + 1}`} onChange={(e) => onEdit(i, { 'label-id': e.target.value })} />
+                      <Input className="input" value={c.labelId} aria-label={`Beschriftung ${i + 1}`} onChange={(e) => onEdit(i, { 'label-id': e.target.value })} />
                       {resourceLabel(c.labelId) ? <span className="picker__hint">Anzeige: {resourceLabel(c.labelId)}</span> : null}
                     </div>
                   ) : (
@@ -351,7 +353,7 @@ function ControlTable({
                 <td>
                   {c.key !== null ? (
                     <>
-                      <input
+                      <Input
                         className={`input input--mono${unmatched ? ' input--warn' : ''}`}
                         value={c.key}
                         aria-label={`Key ${i + 1}`}
@@ -382,19 +384,13 @@ function ControlTable({
                 </td>
                 <td>
                   {simple ? (
-                    <input type="checkbox" checked={c.multi} aria-label={`Mehrfachauswahl ${i + 1}`} onChange={(e) => onEdit(i, { multi: e.target.checked })} />
+                    <Checkbox checked={c.multi} aria-label={`Mehrfachauswahl ${i + 1}`} onChange={(e) => onEdit(i, { multi: e.target.checked })} />
                   ) : null}
                 </td>
                 <td className="control-table__actions">
-                  <button className="icon-btn" onClick={() => onMove(i, i - 1)} disabled={i === 0} aria-label="Nach oben">
-                    ↑
-                  </button>
-                  <button className="icon-btn" onClick={() => onMove(i, i + 1)} disabled={i === controls.length - 1} aria-label="Nach unten">
-                    ↓
-                  </button>
-                  <button className="icon-btn icon-btn--danger" onClick={() => onRemove(i)} aria-label="Feld entfernen">
-                    ✕
-                  </button>
+                  <Btn small kind="ghost" icon={<ArrowUpRegular />} onClick={() => onMove(i, i - 1)} disabled={i === 0} aria-label="Nach oben" />
+                  <Btn small kind="ghost" icon={<ArrowDownRegular />} onClick={() => onMove(i, i + 1)} disabled={i === controls.length - 1} aria-label="Nach unten" />
+                  <Btn small kind="ghost" icon={<DeleteRegular />} onClick={() => onRemove(i)} aria-label="Feld entfernen" />
                 </td>
               </tr>
             )
@@ -414,7 +410,7 @@ function LayoutXml({ xml, onValid }: { xml: string; onValid: (xml: string) => vo
         <h3>Filterlayout-XML</h3>
         {p.ok ? <span className="badge badge--ok">gültig · {p.controls.length} Felder</span> : <span className="badge badge--error">Ungültig: {p.error}</span>}
       </div>
-      <textarea
+      <Textarea
         className="input input--mono json-area__text"
         spellCheck={false}
         value={text}
@@ -448,18 +444,18 @@ function CopyLayoutDialog({
       onClose={onClose}
       footer={
         <>
-          <button className="btn" onClick={onClose} disabled={busy}>
+          <Btn onClick={onClose} disabled={busy}>
             Abbrechen
-          </button>
-          <button className="btn btn--primary" onClick={() => onCopy(name.trim())} disabled={busy || name.trim() === ''}>
+          </Btn>
+          <Btn kind="primary" onClick={() => onCopy(name.trim())} disabled={busy || name.trim() === ''}>
             {busy ? 'Legt an …' : 'Kopie anlegen und zuweisen'}
-          </button>
+          </Btn>
         </>
       }
     >
       <label className="form-row">
         <span>Name der neuen Konfiguration</span>
-        <input className="input" value={name} autoFocus onChange={(e) => setName(e.target.value)} />
+        <Input className="input" value={name} autoFocus onChange={(e) => setName(e.target.value)} />
       </label>
       <p className="muted small">
         Legt eine neue Filterlayout-Konfiguration an{hasChanges ? ' — mit deinen ungespeicherten Änderungen' : ''} und setzt sie
@@ -480,9 +476,9 @@ function ConfigHistory({ configId, onRestore }: { configId: string; onRestore: (
           <span>
             {formatDate(s.at)} · {s.label}
           </span>
-          <button className="btn btn--small" onClick={() => onRestore(s.value)}>
+          <Btn small onClick={() => onRestore(s.value)}>
             Als Entwurf laden
-          </button>
+          </Btn>
         </li>
       ))}
     </ul>

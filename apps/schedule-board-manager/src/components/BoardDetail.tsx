@@ -21,6 +21,9 @@ import { ConfirmDialog, Modal } from './Modal'
 import { ShareBadge } from './BoardList'
 import { SharingPanel } from './SharingPanel'
 import { FilterLayoutPanel } from './FilterLayoutPanel'
+import { Btn, Select } from './ui'
+import { Button, Checkbox, Input, Tab as TabItem, TabList } from '@fluentui/react-components'
+import { OpenRegular } from '@fluentui/react-icons'
 
 export type Notify = (text: string, kind?: 'ok' | 'error') => void
 
@@ -133,32 +136,31 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
           </div>
         </div>
         <div className="detail__actions">
-          <button className="btn btn--primary" onClick={() => setDialog('copy')}>
+          <Btn kind="primary" onClick={() => setDialog('copy')}>
             Kopieren
-          </button>
-          <button
-            className="btn"
+          </Btn>
+          <Btn
             onClick={() => setDialog('toggle')}
             disabled={board.active ? !protection.canDisable : false}
             title={!protection.canDisable ? (protection.reason ?? '') : undefined}
           >
             {board.active ? 'Deaktivieren' : 'Aktivieren'}
-          </button>
-          <button
-            className="btn btn--danger"
+          </Btn>
+          <Btn
+            kind="danger"
             onClick={() => setDialog('delete')}
             disabled={!protection.canDelete}
             title={!protection.canDelete ? (protection.reason ?? '') : undefined}
           >
             Löschen
-          </button>
-          <button className="btn btn--ghost" onClick={exportPackage} disabled={busy} title="Board mit Konfigurationen und Namen aller Bezüge — importierbar in jeder Umgebung">
+          </Btn>
+          <Btn kind="ghost" onClick={exportPackage} disabled={busy} title="Board mit Konfigurationen und Namen aller Bezüge — importierbar in jeder Umgebung">
             Export
-          </button>
+          </Btn>
           {formUrl ? (
-            <a className="btn btn--ghost" href={formUrl} target="_blank" rel="noreferrer" title="Datensatz-Formular, z. B. zum Freigeben">
-              Formular ↗
-            </a>
+            <Button as="a" appearance="subtle" href={formUrl} target="_blank" rel="noreferrer" icon={<OpenRegular />} iconPosition="after" title="Datensatz-Formular, z. B. zum Freigeben">
+              Formular
+            </Button>
           ) : null}
         </div>
       </header>
@@ -167,8 +169,8 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
       {conflict ? (
         <div className="notice notice--error">
           Das Board wurde zwischenzeitlich geändert (z. B. vom Schedule Board selbst). Dein Entwurf wurde nicht gespeichert.{' '}
-          <button
-            className="btn btn--small"
+          <Btn
+            small
             onClick={() => {
               downloadJson(`${board.name}.entwurf.json`, draft)
               setConflict(false)
@@ -177,11 +179,11 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
             }}
           >
             Entwurf exportieren und neu laden
-          </button>
+          </Btn>
         </div>
       ) : null}
 
-      <nav className="tabs" role="tablist">
+      <TabList className="tabs" selectedValue={tab} onTabSelect={(_, d) => setTab(d.value as Tab)}>
         {(
           [
             ['edit', 'Bearbeiten'],
@@ -191,11 +193,11 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
             ['history', 'Verlauf'],
           ] as [Tab, string][]
         ).map(([t, label]) => (
-          <button key={t} role="tab" aria-selected={tab === t} className={`tab${tab === t ? ' tab--active' : ''}`} onClick={() => setTab(t)}>
+          <TabItem key={t} value={t}>
             {label}
-          </button>
+          </TabItem>
         ))}
-      </nav>
+      </TabList>
 
       <div className="detail__body">
         {tab === 'edit' ? (
@@ -243,12 +245,12 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
           <span>
             {changes.length} ungespeicherte Änderung{changes.length === 1 ? '' : 'en'}
           </span>
-          <button className="btn" onClick={() => setDraftState(null)}>
+          <Btn onClick={() => setDraftState(null)}>
             Verwerfen
-          </button>
-          <button className="btn btn--primary" onClick={() => setDialog('save')}>
+          </Btn>
+          <Btn kind="primary" onClick={() => setDialog('save')}>
             Vorschau &amp; Speichern
-          </button>
+          </Btn>
         </div>
       ) : null}
 
@@ -259,12 +261,12 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
           onClose={() => setDialog(null)}
           footer={
             <>
-              <button className="btn" onClick={() => setDialog(null)} disabled={busy}>
+              <Btn onClick={() => setDialog(null)} disabled={busy}>
                 Zurück
-              </button>
-              <button className="btn btn--primary" onClick={save} disabled={busy}>
+              </Btn>
+              <Btn kind="primary" onClick={save} disabled={busy}>
                 {busy ? 'Speichert …' : 'Speichern'}
-              </button>
+              </Btn>
             </>
           }
         >
@@ -376,39 +378,33 @@ function CopyDialog({
       onClose={onClose}
       footer={
         <>
-          <button className="btn" onClick={onClose} disabled={busy}>
+          <Btn onClick={onClose} disabled={busy}>
             Abbrechen
-          </button>
-          <button className="btn btn--primary" onClick={() => onCopy(trimmed, shareType, appendToEnd, copyShares && shareType === SHARE_TYPE.specificPeople)} disabled={busy || trimmed === ''}>
+          </Btn>
+          <Btn kind="primary" onClick={() => onCopy(trimmed, shareType, appendToEnd, copyShares && shareType === SHARE_TYPE.specificPeople)} disabled={busy || trimmed === ''}>
             {busy ? 'Kopiert …' : 'Kopie anlegen'}
-          </button>
+          </Btn>
         </>
       }
     >
       <label className="form-row">
         <span>Name der Kopie</span>
-        <input className="input" value={name} autoFocus onChange={(e) => setName(e.target.value)} />
+        <Input className="input" value={name} autoFocus onChange={(e) => setName(e.target.value)} />
       </label>
       {duplicate ? <p className="field__hint warn">Ein Board mit diesem Namen gibt es schon.</p> : null}
       <label className="form-row">
         <span>Freigabe</span>
-        <select className="input" value={shareType} onChange={(e) => setShareType(Number(e.target.value))}>
-          {[SHARE_TYPE.everyone, SHARE_TYPE.justMe, SHARE_TYPE.specificPeople].map((v) => (
-            <option key={v} value={v}>
-              {SHARE_TYPE_LABEL[v]}
-            </option>
-          ))}
-        </select>
+        <Select
+          className="input"
+          aria-label="Freigabe"
+          value={String(shareType)}
+          options={[SHARE_TYPE.everyone, SHARE_TYPE.justMe, SHARE_TYPE.specificPeople].map((v) => ({ value: String(v), label: SHARE_TYPE_LABEL[v] }))}
+          onChange={(v) => setShareType(Number(v))}
+        />
       </label>
-      <label className="form-check">
-        <input type="checkbox" checked={appendToEnd} onChange={(e) => setAppendToEnd(e.target.checked)} />
-        <span>Als letzten Tab einsortieren</span>
-      </label>
+      <Checkbox label="Als letzten Tab einsortieren" checked={appendToEnd} onChange={(e) => setAppendToEnd(e.target.checked)} />
       {shareType === SHARE_TYPE.specificPeople ? (
-        <label className="form-check">
-          <input type="checkbox" checked={copyShares} onChange={(e) => setCopyShares(e.target.checked)} />
-          <span>Datensatz-Freigaben des Originals übernehmen</span>
-        </label>
+        <Checkbox label="Datensatz-Freigaben des Originals übernehmen" checked={copyShares} onChange={(e) => setCopyShares(e.target.checked)} />
       ) : null}
       <p className="muted small">
         Übernommen werden alle Spalten, Settings- und Filter-JSON sowie {lookupCount} von 3 Konfigurations-Verknüpfungen
@@ -431,12 +427,12 @@ function History({ boardId, onRestore }: { boardId: string; onRestore: (content:
             {formatDate(s.at)} · {s.label}
           </span>
           <span className="history__actions">
-            <button className="btn btn--small" onClick={() => onRestore(s.content)}>
+            <Btn small onClick={() => onRestore(s.content)}>
               Als Entwurf laden
-            </button>
-            <button className="btn btn--small btn--ghost" onClick={() => downloadJson(`snapshot-${s.at}.json`, s.content)}>
+            </Btn>
+            <Btn small kind="ghost" onClick={() => downloadJson(`snapshot-${s.at}.json`, s.content)}>
               Export
-            </button>
+            </Btn>
           </span>
         </li>
       ))}

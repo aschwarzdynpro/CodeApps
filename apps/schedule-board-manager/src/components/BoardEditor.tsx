@@ -36,6 +36,9 @@ import {
 } from './fields'
 import { SlotTypesEditor } from './SlotTypesEditor'
 import { PanelsEditor } from './PanelsEditor'
+import { Input } from '@fluentui/react-components'
+import { Switch } from '@fluentui/react-components'
+import { Select } from './ui'
 
 interface Props {
   draft: BoardContent
@@ -144,9 +147,8 @@ export function BoardEditor({ draft, original, defaults, protection, onChange }:
           switch (def.kind) {
             case 'flag':
               return (
-                <input
+                <Switch
                   id={id}
-                  type="checkbox"
                   checked={readFlag(settings, def.path)}
                   onChange={(e) => setSettings(writeFlag(settings, def.path, e.target.checked, def.onValue ?? 1))}
                 />
@@ -187,19 +189,13 @@ export function BoardEditor({ draft, original, defaults, protection, onChange }:
               )
             case 'select':
               return (
-                <select
+                <Select
                   id={id}
                   className="input"
                   value={value === undefined || value === null ? '' : String(value)}
-                  onChange={(e) => setSetting(def.path, e.target.value === '' ? undefined : e.target.value)}
-                >
-                  <option value="">nicht gesetzt</option>
-                  {def.options?.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                  options={[{ value: '', label: 'nicht gesetzt' }, ...(def.options ?? []).map((o) => ({ value: String(o.value), label: o.label }))]}
+                  onChange={(v) => setSetting(def.path, v === '' ? undefined : v)}
+                />
               )
             case 'timezone':
               return (
@@ -242,7 +238,7 @@ export function BoardEditor({ draft, original, defaults, protection, onChange }:
       <Section title="Allgemein" open>
         <Field label="Board-Name" changed={name !== (original.columns.msdyn_tabname ?? '')}>
           {(id) => (
-            <input
+            <Input
               id={id}
               className="input"
               value={name}
@@ -261,20 +257,17 @@ export function BoardEditor({ draft, original, defaults, protection, onChange }:
           }
         >
           {(id) => (
-            <select
+            <Select
               id={id}
               className="input"
-              value={shareType}
+              value={String(shareType)}
               disabled={shareType === SHARE_TYPE.system}
-              onChange={(e) => setColumn('msdyn_sharetype', Number(e.target.value))}
-            >
-              {[SHARE_TYPE.everyone, SHARE_TYPE.justMe, SHARE_TYPE.specificPeople].map((v) => (
-                <option key={v} value={v}>
-                  {SHARE_TYPE_LABEL[v]}
-                </option>
-              ))}
-              {shareType === SHARE_TYPE.system ? <option value={SHARE_TYPE.system}>System</option> : null}
-            </select>
+              options={[
+                ...[SHARE_TYPE.everyone, SHARE_TYPE.justMe, SHARE_TYPE.specificPeople].map((v) => ({ value: String(v), label: SHARE_TYPE_LABEL[v] })),
+                ...(shareType === SHARE_TYPE.system ? [{ value: String(SHARE_TYPE.system), label: 'System' }] : []),
+              ]}
+              onChange={(v) => setColumn('msdyn_sharetype', Number(v))}
+            />
           )}
         </Field>
         {renderColumn('msdyn_ordernumber')}

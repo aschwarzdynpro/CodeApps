@@ -1,6 +1,8 @@
 import { useId, type ReactNode } from 'react'
 import { useRefData } from '../hooks/refData'
 import { sameId } from '../utils/format'
+import { Select, type SelectOption } from './ui'
+import { Input, Textarea } from '@fluentui/react-components'
 
 /**
  * Form controls. Every control distinguishes "not set" (null — the board
@@ -51,7 +53,7 @@ export function ColorInput({
         value={valid ? `#${normalized}` : '#ffffff'}
         onChange={(e) => onChange((hadHash ? '#' : '') + e.target.value.slice(1).toUpperCase())}
       />
-      <input
+      <Input
         id={id}
         className={`input input--mono${normalized && !valid ? ' input--invalid' : ''}`}
         value={value ?? ''}
@@ -77,11 +79,11 @@ export function IntInput({
   max?: number
 }) {
   return (
-    <input
+    <Input
       id={id}
       className="input input--narrow"
       type="number"
-      value={value ?? ''}
+      value={value === null ? '' : String(value)}
       min={min}
       max={max}
       placeholder="—"
@@ -105,7 +107,7 @@ export function TextInput({
 }) {
   const cls = `input${mono ? ' input--mono' : ''}`
   return multiline ? (
-    <textarea
+    <Textarea
       id={id}
       className={`${cls} input--area`}
       value={value ?? ''}
@@ -113,7 +115,7 @@ export function TextInput({
       onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
     />
   ) : (
-    <input
+    <Input
       id={id}
       className={cls}
       value={value ?? ''}
@@ -135,17 +137,19 @@ export function BoolSelect({
   onChange: (v: boolean | null) => void
   nullable?: boolean
 }) {
+  const options: SelectOption[] = [
+    ...(nullable || value === null ? [{ value: '', label: 'nicht gesetzt' }] : []),
+    { value: '1', label: 'Ja' },
+    { value: '0', label: 'Nein' },
+  ]
   return (
-    <select
+    <Select
       id={id}
       className="input input--narrow"
       value={value === null ? '' : value ? '1' : '0'}
-      onChange={(e) => onChange(e.target.value === '' ? null : e.target.value === '1')}
-    >
-      {nullable || value === null ? <option value="">nicht gesetzt</option> : null}
-      <option value="1">Ja</option>
-      <option value="0">Nein</option>
-    </select>
+      options={options}
+      onChange={(v) => onChange(v === '' ? null : v === '1')}
+    />
   )
 }
 
@@ -166,30 +170,19 @@ export function ViewSelect({
   onChange: (v: string | null) => void
 }) {
   const { views } = useRefData()
-  const options = views.filter((v) => !entity || v.entity === entity)
+  const list = views.filter((v) => !entity || v.entity === entity)
   const known = value ? views.find((v) => sameId(v.id, value)) : undefined
-  return (
-    <select
-      id={id}
-      className="input"
-      value={known?.id ?? value ?? ''}
-      onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
-    >
-      <option value="">nicht gesetzt</option>
-      {value && !known ? <option value={value}>Unbekannte Ansicht ({value.slice(0, 8)}…)</option> : null}
-      {known && !options.includes(known) ? (
-        <option value={known.id}>
-          {known.name} ({known.entity})
-        </option>
-      ) : null}
-      {options.map((v) => (
-        <option key={v.id} value={v.id}>
-          {v.name}
-          {v.kind === 'personal' ? ' (persönlich)' : ''}
-        </option>
-      ))}
-    </select>
-  )
+  const options: SelectOption[] = [
+    { value: '', label: 'nicht gesetzt' },
+    ...(value && !known ? [{ value, label: `Unbekannte Ansicht (${value.slice(0, 8)}…)` }] : []),
+    ...(known && !list.includes(known) ? [{ value: known.id, label: `${known.name} (${known.entity})` }] : []),
+    ...list.map((v) => ({
+      value: v.id,
+      label: `${v.name}${v.kind === 'personal' ? ' (persönlich)' : ''}`,
+      group: v.kind === 'personal' ? 'Persönliche Ansichten' : 'Systemansichten',
+    })),
+  ]
+  return <Select id={id} className="input" value={known?.id ?? value ?? ''} options={options} onChange={(v) => onChange(v === '' ? null : v)} />
 }
 
 export function ConfigSelect({
@@ -204,25 +197,15 @@ export function ConfigSelect({
   onChange: (v: string | null) => void
 }) {
   const { configs } = useRefData()
-  const options = configs.filter((c) => c.type === type)
+  const list = configs.filter((c) => c.type === type)
   const known = value ? configs.find((c) => sameId(c.id, value)) : undefined
-  return (
-    <select
-      id={id}
-      className="input"
-      value={known?.id ?? value ?? ''}
-      onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
-    >
-      <option value="">nicht gesetzt (Standard)</option>
-      {value && !known ? <option value={value}>Unbekannte Konfiguration ({value.slice(0, 8)}…)</option> : null}
-      {known && !options.includes(known) ? <option value={known.id}>{known.name}</option> : null}
-      {options.map((c) => (
-        <option key={c.id} value={c.id}>
-          {c.name}
-        </option>
-      ))}
-    </select>
-  )
+  const options: SelectOption[] = [
+    { value: '', label: 'nicht gesetzt (Standard)' },
+    ...(value && !known ? [{ value, label: `Unbekannte Konfiguration (${value.slice(0, 8)}…)` }] : []),
+    ...(known && !list.includes(known) ? [{ value: known.id, label: known.name }] : []),
+    ...list.map((c) => ({ value: c.id, label: c.name })),
+  ]
+  return <Select id={id} className="input" value={known?.id ?? value ?? ''} options={options} onChange={(v) => onChange(v === '' ? null : v)} />
 }
 
 export function TimeZoneSelect({
@@ -236,20 +219,10 @@ export function TimeZoneSelect({
 }) {
   const { timeZones } = useRefData()
   const known = value ? timeZones.find((t) => sameId(t.id, value)) : undefined
-  return (
-    <select
-      id={id}
-      className="input"
-      value={known?.id ?? value ?? ''}
-      onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
-    >
-      <option value="">nicht gesetzt</option>
-      {value && !known ? <option value={value}>Unbekannte Zeitzone ({value.slice(0, 8)}…)</option> : null}
-      {timeZones.map((t) => (
-        <option key={t.id} value={t.id}>
-          {t.name}
-        </option>
-      ))}
-    </select>
-  )
+  const options: SelectOption[] = [
+    { value: '', label: 'nicht gesetzt' },
+    ...(value && !known ? [{ value, label: `Unbekannte Zeitzone (${value.slice(0, 8)}…)` }] : []),
+    ...timeZones.map((t) => ({ value: t.id, label: t.name })),
+  ]
+  return <Select id={id} className="input" value={known?.id ?? value ?? ''} options={options} onChange={(v) => onChange(v === '' ? null : v)} />
 }

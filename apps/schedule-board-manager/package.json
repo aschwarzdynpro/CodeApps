@@ -11,6 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fluentui/react-components": "^9.74.9",
+    "@fluentui/react-icons": "^2.0.343",
     "@microsoft/power-apps": "^1.2.5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

@@ -12,6 +12,12 @@ import { useLoad } from '../hooks/useLoad'
 import type { Notify } from './BoardDetail'
 import { PrincipalLabel, PrincipalPicker } from './PrincipalPicker'
 import { OwnerDialog } from './OwnerDialog'
+import { Btn, Select } from './ui'
+
+const LEVEL_OPTIONS = [
+  { value: 'read', label: SHARE_LEVEL_LABEL.read },
+  { value: 'write', label: SHARE_LEVEL_LABEL.write },
+]
 
 interface Props {
   boardId: string
@@ -92,9 +98,9 @@ export function SharingPanel({ boardId, boardName, shareType, ownerName, ownerId
             <strong>{ownerName}</strong> <span className="muted small">sieht das Board immer.</span>
           </span>
           {canAssign ? (
-            <button className="btn btn--small" onClick={() => setOwnerDialog(true)}>
+            <Btn small onClick={() => setOwnerDialog(true)}>
               Ändern
-            </button>
+            </Btn>
           ) : (
             <span className="muted small">System-Board — Besitzer bleibt SYSTEM.</span>
           )}
@@ -130,14 +136,18 @@ export function SharingPanel({ boardId, boardName, shareType, ownerName, ownerId
         <PrincipalPicker
           exclude={sharedIds}
           toolbar={
-            <select className="input input--narrow" value={newLevel} onChange={(e) => setNewLevel(e.target.value as ShareLevel)} aria-label="Berechtigung">
-              <option value="read">{SHARE_LEVEL_LABEL.read}</option>
-              <option value="write">{SHARE_LEVEL_LABEL.write}</option>
-            </select>
+            <Select
+              className="input input--level"
+              aria-label="Berechtigung"
+              value={newLevel}
+              options={LEVEL_OPTIONS}
+              onChange={(v) => setNewLevel(v as ShareLevel)}
+            />
           }
           action={(p) => (
-            <button
-              className="btn btn--small btn--primary"
+            <Btn
+              small
+              kind="primary"
               disabled={busyId !== null}
               onClick={() =>
                 act(
@@ -148,7 +158,7 @@ export function SharingPanel({ boardId, boardName, shareType, ownerName, ownerId
               }
             >
               {busyId === p.id ? 'Gibt frei …' : 'Freigeben'}
-            </button>
+            </Btn>
           )}
         />
       </section>
@@ -181,30 +191,28 @@ function ShareRow({
     <li className="share-row">
       <PrincipalLabel p={share} />
       <span className="share-row__actions">
-        <select
-          className="input input--narrow"
+        <Select
+          className="input input--level"
+          small
+          aria-label={`Berechtigung ${share.name}`}
           value={share.level}
           disabled={busy}
-          aria-label={`Berechtigung ${share.name}`}
-          onChange={(e) => onLevel(e.target.value as ShareLevel)}
-        >
-          {share.level === 'custom' ? <option value="custom">{SHARE_LEVEL_LABEL.custom} ({share.mask})</option> : null}
-          <option value="read">{SHARE_LEVEL_LABEL.read}</option>
-          <option value="write">{SHARE_LEVEL_LABEL.write}</option>
-        </select>
+          options={[...(share.level === 'custom' ? [{ value: 'custom', label: `${SHARE_LEVEL_LABEL.custom} (${share.mask})` }] : []), ...LEVEL_OPTIONS]}
+          onChange={(v) => onLevel(v as ShareLevel)}
+        />
         {confirming ? (
           <>
-            <button className="btn btn--small btn--danger" disabled={busy} onClick={onRevoke}>
+            <Btn small kind="danger" disabled={busy} onClick={onRevoke}>
               {busy ? 'Entfernt …' : 'Wirklich entfernen'}
-            </button>
-            <button className="btn btn--small" onClick={() => setConfirming(false)} disabled={busy}>
+            </Btn>
+            <Btn small onClick={() => setConfirming(false)} disabled={busy}>
               Nein
-            </button>
+            </Btn>
           </>
         ) : (
-          <button className="btn btn--small btn--ghost" onClick={() => setConfirming(true)} disabled={busy}>
+          <Btn small kind="ghost" onClick={() => setConfirming(true)} disabled={busy}>
             Entfernen
-          </button>
+          </Btn>
         )}
       </span>
     </li>

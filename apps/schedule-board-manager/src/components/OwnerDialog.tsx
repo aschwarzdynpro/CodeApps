@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { SHARE_TYPE, type BoardSummary, type PrincipalRef } from '../types/board'
 import { Modal } from './Modal'
 import { PrincipalLabel, PrincipalPicker } from './PrincipalPicker'
+import { Btn } from './ui'
 
 /** What an owner change does and doesn't touch — shown before every assign. */
 export function OwnerNotes({ justMe }: { justMe: boolean }) {
@@ -34,17 +35,17 @@ export function OwnerDialog({ board, busy, onAssign, onClose }: Props) {
       wide
       footer={
         <>
-          <button className="btn" onClick={onClose} disabled={busy}>
+          <Btn onClick={onClose} disabled={busy}>
             Abbrechen
-          </button>
+          </Btn>
           {chosen ? (
             <>
-              <button className="btn" onClick={() => setChosen(null)} disabled={busy}>
+              <Btn onClick={() => setChosen(null)} disabled={busy}>
                 Andere Person
-              </button>
-              <button className="btn btn--primary" onClick={() => onAssign(chosen)} disabled={busy}>
+              </Btn>
+              <Btn kind="primary" onClick={() => onAssign(chosen)} disabled={busy}>
                 {busy ? 'Ändert …' : 'Besitzer ändern'}
-              </button>
+              </Btn>
             </>
           ) : null}
         </>
@@ -66,9 +67,9 @@ export function OwnerDialog({ board, busy, onAssign, onClose }: Props) {
           owners
           autoFocus
           action={(p) => (
-            <button className="btn btn--small btn--primary" onClick={() => setChosen(p)}>
+            <Btn small kind="primary" onClick={() => setChosen(p)}>
               Auswählen
-            </button>
+            </Btn>
           )}
         />
       )}

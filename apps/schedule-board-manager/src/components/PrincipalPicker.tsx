@@ -3,6 +3,7 @@ import type { PrincipalRef } from '../types/board'
 import type { BoardService } from '../services/boardService'
 import { useLoad } from '../hooks/useLoad'
 import { SEARCH_LIMIT, searchWords } from '../utils/principalSearch'
+import { Input } from '@fluentui/react-components'
 
 interface Props {
   /** Lower-cased ids not to offer (already shared, current owner). */
@@ -38,7 +39,7 @@ export function PrincipalPicker({ exclude, owners = false, toolbar, autoFocus, a
   return (
     <div className="principal-picker">
       <div className="toolbar">
-        <input
+        <Input
           className="input"
           placeholder="Benutzer oder Team suchen – z. B. „jör bus“ …"
           value={term}
