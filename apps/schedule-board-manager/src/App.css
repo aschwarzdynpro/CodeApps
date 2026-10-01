@@ -383,6 +383,11 @@
   color: inherit;
 }
 
+input.input,
+select.input {
+  height: 34px;
+}
+
 .input:focus {
   outline: 2px solid var(--brand-soft);
   border-color: var(--brand);
@@ -1040,11 +1045,21 @@
 
 .add-control__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 0 12px;
-  align-items: end;
+  /* Top-aligned: hints under a control (table name) must not shift the row. */
+  align-items: start;
   margin-bottom: 4px;
 }
+
+.add-control__grid .form-row {
+  margin-bottom: 8px;
+}
+
+.add-control__grid .form-row > span:first-child {
+  line-height: 18px;
+}
+
 
 .code-block {
   max-height: 360px;
@@ -1089,6 +1104,10 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: 6px;
+}
+
+.suggestion-list li span {
+  overflow-wrap: anywhere;
 }
 
 .suggestion-list li {

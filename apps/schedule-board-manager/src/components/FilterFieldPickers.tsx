@@ -204,9 +204,9 @@ export function AddControlForm({
         <label className="form-row">
           <span>Art</span>
           <select className="input" value={spec.kind} onChange={(e) => setSpec({ ...spec, kind: e.target.value as NewControl['kind'] })}>
-            <option value="lookup">Datensätze einer Tabelle</option>
-            <option value="optionset">Auswahlwerte einer Spalte</option>
-            <option value="characteristic">Merkmale mit Bewertung</option>
+            <option value="lookup">Datensätze</option>
+            <option value="optionset">Auswahlwerte</option>
+            <option value="characteristic">Merkmale</option>
           </select>
         </label>
         <label className="form-row">
@@ -215,7 +215,7 @@ export function AddControlForm({
             className={`input input--mono${unmatched ? ' input--warn' : ''}`}
             list="sbm-query-keys"
             value={spec.key}
-            placeholder="aus der Abfrage oder eigener"
+            placeholder="z. B. Site"
             onChange={(e) => setSpec({ ...spec, key: e.target.value })}
           />
           <datalist id="sbm-query-keys">
@@ -237,7 +237,7 @@ export function AddControlForm({
               value={spec.entity}
               tables={tables}
               ariaLabel="Tabelle des neuen Felds"
-              placeholder={spec.kind === 'optionset' ? 'z. B. bookableresource' : 'z. B. bookableresource'}
+              placeholder="z. B. bookableresource"
               onChange={(v) => setSpec({ ...spec, entity: v, attribute: '' })}
             />
           </div>
@@ -253,12 +253,6 @@ export function AddControlForm({
             />
           </div>
         ) : null}
-        {needsTable ? (
-          <label className="form-check">
-            <input type="checkbox" checked={spec.multi} onChange={(e) => setSpec({ ...spec, multi: e.target.checked })} />
-            <span>Mehrfachauswahl</span>
-          </label>
-        ) : null}
       </div>
 
       {unmatched ? (
@@ -270,6 +264,12 @@ export function AddControlForm({
       {key ? <pre className="code-block code-block--inline">{preview}</pre> : null}
 
       <div className="toolbar">
+        {needsTable ? (
+          <label className="form-check">
+            <input type="checkbox" checked={spec.multi} onChange={(e) => setSpec({ ...spec, multi: e.target.checked })} />
+            <span>Mehrfachauswahl</span>
+          </label>
+        ) : null}
         <button
           className="btn btn--primary btn--small"
           disabled={problems.length > 0}
