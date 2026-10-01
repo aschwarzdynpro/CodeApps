@@ -3,11 +3,11 @@ import { ACCESS, BOARD_LOOKUPS, ConflictError, levelOfMask } from '../types/boar
 import type { BoardService } from './boardService'
 import {
   MOCK_BOOKING_SETUPS,
-  MOCK_CONFIGS,
   MOCK_PRINCIPALS,
   MOCK_TIME_ZONES,
   MOCK_VIEWS,
   createMockBoards,
+  createMockConfigDetails,
   createMockShares,
 } from './mockData'
 
@@ -15,6 +15,7 @@ import {
 
 let boards: Board[] = createMockBoards()
 const shares = createMockShares()
+let configs = createMockConfigDetails()
 
 const delay = <T,>(value: T, ms = 120): Promise<T> =>
   new Promise((resolve) => setTimeout(() => resolve(value), ms))
@@ -25,7 +26,7 @@ function lookupNames(content: BoardContent): Record<LookupKey, string | null> {
   const names = {} as Record<LookupKey, string | null>
   for (const lk of BOARD_LOOKUPS) {
     const id = content.lookups[lk.key]
-    names[lk.key] = id ? (MOCK_CONFIGS.find((c) => c.id === id)?.name ?? null) : null
+    names[lk.key] = id ? (configs.find((c) => c.id === id)?.name ?? null) : null
   }
   return names
 }
@@ -38,7 +39,7 @@ function find(id: string): Board {
 
 function toSummary(b: Board): BoardSummary {
   const { id, name, shareType, active, order, ownerName, modifiedOn } = b
-  return { id, name, shareType, active, order, ownerName, modifiedOn }
+  return { id, name, shareType, active, order, ownerName, modifiedOn, lookups: { ...b.content.lookups } }
 }
 
 function touch(b: Board): void {
@@ -72,6 +73,7 @@ export const mockBoardService: BoardService = {
       ownerName: 'Ich (Mock)',
       modifiedOn: new Date().toISOString(),
       version: 1,
+      lookups: { ...content.lookups },
       content: clone(content),
       lookupNames: lookupNames(content),
     }
@@ -85,6 +87,7 @@ export const mockBoardService: BoardService = {
       return Promise.reject(new ConflictError())
     }
     b.content = clone(next)
+    b.lookups = { ...next.lookups }
     b.name = String(next.columns.msdyn_tabname ?? b.name)
     b.shareType = Number(next.columns.msdyn_sharetype ?? b.shareType)
     b.order = Number(next.columns.msdyn_ordernumber ?? b.order)
@@ -114,7 +117,29 @@ export const mockBoardService: BoardService = {
     return delay(undefined)
   },
 
-  listConfigurations: () => delay(clone(MOCK_CONFIGS)),
+  listConfigurations: () => delay(configs.map(({ id, name, type }) => ({ id, name, type }))),
+
+  getConfiguration: (id) => {
+    const c = configs.find((x) => x.id === id)
+    return c ? delay(clone(c)) : Promise.reject(new Error(`Konfiguration ${id} nicht gefunden.`))
+  },
+
+  updateConfiguration: (original, value) => {
+    const c = configs.find((x) => x.id === original.id)
+    if (!c) return Promise.reject(new Error('Konfiguration nicht gefunden.'))
+    if (original.version !== null && c.version !== original.version) {
+      return Promise.reject(new ConflictError('Die Konfiguration wurde zwischenzeitlich geändert.'))
+    }
+    c.value = value
+    c.version = (c.version ?? 0) + 1
+    return delay(undefined)
+  },
+
+  createConfiguration: (name, type, value) => {
+    const id = crypto.randomUUID()
+    configs = [...configs, { id, name, type, value, version: 1 }]
+    return delay(id)
+  },
   listViews: () => delay(clone(MOCK_VIEWS)),
   listBookingSetups: () => delay(clone(MOCK_BOOKING_SETUPS)),
   listTimeZones: () => delay(clone(MOCK_TIME_ZONES)),

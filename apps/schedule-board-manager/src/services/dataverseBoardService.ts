@@ -10,6 +10,7 @@ import {
   BOARD_LOOKUPS,
   ConflictError,
   type Board,
+  type ConfigDetail,
   type BoardContent,
   type BoardSummary,
   type ColumnValue,
@@ -51,16 +52,22 @@ const SUMMARY_SELECT = [
   'statecode',
   '_ownerid_value',
   'modifiedon',
+  ...BOARD_LOOKUPS.map((l) => l.valueKey),
 ]
 
 const FULL_SELECT = [
   ...SUMMARY_SELECT,
   ...BOARD_COLUMNS.map((c) => c.key).filter((k) => !SUMMARY_SELECT.includes(k)),
-  ...BOARD_LOOKUPS.map((l) => l.valueKey),
   'msdyn_settings',
   'msdyn_filtervalues',
   'versionnumber',
 ]
+
+function lookupsOf(row: Row): Record<LookupKey, string | null> {
+  const lookups = {} as Record<LookupKey, string | null>
+  for (const lk of BOARD_LOOKUPS) lookups[lk.key] = str(row[lk.valueKey])
+  return lookups
+}
 
 function toSummary(row: Row): BoardSummary {
   return {
@@ -71,6 +78,7 @@ function toSummary(row: Row): BoardSummary {
     order: Number(row.msdyn_ordernumber ?? 0),
     ownerName: str(row[`_ownerid_value${FV}`]) ?? str(row.owneridname) ?? '—',
     modifiedOn: str(row.modifiedon),
+    lookups: lookupsOf(row),
   }
 }
 
@@ -80,12 +88,9 @@ function toBoard(row: Row): Board {
     const v = row[col.key]
     columns[col.key] = v === undefined ? null : (v as ColumnValue)
   }
-  const lookups = {} as Record<LookupKey, string | null>
+  const lookups = lookupsOf(row)
   const lookupNames = {} as Record<LookupKey, string | null>
-  for (const lk of BOARD_LOOKUPS) {
-    lookups[lk.key] = str(row[lk.valueKey])
-    lookupNames[lk.key] = str(row[`${lk.valueKey}${FV}`])
-  }
+  for (const lk of BOARD_LOOKUPS) lookupNames[lk.key] = str(row[`${lk.valueKey}${FV}`])
   const version = row.versionnumber
   return {
     ...toSummary(row),
@@ -97,6 +102,16 @@ function toBoard(row: Row): Board {
     },
     lookupNames,
     version: version === undefined || version === null ? null : Number(version),
+  }
+}
+
+function toConfig(r: Row): ConfigDetail {
+  return {
+    id: String(r.msdyn_configurationid),
+    name: str(r.msdyn_name) ?? String(r.msdyn_configurationid),
+    type: r.msdyn_type === undefined || r.msdyn_type === null ? null : Number(r.msdyn_type),
+    value: str(r.msdyn_value) ?? '',
+    version: r.versionnumber === undefined || r.versionnumber === null ? null : Number(r.versionnumber),
   }
 }
 
@@ -238,6 +253,29 @@ export const dataverseBoardService: BoardService = {
         }))
       : []
     return [...sys, ...pers]
+  },
+
+  async getConfiguration(id) {
+    const r = unwrap(
+      await ConfigsApi.get(id, { select: ['msdyn_configurationid', 'msdyn_name', 'msdyn_type', 'msdyn_value', 'versionnumber'] }),
+      'Konfiguration laden',
+    ) as unknown as Row
+    return toConfig(r)
+  },
+
+  async updateConfiguration(original, value) {
+    const now = unwrap(await ConfigsApi.get(original.id, { select: ['versionnumber'] }), 'Version lesen') as unknown as Row
+    const v = now.versionnumber === undefined || now.versionnumber === null ? null : Number(now.versionnumber)
+    if (original.version !== null && v !== null && v !== original.version) throw new ConflictError('Die Konfiguration wurde zwischenzeitlich geändert.')
+    unwrap(await ConfigsApi.update(original.id, { msdyn_value: value } as never), 'Konfiguration speichern')
+  },
+
+  async createConfiguration(name, type, value) {
+    const created = unwrap(
+      await ConfigsApi.create({ msdyn_name: name, msdyn_type: type, msdyn_value: value } as never),
+      'Konfiguration anlegen',
+    ) as unknown as Row
+    return String(created.msdyn_configurationid)
   },
 
   async listBookingSetups() {

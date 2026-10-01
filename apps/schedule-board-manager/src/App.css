@@ -987,3 +987,74 @@
   background: #f3e8fd;
   color: #7a3db8;
 }
+
+/* ---------- filter layout editor ---------- */
+.layout-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.layout-editor__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.layout-editor__head h3 {
+  font-size: 16px;
+}
+
+.notice--warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.input--warn {
+  border-color: var(--changed);
+  background: var(--warn-soft);
+}
+
+.control-table td {
+  vertical-align: middle;
+}
+
+.control-table .input {
+  min-width: 120px;
+}
+
+.control-table__entity {
+  display: flex;
+  gap: 4px;
+}
+
+.control-table__actions {
+  white-space: nowrap;
+}
+
+.add-control {
+  padding: 4px 14px 12px;
+  background: var(--surface);
+}
+
+.add-control__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0 12px;
+  align-items: end;
+  margin-bottom: 4px;
+}
+
+.code-block {
+  max-height: 360px;
+  overflow: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

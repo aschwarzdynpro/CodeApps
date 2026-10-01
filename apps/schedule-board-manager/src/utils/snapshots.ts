@@ -45,3 +45,30 @@ export function downloadJson(fileName: string, data: unknown): void {
   a.click()
   URL.revokeObjectURL(url)
 }
+
+export interface ConfigSnapshot {
+  at: string
+  label: string
+  value: string
+}
+
+const configKey = (configId: string) => `sbm.config.${configId.toLowerCase()}`
+
+/** Same safety net for configuration rows (filter layouts) — last 10 per row. */
+export function listConfigSnapshots(configId: string): ConfigSnapshot[] {
+  try {
+    const raw = localStorage.getItem(configKey(configId))
+    return raw ? (JSON.parse(raw) as ConfigSnapshot[]) : []
+  } catch {
+    return []
+  }
+}
+
+export function saveConfigSnapshot(configId: string, label: string, value: string): void {
+  try {
+    const next = [{ at: new Date().toISOString(), label, value }, ...listConfigSnapshots(configId)].slice(0, MAX)
+    localStorage.setItem(configKey(configId), JSON.stringify(next))
+  } catch {
+    // see saveSnapshot
+  }
+}

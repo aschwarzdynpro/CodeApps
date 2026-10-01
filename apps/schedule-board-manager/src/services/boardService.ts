@@ -3,6 +3,7 @@ import type {
   BoardContent,
   BoardSummary,
   BookingSetupRef,
+  ConfigDetail,
   ConfigRef,
   PrincipalRef,
   Share,
@@ -33,6 +34,10 @@ export interface BoardService {
   /** Writes `msdyn_ordernumber` for the given boards only. */
   setOrder(updates: { id: string; order: number }[]): Promise<void>
   listConfigurations(): Promise<ConfigRef[]>
+  getConfiguration(id: string): Promise<ConfigDetail>
+  /** Writes `msdyn_value`; refuses with ConflictError if the row changed since load. */
+  updateConfiguration(original: ConfigDetail, value: string): Promise<void>
+  createConfiguration(name: string, type: number, value: string): Promise<string>
   /** System and personal views of the tables the editor offers. */
   listViews(): Promise<ViewRef[]>
   listBookingSetups(): Promise<BookingSetupRef[]>

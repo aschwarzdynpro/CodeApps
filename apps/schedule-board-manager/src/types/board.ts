@@ -133,6 +133,8 @@ export interface BoardSummary {
   order: number
   ownerName: string
   modifiedOn: string | null
+  /** Configuration lookups — the list needs them to show who uses a layout. */
+  lookups: Record<LookupKey, string | null>
 }
 
 /** The editable part of a board. Drafts, snapshots and diffs use this shape. */
@@ -157,6 +159,12 @@ export interface ConfigRef {
   id: string
   name: string
   type: number | null
+}
+
+/** A configuration row with its payload (filter layout XML, UFX query …). */
+export interface ConfigDetail extends ConfigRef {
+  value: string
+  version: number | null
 }
 
 export interface ViewRef {

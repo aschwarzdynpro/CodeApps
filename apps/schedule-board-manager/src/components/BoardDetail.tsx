@@ -19,6 +19,7 @@ import { DiffTable } from './DiffTable'
 import { ConfirmDialog, Modal } from './Modal'
 import { ShareBadge } from './BoardList'
 import { SharingPanel } from './SharingPanel'
+import { FilterLayoutPanel } from './FilterLayoutPanel'
 
 export type Notify = (text: string, kind?: 'ok' | 'error') => void
 
@@ -31,7 +32,7 @@ interface Props {
   onListChanged: (selectId?: string | null) => void
 }
 
-type Tab = 'edit' | 'json' | 'sharing' | 'history'
+type Tab = 'edit' | 'json' | 'filter' | 'sharing' | 'history'
 type Dialog = 'copy' | 'delete' | 'toggle' | 'save' | null
 
 export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }: Props) {
@@ -177,6 +178,7 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
           [
             ['edit', 'Bearbeiten'],
             ['json', 'JSON'],
+            ['filter', 'Filterlayout'],
             ['sharing', 'Freigaben'],
             ['history', 'Verlauf'],
           ] as [Tab, string][]
@@ -198,6 +200,18 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
           />
         ) : null}
         {tab === 'json' ? <RawJsonEditor key={`${versionKey}#${jsonEpoch}`} draft={draft} onChange={setDraft} /> : null}
+        {tab === 'filter' ? (
+          <FilterLayoutPanel
+            board={board}
+            boards={boards}
+            defaults={isDefaultBoard(board) ? null : defaults}
+            notify={notify}
+            onBoardChanged={() => {
+              reload()
+              onListChanged()
+            }}
+          />
+        ) : null}
         {tab === 'sharing' ? (
           <SharingPanel
             boardId={board.id}

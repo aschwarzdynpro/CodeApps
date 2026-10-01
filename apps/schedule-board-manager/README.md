@@ -17,6 +17,7 @@ Boards übertragen. Außerdem korrigiert sie zwei Fehler der Vorlage (siehe unte
 | Bereich | Inhalt |
 | --- | --- |
 | **Boards** | Liste mit Freigabeart, Status und Besitzer; Reihenfolge der Tabs ändern (`msdyn_ordernumber`); Kopieren (Name, Freigabe, Position, optional mit Datensatz-Freigaben); Aktivieren/Deaktivieren; Löschen; Export als JSON; Link zum Datensatz-Formular |
+| **Filterlayout** | Felder des Ressourcenfilter-Bereichs bearbeiten (Konfiguration hinter `msdyn_filterlayout`): Beschriftung, Key, Tabelle/Spalte, Mehrfachauswahl, Reihenfolge, entfernen, neue Felder (Datensätze einer Tabelle / Auswahlwerte einer Spalte). Zeigt, welche Boards das Layout teilen, warnt bei Feldern, die die Ressourcenabfrage nicht auswertet, und kann eine Kopie nur für das aktuelle Board anlegen und zuweisen. XML-Reiter, Diff-Vorschau, Verlauf |
 | **Freigaben** | Für Boards mit „Bestimmte Personen“: wer das Board sieht (Benutzer und Teams, aus `principalobjectaccess`), Stufe „Lesen“ oder „Lesen & Bearbeiten“ ändern, entfernen, neue Benutzer/Teams suchen und freigeben |
 | **Bearbeiten** | Formular nach dem MS-[Field-Mapping](https://learn.microsoft.com/en-us/dynamics365/guidance/resources/field-service-schedule-board-settings-field-mapping): Board-Ansicht, Farben, Schedule Assistant, Karte, Sonstiges (inkl. der 3 Konfigurations-Lookups), eigene Web-Ressource, Schedule-Typen (`SlotMetadataCollection`), Anforderungsbereiche (`UnscheduledTabs`, hinzufügen/sortieren/entfernen). Nicht gesetzte Felder zeigen den Wert des Default-Boards an. Roh-JSON-Editor als Fallback |
 | **Speichern** | Vorschau aller geänderten Felder (Diff bis auf die einzelnen JSON-Werte), es werden nur geänderte Spalten geschrieben; Konfliktprüfung über `versionnumber`; der vorherige Stand landet im Verlauf (lokal im Browser, die letzten 10) und lässt sich als Entwurf zurückladen |
@@ -74,6 +75,7 @@ src/
 │   ├── settingsModel.ts     # JSON lesen/ändern/flatten, Präsenz-Flags
 │   ├── settingsFields.ts    # Editor-Definitionen nach MS-Field-Mapping
 │   ├── boardRules.ts        # Schutz, Kopieren, Diff, Bulk-Auswahl
+│   ├── filterLayout.ts      # Filterlayout-XML: parsen, Felder ändern, Diff, Abfrage-Abgleich
 │   └── snapshots.ts         # lokaler Verlauf + JSON-Download
 ├── services/
 │   ├── boardService.ts      # Interface + Auswahl Dataverse/Mock
@@ -83,8 +85,30 @@ src/
 │   └── dataverseSharing.ts  # Freigaben über den Dataverse-Connector
 └── components/              # BoardList, BoardDetail, BoardEditor, SlotTypesEditor,
                              # PanelsEditor, RawJsonEditor, DiffTable, CompareView,
-                             # BulkView, SharingPanel
+                             # BulkView, SharingPanel, FilterLayoutPanel
 ```
+
+### Filterlayout
+
+Das Filterlayout ist **eine eigene Konfigurationszeile**, kein Teil des Boards
+(`msdyn_configuration.msdyn_value`, XML `<filter><controls><control …/>`).
+In Schulz UAT teilen sich SST, OST, Jörn und SST-Agrar „Custom Filter Layout
+Schulz for Project Operations“. Speichern wirkt also auf alle; deshalb gibt es
+„Als Kopie nur für dieses Board“ (neue Konfiguration anlegen und am Board
+setzen).
+
+- Bearbeitet werden nur die Controls der obersten Ebene. Unbekannte Attribute
+  und Kind-Elemente (`<data>`, `<order>`, eingebettetes `<fetch>`,
+  verschachtelte `<controls>` von `fieldset`/`twocolumn`) bleiben unverändert;
+  Container nur über den XML-Reiter. Diff und Vergleich laufen über den
+  Control-`key`, reine Formatierung zählt nicht als Änderung.
+- Ein Feld filtert erst, wenn die **Ressourcenabfrage** (`msdyn_retrieveresourcesquery`,
+  UFX-FetchXML) seinen Key als `$input/<Key>` auswertet. Die App liest die
+  Abfrage des Boards (oder die geerbte des Default-Boards) und markiert Felder
+  ohne Gegenstück. Die Abfrage selbst ist nur lesbar.
+- Ändert man einen Key, passen die gespeicherten Filterwerte
+  (`msdyn_filtervalues`) der Boards nicht mehr zu diesem Feld. Sie stehen
+  unter dem alten Key.
 
 ### Freigaben über den Dataverse-Connector
 
@@ -119,7 +143,7 @@ Oberfläche durch, damit ein Schreibvorgang nie scheinbar gelingt.
 ```bash
 npm install
 npm run dev      # http://localhost:3000 — ohne Host: Mock-Daten (Badge oben rechts)
-npm run test     # Vitest: settingsModel + boardRules
+npm run test     # Vitest: settingsModel, boardRules, filterLayout (jsdom)
 npm run build    # tsc -b && vite build
 npm run lint
 ```

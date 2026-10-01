@@ -1,4 +1,4 @@
-import type { Board, BookingSetupRef, ConfigRef, PrincipalRef, TimeZoneRef, ViewRef } from '../types/board'
+import type { Board, BookingSetupRef, ConfigDetail, ConfigRef, PrincipalRef, TimeZoneRef, ViewRef } from '../types/board'
 import { CONFIG_TYPE, SHARE_TYPE } from '../types/board'
 
 /**
@@ -147,7 +147,7 @@ function columns(overrides: Record<string, string | number | boolean | null>) {
 }
 
 export function createMockBoards(): Board[] {
-  return [
+  const boards: Omit<Board, 'lookups'>[] = [
     {
       id: 'dd3e0b8d-5dd9-4546-b081-bbf5ac4a0fb9',
       name: 'Default',
@@ -270,6 +270,7 @@ export function createMockBoards(): Board[] {
       lookupNames: EMPTY_LOOKUP_NAMES,
     },
   ]
+  return boards.map((b) => ({ ...b, lookups: { ...b.content.lookups } }))
 }
 
 export const MOCK_CONFIGS: ConfigRef[] = [
@@ -329,4 +330,54 @@ export function createMockShares(): Map<string, { principalId: string; mask: num
       ],
     ],
   ])
+}
+
+const DEFAULT_FILTER_LAYOUT = `<?xml version="1.0" encoding="utf-8" ?>
+<filter>
+  <controls>
+    <control type="characteristic" key="Characteristics" label-id="ScheduleAssistant.West.Skills" />
+    <control type="combo" source="entity" key="Roles" inactive-state="1" label-id="ScheduleAssistant.West.Roles" entity="bookableresourcecategory" multi="true" />
+    <control type="combo" source="optionset" key="ResourceTypes" label-id="SB_FilterPanel_ResourceTypesFilter_Title" entity="bookableresource" attribute="resourcetype" multi="true" />
+    <control type="combo" source="entity" key="BusinessUnits" label-id="SB_FilterPanel_BusinessUnitsFilter_Title" entity="businessunit" multi="true" />
+    <control type="order" key="Orders" label-id="FilterControl_OrderLabel">
+      <order name="name" entity="bookableresource" attribute="name" />
+    </control>
+  </controls>
+</filter>`
+
+const PRO_FILTER_LAYOUT = `<filter>
+  <controls>
+    <control type="combo" source="entity" key="Site" label-id="Niederlassung" entity="pro_site" multi="true" />
+    <control type="combo" source="entity" key="PlanningTeam" label-id="Planungsteam" entity="pro_planningteam" multi="true" />
+    <control type="combo" source="entity" key="Roles" inactive-state="1" label-id="ScheduleAssistant.West.Roles" entity="bookableresourcecategory" multi="true" />
+    <control type="combo" source="optionset" key="ResourceTypes" label-id="SB_FilterPanel_ResourceTypesFilter_Title" entity="bookableresource" attribute="resourcetype" multi="true">
+      <data>
+          <value id="2" />
+          <value id="3" />
+        </data>
+      </control>
+    <control type="characteristic" key="Characteristics" label-id="ScheduleAssistant.West.Skills" />
+    <control type="combo" source="optionset" key="WorkerType" label-id="Worker Type" entity="bookableresource" attribute="msdyn_workertype" multi="false" />
+    <control type="combo" source="entity" key="Region" label-id="Region" entity="pro_region" multi="true" />
+    <control type="order" key="Orders" label-id="FilterControl_OrderLabel">
+      <order name="name" entity="bookableresource" attribute="name" />
+    </control>
+  </controls>
+</filter>`
+
+const query = (keys: string[]) =>
+  `<fetch mapping="logical"><entity name="bookableresource">` +
+  keys.map((k) => `<filter ufx:if="$input/${k}"><condition attribute="x" operator="in" ufx:select="$input/${k}/bag" /></filter>`).join('') +
+  `</entity></fetch>`
+
+/** Payloads for the configuration rows above (filter layouts and queries). */
+export function createMockConfigDetails(): ConfigDetail[] {
+  const value: Record<string, string> = {
+    [C.defaultFilter]: DEFAULT_FILTER_LAYOUT,
+    [C.proFilter]: PRO_FILTER_LAYOUT,
+    [C.defaultQuery]: query(['Characteristics', 'Roles', 'ResourceTypes', 'BusinessUnits', 'Orders']),
+    // "Region" is deliberately missing — the editor warns about it.
+    [C.proQuery]: query(['Site', 'PlanningTeam', 'Characteristics', 'Roles', 'ResourceTypes', 'WorkerType', 'BusinessUnits', 'Orders']),
+  }
+  return MOCK_CONFIGS.map((c) => ({ ...c, value: value[c.id] ?? '', version: 1 }))
 }
