@@ -21,6 +21,7 @@ import { ConfirmDialog, Modal } from './Modal'
 import { ShareBadge } from './BoardList'
 import { SharingPanel } from './SharingPanel'
 import { FilterLayoutPanel } from './FilterLayoutPanel'
+import { DesignPanel } from './design/DesignPanel'
 import { Btn, Select } from './ui'
 import { Button, Checkbox, Input, Tab as TabItem, TabList } from '@fluentui/react-components'
 import { OpenRegular } from '@fluentui/react-icons'
@@ -36,7 +37,7 @@ interface Props {
   onListChanged: (selectId?: string | null) => void
 }
 
-type Tab = 'edit' | 'json' | 'filter' | 'sharing' | 'history'
+type Tab = 'edit' | 'design' | 'json' | 'filter' | 'sharing' | 'history'
 type Dialog = 'copy' | 'delete' | 'toggle' | 'save' | null
 
 export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }: Props) {
@@ -187,6 +188,7 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
         {(
           [
             ['edit', 'Bearbeiten'],
+            ['design', 'Darstellung'],
             ['json', 'JSON'],
             ['filter', 'Filterlayout'],
             ['sharing', 'Besitzer & Freigaben'],
@@ -207,6 +209,21 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
             defaults={isDefaultBoard(board) ? null : defaults}
             protection={protection}
             onChange={setDraft}
+          />
+        ) : null}
+        {tab === 'design' ? (
+          <DesignPanel
+            board={board}
+            boards={boards}
+            draft={draft}
+            defaults={isDefaultBoard(board) ? null : defaults}
+            boardDirty={changes.length > 0}
+            notify={notify}
+            onChange={setDraft}
+            onBoardChanged={() => {
+              reload()
+              onListChanged()
+            }}
           />
         ) : null}
         {tab === 'json' ? <RawJsonEditor key={`${versionKey}#${jsonEpoch}`} draft={draft} onChange={setDraft} /> : null}

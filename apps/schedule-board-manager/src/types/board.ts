@@ -177,6 +177,12 @@ export interface ViewRef {
   kind: 'system' | 'personal'
 }
 
+/** A view with its layout (columns shown) and query (aliases of linked tables). */
+export interface ViewDefinition extends ViewRef {
+  layoutXml: string | null
+  fetchXml: string | null
+}
+
 export interface BookingSetupRef {
   id: string
   entity: string
@@ -264,6 +270,19 @@ export interface ColumnMeta {
   target?: string
 }
 
+/** N:1 relationship — its schema name is a hop in a booking template path. */
+export interface RelationshipMeta {
+  schemaName: string
+  /** Lookup column on this table. */
+  attribute: string
+  /** Referenced table. */
+  target: string
+}
+
 export interface TableInfo extends TableRef {
   columns: ColumnMeta[]
+  /** N:1 relationships; missing when the source can't tell. */
+  relationships?: RelationshipMeta[]
+  /** Custom (non-Microsoft) table — booking templates support system tables only. */
+  isCustom?: boolean
 }

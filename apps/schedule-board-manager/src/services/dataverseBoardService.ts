@@ -15,6 +15,7 @@ import {
   type BoardSummary,
   type ColumnValue,
   type LookupKey,
+  type ViewDefinition,
   type ViewRef,
 } from '../types/board'
 import { changedFields, diffContent } from '../utils/boardRules'
@@ -277,6 +278,32 @@ export const dataverseBoardService: BoardService = {
       queryViews(ids.map((id) => `userqueryid eq ${id}`).join(' or '), 'personal'),
     ])
     return [...sys, ...pers]
+  },
+
+  async getViewDefinition(id) {
+    const select = ['name', 'returnedtypecode', 'layoutxml', 'fetchxml']
+    const toDef = (r: Row, kind: ViewRef['kind']): ViewDefinition => ({
+      id,
+      name: str(r.name) ?? '',
+      entity: String(r.returnedtypecode ?? ''),
+      kind,
+      layoutXml: str(r.layoutxml),
+      fetchXml: str(r.fetchxml),
+    })
+    // A view ID is either a system or a personal view; a miss on one table is not an error.
+    try {
+      const sys = await SavedQueriesApi.get(id, { select: ['savedqueryid', ...select] })
+      if (sys.success && sys.data) return toDef(sys.data as unknown as Row, 'system')
+    } catch {
+      // fall through to personal views
+    }
+    try {
+      const pers = await UserQueriesApi.get(id, { select: ['userqueryid', ...select] })
+      if (pers.success && pers.data) return toDef(pers.data as unknown as Row, 'personal')
+    } catch {
+      // not readable
+    }
+    return null
   },
 
   resolveRecords: metadata.resolveRecords,

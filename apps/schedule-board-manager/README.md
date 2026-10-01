@@ -23,6 +23,7 @@ Boards übertragen. Außerdem korrigiert sie zwei Fehler der Vorlage (siehe unte
 | **Speichern** | Vorschau aller geänderten Felder (Diff bis auf die einzelnen JSON-Werte), es werden nur geänderte Spalten geschrieben; Konfliktprüfung über `versionnumber`; der vorherige Stand landet im Verlauf (lokal im Browser, die letzten 10) und lässt sich als Entwurf zurückladen |
 | **Vergleichen** | Zwei Boards Feld für Feld, filterbar nach Bereich; „Von A nach B übertragen“ springt mit vorausgewählten Feldern in den Bulk |
 | **Mehrere anpassen** | Vorlage-Board + Auswahl (Konfigurationen, Settings-Schlüssel der obersten Ebene, Filterwerte, Spalten) + Ziel-Boards → Vorschau pro Board → Anwenden mit Ergebnis pro Board. Modus „Besitzer ändern“: Boards wählen + neuer Besitzer → Tabelle bisher/neu (System-Boards und Boards, die schon dem neuen Besitzer gehören, werden übersprungen) → Anwenden |
+| **Darstellung** | Designer mit Live-Vorschau für alles Sichtbare eines Boards: **Buchungskachel** je Schedule-Typ (HTML-Vorlage, Felder über N:1-Beziehungen per Klick einfügen, Kachel in der Stundenansicht mit Dauer, Statusfarbe, Zeilenhöhe), **Ressourcenzelle** (Handlebars-Vorlage der Konfiguration, Variablen aus der Ressourcenabfrage, Vorschau normal/ausgewählt/nicht verfügbar und Schedule-Assistant-Ansicht, eigenes Speichern mit Zeilen-Diff, Kopie nur für dieses Board), **Tooltips & Details** (alle Ansichts-Slots, Spalten der Ansicht als Tooltip, Detailbereich oder Liste), **Farben** (Tages- und Stundenansicht, Schedule Assistant), **Buchungswarnung**. Zeigt, ob eine Vorlage eigen, vom Default-Board geerbt oder Produkt-Standard ist, und prüft auf JavaScript und falsche Platzhalter-Syntax |
 | **Importieren** | Export-Datei eines Boards einlesen (auch aus einer anderen Umgebung), jede Ansicht, Konfiguration, jeden Schedule-Typ, die Zeitzone und gespeicherte Filterwerte der Zielumgebung zuordnen (ID, dann Name; jede Zeile änderbar), Konfigurationen verwenden/neu anlegen/überschreiben/leer lassen → als neues Board anlegen oder ein bestehendes ersetzen (mit Diff) |
 
 ### Fachregeln
@@ -98,6 +99,11 @@ src/
 │   ├── queryAnalysis.ts     # Ressourcenabfrage: welcher $input-Key filtert wo und wie
 │   ├── principalSearch.ts   # Benutzer-/Team-Suche: Wörter, Abgleich, Sortierung
 │   ├── boardTransfer.ts     # Export-Paket, ID-Zuordnung, Inhalt umschreiben
+│   ├── templates.ts         # Buchungs-/Warnungs-/Zellvorlagen: Platzhalter, Standards, Prüfregeln, Beispielwerte
+│   ├── handlebarsLite.ts    # Handlebars-Interpreter für die Zellvorlagen-Vorschau
+│   ├── viewLayout.ts        # Spalten einer Ansicht aus layoutxml/fetchxml
+│   ├── lineDiff.ts          # Zeilen-Diff (Zellvorlage speichern)
+│   ├── colors.ts            # Hex-Farben, Tönung, lesbare Schrift
 │   └── snapshots.ts         # lokaler Verlauf + JSON-Download
 ├── services/
 │   ├── boardService.ts      # Interface + Auswahl Dataverse/Mock
@@ -108,10 +114,13 @@ src/
 │   ├── dataverseMetadata.ts # Tabellen/Spalten aus EntityDefinitions, Datensätze suchen (Connector)
 │   └── transferService.ts   # Export sammeln, Import vorbereiten/ausführen
 └── components/              # BoardList, BoardDetail, BoardEditor, SlotTypesEditor,
-                             # PanelsEditor, RawJsonEditor, DiffTable, CompareView,
-                             # BulkView, BulkOwnerView, SharingPanel, OwnerDialog,
-                             # PrincipalPicker, FilterLayoutPanel, FilterFieldPickers, ImportView,
-                             # ui (Fluent-Wrapper), Modal (Fluent Dialog)
+    │                        # PanelsEditor, RawJsonEditor, DiffTable, CompareView,
+    │                        # BulkView, BulkOwnerView, SharingPanel, OwnerDialog,
+    │                        # PrincipalPicker, FilterLayoutPanel, FilterFieldPickers, ImportView,
+    │                        # ConfigHistory, ui (Fluent-Wrapper), Modal (Fluent Dialog)
+    └── design/              # Reiter „Darstellung“: DesignPanel, FieldTemplateDesigners
+                             # (Buchungskachel, Warnung), CellTemplateDesigner, ViewsDesigner,
+                             # ColorDesigner, Workbench, FieldPalette, PreviewFrame (Sandbox), previewDocs
 ```
 
 ### Filterlayout
@@ -152,6 +161,52 @@ setzen).
 - Ändert man einen Key, passen die gespeicherten Filterwerte
   (`msdyn_filtervalues`) der Boards nicht mehr zu diesem Feld. Sie stehen
   unter dem alten Key.
+
+### Darstellung (Designer und Vorschau)
+
+Der Reiter bündelt alles, was ein Disponent sieht. Änderungen an Vorlagen,
+Ansichten und Farben landen im selben Entwurf wie unter „Bearbeiten“ und
+werden über dessen Speicherleiste (mit Diff) geschrieben. Die
+Ressourcenzellen-Vorlage ist eine eigene Konfigurationszeile und hat ihre
+eigene Speicherleiste.
+
+| Bereich | Quelle | Vorschau |
+| --- | --- | --- |
+| Buchungskachel | `SlotMetadataCollection[].SlotTemplate`, HTML mit `{feld}` bzw. `{beziehung.feld}` (Basis `bookableresourcebooking`) | Kachel in einer Stundenansicht-Zeile |
+| Ressourcenzelle | `msdyn_resourcecelltemplate` → `msdyn_configuration` (Handlebars) | Ressourcenspalte in vier Zuständen, optional Schedule-Assistant-Ansicht |
+| Tooltips & Details | Ansichts-IDs in Spalten und `SlotMetadataCollection` | Spalten der Ansicht (`layoutxml`, Link-Aliase aus `fetchxml`) mit Beispielwerten |
+| Farben | Farbspalten, `CurrentTimelineColor`, Arbeitszeit/-tage | Tagesansicht, Stundenansicht, Schedule Assistant |
+| Buchungswarnung | `BookingAlertTemplate` (Basis `msdyn_bookingalertstatus`) | Warnung im Detailbereich |
+
+- **Vererbung:** Ist eine Vorlage am Board nicht gesetzt, zeigt der Designer
+  die des Default-Boards, sonst den Produkt-Standard aus MS Learn — read-only,
+  bis „Als eigene Vorlage bearbeiten“ sie ins Board übernimmt. „Eigene
+  Vorlage entfernen“ löscht den Schlüssel. Ein gespeicherter Leerstring gilt
+  als „nicht gesetzt“.
+- **Feldauswahl:** Spalten und N:1-Beziehungen kommen aus `EntityDefinitions`
+  (`ManyToOneRelationships.SchemaName`). Jeder Schritt hängt den
+  Beziehungsnamen an, wie die Buchungsvorlage es erwartet
+  (`{msdyn_msdyn_workorder_bookableresourcebooking_WorkOrder.msdyn_name}`).
+  Microsoft unterstützt dort nur Systemtabellen; eigene Tabellen (Publisher-
+  Präfix, nicht `msdyn_` usw.) werden markiert.
+- **Zellvorlage:** gerendert von einem kleinen Handlebars-Interpreter
+  (`src/utils/handlebarsLite.ts`), nicht von der Bibliothek selbst — die
+  kompiliert mit `new Function`. Nachgebildet sind nur die Helper aus den
+  Microsoft-Beispielen (`iif`, `eq`, `client-url`, `is-sa-grid-view`) und das
+  Partial `resource-map-pin-template`. Unbekannte Helper bleiben leer und
+  werden gemeldet. Variablen der Palette: die des Boards plus Alias-Attribute
+  und `<bag>`-Einträge der Ressourcenabfrage (Heuristik). Speichern wirkt auf
+  alle Boards, die die Zeile nutzen oder erben; die Inline-Kopien des
+  Schedule Assistant in `SlotMetadataCollection` bleiben unverändert.
+- **Sicherheit:** Vorschauen mit Vorlagen-HTML laufen in einem `iframe` mit
+  leerem `sandbox` — keine Skripte, kein Zugriff auf die App, kein CSS-Leck.
+  Bilder und Font Awesome werden nicht geladen; Icons erscheinen als
+  Ersatzzeichen.
+- **Treue:** Das Board-CSS ist außerhalb des Boards nicht verfügbar. Die
+  Vorschau nähert Schrift, Abstände und die URS-Klassen der Microsoft-
+  Beispiele an. CSS-Blöcke und Font-Awesome-Icons in der Buchungsvorlage
+  setzen laut Microsoft „Disable Sanitizing HTML Templates = Ja“ in den
+  Scheduling-Parametern voraus; der Designer weist darauf hin.
 
 ### Boards zwischen Umgebungen übertragen (Export/Import)
 
@@ -230,7 +285,8 @@ Oberfläche durch, damit ein Schreibvorgang nie scheinbar gelingt.
 ```bash
 npm install
 npm run dev      # http://localhost:3000 — ohne Host: Mock-Daten (Badge oben rechts)
-npm run test     # Vitest: settingsModel, boardRules, filterLayout (jsdom), queryAnalysis, principalSearch
+npm run test     # Vitest: settingsModel, boardRules, boardTransfer, filterLayout (jsdom), queryAnalysis,
+                 # principalSearch, handlebarsLite, templates, viewLayout, lineDiff, colors
 npm run build    # tsc -b && vite build
 npm run lint
 ```
@@ -275,5 +331,12 @@ und „Custom Retrieve Resources Query …“.
   `EntityDefinitions` mit doppeltem `$expand` (Attribute + ManyToOneRelationships)
   über den Connector, Besitzerwechsel per `ownerid@odata.bind` über die
   native Datenquelle, Datensatzsuche für Filterwerte über den Connector
-  (`EntitySetName` + `$filter`), `savedquery`/`userquery` nach ID.
+  (`EntitySetName` + `$filter`), `savedquery`/`userquery` nach ID (auch mit
+  `layoutxml`/`fetchxml` für die Tooltip-Vorschau), `SchemaName` in
+  `ManyToOneRelationships` und `IsCustomEntity` über den Connector.
+- Darstellung: Vorschau-`iframe` (`srcdoc`, leeres `sandbox`) im
+  Power-Apps-Host noch nicht geprüft — verbietet die CSP des Hosts Inline-CSS,
+  erscheint die Vorschau ungestylt. Die Treue der Vorschau gegenüber dem
+  echten Board ist nur an den Microsoft-Beispielen abgeglichen, nicht an
+  Schulz-Vorlagen.
 - Import nach PROD: App dort noch nicht deployt.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { analyzeQuery, describeUsage } from './queryAnalysis'
+import { analyzeQuery, describeUsage, queryOutputs } from './queryAnalysis'
 
 const QUERY = `<fetch mapping="logical" aggregate="true">
   <entity name="bookableresource">
@@ -46,5 +46,28 @@ describe('analyzeQuery', () => {
   })
   it('handles empty input', () => {
     expect(analyzeQuery(null).size).toBe(0)
+  })
+})
+
+describe('queryOutputs', () => {
+  it('collects aliases, root attributes and bag entries (MS crew sample)', () => {
+    const xml = `<fetch><entity name="bookableresource"><attribute name="name" />
+      <link-entity name="bookableresourcegroup" alias="bgcount"><attribute name="name" aggregate="countcolumn" alias="crewcount" />
+        <filter><condition attribute="fromdate" operator="le"><ufx:value select="$input/ScheduleBoard/EndDate" attribute="value" /></condition></filter>
+        <attribute name="unaliased" />
+        <link-entity name="bookableresource" alias="parentresource"><attribute name="name" alias="crewname" groupby="true" /></link-entity>
+      </link-entity></entity>
+      <bag><multipleCrews ufx:select="crewcount > 1" /><singleCrew ufx:select="crewcount = 1" /><ufx:if test="x"><nested /></ufx:if></bag></fetch>`
+    expect(queryOutputs(xml).map((o) => `${o.source}:${o.name}`)).toEqual([
+      'attribute:name',
+      'attribute:crewcount',
+      'attribute:crewname',
+      'bag:multipleCrews',
+      'bag:singleCrew',
+    ])
+    expect(queryOutputs(xml).find((o) => o.name === 'crewname')?.detail).toBe('bookableresource.name')
+  })
+  it('is empty without a query', () => {
+    expect(queryOutputs(null)).toEqual([])
   })
 })

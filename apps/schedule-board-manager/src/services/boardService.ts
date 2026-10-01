@@ -11,6 +11,7 @@ import type {
   TableInfo,
   TableRef,
   TimeZoneRef,
+  ViewDefinition,
   ViewRef,
 } from '../types/board'
 import { powerModeReady } from '../PowerProvider'
@@ -56,6 +57,8 @@ export interface BoardService {
   listViews(entities?: string[]): Promise<ViewRef[]>
   /** Views by ID, whatever their table (export). Unknown IDs are left out. */
   getViewsByIds(ids: string[]): Promise<ViewRef[]>
+  /** One view with layout and query (tooltip/details preview); null when not found or not readable. */
+  getViewDefinition(id: string): Promise<ViewDefinition | null>
   /**
    * Finds records of one table by ID, else by primary name (unique match
    * only). Keyed by the lower-cased requested ID; a missing key means not

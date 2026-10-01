@@ -5,6 +5,7 @@ import {
   applySelection,
   buildCopyContent,
   changedFields,
+  configUsers,
   diffContent,
   nextOrderNumber,
   planOwnerChange,
@@ -118,5 +119,17 @@ describe('planOwnerChange', () => {
   })
   it('ignores unknown ids', () => {
     expect(planOwnerChange(boards, ['nope'], mara)).toEqual([])
+  })
+})
+
+describe('configUsers', () => {
+  it('counts direct users and boards inheriting from the Default board', () => {
+    const summaries = createMockBoards()
+    const defaultCell = summaries.find((b) => b.name === 'Default')!.lookups.msdyn_resourcecelltemplate
+    const names = (id: string) => configUsers(summaries, 'msdyn_resourcecelltemplate', id, defaultCell).map((b) => b.name)
+    // "Initial public view" has no own template and inherits the Default board's.
+    expect(names(defaultCell!)).toEqual(['Default', 'Initial public view', 'Disposition Süd', 'Montage Großprojekte', 'Agrar (alt)'])
+    const crew = summaries.find((b) => b.name === 'Disposition Nord')!.lookups.msdyn_resourcecelltemplate!
+    expect(names(crew)).toEqual(['Disposition Nord'])
   })
 })

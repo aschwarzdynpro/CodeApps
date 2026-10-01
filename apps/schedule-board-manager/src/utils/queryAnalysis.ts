@@ -84,8 +84,12 @@ export function analyzeQuery(queryXml: string | null | undefined): Map<string, K
   return usages
 }
 
-/** Keys the query reads that are not filters the user picks (flags, sort). */
-export const NON_FILTER_KEYS = new Set(['DisplayOnScheduleBoard', 'DisplayOnScheduleAssistant', 'Orders'])
+/**
+ * Keys the query reads that are not filters the user picks (flags, sort,
+ * and `ScheduleBoard/StartDate|EndDate` — the board's date range, used e.g.
+ * by the crew sample in MS Learn).
+ */
+export const NON_FILTER_KEYS = new Set(['DisplayOnScheduleBoard', 'DisplayOnScheduleAssistant', 'Orders', 'ScheduleBoard'])
 
 export interface KeyTemplate {
   label: string
@@ -126,4 +130,75 @@ export function describeUsage(u: KeyUsage): string {
   const where = u.entity ? (u.attribute ? `${u.entity}.${u.attribute}` : u.entity) : (u.attribute ?? '')
   const op = u.operator ? (OPERATOR_TEXT[u.operator] ?? u.operator) : ''
   return [where, op].filter(Boolean).join(' ') || 'Verwendung nicht eindeutig'
+}
+
+// ---------------------------------------------------------------------------
+// Tag scanning shared with view layouts and cell template variables
+// ---------------------------------------------------------------------------
+
+export interface XmlTag {
+  name: string
+  attrs: Record<string, string>
+  closing: boolean
+  selfClosing: boolean
+}
+
+/** Tags in document order, comments removed. Tolerates undeclared prefixes like `ufx:`. */
+export function scanTags(xml: string | null | undefined): XmlTag[] {
+  if (!xml) return []
+  const clean = xml.replace(/<!--[\s\S]*?-->/g, '')
+  return [...clean.matchAll(TAG)].map((m) => ({
+    closing: m[1] === '/',
+    name: m[2],
+    attrs: attrs(m[3]),
+    selfClosing: m[4] === '/',
+  }))
+}
+
+export interface QueryOutput {
+  /** Name the resource cell template reads, e.g. `crewname`. */
+  name: string
+  source: 'attribute' | 'bag'
+  /** `table.column` for attributes, the `ufx:select` expression for bag entries. */
+  detail: string
+}
+
+/**
+ * Values a Retrieve Resources Query hands to the resource cell template:
+ * aliased attributes anywhere, unaliased attributes of the root entity, and
+ * the direct children of a `<bag>` element (MS sample: `<singleCrew
+ * ufx:select="crewcount = 1" />`). A heuristic for the variable palette —
+ * the query's runtime shape is not documented in full.
+ */
+export function queryOutputs(queryXml: string | null | undefined): QueryOutput[] {
+  const out: QueryOutput[] = []
+  const add = (o: QueryOutput) => {
+    if (o.name && !out.some((x) => x.name === o.name)) out.push(o)
+  }
+  const stack: { name: string; entity?: string }[] = []
+  const entityDepth = () => stack.filter((e) => e.entity !== undefined).length
+  const currentEntity = () => [...stack].reverse().find((e) => e.entity !== undefined)?.entity ?? ''
+  let bagLevel = -1
+
+  for (const tag of scanTags(queryXml)) {
+    if (tag.closing) {
+      const at = stack.map((e) => e.name).lastIndexOf(tag.name)
+      if (at >= 0) stack.length = at
+      if (bagLevel >= stack.length) bagLevel = -1
+      continue
+    }
+    const level = stack.length
+    if (bagLevel >= 0 && level === bagLevel + 1 && !tag.name.startsWith('ufx:')) {
+      add({ name: tag.name, source: 'bag', detail: tag.attrs['ufx:select'] ?? '' })
+    }
+    const isEntity = tag.name === 'entity' || tag.name === 'link-entity'
+    if (tag.name === 'attribute' && tag.attrs.name) {
+      const entity = currentEntity()
+      if (tag.attrs.alias) add({ name: tag.attrs.alias, source: 'attribute', detail: `${entity}.${tag.attrs.name}` })
+      else if (entityDepth() === 1) add({ name: tag.attrs.name, source: 'attribute', detail: `${entity}.${tag.attrs.name}` })
+    }
+    if (tag.name === 'bag' && !tag.selfClosing) bagLevel = level
+    if (!tag.selfClosing) stack.push({ name: tag.name, entity: isEntity ? (tag.attrs.name ?? '') : undefined })
+  }
+  return out
 }

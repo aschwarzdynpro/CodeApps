@@ -70,6 +70,23 @@ export function isDefaultBoard(board: Pick<BoardSummary, 'id'>): boolean {
   return board.id.toLowerCase() === 'dd3e0b8d-5dd9-4546-b081-bbf5ac4a0fb9'
 }
 
+/**
+ * Boards that use configuration `configId` through `key` — directly, or by
+ * inheriting it from the Default board (`defaultConfigId`) because their
+ * own lookup is empty. Saving the configuration changes all of them.
+ */
+export function configUsers(
+  boards: BoardSummary[],
+  key: LookupKey,
+  configId: string,
+  defaultConfigId: string | null,
+): BoardSummary[] {
+  const same = (a: string | null | undefined, b: string | null | undefined) => (a ?? '').toLowerCase() === (b ?? '').toLowerCase()
+  return boards.filter(
+    (b) => same(b.lookups[key], configId) || (!b.lookups[key] && !isDefaultBoard(b) && same(defaultConfigId, configId)),
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Copy
 // ---------------------------------------------------------------------------

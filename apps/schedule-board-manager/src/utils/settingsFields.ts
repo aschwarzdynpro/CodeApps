@@ -1,4 +1,5 @@
-import type { PathSeg } from './settingsModel'
+import type { BookingSetupRef } from '../types/board'
+import { getAt, type JsonObject, type PathSeg } from './settingsModel'
 
 /**
  * Editor definitions for the documented `msdyn_settings` attributes.
@@ -111,6 +112,59 @@ export const KNOWN_BOOKING_SETUPS: Record<string, string> = {
   '49bc77c5-3a9e-4a0b-a903-0a3a4d352f5d': 'Keine',
   '187989a1-41f1-e711-8130-000d3af982f3': 'Termin',
   'd59df12a-aedb-4f82-b5b8-9a6eba4f1712': 'Arbeitsauftrag',
+}
+
+/** Display name of the scheduled table per known booking setup (for `{SchedulableEntityDisplayName}`). */
+const KNOWN_SETUP_ENTITY_LABEL: Record<string, string> = {
+  '49bc77c5-3a9e-4a0b-a903-0a3a4d352f5d': 'Ressourcenanforderung',
+  '187989a1-41f1-e711-8130-000d3af982f3': 'Termin',
+  'd59df12a-aedb-4f82-b5b8-9a6eba4f1712': 'Arbeitsauftrag',
+}
+
+/** Label of a schedule type: fixed URS IDs by name, others by their table. */
+export function slotLabel(id: string, bookingSetups: BookingSetupRef[]): string {
+  const known = KNOWN_BOOKING_SETUPS[id.toLowerCase()]
+  if (known) return known
+  const entity = bookingSetups.find((b) => b.id.toLowerCase() === id.toLowerCase())?.entity
+  return entity ? `Tabelle ${entity}` : `Typ ${id.slice(0, 8)}…`
+}
+
+/** What `{SchedulableEntityDisplayName}` shows for a schedule type — approximated. */
+export function slotEntityLabel(id: string, bookingSetups: BookingSetupRef[]): string {
+  return KNOWN_SETUP_ENTITY_LABEL[id.toLowerCase()] ?? bookingSetups.find((b) => b.id.toLowerCase() === id.toLowerCase())?.entity ?? 'Anforderung'
+}
+
+export interface SlotEntry {
+  /** Position in `SlotMetadataCollection` (the write path). */
+  index: number
+  id: string
+  slot: JsonObject
+}
+
+/** The schedule types of a board's settings, skipping malformed entries. */
+export function slotEntries(settings: JsonObject | null | undefined): SlotEntry[] {
+  const slots = settings ? getAt(settings, ['SlotMetadataCollection']) : undefined
+  if (!Array.isArray(slots)) return []
+  return slots.flatMap((slot, index) =>
+    slot !== null && typeof slot === 'object' && !Array.isArray(slot)
+      ? [{ index, id: String(slot.BookingSetupMetadataId ?? index), slot }]
+      : [],
+  )
+}
+
+/** The same schedule type on another board (Default board inheritance). */
+export function findSlot(settings: JsonObject | null | undefined, id: string): JsonObject | null {
+  return slotEntries(settings).find((e) => e.id.toLowerCase() === id.toLowerCase())?.slot ?? null
+}
+
+/** Effective row height of a time scale: own, Default board, top-level `RowHeight`, 60. */
+export function rowHeightOf(settings: JsonObject | null, defaults: JsonObject | null, mode: string): number {
+  const pick = (s: JsonObject | null, path: PathSeg[]) => {
+    const v = s ? getAt(s, path) : undefined
+    return typeof v === 'number' && v > 0 ? v : null
+  }
+  const path = ['viewModeSpecific', mode, 'RowHeight']
+  return pick(settings, path) ?? pick(defaults, path) ?? pick(settings, ['RowHeight']) ?? pick(defaults, ['RowHeight']) ?? 60
 }
 
 /** Display label for a flattened settings path, falling back to the raw key. */

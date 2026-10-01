@@ -1,5 +1,5 @@
 import { useRefData } from '../hooks/refData'
-import { KNOWN_BOOKING_SETUPS, SLOT_FIELDS } from '../utils/settingsFields'
+import { SLOT_FIELDS, slotLabel } from '../utils/settingsFields'
 import { getAt, jsonEqual, setAt, type Json, type JsonObject } from '../utils/settingsModel'
 import { Field, TextInput, ViewSelect } from './fields'
 
@@ -23,13 +23,7 @@ export function SlotTypesEditor({ settings, original, onChange }: Props) {
     return <p className="muted full">Keine Schedule-Typen im Settings-JSON — das Board nutzt die Standardwerte.</p>
   }
   const origSlots = getAt(original, ['SlotMetadataCollection'])
-
-  const label = (id: string) => {
-    const known = KNOWN_BOOKING_SETUPS[id.toLowerCase()]
-    if (known) return known
-    const entity = bookingSetups.find((b) => b.id.toLowerCase() === id.toLowerCase())?.entity
-    return entity ? `Tabelle ${entity}` : `Typ ${id.slice(0, 8)}…`
-  }
+  const label = (id: string) => slotLabel(id, bookingSetups)
 
   return (
     <div className="full slot-list">
@@ -49,7 +43,12 @@ export function SlotTypesEditor({ settings, original, onChange }: Props) {
                 const value = slot[f.key]
                 const before = origSlot && typeof origSlot === 'object' && !Array.isArray(origSlot) ? origSlot[f.key] : undefined
                 return (
-                  <Field key={f.key} label={f.label} changed={!jsonEqual(value, before)}>
+                  <Field
+                    key={f.key}
+                    label={f.label}
+                    changed={!jsonEqual(value, before)}
+                    hint={f.key === 'SlotTemplate' ? 'Vorschau mit Feldauswahl im Reiter „Darstellung“.' : null}
+                  >
                     {(fid) =>
                       f.kind === 'view' ? (
                         <ViewSelect

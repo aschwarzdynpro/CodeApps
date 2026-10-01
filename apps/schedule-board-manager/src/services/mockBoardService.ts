@@ -12,6 +12,7 @@ import {
   createMockBoards,
   createMockConfigDetails,
   createMockShares,
+  mockViewDefinition,
 } from './mockData'
 
 /** In-memory implementation for local development — state lives until reload. */
@@ -158,6 +159,7 @@ export const mockBoardService: BoardService = {
     const wanted = new Set(ids.map((id) => id.toLowerCase()))
     return delay(clone(MOCK_VIEWS.filter((v) => wanted.has(v.id.toLowerCase()))))
   },
+  getViewDefinition: (id) => delay(mockViewDefinition(id)),
   resolveRecords: (entity, refs) => {
     const table = MOCK_RECORDS.filter((r) => r.entity === entity.toLowerCase())
     const out = new Map<string, ResolvedRecord>()

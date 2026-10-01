@@ -1,5 +1,18 @@
-import type { Board, BookingSetupRef, ColumnMeta, ConfigDetail, ConfigRef, PrincipalRef, TableInfo, TimeZoneRef, ViewRef } from '../types/board'
+import type {
+  Board,
+  BookingSetupRef,
+  ColumnMeta,
+  ConfigDetail,
+  ConfigRef,
+  PrincipalRef,
+  RelationshipMeta,
+  TableInfo,
+  TimeZoneRef,
+  ViewDefinition,
+  ViewRef,
+} from '../types/board'
 import { CONFIG_TYPE, SHARE_TYPE } from '../types/board'
+import { STARTER_CELL_TEMPLATE } from '../utils/templates'
 
 /**
  * Fictional sample data shaped like a real URS environment (Project
@@ -34,6 +47,7 @@ const C = {
   defaultQuery: '70000000-0000-4000-8000-000000000004',
   proQuery: '70000000-0000-4000-8000-000000000005',
   saFilter: '70000000-0000-4000-8000-000000000006',
+  crewCell: '70000000-0000-4000-8000-000000000007',
 }
 
 const TZ_BERLIN = 'e64c2598-8880-4730-b622-a47bd25193cd'
@@ -47,6 +61,14 @@ const R = {
 
 /** Shape the board writes into msdyn_filtervalues for a picked record. */
 const ufx = (id: string, entity: string) => ({ '@ufx-id': id, '@ufx-type': 'lookup', '@ufx-logicalname': entity })
+
+/** Booking template from the MS Learn example (work order, account, incident type). */
+const WORK_ORDER_TEMPLATE = `<div style="line-height: 13px; width: 99%; overflow: hidden; display: block; text-overflow: ellipsis;">
+    WO: <b>{msdyn_msdyn_workorder_bookableresourcebooking_WorkOrder.msdyn_name}</b><br/>
+    Konto: <b>{msdyn_msdyn_workorder_bookableresourcebooking_WorkOrder.msdyn_account_msdyn_workorder_ServiceAccount.name}</b><br/>
+    Vorfall: <b>{msdyn_msdyn_workorder_bookableresourcebooking_WorkOrder.msdyn_primaryincidenttype}</b><br/>
+    Dauer: <b>{duration} Minuten</b>
+</div>`
 
 function slot(id: string, tooltip: string, template: string) {
   return {
@@ -86,7 +108,7 @@ function settings(opts: {
     SlotMetadataCollection: [
       slot(BS_NONE, V.bookingTooltip, '<div>{name}</div>'),
       slot(BS_APPOINTMENT, V.bookingTooltip, '<div>{name}<br />{starttime}</div>'),
-      slot(BS_WORKORDER, V.bookingCompact, '<div style="line-height: 13px">{msdyn_workorder}</div>'),
+      slot(BS_WORKORDER, V.bookingCompact, WORK_ORDER_TEMPLATE),
       slot(BS_PROJECT, V.bookingTooltip, '<div>{SchedulableEntityDisplayName} - {name}</div>'),
     ],
     TimeOffsetSetting: TZ_BERLIN,
@@ -206,7 +228,7 @@ export function createMockBoards(): Board[] {
       version: 1003,
       content: {
         columns: columns({ msdyn_tabname: 'Disposition Nord', msdyn_ordernumber: 1 }),
-        lookups: { msdyn_filterlayout: C.proFilter, msdyn_resourcecelltemplate: C.cellTemplate, msdyn_retrieveresourcesquery: C.proQuery },
+        lookups: { msdyn_filterlayout: C.proFilter, msdyn_resourcecelltemplate: C.crewCell, msdyn_retrieveresourcesquery: C.proQuery },
         settings: settings({
           start: 6,
           end: 19,
@@ -293,6 +315,7 @@ export const MOCK_CONFIGS: ConfigRef[] = [
   { id: C.defaultFilter, name: 'Default Filter Layout', type: CONFIG_TYPE.filterLayout },
   { id: C.proFilter, name: 'Custom Filter Layout pro', type: CONFIG_TYPE.filterLayout },
   { id: C.cellTemplate, name: 'Default Resource Cell Template', type: CONFIG_TYPE.resourceCellTemplate },
+  { id: C.crewCell, name: 'Custom Resource Cell Template pro (Crew)', type: CONFIG_TYPE.resourceCellTemplate },
   { id: C.defaultQuery, name: 'Default Retrieve Resources Query', type: CONFIG_TYPE.retrieveResourcesQuery },
   { id: C.proQuery, name: 'Custom Retrieve Resources Query pro', type: CONFIG_TYPE.retrieveResourcesQuery },
   { id: C.saFilter, name: 'Default Schedule Assistant Filter Layout', type: CONFIG_TYPE.saFilterLayout },
@@ -404,8 +427,26 @@ const KEY_COLUMN: Record<string, string> = {
   Shift: 'pro_shift',
 }
 
-const query = (keys: string[]) =>
+/**
+ * Crew membership in the board's date range — the MS Learn sample "Add crew
+ * information to resource cells", feeding `crewname`/`crewcount` and the
+ * bag flags `singleCrew`/`multipleCrews` to the cell template.
+ */
+const CREW_LINKS =
+  `<link-entity name="bookableresourcegroup" from="childresource" to="bookableresourceid" alias="bgcount" link-type="outer">` +
+  `<attribute name="name" aggregate="countcolumn" alias="crewcount" />` +
+  `<filter type="and"><condition attribute="fromdate" operator="le"><ufx:value select="$input/ScheduleBoard/EndDate" attribute="value" /></condition>` +
+  `<condition attribute="todate" operator="ge"><ufx:value select="$input/ScheduleBoard/StartDate" attribute="value" /></condition></filter>` +
+  `</link-entity>` +
+  `<link-entity name="bookableresourcegroup" from="childresource" to="bookableresourceid" alias="bg" link-type="outer">` +
+  `<link-entity name="bookableresource" from="bookableresourceid" to="parentresource" alias="parentresource" link-type="outer">` +
+  `<attribute name="name" alias="crewname" groupby="true" /></link-entity></link-entity>`
+
+const CREW_BAG = `<bag><multipleCrews ufx:select="crewcount > 1" /><singleCrew ufx:select="crewcount = 1" /></bag>`
+
+const query = (keys: string[], crew = false) =>
   `<fetch mapping="logical"><entity name="bookableresource">` +
+  `<attribute name="name" /><attribute name="bookableresourceid" />` +
   `<filter type="and">` +
   keys
     .filter((k) => KEY_COLUMN[k])
@@ -424,13 +465,31 @@ const query = (keys: string[]) =>
     .filter((k) => !KEY_COLUMN[k] && k !== 'PlanningTeam')
     .map((k) => `<!-- ${k} --><filter ufx:if="$input/${k}" />`)
     .join('') +
-  `</entity></fetch>`
+  (crew ? CREW_LINKS : '') +
+  `</entity>` +
+  (crew ? CREW_BAG : '') +
+  `</fetch>`
+
+/** The MS crew sample built on the starter cell template. */
+const CREW_CELL_TEMPLATE = STARTER_CELL_TEMPLATE.replace(
+  "<div class='resource-name primary-text ellipsis' title='{{name}}'>{{name}}</div>",
+  `<div class='resource-name primary-text ellipsis' title='{{name}}'>{{name}}</div>
+    <!-- Crew-Information -->
+    {{#if singleCrew}}
+    <div class='resource-name primary-text ellipsis' title='{{crewname}}' style="color:blue"><i class="fa fa-users"></i> {{crewname}}</div>
+    {{/if}}
+    {{#if multipleCrews}}
+    <div class='resource-name primary-text ellipsis' title='{{crewcount}}' style="color:blue"><i class="fa fa-users"></i> In {{crewcount}} Crews</div>
+    {{/if}}`,
+)
 
 /** Payloads for the configuration rows above (filter layouts and queries). */
 export function createMockConfigDetails(): ConfigDetail[] {
   const value: Record<string, string> = {
     [C.defaultFilter]: DEFAULT_FILTER_LAYOUT,
     [C.proFilter]: PRO_FILTER_LAYOUT,
+    [C.cellTemplate]: STARTER_CELL_TEMPLATE,
+    [C.crewCell]: CREW_CELL_TEMPLATE,
     [C.defaultQuery]: query(['Characteristics', 'Roles', 'ResourceTypes', 'BusinessUnits', 'Orders']),
     // "Region" is deliberately missing — the editor warns about it.
     [C.proQuery]: query([
@@ -447,7 +506,7 @@ export function createMockConfigDetails(): ConfigDetail[] {
       'OrganizationalUnits',
       'Shift',
       'DisplayOnScheduleBoard',
-    ]),
+    ], true),
   }
   return MOCK_CONFIGS.map((c) => ({ ...c, value: value[c.id] ?? '', version: 1 }))
 }
@@ -458,6 +517,8 @@ const col = (logicalName: string, displayName: string, kind: ColumnMeta['kind'] 
   kind,
   target,
 })
+
+const rel = (schemaName: string, attribute: string, target: string): RelationshipMeta => ({ schemaName, attribute, target })
 
 /** Fictional metadata for the picker — standard tables plus invented `pro_` ones. */
 export const MOCK_TABLES: TableInfo[] = [
@@ -473,20 +534,162 @@ export const MOCK_TABLES: TableInfo[] = [
       col('pro_site_ref', 'Niederlassung', 'lookup', 'pro_site'),
       col('msdyn_organizationalunit', 'Organisationseinheit', 'lookup', 'msdyn_organizationalunit'),
       col('userid', 'Benutzer', 'lookup', 'systemuser'),
+      col('timezone', 'Zeitzone'),
+      col('msdyn_primaryemail', 'Primäre E-Mail'),
     ],
+    relationships: [
+      rel('msdyn_msdyn_organizationalunit_bookableresource_organizationalunit', 'msdyn_organizationalunit', 'msdyn_organizationalunit'),
+      rel('pro_pro_site_bookableresource_site_ref', 'pro_site_ref', 'pro_site'),
+      rel('systemuser_bookableresource_UserId', 'userid', 'systemuser'),
+    ],
+  },
+  {
+    logicalName: 'bookableresourcebooking',
+    displayName: 'Buchung einer buchbaren Ressource',
+    columns: [
+      col('name', 'Name'),
+      col('starttime', 'Startzeit'),
+      col('endtime', 'Endzeit'),
+      col('duration', 'Dauer'),
+      col('msdyn_estimatedtravelduration', 'Geschätzte Reisedauer'),
+      col('msdyn_estimatedarrivaltime', 'Geschätzte Ankunftszeit'),
+      col('bookingstatus', 'Buchungsstatus', 'lookup', 'bookingstatus'),
+      col('resource', 'Ressource', 'lookup', 'bookableresource'),
+      col('msdyn_workorder', 'Arbeitsauftrag', 'lookup', 'msdyn_workorder'),
+      col('msdyn_resourcerequirement', 'Ressourcenanforderung', 'lookup', 'msdyn_resourcerequirement'),
+      col('ownerid', 'Besitzer', 'lookup', 'systemuser'),
+    ],
+    relationships: [
+      rel('bookableresource_bookableresourcebooking_Resource', 'resource', 'bookableresource'),
+      rel('bookingstatus_bookableresourcebooking_BookingStatus', 'bookingstatus', 'bookingstatus'),
+      rel('msdyn_msdyn_resourcerequirement_bookableresourcebooking_ResourceRequirement', 'msdyn_resourcerequirement', 'msdyn_resourcerequirement'),
+      rel('msdyn_msdyn_workorder_bookableresourcebooking_WorkOrder', 'msdyn_workorder', 'msdyn_workorder'),
+    ],
+  },
+  {
+    logicalName: 'msdyn_workorder',
+    displayName: 'Arbeitsauftrag',
+    columns: [
+      col('msdyn_name', 'Arbeitsauftragsnummer'),
+      col('msdyn_serviceaccount', 'Dienstkonto', 'lookup', 'account'),
+      col('msdyn_primaryincidenttype', 'Primärer Vorfalltyp', 'lookup', 'msdyn_incidenttype'),
+      col('msdyn_workordertype', 'Arbeitsauftragstyp'),
+      col('msdyn_systemstatus', 'Systemstatus', 'picklist'),
+      col('msdyn_instructions', 'Anweisungen'),
+      col('msdyn_address1', 'Straße 1'),
+      col('msdyn_postalcode', 'Postleitzahl'),
+      col('msdyn_city', 'Ort'),
+    ],
+    relationships: [
+      rel('msdyn_account_msdyn_workorder_ServiceAccount', 'msdyn_serviceaccount', 'account'),
+      rel('msdyn_msdyn_incidenttype_msdyn_workorder_PrimaryIncidentType', 'msdyn_primaryincidenttype', 'msdyn_incidenttype'),
+    ],
+  },
+  {
+    logicalName: 'account',
+    displayName: 'Firma',
+    columns: [col('name', 'Firmenname'), col('address1_city', 'Ort'), col('telephone1', 'Telefon'), col('emailaddress1', 'E-Mail')],
+    relationships: [],
+  },
+  { logicalName: 'msdyn_incidenttype', displayName: 'Vorfalltyp', columns: [col('msdyn_name', 'Name')], relationships: [] },
+  { logicalName: 'bookingstatus', displayName: 'Buchungsstatus', columns: [col('name', 'Name'), col('status', 'Status', 'picklist')], relationships: [] },
+  {
+    logicalName: 'msdyn_resourcerequirement',
+    displayName: 'Ressourcenanforderung',
+    columns: [
+      col('msdyn_name', 'Name'),
+      col('msdyn_fromdate', 'Von'),
+      col('msdyn_todate', 'Bis'),
+      col('msdyn_duration', 'Dauer'),
+      col('msdyn_effort', 'Aufwand'),
+      col('msdyn_city', 'Ort'),
+      col('msdyn_workorder', 'Arbeitsauftrag', 'lookup', 'msdyn_workorder'),
+      col('msdyn_organizationalunit', 'Organisationseinheit', 'lookup', 'msdyn_organizationalunit'),
+    ],
+    relationships: [rel('msdyn_msdyn_workorder_msdyn_resourcerequirement_WorkOrder', 'msdyn_workorder', 'msdyn_workorder')],
+  },
+  {
+    logicalName: 'msdyn_bookingalert',
+    displayName: 'Buchungswarnung',
+    columns: [col('subject', 'Betreff'), col('description', 'Beschreibung'), col('msdyn_time', 'Zeit')],
+    relationships: [],
+  },
+  {
+    logicalName: 'msdyn_bookingalertstatus',
+    displayName: 'Status der Buchungswarnung',
+    columns: [col('msdyn_name', 'Name'), col('msdyn_nexttimetoshow', 'Nächste Anzeige'), col('msdyn_bookingalert', 'Buchungswarnung', 'lookup', 'msdyn_bookingalert')],
+    relationships: [rel('msdyn_msdyn_bookingalert_msdyn_bookingalertstatus_BookingAlert', 'msdyn_bookingalert', 'msdyn_bookingalert')],
   },
   {
     logicalName: 'pro_planningteammember',
     displayName: 'Planungsteam-Mitglied',
     columns: [col('pro_planningteam_ref', 'Planungsteam', 'lookup', 'pro_planningteam'), col('pro_resource_ref', 'Ressource', 'lookup', 'bookableresource')],
+    isCustom: true,
   },
-  { logicalName: 'pro_site', displayName: 'Niederlassung', columns: [col('pro_name', 'Name')] },
-  { logicalName: 'pro_planningteam', displayName: 'Planungsteam', columns: [col('pro_name', 'Name')] },
-  { logicalName: 'pro_region', displayName: 'Region', columns: [col('pro_name', 'Name')] },
+  { logicalName: 'pro_site', displayName: 'Niederlassung', columns: [col('pro_name', 'Name')], isCustom: true },
+  { logicalName: 'pro_planningteam', displayName: 'Planungsteam', columns: [col('pro_name', 'Name')], isCustom: true },
+  { logicalName: 'pro_region', displayName: 'Region', columns: [col('pro_name', 'Name')], isCustom: true },
   { logicalName: 'bookableresourcecategory', displayName: 'Ressourcenrolle', columns: [col('name', 'Name')] },
-  { logicalName: 'msdyn_organizationalunit', displayName: 'Organisationseinheit', columns: [col('msdyn_name', 'Name')] },
+  {
+    logicalName: 'msdyn_organizationalunit',
+    displayName: 'Organisationseinheit',
+    columns: [col('msdyn_name', 'Name'), col('msdyn_description', 'Beschreibung'), col('msdyn_latitude', 'Breitengrad'), col('msdyn_longitude', 'Längengrad')],
+  },
   { logicalName: 'businessunit', displayName: 'Unternehmenseinheit', columns: [col('name', 'Name')] },
   { logicalName: 'team', displayName: 'Team', columns: [col('name', 'Name'), col('teamtype', 'Teamtyp', 'picklist')] },
   { logicalName: 'territory', displayName: 'Gebiet', columns: [col('name', 'Name')] },
   { logicalName: 'systemuser', displayName: 'Benutzer', columns: [col('fullname', 'Vollständiger Name')] },
 ]
+
+// ---------------------------------------------------------------------------
+// View layouts (tooltip/details preview)
+// ---------------------------------------------------------------------------
+
+const layout = (entity: string, cells: string[], links: { alias: string; name: string }[] = []) => ({
+  layoutXml:
+    `<grid name="resultset" object="0" jump="name" select="1" icon="1" preview="1"><row name="result" id="${entity}id">` +
+    cells.map((c) => `<cell name="${c}" width="150" />`).join('') +
+    `</row></grid>`,
+  fetchXml:
+    `<fetch version="1.0" mapping="logical"><entity name="${entity}">` +
+    cells.filter((c) => !c.includes('.')).map((c) => `<attribute name="${c}" />`).join('') +
+    links
+      .map(
+        (l) =>
+          `<link-entity name="${l.name}" from="${l.name}id" to="${l.name}" alias="${l.alias}" link-type="outer">` +
+          cells
+            .filter((c) => c.startsWith(`${l.alias}.`))
+            .map((c) => `<attribute name="${c.slice(l.alias.length + 1)}" />`)
+            .join('') +
+          `</link-entity>`,
+      )
+      .join('') +
+    `</entity></fetch>`,
+})
+
+const WO_LINK = { alias: 'a_7f3e', name: 'msdyn_workorder' }
+
+const VIEW_LAYOUTS: Record<string, { layoutXml: string; fetchXml: string }> = {
+  [V.bookingTooltip]: layout('bookableresourcebooking', ['name', 'starttime', 'endtime', 'duration', 'bookingstatus', 'resource', 'a_7f3e.msdyn_serviceaccount'], [WO_LINK]),
+  [V.bookingDetails]: layout(
+    'bookableresourcebooking',
+    ['name', 'bookingstatus', 'starttime', 'endtime', 'duration', 'msdyn_estimatedtravelduration', 'resource', 'msdyn_workorder', 'a_7f3e.msdyn_primaryincidenttype', 'a_7f3e.msdyn_instructions'],
+    [WO_LINK],
+  ),
+  [V.bookingCompact]: layout('bookableresourcebooking', ['name', 'starttime', 'bookingstatus']),
+  [V.reqOpen]: layout('msdyn_resourcerequirement', ['msdyn_name', 'msdyn_fromdate', 'msdyn_todate', 'msdyn_duration', 'msdyn_workorder', 'msdyn_city']),
+  [V.reqInstall]: layout('msdyn_resourcerequirement', ['msdyn_name', 'msdyn_fromdate', 'msdyn_duration', 'msdyn_organizationalunit']),
+  [V.reqService]: layout('msdyn_resourcerequirement', ['msdyn_name', 'msdyn_fromdate', 'msdyn_duration', 'msdyn_city']),
+  [V.reqDetails]: layout('msdyn_resourcerequirement', ['msdyn_name', 'msdyn_workorder', 'msdyn_fromdate', 'msdyn_todate', 'msdyn_duration', 'msdyn_effort', 'msdyn_organizationalunit', 'msdyn_city']),
+  [V.myReq]: layout('msdyn_resourcerequirement', ['msdyn_name', 'msdyn_fromdate']),
+  [V.resTooltip]: layout('bookableresource', ['name', 'resourcetype', 'msdyn_organizationalunit', 'pro_site_ref']),
+  [V.resDetails]: layout('bookableresource', ['name', 'resourcetype', 'msdyn_organizationalunit', 'userid', 'msdyn_primaryemail', 'timezone']),
+  [V.ouTooltip]: layout('msdyn_organizationalunit', ['msdyn_name', 'msdyn_description']),
+  [V.alerts]: layout('msdyn_bookingalert', ['subject', 'msdyn_time', 'description']),
+}
+
+export function mockViewDefinition(id: string): ViewDefinition | null {
+  const view = MOCK_VIEWS.find((v) => v.id.toLowerCase() === id.toLowerCase())
+  const def = view ? VIEW_LAYOUTS[view.id] : undefined
+  return view && def ? { ...view, ...def } : null
+}

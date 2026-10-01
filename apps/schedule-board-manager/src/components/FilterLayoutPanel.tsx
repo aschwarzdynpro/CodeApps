@@ -10,7 +10,7 @@ import {
 } from '../types/board'
 import { getBoardService, type BoardService } from '../services/boardService'
 import { useLoad } from '../hooks/useLoad'
-import { isDefaultBoard } from '../utils/boardRules'
+import { configUsers, isDefaultBoard } from '../utils/boardRules'
 import {
   addControl,
   diffLayouts,
@@ -23,8 +23,8 @@ import {
   updateControl,
   type ControlInfo,
 } from '../utils/filterLayout'
-import { formatDate } from '../utils/format'
-import { listConfigSnapshots, saveConfigSnapshot } from '../utils/snapshots'
+import { saveConfigSnapshot } from '../utils/snapshots'
+import { ConfigHistory } from './ConfigHistory'
 import { Modal } from './Modal'
 import type { Notify } from './BoardDetail'
 import { AddControlForm, ColumnSelect, TableInput } from './FilterFieldPickers'
@@ -88,11 +88,8 @@ export function FilterLayoutPanel({ board, boards, defaults, notify, onBoardChan
   const changes = diffLayouts(layout.value, draft)
   const inputKeys = queryInputKeys(query?.value)
 
-  const sameId = (a: string | null | undefined, b: string | null | undefined) => (a ?? '').toLowerCase() === (b ?? '').toLowerCase()
-  const defaultLayout = defaults?.lookups.msdyn_filterlayout ?? null
-  const users = boards.filter(
-    (b) => sameId(b.lookups.msdyn_filterlayout, layout.id) || (!b.lookups.msdyn_filterlayout && !isDefaultBoard(b) && sameId(defaultLayout, layout.id)),
-  )
+  // From the list, not `defaults`: on the Default board itself `defaults` is null, yet others inherit its layout.
+  const users = configUsers(boards, 'msdyn_filterlayout', layout.id, boards.find(isDefaultBoard)?.lookups.msdyn_filterlayout ?? null)
 
   const edit = (fn: (xml: string) => string) => {
     try {
@@ -226,6 +223,7 @@ export function FilterLayoutPanel({ board, boards, defaults, notify, onBoardChan
       {view === 'history' ? (
         <ConfigHistory
           configId={layout.id}
+          emptyText="Noch keine Sicherungen dieses Filterlayouts in diesem Browser."
           onRestore={(xml) => {
             setDraft(xml)
             setView('fields')
@@ -463,24 +461,5 @@ function CopyLayoutDialog({
         wird nicht kopiert.
       </p>
     </Modal>
-  )
-}
-
-function ConfigHistory({ configId, onRestore }: { configId: string; onRestore: (xml: string) => void }) {
-  const snapshots = listConfigSnapshots(configId)
-  if (snapshots.length === 0) return <p className="muted">Noch keine Sicherungen dieses Filterlayouts in diesem Browser.</p>
-  return (
-    <ul className="history">
-      {snapshots.map((s) => (
-        <li key={s.at}>
-          <span>
-            {formatDate(s.at)} · {s.label}
-          </span>
-          <Btn small onClick={() => onRestore(s.value)}>
-            Als Entwurf laden
-          </Btn>
-        </li>
-      ))}
-    </ul>
   )
 }

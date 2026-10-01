@@ -1,6 +1,6 @@
 import { MicrosoftDataverseService as Dv } from '../generated/services/MicrosoftDataverseService'
 import { ORG_URL } from '../config'
-import type { ColumnMeta, TableInfo, TableRef } from '../types/board'
+import type { ColumnMeta, RelationshipMeta, TableInfo, TableRef } from '../types/board'
 import type { ResolvedRecord } from './boardService'
 
 /**
@@ -44,6 +44,7 @@ export function listTables(): Promise<TableRef[]> {
 }
 
 const PICKLIST_TYPES = new Set(['Picklist', 'State', 'Status'])
+const MICROSOFT_PREFIX = /^(msdyn|msdynce|msdynmkt|mspp|adx|msfp|msevtmgt|msa)_/
 const LOOKUP_TYPES = new Set(['Lookup', 'Customer', 'Owner'])
 
 export function getTableInfo(logicalName: string): Promise<TableInfo | null> {
@@ -51,16 +52,18 @@ export function getTableInfo(logicalName: string): Promise<TableInfo | null> {
   let p = infoCache.get(key)
   if (!p) {
     p = query(
-      'LogicalName,DisplayName',
+      'LogicalName,DisplayName,IsCustomEntity',
       `LogicalName eq '${key.replace(/'/g, "''")}'`,
-      'Attributes($select=LogicalName,DisplayName,AttributeType,AttributeTypeName,AttributeOf),ManyToOneRelationships($select=ReferencingAttribute,ReferencedEntity)',
+      'Attributes($select=LogicalName,DisplayName,AttributeType,AttributeTypeName,AttributeOf),ManyToOneRelationships($select=ReferencingAttribute,ReferencedEntity,SchemaName)',
     ).then((rows) => {
       const r = rows[0]
       if (!r) return null
       const targets = new Map<string, string>()
+      const relationships: RelationshipMeta[] = []
       for (const rel of (r.ManyToOneRelationships as Row[] | undefined) ?? []) {
         const attr = str(rel.ReferencingAttribute)
         if (attr && !targets.has(attr)) targets.set(attr, str(rel.ReferencedEntity))
+        if (attr && str(rel.SchemaName)) relationships.push({ schemaName: str(rel.SchemaName), attribute: attr, target: str(rel.ReferencedEntity) })
       }
       const columns: ColumnMeta[] = ((r.Attributes as Row[] | undefined) ?? [])
         // Shadow columns (…name, …yominame) carry AttributeOf — not selectable on their own.
@@ -74,7 +77,15 @@ export function getTableInfo(logicalName: string): Promise<TableInfo | null> {
           return { logicalName: col, displayName: label(a.DisplayName) || col, kind, target: kind === 'lookup' ? targets.get(col) : undefined }
         })
         .sort((a, b) => a.displayName.localeCompare(b.displayName))
-      return { logicalName: str(r.LogicalName), displayName: label(r.DisplayName) || str(r.LogicalName), columns }
+      return {
+        logicalName: str(r.LogicalName),
+        displayName: label(r.DisplayName) || str(r.LogicalName),
+        columns,
+        relationships: relationships.sort((a, b) => a.schemaName.localeCompare(b.schemaName)),
+        // IsCustomEntity is also true for Microsoft's own solution tables (msdyn_workorder …),
+        // which MS uses in its booking template samples — only publisher tables count here.
+        isCustom: r.IsCustomEntity === true && !MICROSOFT_PREFIX.test(str(r.LogicalName)),
+      }
     })
     p.catch(() => infoCache.delete(key))
     infoCache.set(key, p)
