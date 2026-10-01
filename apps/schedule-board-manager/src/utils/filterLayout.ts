@@ -43,7 +43,8 @@ export interface ControlEdit {
 }
 
 export interface NewControl {
-  kind: 'lookup' | 'optionset'
+  /** lookup = rows of a table, optionset = choice values of a column, characteristic = skills + rating. */
+  kind: 'lookup' | 'optionset' | 'characteristic'
   key: string
   labelId: string
   entity: string
@@ -160,13 +161,19 @@ export function updateControl(xml: string, index: number, edit: ControlEdit): st
 export function addControl(xml: string, spec: NewControl): string {
   return mutate(xml, (doc, controls) => {
     const el = doc.createElement('control')
-    el.setAttribute('type', 'combo')
-    el.setAttribute('source', spec.kind === 'lookup' ? 'entity' : 'optionset')
-    el.setAttribute('key', spec.key)
-    el.setAttribute('label-id', spec.labelId)
-    el.setAttribute('entity', spec.entity)
-    if (spec.kind === 'optionset' && spec.attribute) el.setAttribute('attribute', spec.attribute)
-    el.setAttribute('multi', String(spec.multi))
+    if (spec.kind === 'characteristic') {
+      el.setAttribute('type', 'characteristic')
+      el.setAttribute('key', spec.key)
+      el.setAttribute('label-id', spec.labelId)
+    } else {
+      el.setAttribute('type', 'combo')
+      el.setAttribute('source', spec.kind === 'lookup' ? 'entity' : 'optionset')
+      el.setAttribute('key', spec.key)
+      el.setAttribute('label-id', spec.labelId)
+      el.setAttribute('entity', spec.entity)
+      if (spec.kind === 'optionset' && spec.attribute) el.setAttribute('attribute', spec.attribute)
+      el.setAttribute('multi', String(spec.multi))
+    }
     // Before the sort control if there is one — "Orders" conventionally comes last.
     const order = topControls(controls).find((c) => c.getAttribute('type') === 'order')
     if (order) controls.insertBefore(el, order)
@@ -177,6 +184,33 @@ export function addControl(xml: string, spec: NewControl): string {
 /** Normalizes formatting without changing content — for a clean baseline diff. */
 export function normalizeLayout(xml: string): string {
   return mutate(xml, () => {})
+}
+
+/**
+ * `label-id` is either literal text or a resource key the board translates.
+ * Plain-text names for the keys the product layouts use, so the editor can
+ * say what "ScheduleAssistant.West.Roles" will read as.
+ */
+const RESOURCE_LABELS: Record<string, string> = {
+  'ScheduleAssistant.West.Roles': 'Rollen',
+  'ScheduleAssistant.West.Skills': 'Merkmale – Bewertung',
+  'ScheduleAssistant.West.RestrictedResources': 'Eingeschränkte Ressourcen',
+  'ScheduleAssistant.West.Territories': 'Gebiete',
+  SB_FilterPanel_ResourceTypesFilter_Title: 'Ressourcentypen',
+  SB_FilterPanel_BusinessUnitsFilter_Title: 'Unternehmenseinheiten',
+  SB_FilterPanel_OrganizationalUnitsFilter_Title: 'Organisationseinheiten',
+  SB_FilterPanel_TeamsFilter_Title: 'Teams',
+  SB_FilterPanel_PoolTypesFilter_Title: 'Pooltypen',
+  SB_FilterPanel_TerritoriesFilter_Title: 'Gebiete',
+  FilterControl_OrderLabel: 'Sortierung',
+}
+
+/** Display text of a label-id: known resource key → plain text, else null (it is literal text). */
+export function resourceLabel(labelId: string | null): string | null {
+  if (!labelId) return null
+  if (RESOURCE_LABELS[labelId]) return RESOURCE_LABELS[labelId]
+  // Resource keys look like `Area.Sub.Name` or `Area_Name_Title`; literal labels have spaces or neither.
+  return /^[A-Za-z]\w*[._][\w.]+$/.test(labelId) ? 'Systemtext (wird übersetzt)' : null
 }
 
 // ---------------------------------------------------------------------------

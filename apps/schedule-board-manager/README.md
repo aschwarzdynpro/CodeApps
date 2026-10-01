@@ -76,16 +76,18 @@ src/
 │   ├── settingsFields.ts    # Editor-Definitionen nach MS-Field-Mapping
 │   ├── boardRules.ts        # Schutz, Kopieren, Diff, Bulk-Auswahl
 │   ├── filterLayout.ts      # Filterlayout-XML: parsen, Felder ändern, Diff, Abfrage-Abgleich
+│   ├── queryAnalysis.ts     # Ressourcenabfrage: welcher $input-Key filtert wo und wie
 │   └── snapshots.ts         # lokaler Verlauf + JSON-Download
 ├── services/
 │   ├── boardService.ts      # Interface + Auswahl Dataverse/Mock
 │   ├── dataverseBoardService.ts
 │   ├── mockBoardService.ts  # In-Memory, für `npm run dev` ohne Host
 │   └── mockData.ts          # fiktive Boards (keine Kundendaten)
-│   └── dataverseSharing.ts  # Freigaben über den Dataverse-Connector
+│   ├── dataverseSharing.ts  # Freigaben über den Dataverse-Connector
+│   └── dataverseMetadata.ts # Tabellen/Spalten aus EntityDefinitions (Connector)
 └── components/              # BoardList, BoardDetail, BoardEditor, SlotTypesEditor,
                              # PanelsEditor, RawJsonEditor, DiffTable, CompareView,
-                             # BulkView, SharingPanel, FilterLayoutPanel
+                             # BulkView, SharingPanel, FilterLayoutPanel, FilterFieldPickers
 ```
 
 ### Filterlayout
@@ -106,6 +108,23 @@ setzen).
   UFX-FetchXML) seinen Key als `$input/<Key>` auswertet. Die App liest die
   Abfrage des Boards (oder die geerbte des Default-Boards) und markiert Felder
   ohne Gegenstück. Die Abfrage selbst ist nur lesbar.
+- **Feld hinzufügen mit Vorschlägen:** Die App analysiert die
+  Ressourcenabfrage (`src/utils/queryAnalysis.ts`, kleiner Tag-Scanner, weil
+  UFX das Präfix `ufx:` oft nicht deklariert) und listet jeden `$input`-Key,
+  der im Layout noch fehlt, mit seiner Wirkung, z. B. `MustChooseFromResources`
+  → „zeigt nur die gewählten Ressourcen“ oder `Site` →
+  `bookableresource.sst_site_ref ist einer von`. „Übernehmen“ füllt Art,
+  Tabelle, Spalte und Beschriftung vor: bekannte URS-Keys aus einer Vorlage,
+  eigene Keys über die Metadaten (Primärschlüssel → Datensätze der Tabelle,
+  Lookup → Datensätze der Zieltabelle über `ManyToOneRelationships`,
+  Auswahlspalte → deren Werte).
+- **Tabellen- und Spaltenauswahl:** Tabellen kommen aus `EntityDefinitions`
+  (`IsValidForAdvancedFind`), Auswahlspalten (inkl. Mehrfachauswahl) aus den
+  Attributen der Tabelle, beides über den Dataverse-Connector
+  (`src/services/dataverseMetadata.ts`, pro Sitzung gecacht). Ohne Metadaten
+  bleiben die Felder Freitext.
+- Ressourcen-Schlüssel als Beschriftung (`ScheduleAssistant.West.Roles`)
+  zeigen ihren Anzeigetext darunter („Rollen“).
 - Ändert man einen Key, passen die gespeicherten Filterwerte
   (`msdyn_filtervalues`) der Boards nicht mehr zu diesem Feld. Sie stehen
   unter dem alten Key.
@@ -143,7 +162,7 @@ Oberfläche durch, damit ein Schreibvorgang nie scheinbar gelingt.
 ```bash
 npm install
 npm run dev      # http://localhost:3000 — ohne Host: Mock-Daten (Badge oben rechts)
-npm run test     # Vitest: settingsModel, boardRules, filterLayout (jsdom)
+npm run test     # Vitest: settingsModel, boardRules, filterLayout (jsdom), queryAnalysis
 npm run build    # tsc -b && vite build
 npm run lint
 ```
@@ -184,6 +203,8 @@ und „Custom Retrieve Resources Query …“.
 - Gegen echtes Dataverse noch nicht verifiziert: Lookup leeren per
   `…@odata.bind: null`, FormattedValue des Besitzers, `returnedtypecode`-Filter
   auf `savedquery` über das SDK, Parameterform von `GrantAccess`/`RevokeAccess`
-  über den Connector, Lesezugriff auf `principalobjectaccess` für Nicht-Admins.
+  über den Connector, Lesezugriff auf `principalobjectaccess` für Nicht-Admins,
+  `EntityDefinitions` mit doppeltem `$expand` (Attribute + ManyToOneRelationships)
+  über den Connector.
 - Export/Import und Transfer zwischen Umgebungen (Modul D) sind bewusst
   zurückgestellt.

@@ -104,3 +104,13 @@ describe('query cross-check', () => {
     expect(p.controls.filter(needsQuery).map((c) => c.key)).toEqual(['Site', 'Roles', 'ResourceTypes'])
   })
 })
+
+describe('resourceLabel', () => {
+  it('translates known resource keys and leaves literal labels alone', async () => {
+    const { resourceLabel } = await import('./filterLayout')
+    expect(resourceLabel('ScheduleAssistant.West.Roles')).toBe('Rollen')
+    expect(resourceLabel('Some.Unknown_Key')).toBe('Systemtext (wird übersetzt)')
+    expect(resourceLabel('Niederlassung')).toBeNull()
+    expect(resourceLabel('Worker Type')).toBeNull()
+  })
+})

@@ -4,6 +4,7 @@ import type { BoardService } from './boardService'
 import {
   MOCK_BOOKING_SETUPS,
   MOCK_PRINCIPALS,
+  MOCK_TABLES,
   MOCK_TIME_ZONES,
   MOCK_VIEWS,
   createMockBoards,
@@ -170,4 +171,9 @@ export const mockBoardService: BoardService = {
     shares.set(boardId, (shares.get(boardId) ?? []).filter((s) => s.principalId !== principal.id))
     return delay(undefined)
   },
+
+  listTables: () =>
+    delay(MOCK_TABLES.map(({ logicalName, displayName }) => ({ logicalName, displayName })).sort((a, b) => a.displayName.localeCompare(b.displayName))),
+
+  getTableInfo: (logicalName) => delay(clone(MOCK_TABLES.find((t) => t.logicalName === logicalName.toLowerCase()) ?? null)),
 }

@@ -8,6 +8,8 @@ import type {
   PrincipalRef,
   Share,
   ShareLevel,
+  TableInfo,
+  TableRef,
   TimeZoneRef,
   ViewRef,
 } from '../types/board'
@@ -38,6 +40,10 @@ export interface BoardService {
   /** Writes `msdyn_value`; refuses with ConflictError if the row changed since load. */
   updateConfiguration(original: ConfigDetail, value: string): Promise<void>
   createConfiguration(name: string, type: number, value: string): Promise<string>
+  /** Tables offered in pickers (valid for Advanced Find). */
+  listTables(): Promise<TableRef[]>
+  /** Columns of one table with lookup targets; null when the table doesn't exist. */
+  getTableInfo(logicalName: string): Promise<TableInfo | null>
   /** System and personal views of the tables the editor offers. */
   listViews(): Promise<ViewRef[]>
   listBookingSetups(): Promise<BookingSetupRef[]>

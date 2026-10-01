@@ -1,4 +1,4 @@
-import type { Board, BookingSetupRef, ConfigDetail, ConfigRef, PrincipalRef, TimeZoneRef, ViewRef } from '../types/board'
+import type { Board, BookingSetupRef, ColumnMeta, ConfigDetail, ConfigRef, PrincipalRef, TableInfo, TimeZoneRef, ViewRef } from '../types/board'
 import { CONFIG_TYPE, SHARE_TYPE } from '../types/board'
 
 /**
@@ -365,9 +365,37 @@ const PRO_FILTER_LAYOUT = `<filter>
   </controls>
 </filter>`
 
+/** Column each key filters on in the sample queries (bookableresource unless linked). */
+const KEY_COLUMN: Record<string, string> = {
+  Site: 'pro_site_ref',
+  WorkerType: 'msdyn_workertype',
+  ResourceTypes: 'resourcetype',
+  MustChooseFromResources: 'bookableresourceid',
+  RestrictedResources: 'bookableresourceid',
+  OrganizationalUnits: 'msdyn_organizationalunit',
+  Shift: 'pro_shift',
+}
+
 const query = (keys: string[]) =>
   `<fetch mapping="logical"><entity name="bookableresource">` +
-  keys.map((k) => `<filter ufx:if="$input/${k}"><condition attribute="x" operator="in" ufx:select="$input/${k}/bag" /></filter>`).join('') +
+  `<filter type="and">` +
+  keys
+    .filter((k) => KEY_COLUMN[k])
+    .map(
+      (k) =>
+        `<condition ufx:if="$input/${k}/bag" attribute="${KEY_COLUMN[k]}" operator="${k === 'RestrictedResources' ? 'not-in' : 'in'}">` +
+        `<ufx:apply select="$input/${k}/bag"><value><ufx:value select="@ufx-id" /></value></ufx:apply></condition>`,
+    )
+    .join('') +
+  `</filter>` +
+  (keys.includes('PlanningTeam')
+    ? `<link-entity name="pro_planningteammember" from="pro_resource_ref" to="bookableresourceid" ufx:if="$input/PlanningTeam/bag">` +
+      `<filter><condition attribute="pro_planningteam_ref" operator="in"><ufx:apply select="$input/PlanningTeam/bag"><value><ufx:value select="@ufx-id" /></value></ufx:apply></condition></filter></link-entity>`
+    : '') +
+  keys
+    .filter((k) => !KEY_COLUMN[k] && k !== 'PlanningTeam')
+    .map((k) => `<!-- ${k} --><filter ufx:if="$input/${k}" />`)
+    .join('') +
   `</entity></fetch>`
 
 /** Payloads for the configuration rows above (filter layouts and queries). */
@@ -377,7 +405,60 @@ export function createMockConfigDetails(): ConfigDetail[] {
     [C.proFilter]: PRO_FILTER_LAYOUT,
     [C.defaultQuery]: query(['Characteristics', 'Roles', 'ResourceTypes', 'BusinessUnits', 'Orders']),
     // "Region" is deliberately missing — the editor warns about it.
-    [C.proQuery]: query(['Site', 'PlanningTeam', 'Characteristics', 'Roles', 'ResourceTypes', 'WorkerType', 'BusinessUnits', 'Orders']),
+    [C.proQuery]: query([
+      'Site',
+      'PlanningTeam',
+      'Characteristics',
+      'Roles',
+      'ResourceTypes',
+      'WorkerType',
+      'BusinessUnits',
+      'Orders',
+      'MustChooseFromResources',
+      'RestrictedResources',
+      'OrganizationalUnits',
+      'Shift',
+      'DisplayOnScheduleBoard',
+    ]),
   }
   return MOCK_CONFIGS.map((c) => ({ ...c, value: value[c.id] ?? '', version: 1 }))
 }
+
+const col = (logicalName: string, displayName: string, kind: ColumnMeta['kind'] = 'other', target?: string): ColumnMeta => ({
+  logicalName,
+  displayName,
+  kind,
+  target,
+})
+
+/** Fictional metadata for the picker — standard tables plus invented `pro_` ones. */
+export const MOCK_TABLES: TableInfo[] = [
+  {
+    logicalName: 'bookableresource',
+    displayName: 'Buchbare Ressource',
+    columns: [
+      col('bookableresourceid', 'Buchbare Ressource'),
+      col('name', 'Name'),
+      col('resourcetype', 'Ressourcentyp', 'picklist'),
+      col('msdyn_workertype', 'Worker Type', 'picklist'),
+      col('pro_shift', 'Schicht', 'picklist'),
+      col('pro_site_ref', 'Niederlassung', 'lookup', 'pro_site'),
+      col('msdyn_organizationalunit', 'Organisationseinheit', 'lookup', 'msdyn_organizationalunit'),
+      col('userid', 'Benutzer', 'lookup', 'systemuser'),
+    ],
+  },
+  {
+    logicalName: 'pro_planningteammember',
+    displayName: 'Planungsteam-Mitglied',
+    columns: [col('pro_planningteam_ref', 'Planungsteam', 'lookup', 'pro_planningteam'), col('pro_resource_ref', 'Ressource', 'lookup', 'bookableresource')],
+  },
+  { logicalName: 'pro_site', displayName: 'Niederlassung', columns: [col('pro_name', 'Name')] },
+  { logicalName: 'pro_planningteam', displayName: 'Planungsteam', columns: [col('pro_name', 'Name')] },
+  { logicalName: 'pro_region', displayName: 'Region', columns: [col('pro_name', 'Name')] },
+  { logicalName: 'bookableresourcecategory', displayName: 'Ressourcenrolle', columns: [col('name', 'Name')] },
+  { logicalName: 'msdyn_organizationalunit', displayName: 'Organisationseinheit', columns: [col('msdyn_name', 'Name')] },
+  { logicalName: 'businessunit', displayName: 'Unternehmenseinheit', columns: [col('name', 'Name')] },
+  { logicalName: 'team', displayName: 'Team', columns: [col('name', 'Name'), col('teamtype', 'Teamtyp', 'picklist')] },
+  { logicalName: 'territory', displayName: 'Gebiet', columns: [col('name', 'Name')] },
+  { logicalName: 'systemuser', displayName: 'Benutzer', columns: [col('fullname', 'Vollständiger Name')] },
+]

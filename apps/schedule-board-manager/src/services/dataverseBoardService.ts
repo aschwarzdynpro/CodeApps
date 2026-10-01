@@ -19,6 +19,7 @@ import {
 import { changedFields, diffContent } from '../utils/boardRules'
 import { VIEW_ENTITIES, type BoardService } from './boardService'
 import * as sharing from './dataverseSharing'
+import * as metadata from './dataverseMetadata'
 
 /**
  * Dataverse implementation over the native Code App data sources
@@ -305,4 +306,6 @@ export const dataverseBoardService: BoardService = {
   searchPrincipals: sharing.searchPrincipals,
   setShare: sharing.setShare,
   revokeShare: sharing.revokeShare,
+  listTables: metadata.listTables,
+  getTableInfo: metadata.getTableInfo,
 }

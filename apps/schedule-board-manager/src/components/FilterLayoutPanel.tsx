@@ -6,6 +6,7 @@ import {
   type BoardContent,
   type BoardSummary,
   type ConfigDetail,
+  type TableRef,
 } from '../types/board'
 import { getBoardService, type BoardService } from '../services/boardService'
 import { useLoad } from '../hooks/useLoad'
@@ -18,14 +19,15 @@ import {
   parseLayout,
   queryInputKeys,
   removeControl,
+  resourceLabel,
   updateControl,
   type ControlInfo,
-  type NewControl,
 } from '../utils/filterLayout'
 import { formatDate } from '../utils/format'
 import { listConfigSnapshots, saveConfigSnapshot } from '../utils/snapshots'
 import { Modal } from './Modal'
 import type { Notify } from './BoardDetail'
+import { AddControlForm, ColumnSelect, TableInput, TablesDatalist } from './FilterFieldPickers'
 
 interface Props {
   board: Board
@@ -38,8 +40,6 @@ interface Props {
 
 type View = 'fields' | 'xml' | 'query' | 'history'
 type Dialog = 'save' | 'copy' | null
-
-const LOGICAL_NAME = /^[a-z][a-z0-9_]*$/
 
 export function FilterLayoutPanel({ board, boards, defaults, notify, onBoardChanged }: Props) {
   const ownLayout = board.content.lookups.msdyn_filterlayout
@@ -56,6 +56,9 @@ export function FilterLayoutPanel({ board, boards, defaults, notify, onBoardChan
     [layoutId, queryId],
   )
   const { data, error, reload } = useLoad(`${layoutId}|${queryId}`, loadConfigs)
+  // Metadata is optional comfort — without it the pickers fall back to free text.
+  const loadTables = useCallback((svc: BoardService) => svc.listTables().catch((): TableRef[] => []), [])
+  const tables = useLoad('tables', loadTables).data ?? []
   const [layout, query] = data ?? [null, null]
 
   const [view, setView] = useState<View>('fields')
@@ -180,6 +183,7 @@ export function FilterLayoutPanel({ board, boards, defaults, notify, onBoardChan
           <>
             <ControlTable
               controls={parsed.controls}
+              tables={tables}
               inputKeys={query ? inputKeys : null}
               onMove={(from, to) => edit((x) => moveControl(x, from, to))}
               onRemove={(i) => edit((x) => removeControl(x, i))}
@@ -187,9 +191,11 @@ export function FilterLayoutPanel({ board, boards, defaults, notify, onBoardChan
             />
             <AddControlForm
               existingKeys={parsed.controls.map((c) => c.key ?? '')}
-              inputKeys={query ? inputKeys : null}
+              queryXml={query?.value ?? null}
+              tables={tables}
               onAdd={(spec) => edit((x) => addControl(x, spec))}
             />
+            <TablesDatalist tables={tables} />
           </>
         ) : (
           <div className="notice notice--error">XML ungültig: {parsed.error} — im Reiter „XML“ korrigieren.</div>
@@ -297,12 +303,14 @@ export function FilterLayoutPanel({ board, boards, defaults, notify, onBoardChan
 
 function ControlTable({
   controls,
+  tables,
   inputKeys,
   onMove,
   onRemove,
   onEdit,
 }: {
   controls: ControlInfo[]
+  tables: TableRef[]
   inputKeys: Set<string> | null
   onMove: (from: number, to: number) => void
   onRemove: (index: number) => void
@@ -332,7 +340,10 @@ function ControlTable({
                 <td className="muted">{i + 1}</td>
                 <td>
                   {c.labelId !== null ? (
-                    <input className="input" value={c.labelId} aria-label={`Beschriftung ${i + 1}`} onChange={(e) => onEdit(i, { 'label-id': e.target.value })} />
+                    <div className="picker">
+                      <input className="input" value={c.labelId} aria-label={`Beschriftung ${i + 1}`} onChange={(e) => onEdit(i, { 'label-id': e.target.value })} />
+                      {resourceLabel(c.labelId) ? <span className="picker__hint">Anzeige: {resourceLabel(c.labelId)}</span> : null}
+                    </div>
                   ) : (
                     <span className="muted">—</span>
                   )}
@@ -360,9 +371,9 @@ function ControlTable({
                 <td>
                   {simple ? (
                     <div className="control-table__entity">
-                      <input className="input input--mono" value={c.entity ?? ''} aria-label={`Tabelle ${i + 1}`} onChange={(e) => onEdit(i, { entity: e.target.value })} />
+                      <TableInput value={c.entity ?? ''} tables={tables} ariaLabel={`Tabelle ${i + 1}`} onChange={(v) => onEdit(i, { entity: v })} />
                       {c.source === 'optionset' ? (
-                        <input className="input input--mono" value={c.attribute ?? ''} aria-label={`Spalte ${i + 1}`} onChange={(e) => onEdit(i, { attribute: e.target.value })} />
+                        <ColumnSelect entity={c.entity ?? ''} value={c.attribute ?? ''} ariaLabel={`Spalte ${i + 1}`} onChange={(v) => onEdit(i, { attribute: v })} />
                       ) : null}
                     </div>
                   ) : (
@@ -391,88 +402,6 @@ function ControlTable({
         </tbody>
       </table>
     </div>
-  )
-}
-
-function AddControlForm({
-  existingKeys,
-  inputKeys,
-  onAdd,
-}: {
-  existingKeys: string[]
-  inputKeys: Set<string> | null
-  onAdd: (spec: NewControl) => void
-}) {
-  const [spec, setSpec] = useState<NewControl>({ kind: 'lookup', key: '', labelId: '', entity: '', attribute: '', multi: true })
-  const key = spec.key.trim()
-  const problems = [
-    !key ? 'Key fehlt' : existingKeys.includes(key) ? 'Key gibt es schon' : null,
-    !spec.labelId.trim() ? 'Beschriftung fehlt' : null,
-    !LOGICAL_NAME.test(spec.entity.trim()) ? 'Tabelle als logischer Name (z. B. sst_site)' : null,
-    spec.kind === 'optionset' && !LOGICAL_NAME.test((spec.attribute ?? '').trim()) ? 'Spalte als logischer Name' : null,
-  ].filter(Boolean)
-  const unmatched = inputKeys !== null && key !== '' && !inputKeys.has(key)
-
-  return (
-    <fieldset className="subcard add-control">
-      <legend>Feld hinzufügen</legend>
-      <div className="add-control__grid">
-        <label className="form-row">
-          <span>Art</span>
-          <select className="input" value={spec.kind} onChange={(e) => setSpec({ ...spec, kind: e.target.value as NewControl['kind'] })}>
-            <option value="lookup">Datensätze einer Tabelle</option>
-            <option value="optionset">Auswahlwerte einer Spalte</option>
-          </select>
-        </label>
-        <label className="form-row">
-          <span>Beschriftung</span>
-          <input className="input" value={spec.labelId} placeholder="z. B. Niederlassung" onChange={(e) => setSpec({ ...spec, labelId: e.target.value })} />
-        </label>
-        <label className="form-row">
-          <span>Key</span>
-          <input className="input input--mono" value={spec.key} placeholder="z. B. Site" onChange={(e) => setSpec({ ...spec, key: e.target.value })} />
-        </label>
-        <label className="form-row">
-          <span>Tabelle</span>
-          <input
-            className="input input--mono"
-            value={spec.entity}
-            placeholder={spec.kind === 'lookup' ? 'z. B. sst_site' : 'bookableresource'}
-            onChange={(e) => setSpec({ ...spec, entity: e.target.value })}
-          />
-        </label>
-        {spec.kind === 'optionset' ? (
-          <label className="form-row">
-            <span>Spalte</span>
-            <input className="input input--mono" value={spec.attribute ?? ''} placeholder="z. B. msdyn_workertype" onChange={(e) => setSpec({ ...spec, attribute: e.target.value })} />
-          </label>
-        ) : null}
-        <label className="form-check">
-          <input type="checkbox" checked={spec.multi} onChange={(e) => setSpec({ ...spec, multi: e.target.checked })} />
-          <span>Mehrfachauswahl</span>
-        </label>
-      </div>
-      {unmatched ? (
-        <p className="field__hint warn">
-          Die Ressourcenabfrage wertet „{key}“ nicht aus. Das Feld erscheint im Filterbereich, filtert aber erst, wenn die
-          Abfrage um <code>$input/{key}</code> erweitert ist.
-        </p>
-      ) : null}
-      <div className="toolbar">
-        <button
-          className="btn btn--primary btn--small"
-          disabled={problems.length > 0}
-          title={problems.join(' · ')}
-          onClick={() => {
-            onAdd({ ...spec, key, labelId: spec.labelId.trim(), entity: spec.entity.trim(), attribute: spec.attribute?.trim() })
-            setSpec({ ...spec, key: '', labelId: '', entity: '', attribute: '' })
-          }}
-        >
-          Hinzufügen
-        </button>
-        {problems.length > 0 && (spec.key || spec.labelId || spec.entity) ? <span className="muted small">{problems.join(' · ')}</span> : null}
-      </div>
-    </fieldset>
   )
 }
 

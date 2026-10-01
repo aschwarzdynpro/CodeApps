@@ -244,3 +244,24 @@ export const SHARE_LEVEL_LABEL: Record<Share['level'], string> = {
   write: 'Lesen & Bearbeiten',
   custom: 'Individuell',
 }
+
+// ---------------------------------------------------------------------------
+// Table metadata (filter layout editor pickers)
+// ---------------------------------------------------------------------------
+
+export interface TableRef {
+  logicalName: string
+  displayName: string
+}
+
+export interface ColumnMeta {
+  logicalName: string
+  displayName: string
+  kind: 'picklist' | 'lookup' | 'other'
+  /** Lookup target table (first one for polymorphic lookups). */
+  target?: string
+}
+
+export interface TableInfo extends TableRef {
+  columns: ColumnMeta[]
+}
