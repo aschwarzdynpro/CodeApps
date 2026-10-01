@@ -1164,3 +1164,73 @@ select.input {
 .page__header .segmented {
   margin: 6px 0 8px;
 }
+
+/* ---------- import ---------- */
+.import {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 1200px;
+}
+
+.import > .form-row {
+  max-width: 480px;
+}
+
+.import__block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.import__block h2 {
+  font-size: 15px;
+}
+
+.import__indent {
+  margin-left: 26px;
+  max-width: 480px;
+}
+
+.import__table td {
+  vertical-align: top;
+}
+
+.import__table td:first-child {
+  max-width: 260px;
+}
+
+.import__table td .input {
+  min-width: 220px;
+  margin-bottom: 4px;
+}
+
+.import__compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.import__compare pre {
+  max-height: 260px;
+  overflow: auto;
+  font-size: 11px;
+  background: var(--surface-2);
+  padding: 6px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.import__summary {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

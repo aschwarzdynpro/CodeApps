@@ -1,6 +1,7 @@
 import { MicrosoftDataverseService as Dv } from '../generated/services/MicrosoftDataverseService'
 import { ORG_URL } from '../config'
 import type { ColumnMeta, TableInfo, TableRef } from '../types/board'
+import type { ResolvedRecord } from './boardService'
 
 /**
  * Table/column metadata via the Dataverse connector (`EntityDefinitions`) —
@@ -79,4 +80,68 @@ export function getTableInfo(logicalName: string): Promise<TableInfo | null> {
     infoCache.set(key, p)
   }
   return p
+}
+
+interface EntityKeys {
+  set: string
+  pk: string
+  name: string
+}
+
+const keysCache = new Map<string, Promise<EntityKeys | null>>()
+
+/** Entity set and key/name columns — what a row query through the connector needs. */
+function entityKeys(logicalName: string): Promise<EntityKeys | null> {
+  const key = logicalName.toLowerCase()
+  let p = keysCache.get(key)
+  if (!p) {
+    p = query('LogicalName,EntitySetName,PrimaryIdAttribute,PrimaryNameAttribute', `LogicalName eq '${key.replace(/'/g, "''")}'`).then((rows) => {
+      const r = rows[0]
+      return r && str(r.EntitySetName) && str(r.PrimaryIdAttribute)
+        ? { set: str(r.EntitySetName), pk: str(r.PrimaryIdAttribute), name: str(r.PrimaryNameAttribute) }
+        : null
+    })
+    p.catch(() => keysCache.delete(key))
+    keysCache.set(key, p)
+  }
+  return p
+}
+
+async function rows(keys: EntityKeys, filter: string): Promise<Row[]> {
+  const select = keys.name ? `${keys.pk},${keys.name}` : keys.pk
+  const res = await Dv.ListRecordsWithOrganization(ORG_URL, keys.set, undefined, undefined, undefined, undefined, select, filter)
+  if (!res.success) throw new Error(res.error?.message ?? 'unbekannter Fehler')
+  return (res.data as { value?: Row[] } | undefined)?.value ?? []
+}
+
+export async function resolveRecords(
+  entity: string,
+  refs: { id: string; name: string | null }[],
+): Promise<Map<string, ResolvedRecord> | null> {
+  const out = new Map<string, ResolvedRecord>()
+  if (!ORG_URL || refs.length === 0) return ORG_URL ? out : null
+  try {
+    const keys = await entityKeys(entity)
+    // Table doesn't exist here: checked, nothing found.
+    if (!keys) return out
+    for (const r of await rows(keys, refs.map((x) => `${keys.pk} eq ${x.id}`).join(' or '))) {
+      const id = str(r[keys.pk])
+      out.set(id.toLowerCase(), { id, name: str(r[keys.name]) || id, matchedBy: 'id' })
+    }
+    const byName = refs.filter((x) => !out.has(x.id.toLowerCase()) && x.name)
+    if (byName.length > 0 && keys.name) {
+      const found = await rows(keys, byName.map((x) => `${keys.name} eq '${x.name!.replace(/'/g, "''")}'`).join(' or '))
+      for (const x of byName) {
+        const hits = found.filter((r) => str(r[keys.name]).toLowerCase() === x.name!.toLowerCase())
+        if (hits.length === 1) {
+          const id = str(hits[0][keys.pk])
+          out.set(x.id.toLowerCase(), { id, name: str(hits[0][keys.name]), matchedBy: 'name' })
+        }
+      }
+    }
+    return out
+  } catch (err) {
+    console.warn(`[transfer] records of ${entity} not checkable`, err)
+    return null
+  }
 }

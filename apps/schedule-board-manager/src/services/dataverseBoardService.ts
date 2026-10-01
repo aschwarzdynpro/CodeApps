@@ -15,6 +15,7 @@ import {
   type BoardSummary,
   type ColumnValue,
   type LookupKey,
+  type ViewRef,
 } from '../types/board'
 import { changedFields, diffContent } from '../utils/boardRules'
 import { VIEW_ENTITIES, type BoardService } from './boardService'
@@ -150,6 +151,35 @@ function quote(s: string): string {
   return `'${s.replace(/'/g, "''")}'`
 }
 
+/**
+ * System and personal views matching `filter`. Personal views are best
+ * effort — a missing privilege must not break the editor.
+ */
+async function queryViews(filter: string, only?: ViewRef['kind']): Promise<ViewRef[]> {
+  const options = { select: ['name', 'returnedtypecode'], filter, orderBy: ['name asc'] }
+  const [system, personal] = await Promise.all([
+    only === 'personal' ? null : SavedQueriesApi.getAll({ ...options, select: ['savedqueryid', ...options.select] }),
+    only === 'system' ? null : UserQueriesApi.getAll({ ...options, select: ['userqueryid', ...options.select] }),
+  ])
+  const sys = system
+    ? (unwrap(system, 'Systemansichten laden') as unknown as Row[]).map((r) => ({
+        id: String(r.savedqueryid),
+        name: str(r.name) ?? '',
+        entity: String(r.returnedtypecode),
+        kind: 'system' as const,
+      }))
+    : []
+  const pers = personal?.success
+    ? (personal.data as unknown as Row[]).map((r) => ({
+        id: String(r.userqueryid),
+        name: str(r.name) ?? '',
+        entity: String(r.returnedtypecode),
+        kind: 'personal' as const,
+      }))
+    : []
+  return [...sys, ...pers]
+}
+
 export const dataverseBoardService: BoardService = {
   source: 'dataverse',
 
@@ -234,34 +264,22 @@ export const dataverseBoardService: BoardService = {
     }))
   },
 
-  async listViews() {
-    const entityFilter = VIEW_ENTITIES.map((e) => `returnedtypecode eq ${quote(e)}`).join(' or ')
-    const options = {
-      select: ['name', 'returnedtypecode'],
-      filter: `(${entityFilter}) and statecode eq 0`,
-      orderBy: ['name asc'],
-    }
-    const [system, personal] = await Promise.all([
-      SavedQueriesApi.getAll({ ...options, select: ['savedqueryid', ...options.select] }),
-      UserQueriesApi.getAll({ ...options, select: ['userqueryid', ...options.select] }),
+  async listViews(entities) {
+    const entityFilter = (entities ?? VIEW_ENTITIES).map((e) => `returnedtypecode eq ${quote(e)}`).join(' or ')
+    return queryViews(`(${entityFilter}) and statecode eq 0`)
+  },
+
+  async getViewsByIds(ids) {
+    if (ids.length === 0) return []
+    // Each ID is either a system or a personal view; ask both tables.
+    const [sys, pers] = await Promise.all([
+      queryViews(ids.map((id) => `savedqueryid eq ${id}`).join(' or '), 'system'),
+      queryViews(ids.map((id) => `userqueryid eq ${id}`).join(' or '), 'personal'),
     ])
-    const sys = (unwrap(system, 'Systemansichten laden') as unknown as Row[]).map((r) => ({
-      id: String(r.savedqueryid),
-      name: str(r.name) ?? '',
-      entity: String(r.returnedtypecode),
-      kind: 'system' as const,
-    }))
-    // Personal views are best effort — a missing privilege must not break the editor.
-    const pers = personal.success
-      ? (personal.data as unknown as Row[]).map((r) => ({
-          id: String(r.userqueryid),
-          name: str(r.name) ?? '',
-          entity: String(r.returnedtypecode),
-          kind: 'personal' as const,
-        }))
-      : []
     return [...sys, ...pers]
   },
+
+  resolveRecords: metadata.resolveRecords,
 
   async getConfiguration(id) {
     const r = unwrap(

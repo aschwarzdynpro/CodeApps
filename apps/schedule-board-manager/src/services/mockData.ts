@@ -38,6 +38,16 @@ const C = {
 
 const TZ_BERLIN = 'e64c2598-8880-4730-b622-a47bd25193cd'
 
+/** Records saved in filter values. */
+const R = {
+  regionNord: '80000000-0000-4000-8000-000000000001',
+  regionSued: '80000000-0000-4000-8000-000000000002',
+  buService: '81000000-0000-4000-8000-000000000001',
+}
+
+/** Shape the board writes into msdyn_filtervalues for a picked record. */
+const ufx = (id: string, entity: string) => ({ '@ufx-id': id, '@ufx-type': 'lookup', '@ufx-logicalname': entity })
+
 function slot(id: string, tooltip: string, template: string) {
   return {
     BookingSetupMetadataId: id,
@@ -208,7 +218,7 @@ export function createMockBoards(): Board[] {
             { Title: 'Offene Anforderungen Service', UnscheduledView: V.reqService },
           ],
         }),
-        filterValues: JSON.stringify({ Territories: [{ id: '80000000-0000-4000-8000-000000000001', name: 'Region Nord' }], ResourceTypes: [3] }),
+        filterValues: JSON.stringify({ Territories: [ufx(R.regionNord, 'territory')], ResourceTypes: [3] }),
       },
       lookupNames: EMPTY_LOOKUP_NAMES,
     },
@@ -235,7 +245,7 @@ export function createMockBoards(): Board[] {
             { Title: 'Offene Anforderungen Service', UnscheduledView: V.reqService },
           ],
         }),
-        filterValues: JSON.stringify({ Territories: [{ id: '80000000-0000-4000-8000-000000000002', name: 'Region Süd' }], ResourceTypes: [3] }),
+        filterValues: JSON.stringify({ Territories: [ufx(R.regionSued, 'territory')], BusinessUnits: [ufx(R.buService, 'businessunit')], ResourceTypes: [3] }),
       },
       lookupNames: EMPTY_LOOKUP_NAMES,
     },
@@ -314,6 +324,12 @@ export const MOCK_TIME_ZONES: TimeZoneRef[] = [
   { id: TZ_BERLIN, name: '(GMT+01:00) Amsterdam, Berlin, Bern, Rom, Stockholm, Wien' },
   { id: 'a0000000-0000-4000-8000-000000000002', name: '(GMT+00:00) Dublin, Edinburgh, Lissabon, London' },
   { id: 'a0000000-0000-4000-8000-000000000003', name: '(GMT-05:00) Eastern Time (USA & Kanada)' },
+]
+
+export const MOCK_RECORDS: { id: string; entity: string; name: string }[] = [
+  { id: R.regionNord, entity: 'territory', name: 'Region Nord' },
+  { id: R.regionSued, entity: 'territory', name: 'Region Süd' },
+  { id: R.buService, entity: 'businessunit', name: 'Service' },
 ]
 
 export const MOCK_PRINCIPALS: PrincipalRef[] = [

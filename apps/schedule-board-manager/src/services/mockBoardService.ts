@@ -1,10 +1,11 @@
 import type { Board, BoardContent, BoardSummary, LookupKey } from '../types/board'
 import { ACCESS, BOARD_LOOKUPS, ConflictError, levelOfMask } from '../types/board'
-import type { BoardService } from './boardService'
+import type { BoardService, ResolvedRecord } from './boardService'
 import { matchesAll, rankPrincipals, searchWords } from '../utils/principalSearch'
 import {
   MOCK_BOOKING_SETUPS,
   MOCK_PRINCIPALS,
+  MOCK_RECORDS,
   MOCK_TABLES,
   MOCK_TIME_ZONES,
   MOCK_VIEWS,
@@ -152,7 +153,22 @@ export const mockBoardService: BoardService = {
     configs = [...configs, { id, name, type, value, version: 1 }]
     return delay(id)
   },
-  listViews: () => delay(clone(MOCK_VIEWS)),
+  listViews: (entities) => delay(clone(entities ? MOCK_VIEWS.filter((v) => entities.includes(v.entity)) : MOCK_VIEWS)),
+  getViewsByIds: (ids) => {
+    const wanted = new Set(ids.map((id) => id.toLowerCase()))
+    return delay(clone(MOCK_VIEWS.filter((v) => wanted.has(v.id.toLowerCase()))))
+  },
+  resolveRecords: (entity, refs) => {
+    const table = MOCK_RECORDS.filter((r) => r.entity === entity.toLowerCase())
+    const out = new Map<string, ResolvedRecord>()
+    for (const ref of refs) {
+      const byId = table.find((r) => r.id.toLowerCase() === ref.id.toLowerCase())
+      const byName = byId ? [] : table.filter((r) => ref.name !== null && r.name.toLowerCase() === ref.name.toLowerCase())
+      const hit = byId ?? (byName.length === 1 ? byName[0] : null)
+      if (hit) out.set(ref.id.toLowerCase(), { id: hit.id, name: hit.name, matchedBy: byId ? 'id' : 'name' })
+    }
+    return delay(out)
+  },
   listBookingSetups: () => delay(clone(MOCK_BOOKING_SETUPS)),
   listTimeZones: () => delay(clone(MOCK_TIME_ZONES)),
 

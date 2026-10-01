@@ -13,6 +13,7 @@ import { buildCopyContent, diffContent, isDefaultBoard, nextOrderNumber, protect
 import { downloadJson, listSnapshots, saveSnapshot } from '../utils/snapshots'
 import { formatDate } from '../utils/format'
 import { recordUrl } from '../config'
+import { exportBoard } from '../services/transferService'
 import { BoardEditor } from './BoardEditor'
 import { RawJsonEditor } from './RawJsonEditor'
 import { DiffTable } from './DiffTable'
@@ -101,6 +102,13 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
       onListChanged(null)
     })
 
+  const exportPackage = () =>
+    run(async (svc) => {
+      const pkg = await exportBoard(svc, board)
+      downloadJson(`${board.name}.board.json`, pkg)
+      notify(`„${board.name}“ exportiert (${pkg.configs.length} Konfiguration${pkg.configs.length === 1 ? '' : 'en'} enthalten).`)
+    })
+
   const restore = (content: BoardContent) => {
     setDraft(content)
     setJsonEpoch((n) => n + 1)
@@ -144,7 +152,7 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
           >
             Löschen
           </button>
-          <button className="btn btn--ghost" onClick={() => downloadJson(`${board.name}.board.json`, board)}>
+          <button className="btn btn--ghost" onClick={exportPackage} disabled={busy} title="Board mit Konfigurationen und Namen aller Bezüge — importierbar in jeder Umgebung">
             Export
           </button>
           {formUrl ? (
@@ -324,7 +332,7 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
               </p>
               <p className="muted">
                 Deaktivieren ist umkehrbar, Löschen nicht. Wer das Board später wiederherstellen will, lädt es vorher über
-                „Export“ herunter.
+                „Export“ herunter — „Importieren“ legt es daraus wieder an.
               </p>
             </>
           }

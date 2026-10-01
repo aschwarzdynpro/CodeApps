@@ -8,10 +8,11 @@ import { BoardList } from './components/BoardList'
 import { BoardDetail, type Notify } from './components/BoardDetail'
 import { CompareView, type BulkPreset } from './components/CompareView'
 import { BulkView } from './components/BulkView'
+import { ImportView } from './components/ImportView'
 import { getBoardService } from './services/boardService'
 import { isDefaultBoard } from './utils/boardRules'
 
-type View = 'boards' | 'compare' | 'bulk'
+type View = 'boards' | 'compare' | 'bulk' | 'import'
 
 const listBoards = (svc: BoardService) => svc.listBoards()
 
@@ -71,6 +72,7 @@ export default function App() {
                 ['boards', 'Boards'],
                 ['compare', 'Vergleichen'],
                 ['bulk', 'Mehrere anpassen'],
+                ['import', 'Importieren'],
               ] as [View, string][]
             ).map(([v, label]) => (
               <button key={v} className={`nav-btn${view === v ? ' nav-btn--active' : ''}`} onClick={() => setView(v)}>
@@ -118,8 +120,17 @@ export default function App() {
                 setView('bulk')
               }}
             />
-          ) : (
+          ) : view === 'bulk' ? (
             <BulkView key={bulkEpoch} boards={boards} preset={bulkPreset} notify={notify} onDone={() => boardsRes.reload()} />
+          ) : (
+            <ImportView
+              boards={boards}
+              notify={notify}
+              onImported={(id) => {
+                onListChanged(id)
+                setView('boards')
+              }}
+            />
           )
         ) : null}
 

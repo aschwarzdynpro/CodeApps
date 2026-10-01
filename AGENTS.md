@@ -32,7 +32,7 @@ CodeApps/
 │   ├── audit-explorer/     # Code App: Dataverse-Audit-History, query-first
 │   ├── sales-dashboard/    # Code App: Sales Dashboard GVL (Waldmann), Fassung eines Legacy-Dashboards
 │   ├── approval-cockpit/   # Code App: Genehmigungs-Inbox, nur Mock-Daten (kein power.config.json)
-│   ├── schedule-board-manager/ # Code App: URS-Schedule-Boards kopieren/bearbeiten/vergleichen/bulk (Schulz UAT)
+│   ├── schedule-board-manager/ # Code App: URS-Schedule-Boards kopieren/bearbeiten/vergleichen/bulk/transfer (Schulz UAT)
 │   └── my-day/             # Gen Page in Sales Hub (Waldmann): Termine/Aufgaben/Projektaufgaben + Leads/Projekte/Anfragen/Workorders
 ├── docs/                   # SETUP.md (neue App anlegen), IDEAS*.md, HANDOVER.md (Audit Explorer)
 ├── marketing/              # Sales-Deck + Handout der Solution Administration Console

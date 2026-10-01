@@ -16,13 +16,14 @@ Boards übertragen. Außerdem korrigiert sie zwei Fehler der Vorlage (siehe unte
 
 | Bereich | Inhalt |
 | --- | --- |
-| **Boards** | Liste mit Freigabeart, Status und Besitzer; Reihenfolge der Tabs ändern (`msdyn_ordernumber`); Kopieren (Name, Freigabe, Position, optional mit Datensatz-Freigaben); Aktivieren/Deaktivieren; Löschen; Export als JSON; Link zum Datensatz-Formular |
+| **Boards** | Liste mit Freigabeart, Status und Besitzer; Reihenfolge der Tabs ändern (`msdyn_ordernumber`); Kopieren (Name, Freigabe, Position, optional mit Datensatz-Freigaben); Aktivieren/Deaktivieren; Löschen; Export (Paket für den Import, siehe unten); Link zum Datensatz-Formular |
 | **Filterlayout** | Felder des Ressourcenfilter-Bereichs bearbeiten (Konfiguration hinter `msdyn_filterlayout`): Beschriftung, Key, Tabelle/Spalte, Mehrfachauswahl, Reihenfolge, entfernen, neue Felder (Datensätze einer Tabelle / Auswahlwerte einer Spalte). Zeigt, welche Boards das Layout teilen, warnt bei Feldern, die die Ressourcenabfrage nicht auswertet, und kann eine Kopie nur für das aktuelle Board anlegen und zuweisen. XML-Reiter, Diff-Vorschau, Verlauf |
 | **Besitzer & Freigaben** | Besitzer ändern (Benutzer oder Besitzer-Team, Live-Suche, Bestätigung mit Hinweisen; System-Boards ausgenommen). Für Boards mit „Bestimmte Personen“: wer das Board sieht (Benutzer und Teams, aus `principalobjectaccess`), Stufe „Lesen“ oder „Lesen & Bearbeiten“ ändern, entfernen, neue Benutzer/Teams per Live-Suche finden (ab 2 Zeichen, mehrere Wörter grenzen ein: „jör bus“ → Jörn Busch) und freigeben |
 | **Bearbeiten** | Formular nach dem MS-[Field-Mapping](https://learn.microsoft.com/en-us/dynamics365/guidance/resources/field-service-schedule-board-settings-field-mapping): Board-Ansicht, Farben, Schedule Assistant, Karte, Sonstiges (inkl. der 3 Konfigurations-Lookups), eigene Web-Ressource, Schedule-Typen (`SlotMetadataCollection`), Anforderungsbereiche (`UnscheduledTabs`, hinzufügen/sortieren/entfernen). Nicht gesetzte Felder zeigen den Wert des Default-Boards an. Roh-JSON-Editor als Fallback |
 | **Speichern** | Vorschau aller geänderten Felder (Diff bis auf die einzelnen JSON-Werte), es werden nur geänderte Spalten geschrieben; Konfliktprüfung über `versionnumber`; der vorherige Stand landet im Verlauf (lokal im Browser, die letzten 10) und lässt sich als Entwurf zurückladen |
 | **Vergleichen** | Zwei Boards Feld für Feld, filterbar nach Bereich; „Von A nach B übertragen“ springt mit vorausgewählten Feldern in den Bulk |
 | **Mehrere anpassen** | Vorlage-Board + Auswahl (Konfigurationen, Settings-Schlüssel der obersten Ebene, Filterwerte, Spalten) + Ziel-Boards → Vorschau pro Board → Anwenden mit Ergebnis pro Board. Modus „Besitzer ändern“: Boards wählen + neuer Besitzer → Tabelle bisher/neu (System-Boards und Boards, die schon dem neuen Besitzer gehören, werden übersprungen) → Anwenden |
+| **Importieren** | Export-Datei eines Boards einlesen (auch aus einer anderen Umgebung), jede Ansicht, Konfiguration, jeden Schedule-Typ, die Zeitzone und gespeicherte Filterwerte der Zielumgebung zuordnen (ID, dann Name; jede Zeile änderbar), Konfigurationen verwenden/neu anlegen/überschreiben/leer lassen → als neues Board anlegen oder ein bestehendes ersetzen (mit Diff) |
 
 ### Fachregeln
 
@@ -86,17 +87,20 @@ src/
 │   ├── filterLayout.ts      # Filterlayout-XML: parsen, Felder ändern, Diff, Abfrage-Abgleich
 │   ├── queryAnalysis.ts     # Ressourcenabfrage: welcher $input-Key filtert wo und wie
 │   ├── principalSearch.ts   # Benutzer-/Team-Suche: Wörter, Abgleich, Sortierung
+│   ├── boardTransfer.ts     # Export-Paket, ID-Zuordnung, Inhalt umschreiben
 │   └── snapshots.ts         # lokaler Verlauf + JSON-Download
 ├── services/
 │   ├── boardService.ts      # Interface + Auswahl Dataverse/Mock
 │   ├── dataverseBoardService.ts
 │   ├── mockBoardService.ts  # In-Memory, für `npm run dev` ohne Host
-│   └── mockData.ts          # fiktive Boards (keine Kundendaten)
+│   ├── mockData.ts          # fiktive Boards (keine Kundendaten)
 │   ├── dataverseSharing.ts  # Freigaben über den Dataverse-Connector
-│   └── dataverseMetadata.ts # Tabellen/Spalten aus EntityDefinitions (Connector)
+│   ├── dataverseMetadata.ts # Tabellen/Spalten aus EntityDefinitions, Datensätze suchen (Connector)
+│   └── transferService.ts   # Export sammeln, Import vorbereiten/ausführen
 └── components/              # BoardList, BoardDetail, BoardEditor, SlotTypesEditor,
                              # PanelsEditor, RawJsonEditor, DiffTable, CompareView,
-                             # BulkView, SharingPanel, FilterLayoutPanel, FilterFieldPickers
+                             # BulkView, BulkOwnerView, SharingPanel, OwnerDialog,
+                             # PrincipalPicker, FilterLayoutPanel, FilterFieldPickers, ImportView
 ```
 
 ### Filterlayout
@@ -137,6 +141,50 @@ setzen).
 - Ändert man einen Key, passen die gespeicherten Filterwerte
   (`msdyn_filtervalues`) der Boards nicht mehr zu diesem Feld. Sie stehen
   unter dem alten Key.
+
+### Boards zwischen Umgebungen übertragen (Export/Import)
+
+Ein Board besteht fast nur aus IDs, und nur ein Teil davon ist in jeder
+Umgebung gleich (Ansichten aus Solutions, URS-Standardkonfigurationen,
+Zeitzonen). Der **Export** schreibt deshalb ein Paket
+(`format: schedule-board-manager.board`, Datei `<Board>.board.json`):
+
+- das Board selbst: alle Spalten, `msdyn_settings`, `msdyn_filtervalues`,
+  die drei Konfigurations-Lookups;
+- jede referenzierte **Konfiguration mit Inhalt** (Filterlayout-XML,
+  Zellvorlage, Ressourcenabfrage, dazu die Schedule-Assistant-Konfigurationen,
+  auf die `SlotMetadataCollection[].ScheduleAssistant*Id` zeigt);
+- **Name und Tabelle** jeder Ansicht (Spalten, Schedule-Typen,
+  Anforderungsbereiche), Tabelle jedes Schedule-Typs, Name der Zeitzone,
+  Tabelle und Primärname jedes Datensatzes in den gespeicherten Filterwerten
+  (`@ufx-id`/`@ufx-logicalname`).
+
+Nicht im Paket: Datensatz-Freigaben, Besitzer, Verlauf.
+
+Der **Import** (Reiter „Importieren“) ordnet jede ID der Zielumgebung zu —
+erst über die ID, dann über den Namen (Ansicht: Name + Tabelle,
+Schedule-Typ: Tabelle, Konfiguration: Name + Typ, Datensatz: Primärname;
+nur eindeutige Treffer). Jede Zeile lässt sich ändern. Was kein Gegenstück
+hat, fällt weg: ein Ansichtsfeld wird geleert, ein Anforderungsbereich ohne
+Ansicht und ein Schedule-Typ ohne Booking Setup fallen ganz aus den
+Settings, Filter-Datensätze werden aus dem gespeicherten Filter entfernt.
+IDs, deren Bedeutung die App nicht kennt, bleiben unverändert und werden
+angezeigt. Konfigurationen: vorhandene verwenden (mit Inhaltsvergleich),
+neu anlegen, vorhandene mit dem Datei-Inhalt überschreiben (Warnung, welche
+Boards sie noch nutzen; vorheriger Stand im Konfigurations-Verlauf) oder leer
+lassen. Ziel ist ein neues Board (Name, Freigabe; System wird zu Jeder) oder
+ein bestehendes (Name, Reihenfolge, Freigabe, Besitzer bleiben; Diff-Vorschau,
+vorheriger Stand im Verlauf). Dateien des alten Exports (bloßes Board-JSON)
+lassen sich lesen, aber nur über IDs zuordnen.
+
+Die Datensätze der Filterwerte werden über den Dataverse-Connector gesucht
+(`EntityDefinitions` → `EntitySetName`/`PrimaryIdAttribute`/
+`PrimaryNameAttribute`, dann `ListRecordsWithOrganization`). Fehlt die
+Tabelle in der Zielumgebung, gelten alle als „fehlt“; scheitert die Abfrage
+(Rechte), bleiben sie ungeprüft unverändert.
+
+Für einen Transfer nach PROD muss die App dort laufen (eigenes Deployment
+mit `power.config.json`/`.env` für PROD — nicht ohne Rückfrage).
 
 ### Freigaben über den Dataverse-Connector
 
@@ -215,6 +263,6 @@ und „Custom Retrieve Resources Query …“.
   über den Connector, Lesezugriff auf `principalobjectaccess` für Nicht-Admins,
   `EntityDefinitions` mit doppeltem `$expand` (Attribute + ManyToOneRelationships)
   über den Connector, Besitzerwechsel per `ownerid@odata.bind` über die
-  native Datenquelle.
-- Export/Import und Transfer zwischen Umgebungen (Modul D) sind bewusst
-  zurückgestellt.
+  native Datenquelle, Datensatzsuche für Filterwerte über den Connector
+  (`EntitySetName` + `$filter`), `savedquery`/`userquery` nach ID.
+- Import nach PROD: App dort noch nicht deployt.

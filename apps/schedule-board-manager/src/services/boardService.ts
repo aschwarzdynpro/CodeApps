@@ -17,6 +17,12 @@ import { powerModeReady } from '../PowerProvider'
 import { dataverseBoardService } from './dataverseBoardService'
 import { mockBoardService } from './mockBoardService'
 
+export interface ResolvedRecord {
+  id: string
+  name: string
+  matchedBy: 'id' | 'name'
+}
+
 /**
  * Everything the UI needs from Dataverse. Writes take the full next content
  * plus the board as loaded; implementations send only the changed fields and
@@ -46,8 +52,16 @@ export interface BoardService {
   listTables(): Promise<TableRef[]>
   /** Columns of one table with lookup targets; null when the table doesn't exist. */
   getTableInfo(logicalName: string): Promise<TableInfo | null>
-  /** System and personal views of the tables the editor offers. */
-  listViews(): Promise<ViewRef[]>
+  /** System and personal views — of the tables the editor offers, or of `entities`. */
+  listViews(entities?: string[]): Promise<ViewRef[]>
+  /** Views by ID, whatever their table (export). Unknown IDs are left out. */
+  getViewsByIds(ids: string[]): Promise<ViewRef[]>
+  /**
+   * Finds records of one table by ID, else by primary name (unique match
+   * only). Keyed by the lower-cased requested ID; a missing key means not
+   * found. Null when the table can't be checked (no metadata, no privilege).
+   */
+  resolveRecords(entity: string, refs: { id: string; name: string | null }[]): Promise<Map<string, ResolvedRecord> | null>
   listBookingSetups(): Promise<BookingSetupRef[]>
   listTimeZones(): Promise<TimeZoneRef[]>
 
