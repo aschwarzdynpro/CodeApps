@@ -155,6 +155,7 @@ export function createMockBoards(): Board[] {
       active: true,
       order: 0,
       ownerName: 'SYSTEM',
+      ownerId: null,
       modifiedOn: '2025-11-19T09:32:00Z',
       version: 1001,
       content: {
@@ -172,6 +173,7 @@ export function createMockBoards(): Board[] {
       active: true,
       order: 0,
       ownerName: 'SYSTEM',
+      ownerId: null,
       modifiedOn: '2024-09-03T13:54:00Z',
       version: 1002,
       content: {
@@ -189,6 +191,7 @@ export function createMockBoards(): Board[] {
       active: true,
       order: 1,
       ownerName: 'Mara Lindqvist',
+      ownerId: 'b0000000-0000-4000-8000-000000000001',
       modifiedOn: '2026-03-11T10:49:00Z',
       version: 1003,
       content: {
@@ -216,6 +219,7 @@ export function createMockBoards(): Board[] {
       active: true,
       order: 2,
       ownerName: 'Jonas Feldmann',
+      ownerId: 'b0000000-0000-4000-8000-000000000002',
       modifiedOn: '2026-09-21T11:58:00Z',
       version: 1004,
       content: {
@@ -242,6 +246,7 @@ export function createMockBoards(): Board[] {
       active: true,
       order: 3,
       ownerName: 'Mara Lindqvist',
+      ownerId: 'b0000000-0000-4000-8000-000000000001',
       modifiedOn: '2026-09-21T11:54:00Z',
       version: 1005,
       content: {
@@ -259,6 +264,7 @@ export function createMockBoards(): Board[] {
       active: false,
       order: 4,
       ownerName: 'SYSTEM',
+      ownerId: null,
       modifiedOn: '2025-03-10T17:25:00Z',
       version: 1006,
       content: {
@@ -321,6 +327,8 @@ export const MOCK_PRINCIPALS: PrincipalRef[] = [
   { id: 'b0000000-0000-4000-8000-000000000008', type: 'user', name: 'Brandt, Jörn (extern)', detail: 'ext.brandt@contoso.example' },
   { id: 'c0000000-0000-4000-8000-000000000001', type: 'team', name: 'Disposition Nord', detail: 'Team' },
   { id: 'c0000000-0000-4000-8000-000000000002', type: 'team', name: 'Montageleitung', detail: 'Team' },
+  // Access teams can be shared with but cannot own records.
+  { id: 'c0000000-0000-4000-8000-000000000003', type: 'team', name: 'Montage Zugriff', detail: 'Zugriffsteam' },
 ]
 
 /** Initial shares: the "specific people" sample board is shared with two principals. */

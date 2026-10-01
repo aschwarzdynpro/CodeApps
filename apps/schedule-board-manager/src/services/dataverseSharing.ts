@@ -146,21 +146,30 @@ async function usersByIds(ids: string[]): Promise<Map<string, PrincipalRef>> {
 async function teamsByIds(ids: string[]): Promise<Map<string, PrincipalRef>> {
   const map = new Map<string, PrincipalRef>()
   if (ids.length === 0) return map
-  const res = await TeamsService.getAll({ select: ['teamid', 'name'], filter: orFilter('teamid', ids) })
+  const res = await TeamsService.getAll({ select: ['teamid', 'name', 'teamtype'], filter: orFilter('teamid', ids) })
   if (res.success) {
     for (const r of res.data as unknown as Row[]) {
       const id = str(r.teamid)
-      map.set(id.toLowerCase(), { id, type: 'team', name: str(r.name) || id, detail: 'Team' })
+      map.set(id.toLowerCase(), { id, type: 'team', name: str(r.name) || id, detail: teamDetail(r.teamtype) })
     }
   }
   return map
 }
 
-export async function searchPrincipals(term: string): Promise<PrincipalRef[]> {
+/** teamtype: 0 owner team, 1 access team, 2/3 Entra security/Microsoft 365 group. */
+const TEAM_ACCESS = 1
+
+function teamDetail(teamtype: unknown): string {
+  const t = Number(teamtype)
+  return t === TEAM_ACCESS ? 'Zugriffsteam' : t === 2 || t === 3 ? 'Team (Entra-Gruppe)' : 'Team'
+}
+
+export async function searchPrincipals(term: string, options?: { owners?: boolean }): Promise<PrincipalRef[]> {
   const words = searchWords(term).map((w) => w.replace(/'/g, "''"))
   if (words.length === 0) return []
   const userFilter = words.map((w) => `(contains(fullname,'${w}') or contains(internalemailaddress,'${w}'))`).join(' and ')
-  const teamFilter = words.map((w) => `contains(name,'${w}')`).join(' and ')
+  const teamFilter =
+    words.map((w) => `contains(name,'${w}')`).join(' and ') + (options?.owners ? ` and teamtype ne ${TEAM_ACCESS}` : '')
   const [users, teams] = await Promise.all([
     SystemusersService.getAll({
       select: ['systemuserid', 'fullname', 'internalemailaddress'],
@@ -170,7 +179,7 @@ export async function searchPrincipals(term: string): Promise<PrincipalRef[]> {
       top: SEARCH_LIMIT,
     }),
     TeamsService.getAll({
-      select: ['teamid', 'name'],
+      select: ['teamid', 'name', 'teamtype'],
       filter: teamFilter,
       orderBy: ['name asc'],
       top: 10,
@@ -184,7 +193,7 @@ export async function searchPrincipals(term: string): Promise<PrincipalRef[]> {
     detail: str(r.internalemailaddress) || undefined,
   }))
   if (teams.success) {
-    for (const r of teams.data as unknown as Row[]) out.push({ id: str(r.teamid), type: 'team', name: str(r.name), detail: 'Team' })
+    for (const r of teams.data as unknown as Row[]) out.push({ id: str(r.teamid), type: 'team', name: str(r.name), detail: teamDetail(r.teamtype) })
   }
   return rankPrincipals(out, term)
 }

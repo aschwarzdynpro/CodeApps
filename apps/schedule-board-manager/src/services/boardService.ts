@@ -35,6 +35,8 @@ export interface BoardService {
   setActive(id: string, active: boolean): Promise<void>
   /** Writes `msdyn_ordernumber` for the given boards only. */
   setOrder(updates: { id: string; order: number }[]): Promise<void>
+  /** Changes the owner (user or owner team). Needs the Assign privilege on the table. */
+  assignBoard(id: string, owner: PrincipalRef): Promise<void>
   listConfigurations(): Promise<ConfigRef[]>
   getConfiguration(id: string): Promise<ConfigDetail>
   /** Writes `msdyn_value`; refuses with ConflictError if the row changed since load. */
@@ -53,7 +55,8 @@ export interface BoardService {
   /** Null when sharing works; otherwise why it is unavailable (shown in the UI). */
   sharingUnavailable(): string | null
   listShares(boardId: string): Promise<Share[]>
-  searchPrincipals(term: string): Promise<PrincipalRef[]>
+  /** `owners`: only principals that can own records (no access teams). */
+  searchPrincipals(term: string, options?: { owners?: boolean }): Promise<PrincipalRef[]>
   /** New share, or a changed level for an existing one. */
   setShare(boardId: string, principal: PrincipalRef, level: ShareLevel, existing: boolean): Promise<void>
   revokeShare(boardId: string, principal: PrincipalRef): Promise<void>

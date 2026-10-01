@@ -78,6 +78,7 @@ function toSummary(row: Row): BoardSummary {
     active: Number(row.statecode) === 0,
     order: Number(row.msdyn_ordernumber ?? 0),
     ownerName: str(row[`_ownerid_value${FV}`]) ?? str(row.owneridname) ?? '—',
+    ownerId: str(row._ownerid_value),
     modifiedOn: str(row.modifiedon),
     lookups: lookupsOf(row),
   }
@@ -209,6 +210,12 @@ export const dataverseBoardService: BoardService = {
     for (const u of updates) {
       await update(u.id, { msdyn_ordernumber: u.order }, 'Reihenfolge speichern')
     }
+  },
+
+  async assignBoard(id, owner) {
+    // PATCH on ownerid is the Web API form of AssignRequest.
+    const set = owner.type === 'team' ? 'teams' : 'systemusers'
+    await update(id, { 'ownerid@odata.bind': `/${set}(${owner.id})` }, 'Besitzer ändern')
   },
 
   async listConfigurations() {

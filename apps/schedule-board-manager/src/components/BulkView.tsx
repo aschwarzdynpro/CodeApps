@@ -16,6 +16,7 @@ import { topLevelLabel } from '../utils/settingsFields'
 import { parseSettings } from '../utils/settingsModel'
 import { saveSnapshot } from '../utils/snapshots'
 import { DiffTable } from './DiffTable'
+import { BulkOwnerView } from './BulkOwnerView'
 import type { BulkPreset } from './CompareView'
 import type { Notify } from './BoardDetail'
 
@@ -51,6 +52,7 @@ export function BulkView({ boards, preset, notify, onDone }: Props) {
   const [previews, setPreviews] = useState<Preview[] | null>(null)
   const [outcomes, setOutcomes] = useState<Outcome[] | null>(null)
   const [busy, setBusy] = useState(false)
+  const [mode, setMode] = useState<'settings' | 'owner'>('settings')
 
   const loadTemplate = useCallback((svc: BoardService) => svc.getBoard(templateId), [templateId])
   const { data: template } = useLoad(templateId || null, loadTemplate)
@@ -132,129 +134,147 @@ export function BulkView({ boards, preset, notify, onDone }: Props) {
     <section className="page">
       <header className="page__header">
         <h1>Mehrere Boards anpassen</h1>
+        <div className="segmented" role="tablist">
+          {(
+            [
+              ['settings', 'Einstellungen übertragen'],
+              ['owner', 'Besitzer ändern'],
+            ] as const
+          ).map(([m, label]) => (
+            <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'is-active' : undefined} onClick={() => setMode(m)}>
+              {label}
+            </button>
+          ))}
+        </div>
         <p className="muted">
-          Ausgewählte Einstellungen eines Vorlage-Boards auf andere Boards übertragen. Vor dem Schreiben siehst du pro Board,
-          was sich ändert; jedes Board wird vorher im Verlauf gesichert.
+          {mode === 'settings'
+            ? 'Ausgewählte Einstellungen eines Vorlage-Boards auf andere Boards übertragen. Vor dem Schreiben siehst du pro Board, was sich ändert; jedes Board wird vorher im Verlauf gesichert.'
+            : 'Mehreren Boards einen neuen Besitzer geben. Vor dem Schreiben siehst du pro Board, wer es bisher besitzt.'}
         </p>
       </header>
 
-      <div className="bulk">
-        <div className="bulk__col">
-          <h2>1. Vorlage</h2>
-          <select
-            className="input"
-            value={templateId}
-            onChange={(e) => {
-              setTemplateId(e.target.value)
-              setTargetIds((ids) => ids.filter((id) => id !== e.target.value))
-              resetPreview()
-            }}
-          >
-            {boards.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+      {mode === 'owner' ? <BulkOwnerView boards={boards} notify={notify} onDone={onDone} /> : null}
 
-          <h2>2. Was übertragen?</h2>
-          <fieldset className="checklist">
-            <legend>Konfigurationen</legend>
-            {BOARD_LOOKUPS.map((lk) => (
-              <label key={lk.key} className="form-check">
-                <input
-                  type="checkbox"
-                  checked={selection.lookups.includes(lk.key)}
-                  onChange={(e) => updateSelection({ ...selection, lookups: toggle<LookupKey>(selection.lookups, lk.key, e.target.checked) })}
-                />
-                <span>{lk.label}</span>
-              </label>
-            ))}
-          </fieldset>
-          <fieldset className="checklist">
-            <legend>Settings-JSON</legend>
-            {settingsKeys.map((k) => (
-              <label key={k} className="form-check">
-                <input
-                  type="checkbox"
-                  checked={selectedSettings.includes(k)}
-                  onChange={(e) =>
-                    updateSelection({
-                      ...selection,
-                      settingsPaths: e.target.checked
-                        ? [...selection.settingsPaths.filter((p) => String(p[0]) !== k), [k]]
-                        : selection.settingsPaths.filter((p) => String(p[0]) !== k),
-                    })
-                  }
-                />
-                <span title={k}>{topLevelLabel(k)}</span>
-              </label>
-            ))}
-            <label className="form-check">
-              <input
-                type="checkbox"
-                checked={selection.filterValues}
-                onChange={(e) => updateSelection({ ...selection, filterValues: e.target.checked })}
-              />
-              <span>Gespeicherte Filterwerte (msdyn_filtervalues)</span>
-            </label>
-          </fieldset>
-          <fieldset className="checklist">
-            <legend>Spalten</legend>
-            {TRANSFERABLE_COLUMNS.map((c) => (
-              <label key={c.key} className="form-check">
-                <input
-                  type="checkbox"
-                  checked={selection.columns.includes(c.key)}
-                  onChange={(e) => updateSelection({ ...selection, columns: toggle(selection.columns, c.key, e.target.checked) })}
-                />
-                <span>{c.label}</span>
-              </label>
-            ))}
-          </fieldset>
-        </div>
+      {mode === 'settings' ? (
+        <div className="bulk">
+          <div className="bulk__col">
+            <h2>1. Vorlage</h2>
+            <select
+              className="input"
+              value={templateId}
+              onChange={(e) => {
+                setTemplateId(e.target.value)
+                setTargetIds((ids) => ids.filter((id) => id !== e.target.value))
+                resetPreview()
+              }}
+            >
+              {boards.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
 
-        <div className="bulk__col">
-          <h2>3. Ziel-Boards</h2>
-          <fieldset className="checklist">
-            {boards
-              .filter((b) => b.id !== templateId)
-              .map((b) => (
-                <label key={b.id} className="form-check">
+            <h2>2. Was übertragen?</h2>
+            <fieldset className="checklist">
+              <legend>Konfigurationen</legend>
+              {BOARD_LOOKUPS.map((lk) => (
+                <label key={lk.key} className="form-check">
                   <input
                     type="checkbox"
-                    checked={targetIds.includes(b.id)}
-                    onChange={(e) => {
-                      setTargetIds(toggle(targetIds, b.id, e.target.checked))
-                      resetPreview()
-                    }}
+                    checked={selection.lookups.includes(lk.key)}
+                    onChange={(e) => updateSelection({ ...selection, lookups: toggle<LookupKey>(selection.lookups, lk.key, e.target.checked) })}
                   />
-                  <span>
-                    {b.name}
-                    {b.shareType === SHARE_TYPE.system ? <span className="badge badge--lock">System</span> : null}
-                    {!b.active ? <span className="badge badge--inactive">Inaktiv</span> : null}
-                  </span>
+                  <span>{lk.label}</span>
                 </label>
               ))}
-          </fieldset>
-          <div className="toolbar">
-            <button className="btn btn--primary" disabled={busy || !template || targetIds.length === 0 || selectionSize === 0} onClick={preview}>
-              {busy && !previews ? 'Lade …' : 'Vorschau'}
-            </button>
-            {previews ? (
-              <button
-                className="btn btn--danger"
-                disabled={busy || outcomes !== null || previews.every((p) => p.changes.length === 0)}
-                onClick={apply}
-              >
-                {busy ? 'Schreibt …' : `Auf ${previews.filter((p) => p.changes.length > 0).length} Board(s) anwenden`}
+            </fieldset>
+            <fieldset className="checklist">
+              <legend>Settings-JSON</legend>
+              {settingsKeys.map((k) => (
+                <label key={k} className="form-check">
+                  <input
+                    type="checkbox"
+                    checked={selectedSettings.includes(k)}
+                    onChange={(e) =>
+                      updateSelection({
+                        ...selection,
+                        settingsPaths: e.target.checked
+                          ? [...selection.settingsPaths.filter((p) => String(p[0]) !== k), [k]]
+                          : selection.settingsPaths.filter((p) => String(p[0]) !== k),
+                      })
+                    }
+                  />
+                  <span title={k}>{topLevelLabel(k)}</span>
+                </label>
+              ))}
+              <label className="form-check">
+                <input
+                  type="checkbox"
+                  checked={selection.filterValues}
+                  onChange={(e) => updateSelection({ ...selection, filterValues: e.target.checked })}
+                />
+                <span>Gespeicherte Filterwerte (msdyn_filtervalues)</span>
+              </label>
+            </fieldset>
+            <fieldset className="checklist">
+              <legend>Spalten</legend>
+              {TRANSFERABLE_COLUMNS.map((c) => (
+                <label key={c.key} className="form-check">
+                  <input
+                    type="checkbox"
+                    checked={selection.columns.includes(c.key)}
+                    onChange={(e) => updateSelection({ ...selection, columns: toggle(selection.columns, c.key, e.target.checked) })}
+                  />
+                  <span>{c.label}</span>
+                </label>
+              ))}
+            </fieldset>
+          </div>
+
+          <div className="bulk__col">
+            <h2>3. Ziel-Boards</h2>
+            <fieldset className="checklist">
+              {boards
+                .filter((b) => b.id !== templateId)
+                .map((b) => (
+                  <label key={b.id} className="form-check">
+                    <input
+                      type="checkbox"
+                      checked={targetIds.includes(b.id)}
+                      onChange={(e) => {
+                        setTargetIds(toggle(targetIds, b.id, e.target.checked))
+                        resetPreview()
+                      }}
+                    />
+                    <span>
+                      {b.name}
+                      {b.shareType === SHARE_TYPE.system ? <span className="badge badge--lock">System</span> : null}
+                      {!b.active ? <span className="badge badge--inactive">Inaktiv</span> : null}
+                    </span>
+                  </label>
+                ))}
+            </fieldset>
+            <div className="toolbar">
+              <button className="btn btn--primary" disabled={busy || !template || targetIds.length === 0 || selectionSize === 0} onClick={preview}>
+                {busy && !previews ? 'Lade …' : 'Vorschau'}
               </button>
-            ) : null}
+              {previews ? (
+                <button
+                  className="btn btn--danger"
+                  disabled={busy || outcomes !== null || previews.every((p) => p.changes.length === 0)}
+                  onClick={apply}
+                >
+                  {busy ? 'Schreibt …' : `Auf ${previews.filter((p) => p.changes.length > 0).length} Board(s) anwenden`}
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
-      </div>
 
-      {previews ? (
+      ) : null}
+
+      {mode === 'settings' && previews ? (
         <div className="bulk__preview">
           {previews.map((p) => {
             const o = outcomeFor(p.target.id)

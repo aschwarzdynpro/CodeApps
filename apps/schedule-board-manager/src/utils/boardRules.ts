@@ -8,6 +8,7 @@ import {
   type ColumnValue,
   type CopyOptions,
   type LookupKey,
+  type PrincipalRef,
 } from '../types/board'
 import { labelForSettingsKey } from './settingsFields'
 import { flatten, getAt, jsonEqual, parseSettings, setAt, type Json, type PathSeg } from './settingsModel'
@@ -36,6 +37,8 @@ export interface Protection {
   canDelete: boolean
   canDisable: boolean
   canRename: boolean
+  /** Owner change — system boards stay with SYSTEM. */
+  canAssign: boolean
   reason: string | null
 }
 
@@ -47,6 +50,7 @@ export function protectionOf(board: Pick<BoardSummary, 'id' | 'name' | 'shareTyp
       canDelete: false,
       canDisable: false,
       canRename: false,
+      canAssign: false,
       reason: 'System-Board — wird von URS mitgeliefert und vorausgesetzt.',
     }
   }
@@ -55,10 +59,11 @@ export function protectionOf(board: Pick<BoardSummary, 'id' | 'name' | 'shareTyp
       canDelete: false,
       canDisable: true,
       canRename: true,
+      canAssign: true,
       reason: 'Initiale öffentliche Ansicht — wird von URS vorausgesetzt.',
     }
   }
-  return { canDelete: true, canDisable: true, canRename: true, reason: null }
+  return { canDelete: true, canDisable: true, canRename: true, canAssign: true, reason: null }
 }
 
 export function isDefaultBoard(board: Pick<BoardSummary, 'id'>): boolean {
@@ -213,4 +218,33 @@ export function applySelection(
     settings,
     filterValues: selection.filterValues ? template.filterValues : target.filterValues,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Owner change
+// ---------------------------------------------------------------------------
+
+export type OwnerPlanStatus = 'change' | 'same' | 'protected'
+
+export interface OwnerPlanRow {
+  board: BoardSummary
+  status: OwnerPlanStatus
+}
+
+/**
+ * What an owner change to `owner` would do per target board: system boards
+ * are skipped, boards the principal already owns need no write.
+ */
+export function planOwnerChange(boards: BoardSummary[], targetIds: string[], owner: PrincipalRef): OwnerPlanRow[] {
+  return targetIds
+    .map((id) => boards.find((b) => b.id === id))
+    .filter((b): b is BoardSummary => b !== undefined)
+    .map((board) => ({
+      board,
+      status: !protectionOf(board).canAssign
+        ? 'protected'
+        : board.ownerId !== null && board.ownerId.toLowerCase() === owner.id.toLowerCase()
+          ? 'same'
+          : 'change',
+    }))
 }

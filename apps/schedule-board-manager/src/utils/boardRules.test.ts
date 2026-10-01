@@ -7,6 +7,7 @@ import {
   changedFields,
   diffContent,
   nextOrderNumber,
+  planOwnerChange,
   protectionOf,
 } from './boardRules'
 import { getAt, parseSettings, setAt, serializeSettings } from './settingsModel'
@@ -102,5 +103,20 @@ describe('applySelection', () => {
     expect(result.filterValues).toBe(target.filterValues)
     const changes = diffContent(target, result).map((c) => c.key)
     expect(changes.every((k) => k.startsWith('UnscheduledTabs'))).toBe(true)
+  })
+})
+
+describe('planOwnerChange', () => {
+  const mara = { id: 'B0000000-0000-4000-8000-000000000001', type: 'user' as const, name: 'Mara Lindqvist' }
+  it('skips system boards and boards the new owner already has', () => {
+    const ids = ['Default', 'Disposition Nord', 'Disposition Süd'].map((n) => byName(n).id)
+    expect(planOwnerChange(boards, ids, mara).map((r) => [r.board.name, r.status])).toEqual([
+      ['Default', 'protected'],
+      ['Disposition Nord', 'same'],
+      ['Disposition Süd', 'change'],
+    ])
+  })
+  it('ignores unknown ids', () => {
+    expect(planOwnerChange(boards, ['nope'], mara)).toEqual([])
   })
 })

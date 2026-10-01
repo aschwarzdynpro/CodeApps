@@ -926,8 +926,33 @@ select.input {
   font-size: 14px;
 }
 
-.sharing__block .toolbar > .input:first-child {
+.principal-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.principal-picker .toolbar > .input:first-child {
   max-width: 380px;
+}
+
+.owner-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.owner-change {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
+.owner-change__arrow {
+  color: var(--muted);
 }
 
 .share-list {
@@ -1134,4 +1159,8 @@ select.input {
 .code-block--inline {
   max-height: none;
   margin: 6px 0;
+}
+
+.page__header .segmented {
+  margin: 6px 0 8px;
 }

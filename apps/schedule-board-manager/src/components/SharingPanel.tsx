@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
   SHARE_LEVEL_LABEL,
   SHARE_TYPE,
@@ -10,38 +10,35 @@ import {
 import { getBoardService, type BoardService } from '../services/boardService'
 import { useLoad } from '../hooks/useLoad'
 import type { Notify } from './BoardDetail'
-import { SEARCH_LIMIT, searchWords } from '../utils/principalSearch'
+import { PrincipalLabel, PrincipalPicker } from './PrincipalPicker'
+import { OwnerDialog } from './OwnerDialog'
 
 interface Props {
   boardId: string
   boardName: string
   shareType: number
   ownerName: string
+  ownerId: string | null
+  /** False for system boards — they stay with SYSTEM. */
+  canAssign: boolean
   notify: Notify
+  onOwnerChanged: () => void
 }
 
 /**
  * Who a "Specific people" board is visible to — the record shares in
- * principalobjectaccess. Changes go out immediately (no draft): sharing is
- * not part of the board's content and has no diff to preview.
+ * principalobjectaccess — and who owns it. Changes go out immediately (no
+ * draft): neither is part of the board's content and has no diff to preview.
  */
-export function SharingPanel({ boardId, boardName, shareType, ownerName, notify }: Props) {
+export function SharingPanel({ boardId, boardName, shareType, ownerName, ownerId, canAssign, notify, onOwnerChanged }: Props) {
   const loadShares = useCallback((svc: BoardService) => svc.listShares(boardId), [boardId])
   const { data: shares, error, loading, reload } = useLoad(boardId, loadShares)
 
-  const [term, setTerm] = useState('')
-  // Live search: query 250 ms after the last keystroke, not on every key.
-  const [debounced, setDebounced] = useState('')
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(term.trim()), 250)
-    return () => clearTimeout(t)
-  }, [term])
-  const searchKey = searchWords(debounced).length > 0 ? `q:${debounced}` : null
-  const loadResults = useCallback((svc: BoardService) => svc.searchPrincipals(debounced), [debounced])
-  const { data: results, error: searchError, loading: searching } = useLoad(searchKey, loadResults)
   const [newLevel, setNewLevel] = useState<ShareLevel>('read')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [unavailable, setUnavailable] = useState<string | null>(null)
+  const [ownerDialog, setOwnerDialog] = useState(false)
+  const [assigning, setAssigning] = useState(false)
 
   const act = async (id: string, action: (svc: BoardService) => Promise<void>, done: string) => {
     setBusyId(id)
@@ -62,10 +59,21 @@ export function SharingPanel({ boardId, boardName, shareType, ownerName, notify 
     }
   }
 
+  const assign = async (owner: PrincipalRef) => {
+    setAssigning(true)
+    try {
+      await (await getBoardService()).assignBoard(boardId, owner)
+      setOwnerDialog(false)
+      notify(`„${boardName}“ gehört jetzt ${owner.name}.`)
+      onOwnerChanged()
+    } catch (err) {
+      notify(err instanceof Error ? err.message : String(err), 'error')
+    } finally {
+      setAssigning(false)
+    }
+  }
+
   const sharedIds = new Set((shares ?? []).map((s) => s.id.toLowerCase()))
-  const visibleResults = searchKey ? (results ?? []).filter((r) => !sharedIds.has(r.id.toLowerCase())) : []
-  const userHits = (results ?? []).filter((r) => r.type === 'user').length
-  const typing = term.trim() !== debounced
 
   return (
     <div className="sharing">
@@ -78,8 +86,23 @@ export function SharingPanel({ boardId, boardName, shareType, ownerName, notify 
       {unavailable ? <div className="notice notice--error">{unavailable}</div> : null}
 
       <section className="sharing__block">
+        <h3>Besitzer</h3>
+        <div className="owner-line">
+          <span>
+            <strong>{ownerName}</strong> <span className="muted small">sieht das Board immer.</span>
+          </span>
+          {canAssign ? (
+            <button className="btn btn--small" onClick={() => setOwnerDialog(true)}>
+              Ändern
+            </button>
+          ) : (
+            <span className="muted small">System-Board — Besitzer bleibt SYSTEM.</span>
+          )}
+        </div>
+      </section>
+
+      <section className="sharing__block">
         <h3>Freigegeben für</h3>
-        <p className="muted small">Besitzer: {ownerName} (sieht das Board immer).</p>
         {error ? <div className="notice notice--error">Freigaben konnten nicht gelesen werden: {error}</div> : null}
         {loading && !shares ? <p className="muted">Lade …</p> : null}
         {shares && shares.length === 0 ? <p className="muted">Noch mit niemandem geteilt.</p> : null}
@@ -104,65 +127,41 @@ export function SharingPanel({ boardId, boardName, shareType, ownerName, notify 
 
       <section className="sharing__block">
         <h3>Freigeben</h3>
-        <div className="toolbar">
-          <input
-            className="input"
-            placeholder="Benutzer oder Team suchen – z. B. „jör bus“ …"
-            value={term}
-            autoComplete="off"
-            aria-label="Benutzer oder Team suchen"
-            onChange={(e) => setTerm(e.target.value)}
-          />
-          <select className="input input--narrow" value={newLevel} onChange={(e) => setNewLevel(e.target.value as ShareLevel)} aria-label="Berechtigung">
-            <option value="read">{SHARE_LEVEL_LABEL.read}</option>
-            <option value="write">{SHARE_LEVEL_LABEL.write}</option>
-          </select>
-          {searchKey && (searching || typing) ? <span className="muted small">sucht …</span> : null}
-        </div>
-        {term.trim() !== '' && searchWords(term).length === 0 ? <p className="muted small">Mindestens 2 Zeichen eingeben.</p> : null}
-        {searchError ? <div className="notice notice--error">Suche fehlgeschlagen: {searchError}</div> : null}
-        {searchKey && results && !searching && !typing && visibleResults.length === 0 ? <p className="muted">Keine (weiteren) Treffer.</p> : null}
-        {userHits >= SEARCH_LIMIT ? (
-          <p className="muted small">Mehr als {SEARCH_LIMIT} Benutzer gefunden – weiter eintippen, z. B. den Nachnamen („jör bus“).</p>
-        ) : null}
-        {visibleResults.length > 0 ? (
-          <ul className="share-list">
-            {visibleResults.map((p) => (
-              <li key={p.id} className="share-row">
-                <PrincipalLabel p={p} />
-                <button
-                  className="btn btn--small btn--primary"
-                  disabled={busyId !== null}
-                  onClick={() =>
-                    act(
-                      p.id,
-                      (svc) => svc.setShare(boardId, p, newLevel, false),
-                      `„${boardName}“ für ${p.name} freigegeben (${SHARE_LEVEL_LABEL[newLevel]}).`,
-                    )
-                  }
-                >
-                  {busyId === p.id ? 'Gibt frei …' : 'Freigeben'}
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        <PrincipalPicker
+          exclude={sharedIds}
+          toolbar={
+            <select className="input input--narrow" value={newLevel} onChange={(e) => setNewLevel(e.target.value as ShareLevel)} aria-label="Berechtigung">
+              <option value="read">{SHARE_LEVEL_LABEL.read}</option>
+              <option value="write">{SHARE_LEVEL_LABEL.write}</option>
+            </select>
+          }
+          action={(p) => (
+            <button
+              className="btn btn--small btn--primary"
+              disabled={busyId !== null}
+              onClick={() =>
+                act(
+                  p.id,
+                  (svc) => svc.setShare(boardId, p, newLevel, false),
+                  `„${boardName}“ für ${p.name} freigegeben (${SHARE_LEVEL_LABEL[newLevel]}).`,
+                )
+              }
+            >
+              {busyId === p.id ? 'Gibt frei …' : 'Freigeben'}
+            </button>
+          )}
+        />
       </section>
-    </div>
-  )
-}
 
-function PrincipalLabel({ p }: { p: PrincipalRef }) {
-  return (
-    <span className="share-row__who">
-      <span className={`avatar avatar--${p.type}`} aria-hidden>
-        {p.type === 'team' ? '◆' : p.name.slice(0, 1).toUpperCase()}
-      </span>
-      <span>
-        <span className="share-row__name">{p.name}</span>
-        {p.detail ? <span className="share-row__detail">{p.detail}</span> : null}
-      </span>
-    </span>
+      {ownerDialog ? (
+        <OwnerDialog
+          board={{ name: boardName, ownerName, ownerId, shareType }}
+          busy={assigning}
+          onAssign={assign}
+          onClose={() => setOwnerDialog(false)}
+        />
+      ) : null}
+    </div>
   )
 }
 

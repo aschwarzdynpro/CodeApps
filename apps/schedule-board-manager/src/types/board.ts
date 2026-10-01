@@ -132,6 +132,8 @@ export interface BoardSummary {
   active: boolean
   order: number
   ownerName: string
+  /** systemuser or team id; null when unknown (mock "SYSTEM" rows). */
+  ownerId: string | null
   modifiedOn: string | null
   /** Configuration lookups — the list needs them to show who uses a layout. */
   lookups: Record<LookupKey, string | null>

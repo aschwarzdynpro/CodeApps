@@ -40,8 +40,8 @@ function find(id: string): Board {
 }
 
 function toSummary(b: Board): BoardSummary {
-  const { id, name, shareType, active, order, ownerName, modifiedOn } = b
-  return { id, name, shareType, active, order, ownerName, modifiedOn, lookups: { ...b.content.lookups } }
+  const { id, name, shareType, active, order, ownerName, ownerId, modifiedOn } = b
+  return { id, name, shareType, active, order, ownerName, ownerId, modifiedOn, lookups: { ...b.content.lookups } }
 }
 
 function touch(b: Board): void {
@@ -73,6 +73,7 @@ export const mockBoardService: BoardService = {
       active: true,
       order: Number(content.columns.msdyn_ordernumber ?? 0),
       ownerName: 'Ich (Mock)',
+      ownerId: null,
       modifiedOn: new Date().toISOString(),
       version: 1,
       lookups: { ...content.lookups },
@@ -119,6 +120,15 @@ export const mockBoardService: BoardService = {
     return delay(undefined)
   },
 
+  assignBoard: (id, owner) => {
+    if (owner.detail === 'Zugriffsteam') return Promise.reject(new Error('Besitzer ändern: Zugriffsteams können keine Datensätze besitzen.'))
+    const b = find(id)
+    b.ownerId = owner.id
+    b.ownerName = owner.name
+    touch(b)
+    return delay(undefined)
+  },
+
   listConfigurations: () => delay(configs.map(({ id, name, type }) => ({ id, name, type }))),
 
   getConfiguration: (id) => {
@@ -156,10 +166,11 @@ export const mockBoardService: BoardService = {
       }),
     ),
 
-  searchPrincipals: (term) => {
+  searchPrincipals: (term, options) => {
     const words = searchWords(term)
     if (words.length === 0) return delay([])
-    return delay(rankPrincipals(MOCK_PRINCIPALS.filter((p) => matchesAll(p, words)), term))
+    const pool = options?.owners ? MOCK_PRINCIPALS.filter((p) => p.detail !== 'Zugriffsteam') : MOCK_PRINCIPALS
+    return delay(rankPrincipals(pool.filter((p) => matchesAll(p, words)), term))
   },
 
   setShare: (boardId, principal, level) => {

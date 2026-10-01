@@ -18,11 +18,11 @@ Boards übertragen. Außerdem korrigiert sie zwei Fehler der Vorlage (siehe unte
 | --- | --- |
 | **Boards** | Liste mit Freigabeart, Status und Besitzer; Reihenfolge der Tabs ändern (`msdyn_ordernumber`); Kopieren (Name, Freigabe, Position, optional mit Datensatz-Freigaben); Aktivieren/Deaktivieren; Löschen; Export als JSON; Link zum Datensatz-Formular |
 | **Filterlayout** | Felder des Ressourcenfilter-Bereichs bearbeiten (Konfiguration hinter `msdyn_filterlayout`): Beschriftung, Key, Tabelle/Spalte, Mehrfachauswahl, Reihenfolge, entfernen, neue Felder (Datensätze einer Tabelle / Auswahlwerte einer Spalte). Zeigt, welche Boards das Layout teilen, warnt bei Feldern, die die Ressourcenabfrage nicht auswertet, und kann eine Kopie nur für das aktuelle Board anlegen und zuweisen. XML-Reiter, Diff-Vorschau, Verlauf |
-| **Freigaben** | Für Boards mit „Bestimmte Personen“: wer das Board sieht (Benutzer und Teams, aus `principalobjectaccess`), Stufe „Lesen“ oder „Lesen & Bearbeiten“ ändern, entfernen, neue Benutzer/Teams per Live-Suche finden (ab 2 Zeichen, mehrere Wörter grenzen ein: „jör bus“ → Jörn Busch) und freigeben |
+| **Besitzer & Freigaben** | Besitzer ändern (Benutzer oder Besitzer-Team, Live-Suche, Bestätigung mit Hinweisen; System-Boards ausgenommen). Für Boards mit „Bestimmte Personen“: wer das Board sieht (Benutzer und Teams, aus `principalobjectaccess`), Stufe „Lesen“ oder „Lesen & Bearbeiten“ ändern, entfernen, neue Benutzer/Teams per Live-Suche finden (ab 2 Zeichen, mehrere Wörter grenzen ein: „jör bus“ → Jörn Busch) und freigeben |
 | **Bearbeiten** | Formular nach dem MS-[Field-Mapping](https://learn.microsoft.com/en-us/dynamics365/guidance/resources/field-service-schedule-board-settings-field-mapping): Board-Ansicht, Farben, Schedule Assistant, Karte, Sonstiges (inkl. der 3 Konfigurations-Lookups), eigene Web-Ressource, Schedule-Typen (`SlotMetadataCollection`), Anforderungsbereiche (`UnscheduledTabs`, hinzufügen/sortieren/entfernen). Nicht gesetzte Felder zeigen den Wert des Default-Boards an. Roh-JSON-Editor als Fallback |
 | **Speichern** | Vorschau aller geänderten Felder (Diff bis auf die einzelnen JSON-Werte), es werden nur geänderte Spalten geschrieben; Konfliktprüfung über `versionnumber`; der vorherige Stand landet im Verlauf (lokal im Browser, die letzten 10) und lässt sich als Entwurf zurückladen |
 | **Vergleichen** | Zwei Boards Feld für Feld, filterbar nach Bereich; „Von A nach B übertragen“ springt mit vorausgewählten Feldern in den Bulk |
-| **Mehrere anpassen** | Vorlage-Board + Auswahl (Konfigurationen, Settings-Schlüssel der obersten Ebene, Filterwerte, Spalten) + Ziel-Boards → Vorschau pro Board → Anwenden mit Ergebnis pro Board |
+| **Mehrere anpassen** | Vorlage-Board + Auswahl (Konfigurationen, Settings-Schlüssel der obersten Ebene, Filterwerte, Spalten) + Ziel-Boards → Vorschau pro Board → Anwenden mit Ergebnis pro Board. Modus „Besitzer ändern“: Boards wählen + neuer Besitzer → Tabelle bisher/neu (System-Boards und Boards, die schon dem neuen Besitzer gehören, werden übersprungen) → Anwenden |
 
 ### Fachregeln
 
@@ -40,6 +40,14 @@ Boards übertragen. Außerdem korrigiert sie zwei Fehler der Vorlage (siehe unte
   hat eine umgebungsspezifische ID und die Freigabe „Nur ich“ und wird daher
   über ihren Namen (de/en/fr) erkannt; sie ist vor dem Löschen geschützt.
   FastTrack prüft nur über Namen.
+- **Besitzer ändern** ist ein PATCH auf `ownerid@odata.bind`
+  (`/systemusers(id)` bzw. `/teams(id)`), die Web-API-Form von `Assign`.
+  Läuft über die native Datenquelle mit den Rechten des Nutzers, braucht also
+  „Zuweisen“ auf Schedule Board Settings. Zugriffsteams (`teamtype` 1)
+  können nichts besitzen und tauchen in der Besitzer-Suche nicht auf. Die
+  verknüpften `msdyn_configuration`-Zeilen und die Datensatz-Freigaben
+  bleiben unverändert. Bei „Nur ich“ wandert das Board damit in die Liste des
+  neuen Besitzers.
 - `msdyn_settings` wird **nie neu aufgebaut**. Der Editor ändert genau den
   jeweiligen Pfad, unbekannte Schlüssel bleiben unverändert erhalten. Davon
   gibt es reichlich: `GroupResourcesBy`, `hideLegend`, die
@@ -206,6 +214,7 @@ und „Custom Retrieve Resources Query …“.
   auf `savedquery` über das SDK, Parameterform von `GrantAccess`/`RevokeAccess`
   über den Connector, Lesezugriff auf `principalobjectaccess` für Nicht-Admins,
   `EntityDefinitions` mit doppeltem `$expand` (Attribute + ManyToOneRelationships)
-  über den Connector.
+  über den Connector, Besitzerwechsel per `ownerid@odata.bind` über die
+  native Datenquelle.
 - Export/Import und Transfer zwischen Umgebungen (Modul D) sind bewusst
   zurückgestellt.

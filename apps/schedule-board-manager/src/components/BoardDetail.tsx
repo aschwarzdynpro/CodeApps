@@ -179,7 +179,7 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
             ['edit', 'Bearbeiten'],
             ['json', 'JSON'],
             ['filter', 'Filterlayout'],
-            ['sharing', 'Freigaben'],
+            ['sharing', 'Besitzer & Freigaben'],
             ['history', 'Verlauf'],
           ] as [Tab, string][]
         ).map(([t, label]) => (
@@ -218,7 +218,13 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
             boardName={board.name}
             shareType={board.shareType}
             ownerName={board.ownerName}
+            ownerId={board.ownerId}
+            canAssign={protection.canAssign}
             notify={notify}
+            onOwnerChanged={() => {
+              reload()
+              onListChanged()
+            }}
           />
         ) : null}
         {tab === 'history' ? <History boardId={board.id} onRestore={restore} /> : null}
