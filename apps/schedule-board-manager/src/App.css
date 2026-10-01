@@ -1133,6 +1133,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  container-type: inline-size;
 }
 
 .design__bar {
@@ -1169,14 +1170,37 @@
 .workbench {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  grid-template-areas:
+    'code preview'
+    'palette preview';
+  grid-template-rows: auto 1fr;
   gap: 16px;
   align-items: start;
 }
 
-@media (max-width: 1180px) {
+/* The lane preview needs ~780px, so two columns only pay off from ~1500px. */
+@container (max-width: 1500px) {
   .workbench {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'code'
+      'preview'
+      'palette';
+    grid-template-rows: none;
   }
+}
+
+.workbench__code {
+  grid-area: code;
+}
+
+.workbench__palette {
+  grid-area: palette;
+  min-width: 0;
+}
+
+.workbench__preview {
+  grid-area: preview;
 }
 
 .workbench__code,
@@ -1188,11 +1212,12 @@
 }
 
 .workbench__text textarea {
-  min-height: 260px;
+  min-height: 200px;
   font-size: 12px;
   line-height: 1.5;
   tab-size: 2;
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .workbench__text textarea[readonly] {
@@ -1450,12 +1475,13 @@
 /* views */
 .views-designer {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
 
-@media (max-width: 1000px) {
+/* Container width, not window: the host and the board list take ~400px. */
+@container (max-width: 620px) {
   .views-designer {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1599,12 +1625,6 @@
   align-items: start;
 }
 
-@media (max-width: 1000px) {
-  .color-designer {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 .color-designer__form {
   display: flex;
   flex-direction: column;
@@ -1615,6 +1635,24 @@
 .cp h4 {
   font-size: 13px;
   margin: 4px 0;
+}
+
+/* The day grid needs ~650px next to the 300px form; below that, stack and lay the color fields out in columns. */
+@container (max-width: 1000px) {
+  .color-designer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .color-designer__form {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    column-gap: 16px;
+  }
+
+  .color-designer__form h4,
+  .color-designer__form > p {
+    grid-column: 1 / -1;
+  }
 }
 
 .color-designer__preview {

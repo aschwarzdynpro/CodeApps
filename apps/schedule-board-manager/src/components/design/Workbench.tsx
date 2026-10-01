@@ -7,7 +7,9 @@ import { InsertContext, type Insert } from './insert'
 
 /**
  * Two columns: template code with palette on the left, preview and sample
- * values on the right. The palette inserts at the cursor; read-only mode
+ * values on the right. Narrow (by the panel's own width, not the window —
+ * the Power Apps host and the board list take a lot of it): code, preview,
+ * then palette, so the preview stays next to what is being typed. The palette inserts at the cursor; read-only mode
  * (inherited or product template) shows the code but takes no input.
  */
 export function TemplateWorkbench({
@@ -55,6 +57,8 @@ export function TemplateWorkbench({
           onChange={(e) => onChange(e.target.value)}
         />
         <LintList lints={lints} />
+      </div>
+      <div className="workbench__palette">
         <InsertContext.Provider value={readOnly ? null : insert}>{palette}</InsertContext.Provider>
       </div>
       <div className="workbench__preview">{children}</div>
