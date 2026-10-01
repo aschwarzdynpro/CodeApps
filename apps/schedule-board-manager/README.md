@@ -143,7 +143,7 @@ cp .env.example .env   # VITE_ORG_URL=https://operations-d365-schulz-uat-1-1.crm
 
 | Umgebung | Env-ID | App-ID | Stand |
 | --- | --- | --- | --- |
-| Schulz UAT (`operations-d365-schulz-uat-1-1.crm4`) | `2eaa34de-dcf1-e949-86d9-82d9fd748045` | — | Datenquellen eingebunden, **noch nicht gepusht** |
+| Schulz UAT (`operations-d365-schulz-uat-1-1.crm4`) | `2eaa34de-dcf1-e949-86d9-82d9fd748045` | `bd2c2082-e858-4386-a4f7-a5e4d6f0e3bd` | gepusht 2026-10-01 (`pac code push`), Connector an Benutzer-Connection `4a9f0463…` |
 
 Push nur nach Rücksprache. Profilwahl, Prüfung und Push gehören in **einen**
 Aufruf (siehe Root-`AGENTS.md`). Das Ziel bestimmt allein die
