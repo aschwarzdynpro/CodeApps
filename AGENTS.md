@@ -32,6 +32,7 @@ CodeApps/
 │   ├── audit-explorer/     # Code App: Dataverse-Audit-History, query-first
 │   ├── sales-dashboard/    # Code App: Sales Dashboard GVL (Waldmann), Fassung eines Legacy-Dashboards
 │   ├── approval-cockpit/   # Code App: Genehmigungs-Inbox, nur Mock-Daten (kein power.config.json)
+│   ├── schedule-board-manager/ # Code App: URS-Schedule-Boards kopieren/bearbeiten/vergleichen/bulk (Schulz UAT)
 │   └── my-day/             # Gen Page in Sales Hub (Waldmann): Termine/Aufgaben/Projektaufgaben + Leads/Projekte/Anfragen/Workorders
 ├── docs/                   # SETUP.md (neue App anlegen), IDEAS*.md, HANDOVER.md (Audit Explorer)
 ├── marketing/              # Sales-Deck + Handout der Solution Administration Console
@@ -80,7 +81,7 @@ Console" (npm-Name `solution-administration-console`).
 | `npm run dev` | Vite-Dev-Server (`http://localhost:3000`, „Local Play" in Power Apps) |
 | `npm run build` | `tsc -b && vite build` — **muss grün sein vor jedem Commit** |
 | `npm run lint` | ESLint (React 19, react-hooks, React-Compiler-Regeln) — **muss grün sein** |
-| `npm run test` | Vitest (nur solution-forge; Tests liegen neben `src/utils/*`) |
+| `npm run test` | Vitest (solution-forge, schedule-board-manager; Tests liegen neben `src/utils/*`) |
 | `power-apps push` / `pac code push` | Veröffentlicht in die Ziel-Umgebung — **nie blind**, siehe unten |
 
 Toolchain: Node 24 (LTS reicht), `@microsoft/power-apps` (npm-CLI, global),
@@ -89,7 +90,7 @@ Toolchain: Node 24 (LTS reicht), `@microsoft/power-apps` (npm-CLI, global),
 
 ## Gitignored, aber build-relevant (häufigste Stolperfalle)
 
-In `audit-explorer` und `solution-forge` sind **`power.config.json`** und
+In `audit-explorer`, `schedule-board-manager` und `solution-forge` sind **`power.config.json`** und
 **`src/generated/`** gitignored (environment-spezifisch bzw. generiert).
 Nach frischem Clone oder Branch-Merge fehlen sie ⇒ Build bricht mit
 `Cannot find module '../generated/...'`. Wiederherstellen mit

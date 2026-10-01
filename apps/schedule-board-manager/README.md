@@ -1,0 +1,165 @@
+# Schedule Board Manager
+
+Code App zum **Duplizieren, Bearbeiten, Vergleichen und Massen-Anpassen** von
+Schedule-Board-Tabs (Universal Resource Scheduling, Tabelle
+`msdyn_scheduleboardsetting`). Gedacht für Admins und Dispositionsleitungen in
+Field-Service- und Project-Operations-Umgebungen.
+
+Ausgangspunkt war das FastTrack-PCF *Schedule Board Settings Management*
+([Learn](https://learn.microsoft.com/en-us/dynamics365/guidance/resources/field-service-schedule-board-settings-management),
+[GitHub](https://github.com/microsoft/Dynamics-365-FastTrack-Implementation-Assets/tree/master/Customer%20Service/Field%20Service/Component%20Library/URS/ScheduleBoardSettingsManagement)).
+Das kann lesen, kopieren, löschen und (de)aktivieren, aber nicht bearbeiten.
+Diese App kann zusätzlich bearbeiten, vergleichen und Einstellungen auf mehrere
+Boards übertragen. Außerdem korrigiert sie zwei Fehler der Vorlage (siehe unten).
+
+## Funktionen
+
+| Bereich | Inhalt |
+| --- | --- |
+| **Boards** | Liste mit Freigabeart, Status und Besitzer; Reihenfolge der Tabs ändern (`msdyn_ordernumber`); Kopieren (Name, Freigabe, Position, optional mit Datensatz-Freigaben); Aktivieren/Deaktivieren; Löschen; Export als JSON; Link zum Datensatz-Formular |
+| **Freigaben** | Für Boards mit „Bestimmte Personen“: wer das Board sieht (Benutzer und Teams, aus `principalobjectaccess`), Stufe „Lesen“ oder „Lesen & Bearbeiten“ ändern, entfernen, neue Benutzer/Teams suchen und freigeben |
+| **Bearbeiten** | Formular nach dem MS-[Field-Mapping](https://learn.microsoft.com/en-us/dynamics365/guidance/resources/field-service-schedule-board-settings-field-mapping): Board-Ansicht, Farben, Schedule Assistant, Karte, Sonstiges (inkl. der 3 Konfigurations-Lookups), eigene Web-Ressource, Schedule-Typen (`SlotMetadataCollection`), Anforderungsbereiche (`UnscheduledTabs`, hinzufügen/sortieren/entfernen). Nicht gesetzte Felder zeigen den Wert des Default-Boards an. Roh-JSON-Editor als Fallback |
+| **Speichern** | Vorschau aller geänderten Felder (Diff bis auf die einzelnen JSON-Werte), es werden nur geänderte Spalten geschrieben; Konfliktprüfung über `versionnumber`; der vorherige Stand landet im Verlauf (lokal im Browser, die letzten 10) und lässt sich als Entwurf zurückladen |
+| **Vergleichen** | Zwei Boards Feld für Feld, filterbar nach Bereich; „Von A nach B übertragen“ springt mit vorausgewählten Feldern in den Bulk |
+| **Mehrere anpassen** | Vorlage-Board + Auswahl (Konfigurationen, Settings-Schlüssel der obersten Ebene, Filterwerte, Spalten) + Ziel-Boards → Vorschau pro Board → Anwenden mit Ergebnis pro Board |
+
+### Fachregeln
+
+- **Kopieren übernimmt die drei `msdyn_configuration`-Lookups** (Filterlayout,
+  Ressourcenzellen-Vorlage, Ressourcenabfrage). Das FastTrack-Control kopiert
+  nur Schlüssel, die mit `msdyn_` beginnen, und verliert dadurch die
+  `_msdyn_*_value`-Lookups. In Schulz UAT hängen genau dort die
+  kundeneigenen Configs.
+- Eine Kopie ist nie ein System-Board: aus `System` wird `Jeder`, sonst wird
+  die Freigabe übernommen oder im Dialog gewählt. Datensatz-Freigaben werden
+  nicht kopiert, Besitzer ist der Kopierende.
+- **Schutz:** Boards mit Freigabe `System` (192350003) oder einer der festen
+  URS-IDs (Default, Ressourcennutzung, Buchungen verwalten) können weder
+  gelöscht noch deaktiviert noch umbenannt werden. Die „Initial public view“
+  hat eine umgebungsspezifische ID und die Freigabe „Nur ich“ und wird daher
+  über ihren Namen (de/en/fr) erkannt; sie ist vor dem Löschen geschützt.
+  FastTrack prüft nur über Namen.
+- `msdyn_settings` wird **nie neu aufgebaut**. Der Editor ändert genau den
+  jeweiligen Pfad, unbekannte Schlüssel bleiben unverändert erhalten. Davon
+  gibt es reichlich: `GroupResourcesBy`, `hideLegend`, die
+  Schedule-Assistant-Kopien in `SlotMetadataCollection` …
+- Schalter, die es nur als vorhandenen Schlüssel gibt (`hideCancelled`,
+  `applyFilterTerritory`, `showTravelTime` → `1`,
+  `showBookingsProportionally` → `true`), werden beim Ausschalten entfernt
+  und nicht auf 0 gesetzt. So macht es das Board auch.
+- `ScheduleAssistantFilterLayout(Id)` und
+  `ScheduleAssistantResourceCellTemplate(Id)` in den Schedule-Typen sind
+  Inline-Kopien von Konfigurationszeilen. Das Formular fasst sie nicht an;
+  Änderungen nur über den JSON-Reiter.
+
+## Datenmodell (Kurzform)
+
+| Ort | Inhalt |
+| --- | --- |
+| Spalten | Name, Freigabe, Reihenfolge, Farben (Hex **ohne** `#`), Ansichts-IDs als String, SA-Icons, Seitengröße … — Liste in [`src/types/board.ts`](src/types/board.ts) |
+| Lookups → `msdyn_configuration` | `msdyn_filterlayout` (Typ 192350000), `msdyn_resourcecelltemplate` (192350001), `msdyn_retrieveresourcesquery` (192350002); schreiben über `msdyn_FilterLayout@odata.bind` usw. |
+| `msdyn_settings` (JSON-String) | Zeitskala, Arbeitszeit/-tage, Zeilenhöhen, Zeitzone (`timezonedefinition`), `SlotMetadataCollection` (ein Eintrag je `msdyn_bookingsetupmetadata`, in Project-Operations-Umgebungen 4 statt 3), `UnscheduledTabs` |
+| `msdyn_filtervalues` (JSON-String) | gespeicherte Ressourcenfilter („Als Standard speichern“) |
+
+Freigabe: 192350000 Jeder · 192350001 Nur ich · 192350002 Bestimmte Personen · 192350003 System.
+
+## Aufbau
+
+```
+src/
+├── PowerProvider.tsx        # Host-Erkennung (Power Apps vs. lokal → Mock)
+├── config.ts                # VITE_ORG_URL für Formular-Links
+├── types/board.ts           # Domänenmodell: Spalten, Lookups, Share Types
+├── utils/
+│   ├── settingsModel.ts     # JSON lesen/ändern/flatten, Präsenz-Flags
+│   ├── settingsFields.ts    # Editor-Definitionen nach MS-Field-Mapping
+│   ├── boardRules.ts        # Schutz, Kopieren, Diff, Bulk-Auswahl
+│   └── snapshots.ts         # lokaler Verlauf + JSON-Download
+├── services/
+│   ├── boardService.ts      # Interface + Auswahl Dataverse/Mock
+│   ├── dataverseBoardService.ts
+│   ├── mockBoardService.ts  # In-Memory, für `npm run dev` ohne Host
+│   └── mockData.ts          # fiktive Boards (keine Kundendaten)
+│   └── dataverseSharing.ts  # Freigaben über den Dataverse-Connector
+└── components/              # BoardList, BoardDetail, BoardEditor, SlotTypesEditor,
+                             # PanelsEditor, RawJsonEditor, DiffTable, CompareView,
+                             # BulkView, SharingPanel
+```
+
+### Freigaben über den Dataverse-Connector
+
+Freigaben laufen über den Connector `shared_commondataserviceforapps`
+(`src/services/dataverseSharing.ts`), gebunden an eine **Benutzer-Connection**
+(in UAT `4a9f0463…`, EX-Andy.Schwarz). Jeder App-Nutzer legt beim ersten Start
+seine eigene Connection an. `GrantAccess`/`ModifyAccess`/`RevokeAccess` laufen
+deshalb mit den Rechten des angemeldeten Nutzers. Bewusst **keine**
+SP-Connection wie „App-Reg D365-CE nonProd“: dann könnte jeder App-Nutzer mit
+den Rechten des SP beliebige Boards teilen.
+
+- Lesen: FetchXML auf `principalobjectaccess` (nur direkte Freigaben,
+  `accessrightsmask > 0`) per `ListRecordsWithOrganization`; die Namen kommen
+  aus den nativen Tabellen `systemuser`/`team`.
+- Schreiben: `PerformUnboundActionWithOrganization`. Entity-Parameter
+  (`Target`, `Revokee`) gehen als `entityset(id)`-String, `PrincipalAccess`
+  als Objekt mit `Principal` inkl. `@odata.type` (Format wie in der Power-
+  Automate-Aktion „Perform an unbound action“). Lehnt der Connector die
+  String-Form ab, wird einmal die Objektform versucht und die
+  funktionierende Form gemerkt.
+- Neue Freigabe = `GrantAccess` (fügt nur Rechte hinzu), Stufe ändern =
+  `ModifyAccess` (ersetzt die Maske), Entfernen = `RevokeAccess`.
+- Org-URL für den Connector: `VITE_ORG_URL` (Build-Zeit). Fehlt sie, zeigt
+  der Reiter „Freigaben“ einen Hinweis statt Fehlern.
+
+Anders als bei den reinen Lese-Apps im Repo gibt es **keinen** stillen
+Rückfall auf den Mock bei Fehlern. Im Power-Apps-Host laufen Fehler bis in die
+Oberfläche durch, damit ein Schreibvorgang nie scheinbar gelingt.
+
+## Entwickeln
+
+```bash
+npm install
+npm run dev      # http://localhost:3000 — ohne Host: Mock-Daten (Badge oben rechts)
+npm run test     # Vitest: settingsModel + boardRules
+npm run build    # tsc -b && vite build
+npm run lint
+```
+
+`power.config.json`, `src/generated/`, `.power/` und `.env` sind gitignored.
+Wiederherstellen (Schulz UAT, Profil `SchulzNEW`):
+
+```bash
+pac auth select --name SchulzNEW
+pac code init --environment 2eaa34de-dcf1-e949-86d9-82d9fd748045 \
+  --displayName "Schedule Board Manager" --buildPath "./dist" \
+  --fileEntryPoint "index.html" --appUrl "http://localhost:3000"
+for t in msdyn_scheduleboardsetting msdyn_configuration msdyn_bookingsetupmetadata \
+         savedquery userquery systemuser team timezonedefinition; do
+  pac code add-data-source -a dataverse -t $t
+done
+cp .env.example .env   # VITE_ORG_URL=https://operations-d365-schulz-uat-1-1.crm4.dynamics.com
+```
+
+## Deployment-Stand
+
+| Umgebung | Env-ID | App-ID | Stand |
+| --- | --- | --- | --- |
+| Schulz UAT (`operations-d365-schulz-uat-1-1.crm4`) | `2eaa34de-dcf1-e949-86d9-82d9fd748045` | — | Datenquellen eingebunden, **noch nicht gepusht** |
+
+Push nur nach Rücksprache. Profilwahl, Prüfung und Push gehören in **einen**
+Aufruf (siehe Root-`AGENTS.md`). Das Ziel bestimmt allein die
+`environmentId` in `power.config.json`; `--environment` an `pac code push`
+lenkt den Push nicht um (Gotcha aus `audit-explorer`). Vor dem Push also
+prüfen, dass dort `2eaa34de-…` steht.
+
+Datenlage UAT (2026-10-01): 8 Boards (3 System, „Erste öffentliche Ansicht“,
+4 eigene), URS über Project Operations, eigene Configs „Custom Filter Layout …“
+und „Custom Retrieve Resources Query …“.
+
+## Offen
+
+- Gegen echtes Dataverse noch nicht verifiziert: Lookup leeren per
+  `…@odata.bind: null`, FormattedValue des Besitzers, `returnedtypecode`-Filter
+  auf `savedquery` über das SDK, Parameterform von `GrantAccess`/`RevokeAccess`
+  über den Connector, Lesezugriff auf `principalobjectaccess` für Nicht-Admins.
+- Export/Import und Transfer zwischen Umgebungen (Modul D) sind bewusst
+  zurückgestellt.
