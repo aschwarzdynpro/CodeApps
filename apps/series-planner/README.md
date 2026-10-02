@@ -189,6 +189,7 @@ bricht `npm run build` mit dem Namen — dann den Import in
 
 Noch nicht deployt. Ziel: Schulz UAT (`operations-d365-schulz-uat-1-1.crm4`,
 Env-ID `2eaa34de-dcf1-e949-86d9-82d9fd748045`). Push nur nach Rücksprache.
+Aktueller Stand und nächste Schritte: [STATUS.md](STATUS.md).
 
 ## Offen
 
