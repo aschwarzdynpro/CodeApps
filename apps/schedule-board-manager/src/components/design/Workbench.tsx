@@ -19,6 +19,7 @@ export function TemplateWorkbench({
   lints,
   onChange,
   palette,
+  builder,
   children,
 }: {
   label: string
@@ -28,6 +29,8 @@ export function TemplateWorkbench({
   onChange: (value: string) => void
   /** Field or variable picker; inserts through {@link InsertContext}. */
   palette: ReactNode
+  /** Visual editor shown instead of the code; inserts through its own handler. */
+  builder?: { node: ReactNode; insert: Insert }
   children: ReactNode
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
@@ -47,19 +50,25 @@ export function TemplateWorkbench({
   return (
     <div className="workbench">
       <div className="workbench__code">
-        <Textarea
-          ref={ref}
-          className="input input--mono workbench__text"
-          aria-label={label}
-          spellCheck={false}
-          readOnly={readOnly}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        {builder ? (
+          builder.node
+        ) : (
+          <Textarea
+            ref={ref}
+            className="input input--mono workbench__text"
+            aria-label={label}
+            spellCheck={false}
+            readOnly={readOnly}
+            value={value}
+            // As high as the template (no empty block under a one-liner), within limits.
+            rows={Math.min(Math.max(value.split('\n').length + 1, 4), 22)}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        )}
         <LintList lints={lints} />
       </div>
       <div className="workbench__palette">
-        <InsertContext.Provider value={readOnly ? null : insert}>{palette}</InsertContext.Provider>
+        <InsertContext.Provider value={readOnly ? null : (builder?.insert ?? insert)}>{palette}</InsertContext.Provider>
       </div>
       <div className="workbench__preview">{children}</div>
     </div>

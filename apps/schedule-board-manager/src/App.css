@@ -1212,7 +1212,8 @@
 }
 
 .workbench__text textarea {
-  min-height: 200px;
+  min-height: 0;
+  max-height: none;
   font-size: 12px;
   line-height: 1.5;
   tab-size: 2;
@@ -1839,4 +1840,110 @@
   font-size: 12px;
   background: var(--muted);
   color: #fff;
+}
+
+/* ---------- tile builder (Buchungskachel, Buchungswarnung) ---------- */
+.design__modes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tile-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.tile-line {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: text;
+}
+
+.tile-line--active {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px var(--brand);
+}
+
+.tile-line__no {
+  width: 18px;
+  flex-shrink: 0;
+  text-align: right;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tile-line__parts {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.tile-line__actions {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.tile-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+}
+
+.tile-part--field {
+  padding: 2px 4px 2px 10px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 12px;
+}
+
+.tile-part__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tile-part--bold .tile-part__label,
+.tile-part--bold .tile-part__input input {
+  font-weight: 700;
+}
+
+.tile-part__input {
+  min-width: 0;
+}
+
+.tile-part__bold,
+.tile-part__remove {
+  border: none;
+  background: none;
+  padding: 2px;
+  border-radius: 4px;
+  display: inline-flex;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.tile-part__bold:hover,
+.tile-part__remove:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text);
+}
+
+.tile-part__bold.is-on {
+  color: var(--brand);
+  background: rgba(15, 108, 189, 0.12);
 }

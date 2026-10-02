@@ -70,6 +70,13 @@ const WORK_ORDER_TEMPLATE = `<div style="line-height: 13px; width: 99%; overflow
     Dauer: <b>{duration} Minuten</b>
 </div>`
 
+/** Multi-line tile in the style dispatchers use: symbol label, bold value, one line per row. */
+const PROJECT_TILE = `<div style="line-height: 13px !important; width: 100%; overflow: hidden;">
+    💼: <b>{msdyn_msdyn_project_bookableresourcebooking_projectid.msdyn_subject}</b><br/>
+    🙋: <b>{msdyn_msdyn_project_bookableresourcebooking_projectid.msdyn_account_msdyn_project_Customer.name}</b><br/>
+    🕝: <b>{duration}</b><br/>
+</div>`
+
 function slot(id: string, tooltip: string, template: string) {
   return {
     BookingSetupMetadataId: id,
@@ -109,7 +116,7 @@ function settings(opts: {
       slot(BS_NONE, V.bookingTooltip, '<div>{name}</div>'),
       slot(BS_APPOINTMENT, V.bookingTooltip, '<div>{name}<br />{starttime}</div>'),
       slot(BS_WORKORDER, V.bookingCompact, WORK_ORDER_TEMPLATE),
-      slot(BS_PROJECT, V.bookingTooltip, '<div>{SchedulableEntityDisplayName} - {name}</div>'),
+      slot(BS_PROJECT, V.bookingTooltip, PROJECT_TILE),
     ],
     TimeOffsetSetting: TZ_BERLIN,
     TimeResolution: 15,

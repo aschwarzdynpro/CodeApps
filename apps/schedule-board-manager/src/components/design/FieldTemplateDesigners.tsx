@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Checkbox } from '@fluentui/react-components'
+import { Checkbox, Tab, TabList } from '@fluentui/react-components'
 import { useRefData } from '../../hooks/refData'
 import { findSlot, rowHeightOf, slotEntityLabel, slotEntries, slotLabel } from '../../utils/settingsFields'
 import { getAt, setAt, type JsonObject } from '../../utils/settingsModel'
@@ -21,6 +21,9 @@ import { FieldPalette } from './FieldPalette'
 import { PreviewFrame } from './PreviewFrame'
 import { alertDoc, bookingLaneDoc, laneHeight } from './previewDocs'
 import { SampleTable, TemplateWorkbench } from './Workbench'
+import { TileBuilder } from './TileBuilder'
+import { tileOps, useTileState } from './tileOps'
+import { tileEditable } from '../../utils/tileModel'
 
 const SOURCE_LABEL: Record<TemplateSource, string> = {
   own: 'Eigene Vorlage',
@@ -58,6 +61,47 @@ function SourceBar({
       )}
     </div>
   )
+}
+
+type EditMode = 'builder' | 'html'
+
+/** Editing mode and line-editor state; a hook, so call it before any early return. */
+function useEditorState() {
+  const [mode, setMode] = useState<EditMode>('builder')
+  const tile = useTileState()
+  return { mode, setMode, tile }
+}
+
+/**
+ * Baukasten (line editor) or raw HTML. Templates the line model can't hold
+ * without changing what the board renders open as HTML, with the reason.
+ */
+function editorParts(
+  state: ReturnType<typeof useEditorState>,
+  text: string,
+  write: (v: string) => void,
+  readOnly: boolean,
+  baseEntity: string,
+  specials: { path: string; label: string }[] = [],
+) {
+  const model = tileEditable(text)
+  const ops = model ? tileOps(state.tile, model, write) : null
+  const builder =
+    state.mode === 'builder' && model && ops
+      ? { node: <TileBuilder model={model} state={ops} readOnly={readOnly} specials={specials} baseEntity={baseEntity} />, insert: ops.insert }
+      : undefined
+  const switcher = (
+    <div className="design__modes">
+      <TabList size="small" selectedValue={builder ? 'builder' : 'html'} onTabSelect={(_, d) => state.setMode(d.value as EditMode)} aria-label="Bearbeitungsart">
+        <Tab value="builder" disabled={!model}>
+          Baukasten
+        </Tab>
+        <Tab value="html">HTML</Tab>
+      </TabList>
+      {!model ? <span className="muted small">Die Vorlage nutzt HTML, das der Baukasten nicht abbildet — Bearbeitung als HTML.</span> : null}
+    </div>
+  )
+  return { builder, switcher }
 }
 
 /** Sample values for `{field}` placeholders with per-path overrides. */
@@ -99,6 +143,7 @@ export function BookingTileDesigner({
   const [duration, setDuration] = useState(120)
   const [statusColor, setStatusColor] = useState('#2E7CD6')
   const [clip, setClip] = useState(true)
+  const editor = useEditorState()
   const entries = slotEntries(settings)
   const entry = entries[Math.min(slotIndex, entries.length - 1)]
   const samples = useFieldSamples({ entityLabel: entry ? slotEntityLabel(entry.id, bookingSetups) : undefined, durationMinutes: duration })
@@ -113,6 +158,7 @@ export function BookingTileDesigner({
   const write = (v: string | undefined) => onSettings(setAt(settings, ['SlotMetadataCollection', entry.index, 'SlotTemplate'], v))
   const rowHeight = rowHeightOf(settings, defSettings, 'hourAndDay')
   const html = renderFieldTemplate(text, samples.valueOf)
+  const { builder, switcher } = editorParts(editor, text, (v) => write(v), source !== 'own', TEMPLATE_BASE_ENTITY.booking, SPECIAL_BOOKING_FIELDS)
 
   return (
     <>
@@ -123,11 +169,17 @@ export function BookingTileDesigner({
             aria-label="Schedule-Typ"
             value={String(entry.index)}
             options={entries.map((e) => ({ value: String(e.index), label: slotLabel(e.id, bookingSetups) }))}
-            onChange={(v) => onSlot(entries.findIndex((e) => e.index === Number(v)))}
+            onChange={(v) => {
+              editor.tile.setActive(0)
+              editor.tile.setPending(false)
+              onSlot(entries.findIndex((e) => e.index === Number(v)))
+            }}
           />
         </div>
       </SourceBar>
+      {switcher}
       <TemplateWorkbench
+        builder={builder}
         label="Buchungsvorlage (HTML)"
         value={text}
         readOnly={source !== 'own'}
@@ -188,17 +240,21 @@ export function AlertDesigner({
   onSettings: (next: JsonObject) => void
 }) {
   const samples = useFieldSamples({})
+  const editor = useEditorState()
   const path = ['BookingAlertTemplate']
   const saved = getAt(origSettings, path)
   const { source, text } = resolveTemplate(getAt(settings, path), saved, defSettings ? getAt(defSettings, path) : undefined, DEFAULT_ALERT_TEMPLATE)
   const changed = (getAt(settings, path) ?? null) !== (saved ?? null)
   const write = (v: string | undefined) => onSettings(setAt(settings, path, v))
   const html = renderFieldTemplate(text, samples.valueOf)
+  const { builder, switcher } = editorParts(editor, text, (v) => write(v), source !== 'own', TEMPLATE_BASE_ENTITY.alert)
 
   return (
     <>
       <SourceBar source={source} changed={changed} onOwn={() => write(text)} onRemove={() => write(undefined)} />
+      {switcher}
       <TemplateWorkbench
+        builder={builder}
         label="Vorlage Buchungswarnungen (HTML)"
         value={text}
         readOnly={source !== 'own'}

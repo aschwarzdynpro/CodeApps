@@ -122,7 +122,8 @@ src/
     │                        # ConfigHistory, ui (Fluent-Wrapper), Modal (Fluent Dialog)
     └── design/              # Reiter „Darstellung“: DesignPanel, FieldTemplateDesigners
                              # (Buchungskachel, Warnung), CellTemplateDesigner, ViewsDesigner,
-                             # ColorDesigner, Workbench, FieldPalette, PreviewFrame (Sandbox), previewDocs
+                             # ColorDesigner, Workbench, FieldPalette, PreviewFrame (Sandbox), previewDocs,
+                             # TileBuilder + tileOps (Baukasten für Buchungskachel/-warnung)
 ```
 
 ### Filterlayout
@@ -185,6 +186,20 @@ eigene Speicherleiste.
   bis „Als eigene Vorlage bearbeiten“ sie ins Board übernimmt. „Eigene
   Vorlage entfernen“ löscht den Schlüssel. Ein gespeicherter Leerstring gilt
   als „nicht gesetzt“.
+- **Baukasten (Buchungskachel, Buchungswarnung):** Standard-Bearbeitung
+  ohne HTML. Die Vorlage erscheint als Zeilen; Felder sind Chips mit
+  Anzeigenamen aus den Metadaten („Projekt › Kunde › Name“), Text ein kleines
+  Eingabefeld, Fett je Teil per Klick; Zeilen hinzufügen, verschieben,
+  löschen; ein Klick in der Feldliste hängt das Feld an die gewählte Zeile.
+  Modell in `src/utils/tileModel.ts`: Rahmen-`div` → Zeilen (getrennt durch
+  `<br>`) → Text/Feld, fett oder nicht. Geschrieben wird nur nach einer
+  Änderung, und zwar im Stil der Vorlage (Rahmen mit Attributen, `<b>` vs.
+  `<strong class="bold">`, `<br/>` vs. `<br />`, eine Zeile pro Reihe mit
+  Einrückung) — im Diff steht nur die Änderung. Vorlagen mit anderem HTML
+  (Bilder, `span`, verschachtelte `div`, gemischte Fett-Tags) öffnen als
+  HTML; der Baukasten ist dann gesperrt. Alle Vorlagen aus Schulz UAT
+  (Stand 2026-10-01) sind verlustfrei abbildbar. Der HTML-Modus ist so hoch
+  wie die Vorlage.
 - **Feldauswahl:** Spalten und N:1-Beziehungen kommen aus `EntityDefinitions`
   (`ManyToOneRelationships.SchemaName`). Jeder Schritt hängt den
   Beziehungsnamen an, wie die Buchungsvorlage es erwartet
