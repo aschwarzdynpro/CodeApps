@@ -12,6 +12,8 @@ Das kann lesen, kopieren, löschen und (de)aktivieren, aber nicht bearbeiten.
 Diese App kann zusätzlich bearbeiten, vergleichen und Einstellungen auf mehrere
 Boards übertragen. Außerdem korrigiert sie zwei Fehler der Vorlage (siehe unten).
 
+Vorschläge für den weiteren Ausbau: [`Roadmap.md`](Roadmap.md).
+
 ## Funktionen
 
 | Bereich | Inhalt |
@@ -334,9 +336,8 @@ und „Custom Retrieve Resources Query …“.
   (`EntitySetName` + `$filter`), `savedquery`/`userquery` nach ID (auch mit
   `layoutxml`/`fetchxml` für die Tooltip-Vorschau), `SchemaName` in
   `ManyToOneRelationships` und `IsCustomEntity` über den Connector.
-- Darstellung: Vorschau-`iframe` (`srcdoc`, leeres `sandbox`) im
-  Power-Apps-Host noch nicht geprüft — verbietet die CSP des Hosts Inline-CSS,
-  erscheint die Vorschau ungestylt. Die Treue der Vorschau gegenüber dem
-  echten Board ist nur an den Microsoft-Beispielen abgeglichen, nicht an
-  Schulz-Vorlagen.
-- Import nach PROD: App dort noch nicht deployt.
+- Darstellung: Die Vorschau-`iframe` (`srcdoc`, leeres `sandbox`) rendert im
+  Power-Apps-Host mit Stilen (in UAT gesehen, 2026-10-01). Die Treue der
+  Vorschau gegenüber dem echten Board ist nur an den Microsoft-Beispielen
+  abgeglichen, nicht an Schulz-Vorlagen.
+- Import nach PROD: App dort noch nicht deployt (siehe Roadmap).
