@@ -1,7 +1,8 @@
 # Status Serienplanung — Übergabe (2026-10-02)
 
-Branch `feature/series-planner`, gebaut in einer Remote-Session; weiter geht
-es mit Claude Code in VS Code. Fachliches und Einrichtung stehen in der
+Gebaut auf `feature/series-planner` in einer Remote-Session, am 2026-10-02
+nach `main` gemergt (Branch gelöscht); weiter geht es auf `main` mit Claude
+Code in VS Code. Fachliches und Einrichtung stehen in der
 [README](README.md), hier nur der Stand und die nächsten Schritte.
 
 ## Stand
