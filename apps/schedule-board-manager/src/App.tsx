@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Tab, TabList } from '@fluentui/react-components'
+import { QuestionCircleRegular } from '@fluentui/react-icons'
 import './App.css'
 import { usePower } from './PowerProvider'
 import type { BoardService } from './services/boardService'
@@ -12,6 +13,10 @@ import { BulkView } from './components/BulkView'
 import { ImportView } from './components/ImportView'
 import { getBoardService } from './services/boardService'
 import { isDefaultBoard } from './utils/boardRules'
+import { Btn } from './components/ui'
+import { HelpPanel } from './help/HelpPanel'
+import { HelpContext, type OpenHelp } from './help/helpContext'
+import { HELP_FOR } from './help/helpContent'
 
 type View = 'boards' | 'compare' | 'bulk' | 'import'
 
@@ -24,6 +29,8 @@ export default function App() {
   const [bulkPreset, setBulkPreset] = useState<BulkPreset | null>(null)
   const [bulkEpoch, setBulkEpoch] = useState(0)
   const [toast, setToast] = useState<{ text: string; kind: 'ok' | 'error'; id: number } | null>(null)
+  const [help, setHelp] = useState<{ open: boolean; section: string | null }>({ open: false, section: null })
+  const openHelp: OpenHelp = useCallback((section) => setHelp({ open: true, section: section ?? HELP_FOR[view] ?? null }), [view])
 
   const boardsRes = useLoad(ready ? 'boards' : null, listBoards)
   const refRes = useLoad(ready ? 'ref' : null, loadRefData)
@@ -58,86 +65,97 @@ export default function App() {
   const current = selectedId && boards.some((b) => b.id === selectedId) ? selectedId : (boards.find((b) => !isDefaultBoard(b))?.id ?? null)
 
   return (
-    <RefDataContext.Provider value={refRes.data ?? EMPTY_REF_DATA}>
-      <div className="app">
-        <header className="topbar">
-          <div className="topbar__brand">
-            <span className="topbar__logo" aria-hidden>
-              ▦
+    <HelpContext.Provider value={openHelp}>
+      <RefDataContext.Provider value={refRes.data ?? EMPTY_REF_DATA}>
+        <div className="app">
+          <header className="topbar">
+            <div className="topbar__brand">
+              <span className="topbar__logo" aria-hidden>
+                ▦
+              </span>
+              Schedule Board Manager
+            </div>
+            <TabList
+              className="topbar__nav"
+              selectedValue={view}
+              onTabSelect={(_, d) => setView(d.value as View)}
+              aria-label="Bereiche"
+            >
+              <Tab value="boards">Boards</Tab>
+              <Tab value="compare">Vergleichen</Tab>
+              <Tab value="bulk">Mehrere anpassen</Tab>
+              <Tab value="import">Importieren</Tab>
+            </TabList>
+            <Btn kind="ghost" icon={<QuestionCircleRegular />} onClick={() => openHelp()} title="Hilfe zum aktuellen Bereich">
+              Hilfe
+            </Btn>
+            <span className={`mode mode--${mode}`} title={mode === 'local-mock' ? 'Kein Power-Apps-Host — Beispieldaten im Speicher' : 'Dataverse'}>
+              {ready ? (mode === 'local-mock' ? 'Mock-Daten' : 'Dataverse') : '…'}
             </span>
-            Schedule Board Manager
-          </div>
-          <TabList
-            className="topbar__nav"
-            selectedValue={view}
-            onTabSelect={(_, d) => setView(d.value as View)}
-            aria-label="Bereiche"
-          >
-            <Tab value="boards">Boards</Tab>
-            <Tab value="compare">Vergleichen</Tab>
-            <Tab value="bulk">Mehrere anpassen</Tab>
-            <Tab value="import">Importieren</Tab>
-          </TabList>
-          <span className={`mode mode--${mode}`} title={mode === 'local-mock' ? 'Kein Power-Apps-Host — Beispieldaten im Speicher' : 'Dataverse'}>
-            {ready ? (mode === 'local-mock' ? 'Mock-Daten' : 'Dataverse') : '…'}
-          </span>
-        </header>
+          </header>
 
-        {boardsRes.error ? <div className="notice notice--error">Boards konnten nicht geladen werden: {boardsRes.error}</div> : null}
-        {refRes.error ? (
-          <div className="notice notice--error">
-            Ansichten/Konfigurationen konnten nicht geladen werden ({refRes.error}). Auswahllisten zeigen nur IDs.
-          </div>
-        ) : null}
+          {boardsRes.error ? <div className="notice notice--error">Boards konnten nicht geladen werden: {boardsRes.error}</div> : null}
+          {refRes.error ? (
+            <div className="notice notice--error">
+              Ansichten/Konfigurationen konnten nicht geladen werden ({refRes.error}). Auswahllisten zeigen nur IDs.
+            </div>
+          ) : null}
 
-        {!ready || (boardsRes.loading && !boardsRes.data) ? <div className="loading">Lade Boards …</div> : null}
+          {!ready || (boardsRes.loading && !boardsRes.data) ? <div className="loading">Lade Boards …</div> : null}
 
-        {ready && boardsRes.data ? (
-          view === 'boards' ? (
-            <main className="layout">
-              <BoardList boards={boards} selectedId={current} onSelect={setSelectedId} onSaveOrder={saveOrder} />
-              {current ? (
-                <BoardDetail
-                  key={current}
-                  boardId={current}
-                  boards={boards}
-                  defaults={defaultRes.data?.content ?? null}
-                  notify={notify}
-                  onListChanged={onListChanged}
-                />
-              ) : (
-                <div className="empty">Keine Boards sichtbar. Fehlen Leserechte auf „Schedule Board Setting“?</div>
-              )}
-            </main>
-          ) : view === 'compare' ? (
-            <CompareView
-              boards={boards}
-              onTransfer={(preset) => {
-                setBulkPreset(preset)
-                setBulkEpoch((n) => n + 1)
-                setView('bulk')
-              }}
-            />
-          ) : view === 'bulk' ? (
-            <BulkView key={bulkEpoch} boards={boards} preset={bulkPreset} notify={notify} onDone={() => boardsRes.reload()} />
-          ) : (
-            <ImportView
-              boards={boards}
-              notify={notify}
-              onImported={(id) => {
-                onListChanged(id)
-                setView('boards')
-              }}
-            />
-          )
-        ) : null}
+          {ready && boardsRes.data ? (
+            view === 'boards' ? (
+              <main className="layout">
+                <BoardList boards={boards} selectedId={current} onSelect={setSelectedId} onSaveOrder={saveOrder} />
+                {current ? (
+                  <BoardDetail
+                    key={current}
+                    boardId={current}
+                    boards={boards}
+                    defaults={defaultRes.data?.content ?? null}
+                    notify={notify}
+                    onListChanged={onListChanged}
+                  />
+                ) : (
+                  <div className="empty">Keine Boards sichtbar. Fehlen Leserechte auf „Schedule Board Setting“?</div>
+                )}
+              </main>
+            ) : view === 'compare' ? (
+              <CompareView
+                boards={boards}
+                onTransfer={(preset) => {
+                  setBulkPreset(preset)
+                  setBulkEpoch((n) => n + 1)
+                  setView('bulk')
+                }}
+              />
+            ) : view === 'bulk' ? (
+              <BulkView key={bulkEpoch} boards={boards} preset={bulkPreset} notify={notify} onDone={() => boardsRes.reload()} />
+            ) : (
+              <ImportView
+                boards={boards}
+                notify={notify}
+                onImported={(id) => {
+                  onListChanged(id)
+                  setView('boards')
+                }}
+              />
+            )
+          ) : null}
 
-        {toast ? (
-          <div className={`toast toast--${toast.kind}`} role="status">
-            {toast.text}
-          </div>
-        ) : null}
-      </div>
-    </RefDataContext.Provider>
+          {toast ? (
+            <div className={`toast toast--${toast.kind}`} role="status">
+              {toast.text}
+            </div>
+          ) : null}
+          <HelpPanel
+            key={help.section ?? 'help'}
+            open={help.open}
+            section={help.section}
+            onClose={() => setHelp((h) => ({ ...h, open: false }))}
+          />
+        </div>
+      </RefDataContext.Provider>
+    </HelpContext.Provider>
   )
 }

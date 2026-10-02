@@ -12,7 +12,10 @@ Das kann lesen, kopieren, löschen und (de)aktivieren, aber nicht bearbeiten.
 Diese App kann zusätzlich bearbeiten, vergleichen und Einstellungen auf mehrere
 Boards übertragen. Außerdem korrigiert sie zwei Fehler der Vorlage (siehe unten).
 
-Vorschläge für den weiteren Ausbau: [`Roadmap.md`](Roadmap.md).
+Vorschläge für den weiteren Ausbau: [`Roadmap.md`](Roadmap.md). Die
+Bedienungsanleitung für Nutzer steckt in der App (Hilfe, Inhalt in
+[`src/help/helpContent.ts`](src/help/helpContent.ts)) — **bei jeder
+sichtbaren Änderung dort nachziehen.**
 
 ## Funktionen
 
@@ -27,6 +30,7 @@ Vorschläge für den weiteren Ausbau: [`Roadmap.md`](Roadmap.md).
 | **Mehrere anpassen** | Vorlage-Board + Auswahl (Konfigurationen, Settings-Schlüssel der obersten Ebene, Filterwerte, Spalten) + Ziel-Boards → Vorschau pro Board → Anwenden mit Ergebnis pro Board. Modus „Besitzer ändern“: Boards wählen + neuer Besitzer → Tabelle bisher/neu (System-Boards und Boards, die schon dem neuen Besitzer gehören, werden übersprungen) → Anwenden |
 | **Darstellung** | Designer mit Live-Vorschau für alles Sichtbare eines Boards: **Buchungskachel** je Schedule-Typ (HTML-Vorlage, Felder über N:1-Beziehungen per Klick einfügen, Kachel in der Stundenansicht mit Dauer, Statusfarbe, Zeilenhöhe), **Ressourcenzelle** (Handlebars-Vorlage der Konfiguration, Variablen aus der Ressourcenabfrage, Vorschau normal/ausgewählt/nicht verfügbar und Schedule-Assistant-Ansicht, eigenes Speichern mit Zeilen-Diff, Kopie nur für dieses Board), **Tooltips & Details** (alle Ansichts-Slots, Spalten der Ansicht als Tooltip, Detailbereich oder Liste), **Farben** (Tages- und Stundenansicht, Schedule Assistant), **Buchungswarnung**. Zeigt, ob eine Vorlage eigen, vom Default-Board geerbt oder Produkt-Standard ist, und prüft auf JavaScript und falsche Platzhalter-Syntax |
 | **Importieren** | Export-Datei eines Boards einlesen (auch aus einer anderen Umgebung), jede Ansicht, Konfiguration, jeden Schedule-Typ, die Zeitzone und gespeicherte Filterwerte der Zielumgebung zuordnen (ID, dann Name; jede Zeile änderbar), Konfigurationen verwenden/neu anlegen/überschreiben/leer lassen → als neues Board anlegen oder ein bestehendes ersetzen (mit Diff) |
+| **Hilfe** | Panel von rechts über der App (ein ungespeicherter Entwurf bleibt erhalten): Inhaltsverzeichnis mit Suche und Hervorhebung, 15 Abschnitte von Überblick bis Häufige Fragen. „Hilfe“ oben öffnet beim aktuellen Bereich, das „?“ neben den Board-Reitern beim aktuellen Reiter. Inhalt als Daten in `src/help/helpContent.ts` |
 
 ### Fachregeln
 
@@ -92,6 +96,7 @@ Portal die Seite.
 src/
 ├── PowerProvider.tsx        # Host-Erkennung (Power Apps vs. lokal → Mock)
 ├── config.ts                # VITE_ORG_URL für Formular-Links
+├── help/                    # Hilfe-Panel: helpContent.ts (Texte, Sprungziele), HelpPanel, helpContext
 ├── types/board.ts           # Domänenmodell: Spalten, Lookups, Share Types
 ├── utils/
 │   ├── settingsModel.ts     # JSON lesen/ändern/flatten, Präsenz-Flags

@@ -181,3 +181,5 @@ Kurzform; Details in der README und im Git-Log.
   Ressourcenzelle, Tooltips, Farben, Buchungswarnung; Layout passt sich der
   verfügbaren Breite im Power-Apps-Host an.
 - **Modern Controls:** Oberfläche auf Fluent UI v9.
+- **Baukasten** für Buchungskachel und Buchungswarnung (Zeilen statt HTML).
+- **Hilfe** in der App mit Suche und Sprung zum aktuellen Bereich.

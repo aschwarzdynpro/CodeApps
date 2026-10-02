@@ -24,7 +24,9 @@ import { FilterLayoutPanel } from './FilterLayoutPanel'
 import { DesignPanel } from './design/DesignPanel'
 import { Btn, Select } from './ui'
 import { Button, Checkbox, Input, Tab as TabItem, TabList } from '@fluentui/react-components'
-import { OpenRegular } from '@fluentui/react-icons'
+import { OpenRegular, QuestionCircleRegular } from '@fluentui/react-icons'
+import { useHelp } from '../help/helpContext'
+import { HELP_FOR } from '../help/helpContent'
 
 export type Notify = (text: string, kind?: 'ok' | 'error') => void
 
@@ -42,6 +44,7 @@ type Dialog = 'copy' | 'delete' | 'toggle' | 'save' | null
 
 export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }: Props) {
   const loadBoard = useCallback((svc: BoardService) => svc.getBoard(boardId), [boardId])
+  const openHelp = useHelp()
   const { data: board, error, loading, reload } = useLoad(boardId, loadBoard)
 
   const [tab, setTab] = useState<Tab>('edit')
@@ -184,22 +187,32 @@ export function BoardDetail({ boardId, boards, defaults, notify, onListChanged }
         </div>
       ) : null}
 
-      <TabList className="tabs" selectedValue={tab} onTabSelect={(_, d) => setTab(d.value as Tab)}>
-        {(
-          [
-            ['edit', 'Bearbeiten'],
-            ['design', 'Darstellung'],
-            ['json', 'JSON'],
-            ['filter', 'Filterlayout'],
-            ['sharing', 'Besitzer & Freigaben'],
-            ['history', 'Verlauf'],
-          ] as [Tab, string][]
-        ).map(([t, label]) => (
-          <TabItem key={t} value={t}>
-            {label}
-          </TabItem>
-        ))}
-      </TabList>
+      <div className="detail__tabs">
+        <TabList className="tabs" selectedValue={tab} onTabSelect={(_, d) => setTab(d.value as Tab)}>
+          {(
+            [
+              ['edit', 'Bearbeiten'],
+              ['design', 'Darstellung'],
+              ['json', 'JSON'],
+              ['filter', 'Filterlayout'],
+              ['sharing', 'Besitzer & Freigaben'],
+              ['history', 'Verlauf'],
+            ] as [Tab, string][]
+          ).map(([t, label]) => (
+            <TabItem key={t} value={t}>
+              {label}
+            </TabItem>
+          ))}
+        </TabList>
+        <Btn
+          small
+          kind="ghost"
+          icon={<QuestionCircleRegular />}
+          aria-label="Hilfe zu diesem Reiter"
+          title="Hilfe zu diesem Reiter"
+          onClick={() => openHelp(HELP_FOR[tab])}
+        />
+      </div>
 
       <div className="detail__body">
         {tab === 'edit' ? (
