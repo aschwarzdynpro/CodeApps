@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<!-- Synthetic test fixture: fictitious pro_ tables, no customer data. -->
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">
+  <Styles>
+    <Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Bottom"/></Style>
+    <Style ss:ID="s1"><Font ss:Bold="1"/></Style>
+    <Style ss:ID="s2"><Protection ss:Protected="1"/></Style>
+  </Styles>
+  <Worksheet ss:Name="Information">
+    <Table>
+      <Row><Cell ss:StyleID="s1"><Data ss:Type="String">Organization Name</Data></Cell><Cell><Data ss:Type="String">Fixture Org</Data></Cell></Row>
+      <Row><Cell ss:StyleID="s1"><Data ss:Type="String">Base Language Code</Data></Cell><Cell><Data ss:Type="String">1033</Data></Cell></Row>
+      <Row><Cell ss:StyleID="s1"><Data ss:Type="String">Solution</Data></Cell><Cell><Data ss:Type="String">ProFixture</Data></Cell></Row>
+    </Table>
+  </Worksheet>
+  <Worksheet ss:Name="Display Strings">
+    <Table>
+      <Row><Cell ss:StyleID="s1"><Data ss:Type="String">Display String Key</Data></Cell><Cell ss:StyleID="s1"><Data ss:Type="String">1033</Data></Cell><Cell ss:StyleID="s1"><Data ss:Type="String">1031</Data></Cell><Cell ss:StyleID="s1"><Data ss:Type="String">1036</Data></Cell></Row>
+      <Row><Cell ss:StyleID="s2"><Data ss:Type="String">pro_Ribbon.Inspect</Data></Cell><Cell><Data ss:Type="String">Inspect</Data></Cell><Cell><Data ss:Type="String">Prüfen</Data></Cell><Cell><Data ss:Type="String">Inspecter</Data></Cell></Row>
+      <Row><Cell ss:StyleID="s2"><Data ss:Type="String">pro_Ribbon.Archive</Data></Cell><Cell><Data ss:Type="String">Archive</Data></Cell></Row>
+    </Table>
+  </Worksheet>
+  <Worksheet ss:Name="Localized Labels">
+    <Table ss:ExpandedColumnCount="6">
+      <Row><Cell ss:StyleID="s1"><Data ss:Type="String">Entity Name</Data></Cell><Cell ss:StyleID="s1"><Data ss:Type="String">Object Id</Data></Cell><Cell ss:StyleID="s1"><Data ss:Type="String">Object Column Name</Data></Cell><Cell ss:StyleID="s1"><Data ss:Type="String">1033</Data></Cell><Cell ss:StyleID="s1"><Data ss:Type="String">1031</Data></Cell><Cell ss:StyleID="s1"><Data ss:Type="String">1036</Data></Cell></Row>
+      <Row><Cell ss:StyleID="s2"><Data ss:Type="String">Entity</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">{a1000000-0000-4000-8000-000000000001}</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">LocalizedName</Data></Cell><Cell><Data ss:Type="String">Vehicle</Data></Cell><Cell><Data ss:Type="String">Fahrzeug</Data></Cell><Cell><Data ss:Type="String">Véhicule</Data></Cell></Row>
+      <Row><Cell ss:StyleID="s2"><Data ss:Type="String">Entity</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">{a1000000-0000-4000-8000-000000000001}</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">LocalizedCollectionName</Data></Cell><Cell><Data ss:Type="String">Vehicles</Data></Cell><Cell><Data ss:Type="String">Fahrzeuge</Data></Cell><Cell><Data ss:Type="String"></Data></Cell></Row>
+      <Row><Cell ss:StyleID="s2"><Data ss:Type="String">Attribute</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">{b2000000-0000-4000-8000-000000000001}</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">DisplayName</Data></Cell><Cell><Data ss:Type="String">Name</Data></Cell><Cell><Data ss:Type="String">Name</Data></Cell><Cell><Data ss:Type="String">Nom</Data></Cell></Row>
+      <Row><Cell ss:StyleID="s2"><Data ss:Type="String">Attribute</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">{b2000000-0000-4000-8000-000000000002}</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">DisplayName</Data></Cell><Cell><Data ss:Type="String">Name</Data></Cell><Cell ss:Index="6"><Data ss:Type="String">Nom</Data></Cell></Row>
+      <Row><Cell ss:StyleID="s2"><Data ss:Type="String">Attribute</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">{b2000000-0000-4000-8000-000000000003}</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">DisplayName</Data></Cell><Cell><Data ss:Type="String">Status</Data></Cell><Cell><Data ss:Type="String">Status</Data></Cell><Cell><Data ss:Type="String">Statut</Data></Cell></Row>
+      <Row><Cell ss:StyleID="s2"><Data ss:Type="String">Attribute</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">{b2000000-0000-4000-8000-000000000003}</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">Description</Data></Cell><Cell><Data ss:Type="String">Status &amp; condition of the vehicle&#10;(&lt;internal&gt;)</Data></Cell><Cell ss:StyleID="s2"/><Cell/></Row>
+      <Row><Cell ss:StyleID="s2"><Data ss:Type="String">Attribute</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">{b2000000-0000-4000-8000-000000000004}</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">DisplayName</Data></Cell><Cell><Data ss:Type="String">Mileage</Data></Cell></Row>
+      <Row><Cell ss:StyleID="s2"><Data ss:Type="String">AttributePicklistValue</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">{c3000000-0000-4000-8000-000000000001}</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">DisplayName</Data></Cell><Cell><Data ss:Type="String">In service</Data></Cell><Cell><Data ss:Type="String">Im Einsatz</Data></Cell><Cell><Data ss:Type="String">En service</Data></Cell></Row>
+      <Row><Cell ss:StyleID="s2"><Data ss:Type="String">AttributePicklistValue</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">{c3000000-0000-4000-8000-000000000002}</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">DisplayName</Data></Cell><Cell><Data ss:Type="String">Retired</Data></Cell><Cell><Data ss:Type="String">Retired</Data></Cell><Cell ss:Index="6"/></Row>
+      <Row><Cell ss:StyleID="s2"><Data ss:Type="String">SystemForm</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">{d4000000-0000-4000-8000-000000000001}</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">Name</Data></Cell><Cell><Data ss:Type="String">Vehicle main form</Data></Cell><Cell><Data ss:Type="String">Fahrzeug Hauptformular</Data></Cell></Row>
+      <Row><Cell ss:StyleID="s2"><Data ss:Type="String">SavedQuery</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">{e5000000-0000-4000-8000-000000000001}</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">LocalizedName</Data></Cell><Cell><Data ss:Type="String">Active Vehicles</Data></Cell><Cell><Data ss:Type="String">Aktive Fahrzeuge</Data></Cell><Cell><Data ss:Type="String">Véhicules actifs</Data></Cell></Row>
+      <Row><Cell ss:StyleID="s2"><Data ss:Type="String">Entity</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">{a1000000-0000-4000-8000-000000000002}</Data></Cell><Cell ss:StyleID="s2"><Data ss:Type="String">LocalizedName</Data></Cell><Cell><Data ss:Type="String">Inspection</Data></Cell><Cell><Data ss:Type="String">Prüfung</Data></Cell><Cell><Data ss:Type="String">Inspection</Data></Cell></Row>
+    </Table>
+  </Worksheet>
+</Workbook>

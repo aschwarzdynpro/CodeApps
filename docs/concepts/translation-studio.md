@@ -4,6 +4,15 @@ Stand 2026-10-03. Konzept aus dem Brainstorming (Idee 6), gedacht für eine
 eigenständige Claude-Session. Zielordner: `apps/translation-studio/`.
 Der Kickoff-Prompt steht am Ende.
 
+> **Umgesetzt (v1, 2026-10-03)** in `apps/translation-studio/`, noch nicht
+> deployt. Abweichungen vom Konzept, begründet in der App-README:
+> - `ExportTranslation` ist laut Microsoft Learn an die `solution`-Collection
+>   **gebunden**. Die App versucht deshalb zuerst die native Aktion
+>   (`pa app add dataverse-api`) und erst danach den Konnektor.
+> - Komponententypen sind ein Filter, kein Teil des Scopes, weil der Export
+>   immer die ganze Solution enthält.
+> - v1 exportiert nur CSV; xlsx steht auf der Roadmap.
+
 ## Problem
 
 Dataverse-Beschriftungen (Tabellen- und Spaltennamen, Auswahlwerte,
