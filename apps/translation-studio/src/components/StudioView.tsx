@@ -1,14 +1,21 @@
 import { useDeferredValue, useMemo, useRef, useState } from 'react'
-import { Checkbox, Input, ToggleButton } from '@fluentui/react-components'
+import { Input, Menu, MenuButton, MenuItem, MenuItemCheckbox, MenuList, MenuPopover, MenuTrigger, Spinner, ToggleButton, Tooltip } from '@fluentui/react-components'
 import {
   ArrowDownloadRegular,
+  ArrowSyncRegular,
   ArrowUploadRegular,
   BranchCompareRegular,
+  CloudArrowDownRegular,
+  CloudArrowUpRegular,
   DesignIdeasRegular,
+  InfoRegular,
   LightbulbRegular,
+  LocalLanguageRegular,
   LockClosedRegular,
+  MoreHorizontalRegular,
   SearchRegular,
   TableSimpleRegular,
+  TranslateRegular,
 } from '@fluentui/react-icons'
 import type { TranslationService } from '../services/translationService'
 import { getTranslationService } from '../services/translationService'
@@ -18,10 +25,11 @@ import { useLoad } from '../hooks/useLoad'
 import { cellId, type CellEdit, type ComponentInfo, type ComponentKind, type Lcid, type LabelRow, type SolutionRef, type TranslationFile } from '../types/translation'
 import { applyEdits, parseTranslationFile } from '../utils/translationFile'
 import { readTranslationZip } from '../utils/translationZip'
-import { countStates, filterRows, findGaps, kindOf, NO_TABLE, tableOf, type StateFilter } from '../utils/gaps'
-import { consistencyReport, glossaryKey, suggestFromGlossary } from '../utils/glossary'
+import { filterRows, kindOf, NO_TABLE, tableOf, type GapRow, type StateFilter } from '../utils/gaps'
+import { consistencyReport, glossaryKey, type Suggestion } from '../utils/glossary'
+import { derive } from '../utils/derive'
 import { exportCsv } from '../utils/csv'
-import { KIND_ORDER, languageLabel, languageName } from '../utils/languages'
+import { KIND_ORDER, languageLabel, languageName, languageShort } from '../utils/languages'
 import { loadAcknowledged, loadExportDuration, saveAcknowledged, saveExportDuration } from '../utils/storage'
 import { downloadText, formatDateTime, stamp } from '../utils/download'
 import { Matrix } from './Matrix'
@@ -45,6 +53,7 @@ interface Loaded {
 }
 
 const DEFAULT_SOLUTION = 'Default'
+const NO_GAPS: GapRow[] = []
 const listSolutions = (svc: TranslationService) => svc.listSolutions()
 
 type Dialog = 'apply' | 'csv' | 'consistency' | { confirm: 'reload' | 'discard' } | null
@@ -96,38 +105,33 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
   // ---- derived matrix data ------------------------------------------------
   const applied = useMemo(() => (loaded ? applyEdits(loaded.file, [...edits.values()]) : null), [loaded, edits])
   const current = applied?.file ?? null
-  const gaps = useMemo(() => (current ? findGaps(current, { languages: targets, acknowledged: ack }) : []), [current, targets, ack])
-  const counts = useMemo(() => countStates(gaps, targets), [gaps, targets])
-  const suggestions = useMemo(() => (current ? suggestFromGlossary(current, targets, ack) : new Map()), [current, targets, ack])
-  const sameBase = useMemo(() => {
-    const m = new Map<string, number>()
-    if (!current) return m
-    for (const r of current.rows) {
-      for (const l of targets) {
-        if (suggestions.has(cellId(r.key, l))) {
-          const k = `${glossaryKey(r.values[current.baseLanguage] ?? '')}|${l}`
-          m.set(k, (m.get(k) ?? 0) + 1)
-        }
-      }
-    }
-    return m
-  }, [current, targets, suggestions])
-  const inconsistencies = useMemo(() => (current ? consistencyReport(current, targets) : []), [current, targets])
+  // States, counts and suggestions follow each edit incrementally (only the touched rows and their glossary group).
+  const derived = useMemo(() => (loaded && current ? derive(loaded.file, current, targets, ack) : null), [loaded, current, targets, ack])
+  const gaps = useMemo(() => derived?.gaps ?? [], [derived])
+  const counts = useMemo(() => derived?.counts ?? {}, [derived])
+  const suggestions = useMemo(() => derived?.suggestions ?? new Map<string, Suggestion>(), [derived])
+  const sameBase = useMemo(() => derived?.sameBase ?? new Map<string, number>(), [derived])
+  // The consistency check is a full pass: run it after the edit has painted.
+  const deferredCurrent = useDeferredValue(current)
+  const inconsistencies = useMemo(() => (deferredCurrent ? consistencyReport(deferredCurrent, targets) : []), [deferredCurrent, targets])
+  // Matrix-only data: not computed while the designer is shown.
+  const matrix = view === 'matrix'
+  const matrixGaps = matrix ? gaps : NO_GAPS
   const filtered = useMemo(
-    () => filterRows(gaps, { state: stateFilter, kinds, table, text: deferredText, languages: targets }, components),
-    [gaps, stateFilter, kinds, table, deferredText, targets, components],
+    () => filterRows(matrixGaps, { state: stateFilter, kinds, table, text: deferredText, languages: targets }, components),
+    [matrixGaps, stateFilter, kinds, table, deferredText, targets, components],
   )
   const kindCounts = useMemo(() => {
     const m = new Map<ComponentKind, number>()
-    for (const g of gaps) {
+    for (const g of matrixGaps) {
       const k = kindOf(g.row, components)
       m.set(k, (m.get(k) ?? 0) + 1)
     }
     return m
-  }, [gaps, components])
+  }, [matrixGaps, components])
   const tableOptions = useMemo(() => {
     const m = new Map<string, number>()
-    for (const g of gaps) {
+    for (const g of matrixGaps) {
       const t = tableOf(g.row, components)
       m.set(t, (m.get(t) ?? 0) + 1)
     }
@@ -135,9 +139,12 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
     for (const [t, n] of [...m].filter(([t]) => t).sort((a, b) => a[0].localeCompare(b[0]))) opts.push({ value: t, label: `${t} (${n})` })
     if (m.has('')) opts.push({ value: NO_TABLE, label: `${S.filter.tableNone} (${m.get('')})` })
     return opts
-  }, [gaps, components])
+  }, [matrixGaps, components])
   const changes = applied?.changes ?? []
-  const suggestionsInView = filtered.reduce((n, g) => n + targets.filter((l) => suggestions.has(cellId(g.row.key, l))).length, 0)
+  const suggestionsInView = useMemo(
+    () => filtered.reduce((n, g) => n + targets.filter((l) => suggestions.has(cellId(g.row.key, l))).length, 0),
+    [filtered, targets, suggestions],
+  )
 
   const managed = loaded?.solution.isManaged ?? false
   const readOnly = managed || locked || noPrivilege
@@ -179,7 +186,10 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
       setResolving(true)
       resolvingFor.current = file
       svc
-        .resolveComponents(file)
+        // Columns arrive first (partial result), forms and views after.
+        .resolveComponents(file, (partial) => {
+          if (resolvingFor.current === file) setComponents(partial)
+        })
         .then(
           (map) => {
             if (resolvingFor.current === file) setComponents(map)
@@ -256,6 +266,8 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
   /** From the designer: the labels it has no canvas for (ribbon, messages …) in the table view. */
   const showOther = () => {
     setView('matrix')
+    // Exactly the rows the designer's button counts.
+    setStateFilter('all')
     setKinds(new Set<ComponentKind>(['other']))
     setTable('')
     setText('')
@@ -303,57 +315,128 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
     { value: 'changed', label: S.filter.stateChanged },
   ]
   const onlyBase = current !== null && current.languages.length < 2
+  const sameLoaded = loaded !== null && loaded.solution.uniqueName === solutionName
 
   return (
     <main className="studio">
-      <section className="scope">
-        <div className="scope__row">
-          <label className="field">
-            <span className="field__label">{S.scope.solution}</span>
-            <Select
-              value={solutionName}
-              options={solutionOptions}
-              placeholder={solutionsRes.loading ? S.app.loading : S.scope.solutionPlaceholder}
-              onChange={setSolutionName}
-              disabled={locked}
-              aria-label={S.scope.solution}
-            />
-          </label>
-          <Btn kind="primary" onClick={requestLoad} disabled={!chosen || loading || locked}>
-            {loading ? S.scope.loadingExport : loaded?.solution.uniqueName === solutionName ? S.scope.reload : S.scope.load}
-          </Btn>
-          {current && current.languages.length > 1 ? (
-            <div className="scope__langs" role="group" aria-label={S.scope.languages}>
-              <span className="field__label">{S.scope.languages}</span>
-              {current.languages
-                .filter((l) => l !== current.baseLanguage)
-                .map((l) => (
-                  <Checkbox
-                    key={l}
-                    label={languageLabel(l)}
-                    checked={targets.includes(l)}
-                    onChange={(_, d) => setTargets((t) => (d.checked ? current.languages.filter((x) => x === l || t.includes(x)) : t.filter((x) => x !== l)))}
-                  />
-                ))}
-            </div>
-          ) : null}
-        </div>
-        {solutionsRes.error ? <div className="notice notice--error">{S.errors.load} {solutionsRes.error}</div> : null}
-        {solutionName === DEFAULT_SOLUTION ? <div className="notice notice--warn">{S.scope.defaultWarn}</div> : null}
-        {chosen?.isManaged ? <div className="notice notice--warn">{S.scope.managedWarn}</div> : null}
-        {loadError ? <div className="notice notice--error">{loadError}</div> : null}
-        {noPrivilege ? <div className="notice notice--warn">{S.apply.privilege}</div> : null}
-        {progress ? <LoadProgress state={progress} onCancel={cancelLoad} /> : null}
+      <section className="cmdbar" aria-label={S.scope.bar}>
+        <Select
+          className="cmdbar__solution"
+          value={solutionName}
+          options={solutionOptions}
+          placeholder={solutionsRes.loading ? S.app.loading : S.scope.solutionPlaceholder}
+          onChange={setSolutionName}
+          disabled={locked}
+          aria-label={S.scope.solution}
+        />
+        <Btn kind={sameLoaded ? 'default' : 'primary'} icon={sameLoaded ? <ArrowSyncRegular /> : <CloudArrowDownRegular />} onClick={requestLoad} disabled={!chosen || loading || locked}>
+          {loading ? S.scope.loadingExport : sameLoaded ? S.scope.reload : S.scope.load}
+        </Btn>
         {loaded && current ? (
-          <p className="muted small">
-            <strong>{loaded.solution.friendlyName}</strong> ·{' '}
-            {S.scope.loadedInfo(current.rows.length, languageLabel(current.baseLanguage), formatDateTime(loaded.at))}
-            {resolving ? ` · ${S.scope.resolving}` : ''}
-          </p>
+          <>
+            <span className="cmdbar__meta" title={`${loaded.solution.friendlyName} · ${S.scope.loadedInfo(current.rows.length, languageLabel(current.baseLanguage), formatDateTime(loaded.at))}`}>
+              {sameLoaded ? null : <strong>{loaded.solution.friendlyName} · </strong>}
+              {S.scope.loadedInfo(current.rows.length, languageLabel(current.baseLanguage), formatDateTime(loaded.at))}
+            </span>
+            <Tooltip content={`${loaded.solution.friendlyName} · ${S.scope.loadedInfo(current.rows.length, languageLabel(current.baseLanguage), formatDateTime(loaded.at))}`} relationship="description">
+              <span className="cmdbar__info" tabIndex={0} role="img" aria-label={S.scope.loadedInfo(current.rows.length, languageLabel(current.baseLanguage), formatDateTime(loaded.at))}>
+                <InfoRegular />
+              </span>
+            </Tooltip>
+            <span className="cmdbar__spacer cmdbar__spacer--info" />
+          </>
+        ) : null}
+        {resolving ? <Spinner size="extra-tiny" label={S.scope.resolvingShort} title={S.scope.resolving} className="cmdbar__resolving" /> : null}
+        {current && current.languages.length > 1 ? (
+          <Menu
+            checkedValues={{ langs: targets.map(String) }}
+            onCheckedValueChange={(_, d) => setTargets(current.languages.filter((l) => l !== current.baseLanguage && d.checkedItems.includes(String(l))))}
+          >
+            <MenuTrigger disableButtonEnhancement>
+              <MenuButton appearance="subtle" icon={<LocalLanguageRegular />} title={`${S.scope.languagesTitle}: ${targets.map(languageName).join(', ') || S.scope.noLanguage}`}>
+                {targets.length > 0 ? targets.map(languageShort).join(' · ') : S.scope.noLanguage}
+              </MenuButton>
+            </MenuTrigger>
+            <MenuPopover>
+              <MenuList>
+                {current.languages
+                  .filter((l) => l !== current.baseLanguage)
+                  .map((l) => (
+                    <MenuItemCheckbox key={l} name="langs" value={String(l)}>
+                      {languageLabel(l)}
+                    </MenuItemCheckbox>
+                  ))}
+              </MenuList>
+            </MenuPopover>
+          </Menu>
+        ) : null}
+        <span className="cmdbar__spacer" />
+        {current && !onlyBase ? (
+          <>
+            <div className="seg" role="radiogroup" aria-label={S.views.label}>
+              <button type="button" role="radio" aria-checked={view === 'designer'} className={`seg__item${view === 'designer' ? ' seg__item--on' : ''}`} onClick={() => setView('designer')}>
+                <DesignIdeasRegular aria-hidden />
+                {S.views.designer}
+              </button>
+              <button type="button" role="radio" aria-checked={view === 'matrix'} className={`seg__item${view === 'matrix' ? ' seg__item--on' : ''}`} onClick={() => setView('matrix')}>
+                <TableSimpleRegular aria-hidden />
+                {S.views.matrix}
+              </button>
+            </div>
+            {readOnly ? (
+              <span className="badge badge--lock">
+                <LockClosedRegular aria-hidden /> {locked ? S.toolbar.locked : S.toolbar.readOnly}
+              </span>
+            ) : null}
+            {view === 'matrix' ? (
+              <Btn kind="ghost" icon={<LightbulbRegular />} disabled={readOnly || suggestionsInView === 0} onClick={acceptAllInView} title={S.toolbar.acceptAllTitle}>
+                {S.toolbar.acceptAll(suggestionsInView)}
+              </Btn>
+            ) : null}
+            <Btn kind="ghost" icon={<BranchCompareRegular />} disabled={inconsistencies.length === 0} onClick={() => setDialog('consistency')} title={S.toolbar.consistencyTitle}>
+              {S.toolbar.consistency(inconsistencies.length)}
+            </Btn>
+            <Menu>
+              <MenuTrigger disableButtonEnhancement>
+                <Btn kind="ghost" icon={<MoreHorizontalRegular />} aria-label={S.toolbar.more} title={S.toolbar.more} />
+              </MenuTrigger>
+              <MenuPopover>
+                <MenuList>
+                  <MenuItem icon={<ArrowUploadRegular />} disabled={readOnly} onClick={() => setDialog('csv')}>
+                    {S.toolbar.csvImport}
+                  </MenuItem>
+                  {view === 'matrix' ? (
+                    <MenuItem icon={<ArrowDownloadRegular />} disabled={filtered.length === 0} onClick={exportCsvFile}>
+                      {S.toolbar.csvExport(filtered.length)}
+                    </MenuItem>
+                  ) : null}
+                </MenuList>
+              </MenuPopover>
+            </Menu>
+            <span className="cmdbar__divider" aria-hidden />
+            <Btn kind="ghost" disabled={changes.length === 0 || locked} onClick={() => setDialog({ confirm: 'discard' })} title={S.toolbar.discard}>
+              {S.toolbar.discardShort}
+            </Btn>
+            <Btn kind="primary" icon={<CloudArrowUpRegular />} disabled={changes.length === 0 || readOnly} onClick={() => setDialog('apply')}>
+              {S.toolbar.apply(changes.length)}
+            </Btn>
+          </>
         ) : null}
       </section>
+      {solutionsRes.error ? <div className="notice notice--error">{S.errors.load} {solutionsRes.error}</div> : null}
+      {solutionName === DEFAULT_SOLUTION ? <div className="notice notice--warn">{S.scope.defaultWarn}</div> : null}
+      {chosen?.isManaged ? <div className="notice notice--warn">{S.scope.managedWarn}</div> : null}
+      {loadError ? <div className="notice notice--error">{loadError}</div> : null}
+      {noPrivilege ? <div className="notice notice--warn">{S.apply.privilege}</div> : null}
+      {progress ? <LoadProgress state={progress} onCancel={cancelLoad} /> : null}
 
-      {!loaded && !progress ? <div className="empty">{S.scope.nothingLoaded}</div> : null}
+      {!loaded && !progress ? (
+        <div className="studio__empty">
+          <TranslateRegular className="studio__emptyicon" aria-hidden />
+          <strong>{S.scope.emptyTitle}</strong>
+          <span>{S.scope.nothingLoaded}</span>
+        </div>
+      ) : null}
       {onlyBase ? <div className="notice notice--warn studio__single">{S.scope.singleLanguage}</div> : null}
 
       {current && !onlyBase && targets.length > 0 ? (
@@ -428,45 +511,6 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
             </section>
           ) : null}
 
-          <section className="toolbar studio__toolbar">
-            <div className="views" role="group" aria-label={S.views.label}>
-              <ToggleButton size="small" icon={<TableSimpleRegular />} checked={view === 'matrix'} onClick={() => setView('matrix')}>
-                {S.views.matrix}
-              </ToggleButton>
-              <ToggleButton size="small" icon={<DesignIdeasRegular />} checked={view === 'designer'} onClick={() => setView('designer')}>
-                {S.views.designer}
-              </ToggleButton>
-            </div>
-            {readOnly ? (
-              <span className="badge badge--lock">
-                <LockClosedRegular aria-hidden /> {locked ? S.toolbar.locked : S.toolbar.readOnly}
-              </span>
-            ) : null}
-            {view === 'matrix' ? (
-              <Btn icon={<LightbulbRegular />} disabled={readOnly || suggestionsInView === 0} onClick={acceptAllInView} title={S.toolbar.acceptAllTitle}>
-                {S.toolbar.acceptAll(suggestionsInView)}
-              </Btn>
-            ) : null}
-            <Btn icon={<BranchCompareRegular />} disabled={inconsistencies.length === 0} onClick={() => setDialog('consistency')}>
-              {S.toolbar.consistency(inconsistencies.length)}
-            </Btn>
-            {view === 'matrix' ? (
-              <Btn icon={<ArrowDownloadRegular />} disabled={filtered.length === 0} onClick={exportCsvFile} title={S.toolbar.csvExportTitle}>
-                {S.toolbar.csvExport(filtered.length)}
-              </Btn>
-            ) : null}
-            <Btn icon={<ArrowUploadRegular />} disabled={readOnly} onClick={() => setDialog('csv')}>
-              {S.toolbar.csvImport}
-            </Btn>
-            <span className="toolbar__spacer" />
-            <Btn kind="ghost" disabled={changes.length === 0 || locked} onClick={() => setDialog({ confirm: 'discard' })}>
-              {S.toolbar.discard}
-            </Btn>
-            <Btn kind="primary" disabled={changes.length === 0 || readOnly} onClick={() => setDialog('apply')}>
-              {S.toolbar.apply(changes.length)}
-            </Btn>
-          </section>
-
           {view === 'matrix' ? (
             <Matrix
               rows={filtered}
@@ -483,25 +527,28 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
               onAcknowledge={acknowledge}
               onRefused={(m) => notify(m, 'error')}
             />
-          ) : (
-            <Designer
-              key={`${loaded?.solution.uniqueName}|${loaded?.at}`}
-              file={current}
-              components={components}
-              targets={targets}
-              acknowledged={ack}
-              readOnly={readOnly}
-              resolving={resolving}
-              suggestions={suggestions}
-              sameBase={sameBase}
-              onEdit={setEdit}
-              onRevert={revert}
-              onAccept={accept}
-              onAcknowledge={acknowledge}
-              onRefused={refused}
-              onShowOther={showOther}
-            />
-          )}
+          ) : null}
+          {/* Stays mounted behind the table view, so the place in the designer survives a look at the table. */}
+          {loaded && derived ? (
+            <div className="studio__pane" hidden={view !== 'designer'}>
+              <Designer
+                key={`${loaded.solution.uniqueName}|${loaded.at}`}
+                origin={loaded.file}
+                derived={derived}
+                components={components}
+                targets={targets}
+                readOnly={readOnly}
+                resolving={resolving}
+                memoryKey={loaded.solution.uniqueName}
+                onEdit={setEdit}
+                onRevert={revert}
+                onAccept={accept}
+                onAcknowledge={acknowledge}
+                onRefused={refused}
+                onShowOther={showOther}
+              />
+            </div>
+          ) : null}
         </>
       ) : null}
 

@@ -1,5 +1,5 @@
 import { ORG_URL } from '../config'
-import type { AppRecord, ChoiceGroup, ComponentInfo, FormRecord, ImportJobState, SetupCheck, SolutionRef, TranslationFile, ViewRecord } from '../types/translation'
+import type { AppRecord, ChoiceGroup, ComponentInfo, ImportJobState, SetupCheck, SolutionRef, TranslationFile, ViewRecord } from '../types/translation'
 import { base64ToBytes } from '../utils/translationZip'
 import { callAction, DataverseError, fetchXml, hasConnector, metadataGet, nativeActions, odata, pick, type Row } from './dataverseApi'
 import type { TranslationService } from './translationService'
@@ -26,6 +26,44 @@ function chunks<T>(items: T[], size: number): T[][] {
   const out: T[][] = []
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
   return out
+}
+
+/** Requests in flight at once: fast for big solutions, gentle on the connector's throttling. */
+const PARALLEL = 4
+
+/** `fn` over `items`, at most `limit` at a time; results in input order. */
+async function pool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length)
+  let next = 0
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++
+      out[i] = await fn(items[i])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return out
+}
+
+/** One more try after a short pause (throttling, a dropped request). */
+async function retry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch {
+    await new Promise((resolve) => window.setTimeout(resolve, 800))
+    return fn()
+  }
+}
+
+/** Chunks of a lookup, in parallel; a chunk that fails twice is logged and skipped, the others still count. */
+async function lookup<T>(what: string, items: T[], size: number, fn: (part: T[]) => Promise<void>): Promise<void> {
+  await pool(chunks(items, size), PARALLEL, async (part) => {
+    try {
+      await retry(() => fn(part))
+    } catch (err) {
+      console.warn(`[translation] ${what} not resolvable`, part.length, err)
+    }
+  })
 }
 
 function toJob(r: Row): ImportJobState {
@@ -85,118 +123,112 @@ export const dataverseTranslationService: TranslationService = {
     return { zip: base64ToBytes(file), route }
   },
 
-  async resolveComponents(file: TranslationFile) {
+  async resolveComponents(file: TranslationFile, onPartial?: (partial: Map<string, ComponentInfo>) => void) {
     const out = new Map<string, ComponentInfo>()
+    // Form and view names: `name`/`description` rows; the id is a formid or a savedqueryid.
+    // Looked up at the same time as the columns, forms and views in parallel (an id matches one of them).
+    const named = [...new Set(file.rows.filter((r) => r.kind === 'form' && (r.column === 'name' || r.column === 'description') && guid(r.objectId)).map((r) => r.objectId))]
+    const records = (set: string, entity: string, idAttr: string, attrs: string[], map: (r: Row) => ComponentInfo) =>
+      lookup(`${entity} names`, named, 50, async (part) => {
+        const rows = await fetchXml(
+          set,
+          `<fetch><entity name="${entity}"><attribute name="${idAttr}" />${attrs.map((a) => `<attribute name="${a}" />`).join('')}${inFilter(idAttr, part)}</entity></fetch>`,
+        )
+        for (const r of rows) out.set(str(r[idAttr]).toLowerCase(), map(r))
+      })
+    const formsAndViews = Promise.all([
+      records('systemforms', 'systemform', 'formid', ['name', 'objecttypecode', 'type'], (r) => ({
+        table: tableName(r.objecttypecode),
+        name: str(r.name),
+        kind: 'form',
+        formType: num(r.type),
+      })),
+      records('savedqueries', 'savedquery', 'savedqueryid', ['name', 'returnedtypecode'], (r) => ({ table: tableName(r.returnedtypecode), name: str(r.name), kind: 'view' })),
+    ])
+
     // Columns vs. choice values: both are `DisplayName`/`Description` rows under
     // a table. The attribute ids of those tables are the columns, the rest are
     // choice values — but only for tables whose attributes could be read.
     const columnRows = file.rows.filter((r) => r.kind === 'column' && guid(r.objectId))
     const attributes = new Map<string, { table: string; name: string }>()
     const readTables = new Set<string>()
-    for (const part of chunks([...new Set(columnRows.map((r) => r.type))], 10)) {
-      try {
-        const rows = await odata('EntityDefinitions', 'LogicalName', part.map((n) => `LogicalName eq '${n}'`).join(' or '), 'Attributes($select=MetadataId,LogicalName)')
-        for (const t of rows) {
-          readTables.add(str(t.LogicalName))
-          for (const a of (t.Attributes as Row[] | undefined) ?? []) attributes.set(str(a.MetadataId).toLowerCase(), { table: str(t.LogicalName), name: str(a.LogicalName) })
-        }
-      } catch (err) {
-        console.warn('[translation] column names not resolvable', part, err)
+    await lookup('column names', [...new Set(columnRows.map((r) => r.type))], 10, async (part) => {
+      const rows = await odata('EntityDefinitions', 'LogicalName', part.map((n) => `LogicalName eq '${n}'`).join(' or '), 'Attributes($select=MetadataId,LogicalName)')
+      for (const t of rows) {
+        readTables.add(str(t.LogicalName))
+        for (const a of (t.Attributes as Row[] | undefined) ?? []) attributes.set(str(a.MetadataId).toLowerCase(), { table: str(t.LogicalName), name: str(a.LogicalName) })
       }
-    }
+    })
     for (const r of columnRows) {
       const a = attributes.get(r.objectId)
       if (a) out.set(r.objectId, { ...a, kind: 'column' })
       else if (readTables.has(r.type)) out.set(r.objectId, { table: r.type, kind: 'choice' })
     }
-
-    // Form and view names: `name`/`description` rows; the id is a formid or a savedqueryid.
-    const named = [...new Set(file.rows.filter((r) => r.kind === 'form' && (r.column === 'name' || r.column === 'description') && guid(r.objectId)).map((r) => r.objectId))]
-    const records = async (set: string, entity: string, idAttr: string, attrs: string[], ids: string[], map: (r: Row) => ComponentInfo) => {
-      try {
-        for (const part of chunks(ids, 50)) {
-          const values = part.map((id) => `<value>${esc(id)}</value>`).join('')
-          const rows = await fetchXml(
-            set,
-            `<fetch><entity name="${entity}"><attribute name="${idAttr}" />${attrs.map((a) => `<attribute name="${a}" />`).join('')}` +
-              `<filter><condition attribute="${idAttr}" operator="in">${values}</condition></filter></entity></fetch>`,
-          )
-          for (const r of rows) out.set(str(r[idAttr]).toLowerCase(), map(r))
-        }
-      } catch (err) {
-        console.warn(`[translation] ${entity} names not resolvable`, err)
-      }
-    }
-    await records('systemforms', 'systemform', 'formid', ['name', 'objecttypecode', 'type'], named, (r) => ({
-      table: tableName(r.objecttypecode),
-      name: str(r.name),
-      kind: 'form',
-      formType: num(r.type),
-    }))
-    await records(
-      'savedqueries',
-      'savedquery',
-      'savedqueryid',
-      ['name', 'returnedtypecode'],
-      named.filter((id) => !out.has(id)),
-      (r) => ({ table: tableName(r.returnedtypecode), name: str(r.name), kind: 'view' }),
-    )
+    // Columns first: the table canvases are complete before the forms and views are known.
+    onPartial?.(new Map(out))
+    await formsAndViews
     return out
   },
 
   async getForms(ids) {
-    const out: FormRecord[] = []
-    for (const part of chunks(ids.filter(guid), 20)) {
-      const rows = await fetchXml(
-        'systemforms',
-        '<fetch><entity name="systemform"><attribute name="formid" /><attribute name="name" /><attribute name="objecttypecode" />' +
-          `<attribute name="type" /><attribute name="formxml" />${inFilter('formid', part)}</entity></fetch>`,
-      )
-      for (const r of rows) out.push({ id: str(r.formid).toLowerCase(), name: str(r.name), table: tableName(r.objecttypecode), type: num(r.type), formxml: str(r.formxml) })
-    }
-    return out
+    const parts = await pool(chunks(ids.filter(guid), 20), PARALLEL, (part) =>
+      retry(() =>
+        fetchXml(
+          'systemforms',
+          '<fetch><entity name="systemform"><attribute name="formid" /><attribute name="name" /><attribute name="objecttypecode" />' +
+            `<attribute name="type" /><attribute name="formxml" />${inFilter('formid', part)}</entity></fetch>`,
+        ),
+      ),
+    )
+    return parts.flat().map((r) => ({ id: str(r.formid).toLowerCase(), name: str(r.name), table: tableName(r.objecttypecode), type: num(r.type), formxml: str(r.formxml) }))
   },
 
   async getViews(ids) {
-    const out: ViewRecord[] = []
-    for (const part of chunks(ids.filter(guid), 25)) {
-      const rows = await fetchXml(
-        'savedqueries',
-        '<fetch><entity name="savedquery"><attribute name="savedqueryid" /><attribute name="name" /><attribute name="returnedtypecode" />' +
-          `<attribute name="querytype" /><attribute name="layoutxml" /><attribute name="fetchxml" />${inFilter('savedqueryid', part)}</entity></fetch>`,
-      )
-      for (const r of rows)
-        out.push({
-          id: str(r.savedqueryid).toLowerCase(),
-          name: str(r.name),
-          table: tableName(r.returnedtypecode),
-          queryType: num(r.querytype),
-          layoutxml: str(r.layoutxml),
-          fetchxml: str(r.fetchxml),
-        })
-    }
-    return out
+    const parts = await pool(chunks(ids.filter(guid), 25), PARALLEL, (part) =>
+      retry(() =>
+        fetchXml(
+          'savedqueries',
+          '<fetch><entity name="savedquery"><attribute name="savedqueryid" /><attribute name="name" /><attribute name="returnedtypecode" />' +
+            `<attribute name="querytype" /><attribute name="layoutxml" /><attribute name="fetchxml" />${inFilter('savedqueryid', part)}</entity></fetch>`,
+        ),
+      ),
+    )
+    return parts.flat().map(
+      (r): ViewRecord => ({
+        id: str(r.savedqueryid).toLowerCase(),
+        name: str(r.name),
+        table: tableName(r.returnedtypecode),
+        queryType: num(r.querytype),
+        layoutxml: str(r.layoutxml),
+        fetchxml: str(r.fetchxml),
+      }),
+    )
   },
 
   async getApps(appIds, sitemapIds) {
-    const apps = appIds.some(guid)
-      ? await fetchXml(
-          'appmodules',
-          `<fetch><entity name="appmodule"><attribute name="appmoduleid" /><attribute name="name" /><attribute name="uniquename" />${inFilter('appmoduleid', appIds.filter(guid))}</entity></fetch>`,
-        )
-      : []
+    // Chunked like the other lookups: a long id list must not hit the URL length limit of a GET.
+    const appParts = await pool(chunks(appIds.filter(guid), 50), PARALLEL, (part) =>
+      retry(() =>
+        fetchXml('appmodules', `<fetch><entity name="appmodule"><attribute name="appmoduleid" /><attribute name="name" /><attribute name="uniquename" />${inFilter('appmoduleid', part)}</entity></fetch>`),
+      ),
+    )
+    const apps = appParts.flat()
+    const sitemapQuery = (condition: string) =>
+      retry(() =>
+        fetchXml('sitemaps', `<fetch><entity name="sitemap"><attribute name="sitemapid" /><attribute name="sitemapnameunique" /><attribute name="sitemapxml" /><filter>${condition}</filter></entity></fetch>`),
+      )
     const uniqueNames = apps.map((a) => str(a.uniquename)).filter(Boolean)
-    const conditions = [
-      sitemapIds.some(guid) ? `<condition attribute="sitemapid" operator="in">${values(sitemapIds.filter(guid))}</condition>` : '',
-      uniqueNames.length > 0 ? `<condition attribute="sitemapnameunique" operator="in">${values(uniqueNames)}</condition>` : '',
-    ].join('')
-    const maps = conditions
-      ? await fetchXml(
-          'sitemaps',
-          `<fetch><entity name="sitemap"><attribute name="sitemapid" /><attribute name="sitemapnameunique" /><attribute name="sitemapxml" /><filter type="or">${conditions}</filter></entity></fetch>`,
-        )
-      : []
-    const sitemapOf = (unique: string) => maps.find((m) => str(m.sitemapnameunique) === unique)
+    const mapParts = await pool(
+      [
+        ...chunks(sitemapIds.filter(guid), 50).map((part) => `<condition attribute="sitemapid" operator="in">${values(part)}</condition>`),
+        ...chunks(uniqueNames, 50).map((part) => `<condition attribute="sitemapnameunique" operator="in">${values(part)}</condition>`),
+      ],
+      PARALLEL,
+      sitemapQuery,
+    )
+    const maps = [...new Map(mapParts.flat().map((m) => [str(m.sitemapid).toLowerCase(), m])).values()]
+    // App ↔ sitemap by unique name; Dataverse compares names case-insensitively, so do we.
+    const sitemapOf = (unique: string) => maps.find((m) => str(m.sitemapnameunique).toLowerCase() === unique.toLowerCase())
     const out: AppRecord[] = apps.map((a) => {
       const m = sitemapOf(str(a.uniquename))
       return { id: str(a.appmoduleid).toLowerCase(), name: str(a.name), uniqueName: str(a.uniquename), sitemap: m ? { id: str(m.sitemapid).toLowerCase(), xml: str(m.sitemapxml) } : null }
@@ -216,14 +248,16 @@ export const dataverseTranslationService: TranslationService = {
     const option = (o: Row) => ({ value: num(o.Value), metadataId: str(o.MetadataId).toLowerCase(), label: label(o.Label) })
     const groups: ChoiceGroup[] = []
     const lists = ['PicklistOptions', 'MultiSelectOptions', 'StateOptions', 'StatusOptions'] as const
-    for (const api of lists) {
-      for (const a of await metadataGet(api, table)) {
+    // The five metadata reads at once.
+    const [booleans, ...results] = await Promise.all([metadataGet('BooleanOptions', table), ...lists.map((api) => metadataGet(api, table))])
+    for (const attrs of results) {
+      for (const a of attrs) {
         const set = ((a.OptionSet ?? a.GlobalOptionSet) as { Options?: Row[] } | null) ?? null
         const options = (set?.Options ?? []).map(option)
         if (options.length > 0) groups.push({ attribute: str(a.LogicalName), options })
       }
     }
-    for (const a of await metadataGet('BooleanOptions', table)) {
+    for (const a of booleans) {
       const set = (a.OptionSet ?? {}) as { TrueOption?: Row; FalseOption?: Row }
       const options = [set.FalseOption, set.TrueOption].filter((o): o is Row => !!o).map(option)
       if (options.length > 0) groups.push({ attribute: str(a.LogicalName), options })

@@ -1,12 +1,11 @@
-import { useContext, useRef, useState, type KeyboardEvent } from 'react'
+import { memo, useContext, useRef, useState, type KeyboardEvent } from 'react'
 import { ArrowUndoRegular, CheckmarkRegular, LightbulbFilled } from '@fluentui/react-icons'
-import { cellId } from '../../types/translation'
-import { cellState } from '../../utils/gaps'
+import { cellId, type Lcid } from '../../types/translation'
 import { languageLabel } from '../../utils/languages'
 import { MAX_LABEL_LENGTH } from '../../utils/translationFile'
 import { S } from '../../strings'
-import { refKey, useDesigner, type LabelRef } from './context'
-import { CanvasNav, jumpToGap } from './nav'
+import { refKey, useDesigner, useLiveValue, type LabelRef } from './context'
+import { CanvasNav, findGap, jumpToGap, markCurrent, openLabel } from './nav'
 
 interface LabelTextProps {
   labelRef: LabelRef
@@ -19,33 +18,52 @@ interface LabelTextProps {
   echo?: boolean
 }
 
+const SEP = '\u0001'
+
 /**
- * One label on a canvas. Click (or Enter/F2 on focus) selects it for the
- * inspector and opens the inline editor for the canvas language. Enter
- * takes the text, Tab takes it and jumps to the next gap (Shift+Tab: the
- * previous one), Esc discards, Ctrl+Enter marks a probably untranslated
+ * One label on a canvas. Click (or Enter/F2/Space on focus) selects it for
+ * the details panel and opens the inline editor for the canvas language.
+ * Enter takes the text, Tab takes it and jumps to the next gap (Shift+Tab:
+ * the previous one), Esc discards, Ctrl+Enter marks a probably untranslated
  * label "correct as is" and moves on. Read-only labels (not in the file)
  * only select.
+ *
+ * Subscribes to its own text, state, suggestion and selection only, so an
+ * edit re-renders the labels it touches, not the whole canvas.
  */
-export function LabelText({ labelRef, hidden, className, empty, echo }: LabelTextProps) {
+export const LabelText = memo(function LabelText({ labelRef, hidden, className, empty, echo }: LabelTextProps) {
   const d = useDesigner()
   const onExhausted = useContext(CanvasNav)
   const box = useRef<HTMLSpanElement>(null)
-  const [draft, setDraft] = useState<string | null>(null)
+  const input = useRef<HTMLInputElement>(null)
+  // The draft belongs to one language: switching the canvas language leaves it behind unsaved.
+  const [draftState, setDraftState] = useState<{ lcid: Lcid; text: string } | null>(null)
   // Enter/Tab/Esc already decided; the blur of the input that follows must not commit again.
   const handled = useRef(false)
   const { row, fallback, fromColumn } = labelRef
   const key = refKey(labelRef)
-  const selected = d.selectedKey === key
+
+  const sig = useLiveValue((live) => {
+    const sel = live.selectedKey === key ? '1' : ''
+    if (!row) return sel
+    const i = d.pos.get(row.key)
+    if (i === undefined) return sel
+    const g = live.gaps[i]
+    const suggestion = d.readOnly ? undefined : live.suggestions.get(cellId(row.key, d.lcid))
+    return [sel, g.row.values[d.lcid] ?? '', g.states[d.lcid] ?? 'na', suggestion?.value ?? ''].join(SEP)
+  })
+  const [sel, liveValue = '', liveState = 'na', suggestion = ''] = sig.split(SEP)
+  const selected = sel === '1'
   const base = row ? (row.values[d.baseLanguage] ?? '') : (fallback[d.baseLanguage] ?? '')
-  const value = row ? (row.values[d.lcid] ?? '') : (fallback[d.lcid] ?? '')
-  const state = row ? cellState(row, d.lcid, d.baseLanguage, d.acknowledged) : 'na'
+  const value = row ? liveValue : (fallback[d.lcid] ?? '')
+  const state = row ? liveState : 'na'
   const gap = state === 'missing' || state === 'untranslated'
   const navGap = gap && !echo ? '1' : undefined
   // Read-only text (sitemap, formxml) without a translation: marked, but not a gap to navigate to.
   const roGap = !row && !!fallback[d.baseLanguage] && !fallback[d.lcid]
-  const editable = row !== null && !d.readOnly
-  const suggestion = row ? d.suggestions.get(cellId(row.key, d.lcid)) : undefined
+  const editable = row !== null && !d.readOnly && state !== 'na'
+  const draft = draftState && draftState.lcid === d.lcid ? draftState.text : null
+  const setDraft = (text: string | null) => setDraftState(text === null ? null : { lcid: d.lcid, text })
 
   const cls = [
     'lt',
@@ -77,18 +95,28 @@ export function LabelText({ labelRef, hidden, className, empty, echo }: LabelTex
     return true
   }
 
-  // Closing the editor removes the focused input; keep the focus on the label so keys keep working.
-  const refocus = () => window.requestAnimationFrame(() => box.current?.querySelector<HTMLElement>('[data-open]')?.focus())
+  // Closing the editor removes the focused input; keep the focus on the label so keys keep working —
+  // unless the focus has moved on in the meantime (F8 right after Esc opened the next label).
+  const refocus = () =>
+    window.requestAnimationFrame(() => {
+      const el = document.activeElement
+      if (el && el !== document.body && !box.current?.contains(el)) return
+      box.current?.querySelector<HTMLElement>('[data-open]')?.focus()
+    })
 
   /** "Correct as is" for a label identical to the base text, then on to the next gap. */
   const acknowledge = () => {
     if (!row) return
     const from = box.current
+    const canvas = from?.closest('[data-canvas]') ?? null
+    // Decide where to go first: with "Nur offene" the label leaves the canvas once it is acknowledged.
+    const next = canvas && from ? findGap(canvas, from, 1, false) : null
     handled.current = true
     setDraft(null)
     d.onAcknowledge(row.key, d.lcid, true)
     window.requestAnimationFrame(() => {
-      if (!jumpToGap(from, 1, null, onExhausted)) refocus()
+      if (next?.isConnected) openLabel(next)
+      else if (!jumpToGap(from?.isConnected ? from : null, 1, canvas, onExhausted)) refocus()
     })
   }
 
@@ -121,6 +149,7 @@ export function LabelText({ labelRef, hidden, className, empty, echo }: LabelTex
 
   const open = () => {
     d.select(labelRef)
+    markCurrent(box.current)
     handled.current = false
     if (editable) setDraft(value)
   }
@@ -137,8 +166,9 @@ export function LabelText({ labelRef, hidden, className, empty, echo }: LabelTex
 
   if (draft !== null) {
     return (
-      <span ref={box} className={`${cls} lt--editing`} data-label="1" data-gap={navGap}>
+      <span ref={box} className={`${cls} lt--editing`} data-label="1" data-gap={navGap} data-echo={echo ? '1' : undefined}>
         <input
+          ref={input}
           className="lt__input"
           value={draft}
           // The input replaces the text the user just clicked.
@@ -148,7 +178,8 @@ export function LabelText({ labelRef, hidden, className, empty, echo }: LabelTex
           onChange={(e) => setDraft(e.target.value)}
           onBlur={(e) => {
             if (handled.current) handled.current = false
-            else commit(e.currentTarget.value)
+            // Refused (too long): stay in the field so the text isn't lost unnoticed.
+            else if (!commit(e.currentTarget.value)) window.requestAnimationFrame(() => input.current?.focus())
           }}
           onKeyDown={onInputKey}
         />
@@ -170,16 +201,19 @@ export function LabelText({ labelRef, hidden, className, empty, echo }: LabelTex
   }
 
   const shown = value || base || empty || ''
+  const stateWord = state === 'missing' || state === 'untranslated' || state === 'changed' ? S.states[state] : ''
   return (
-    <span ref={box} className={cls} title={title} data-label="1" data-gap={navGap}>
+    <span ref={box} className={cls} title={title} data-label="1" data-gap={navGap} data-echo={echo ? '1' : undefined}>
       <span
         className="lt__text"
         role="button"
         tabIndex={0}
         data-open="1"
+        aria-label={[shown || '—', labelRef.role, stateWord].filter(Boolean).join(' · ')}
+        aria-pressed={selected}
         onClick={open}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === 'F2') {
+          if (e.key === 'Enter' || e.key === 'F2' || e.key === ' ') {
             e.preventDefault()
             open()
           }
@@ -196,9 +230,9 @@ export function LabelText({ labelRef, hidden, className, empty, echo }: LabelTex
         <button
           type="button"
           className="lt__suggest"
-          title={S.designer.takeSuggestion(suggestion.value)}
-          aria-label={S.designer.takeSuggestion(suggestion.value)}
-          onClick={() => d.onAccept(row, d.lcid, suggestion.value, false)}
+          title={S.designer.takeSuggestion(suggestion)}
+          aria-label={S.designer.takeSuggestion(suggestion)}
+          onClick={() => d.onAccept(row, d.lcid, suggestion, false)}
         >
           <LightbulbFilled />
         </button>
@@ -206,4 +240,4 @@ export function LabelText({ labelRef, hidden, className, empty, echo }: LabelTex
       {d.showBase && value && value !== base ? <span className="lt__base">{base}</span> : null}
     </span>
   )
-}
+})

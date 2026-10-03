@@ -56,6 +56,11 @@ export function languageTag(lcid: Lcid): string | undefined {
   return TAGS[lcid]
 }
 
+/** Short code for tight spots: "DE", "FR", "PT-BR"; the LCID when unknown. */
+export function languageShort(lcid: Lcid): string {
+  return TAGS[lcid]?.toUpperCase() ?? String(lcid)
+}
+
 export function languageName(lcid: Lcid): string {
   return NAMES[lcid] ?? `Sprache ${lcid}`
 }

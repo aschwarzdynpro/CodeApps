@@ -3,6 +3,7 @@ import type { FormCell, FormLayout } from '../../utils/formXml'
 import { columnRow, labelKey, type LabelIndex } from '../../utils/labelIndex'
 import type { ViewLayout } from '../../utils/viewXml'
 import type { SiteMapArea } from '../../utils/sitemapXml'
+import { glossaryKey } from '../../utils/glossary'
 import { S } from '../../strings'
 import type { LabelRef, Texts } from './context'
 
@@ -12,12 +13,19 @@ import type { LabelRef, Texts } from './context'
  * (counts for the explorer and the canvas header).
  */
 
-/** Label of a form element: own `displayname` row, else (fields) the column's display name. */
-export function elementRef(index: LabelIndex, table: string, id: string, labels: Texts, field: string, role: string, context: string): LabelRef {
+/**
+ * Label of a form element: own `displayname` row, else (fields) the column's
+ * display name — but only when the form shows that name. A form text of its
+ * own that the export doesn't carry stays read only, so editing never
+ * renames the column by surprise.
+ */
+export function elementRef(index: LabelIndex, table: string, id: string, labels: Texts, field: string, role: string, context: string, base?: Lcid): LabelRef {
   const own = id ? index.byId.get(labelKey(id, 'displayname')) : undefined
   if (own) return { row: own, fallback: labels, role, context }
   const column = field && table ? columnRow(index, table, field) : undefined
-  return { row: column ?? null, fallback: labels, fromColumn: column !== undefined, role, context, id }
+  const formText = base !== undefined ? glossaryKey(labels[base] ?? '') : ''
+  const usable = column !== undefined && (!formText || formText === glossaryKey(column.values[base ?? 0] ?? ''))
+  return { row: usable ? column : null, fallback: labels, fromColumn: usable, role, context, id }
 }
 
 export const cellRole = (c: FormCell) => (c.control === 'field' ? S.designer.roles.field : S.designer.roles.control)
@@ -29,21 +37,21 @@ export function formRefs(index: LabelIndex, formId: string, table: string, formN
   out.push({ row: name ?? null, fallback: {}, role: S.designer.roles.formName, context: formName })
   const description = index.byId.get(labelKey(formId, 'description'))
   if (description) out.push({ row: description, fallback: {}, role: S.designer.roles.formDescription, context: formName })
-  for (const c of layout.header) out.push(elementRef(index, table, c.id, c.labels, c.field, cellRole(c), `${formName} › ${S.designer.header}`))
+  for (const c of layout.header) out.push(elementRef(index, table, c.id, c.labels, c.field, cellRole(c), `${formName} › ${S.designer.header}`, base))
   for (const t of layout.tabs) {
     out.push(...tabRefs(index, table, formName, t, base))
   }
-  for (const c of layout.footer) out.push(elementRef(index, table, c.id, c.labels, c.field, cellRole(c), `${formName} › ${S.designer.footer}`))
+  for (const c of layout.footer) out.push(elementRef(index, table, c.id, c.labels, c.field, cellRole(c), `${formName} › ${S.designer.footer}`, base))
   return out
 }
 
 export function tabRefs(index: LabelIndex, table: string, formName: string, tab: FormLayout['tabs'][number], base: Lcid): LabelRef[] {
   const tabText = tab.labels[base] || tab.name
-  const out: LabelRef[] = [elementRef(index, table, tab.id, tab.labels, '', S.designer.roles.tab, formName)]
+  const out: LabelRef[] = [elementRef(index, table, tab.id, tab.labels, '', S.designer.roles.tab, formName, base)]
   for (const col of tab.columns)
     for (const s of col.sections) {
-      out.push(elementRef(index, table, s.id, s.labels, '', S.designer.roles.section, `${formName} › ${tabText}`))
-      for (const c of s.rows.flat()) out.push(elementRef(index, table, c.id, c.labels, c.field, cellRole(c), `${formName} › ${tabText} › ${s.labels[base] || s.name}`))
+      out.push(elementRef(index, table, s.id, s.labels, '', S.designer.roles.section, `${formName} › ${tabText}`, base))
+      for (const c of s.rows.flat()) out.push(elementRef(index, table, c.id, c.labels, c.field, cellRole(c), `${formName} › ${tabText} › ${s.labels[base] || s.name}`, base))
     }
   return out
 }
@@ -65,11 +73,8 @@ export function columnHeaderRef(index: LabelIndex, viewName: string, table: stri
 
 /** A table-level name row (`LocalizedName`, `LocalizedCollectionName`, `Description`). */
 export function tableNameRow(index: LabelIndex, table: string, column: 'LocalizedName' | 'LocalizedCollectionName' | 'Description'): LabelRow | undefined {
-  const rows = index.byTable.get(table)
-  if (!rows) return undefined
-  const nameRow = rows.find((r) => r.column === 'LocalizedName')
-  if (column === 'Description') return nameRow ? index.byId.get(labelKey(nameRow.objectId, 'Description')) : undefined
-  return rows.find((r) => r.column === column)
+  const names = index.tableNames.get(table)
+  return column === 'LocalizedName' ? names?.one : column === 'LocalizedCollectionName' ? names?.many : names?.description
 }
 
 export const rowsOf = (refs: LabelRef[]): (LabelRow | null)[] => refs.map((r) => r.row)

@@ -174,7 +174,13 @@ XML, Node):
   (M): Stufen-/Schrittnamen (`workflow`/`processstage`), moderne
   Befehle (`appaction`, stehen schon in der Datei), Diagrammnamen.
 - **Zuletzt bearbeitet / Sprungliste** im Explorer (S): die letzten fünf
-  Komponenten, „weiter, wo ich war“ nach dem Neuladen.
+  Komponenten (die Stelle selbst merkt sich der Designer schon).
+- **Wiederholte Zeilen** (S, ⚠ ungeprüft): Enthält ein Export dieselbe
+  Object ID + Spalte zweimal (`#n`-Schlüssel), zeigt der Designer die erste;
+  die Tabellenansicht zeigt beide. Prüfen, ob echte Exporte das haben.
+- **Lange Spaltenlisten seitenweise** (S): `content-visibility` spart heute
+  Layout und Zeichnen; reicht das bei 1.000+ Spalten nicht, seitenweise mit
+  Nachladen über den Lücken-Sprung.
 - **„In der App öffnen“** (S): Deep Link aus dem Canvas auf Formular oder
   Ansicht der Umgebung, um das Ergebnis nach dem Veröffentlichen zu sehen.
 - **Formular-Zähler vorab** (S): Die Zähler je Formular und Ansicht
@@ -205,6 +211,38 @@ XML, Node):
     „Details“ (gemerkt, ohne Wahl nur ab 1600 px offen), Tastenkürzel im
     Popover, „korrekt so“ direkt im Canvas (Strg+Enter / ✓), Formularspalten
     brechen um statt zu quetschen, Silbentrennung in der Canvas-Sprache.
+
+- Review, Layout und Tempo (2026-10-04):
+  - **Layout:** eine Befehlsleiste statt drei Zeilen (Solution, Laden,
+    Sprachen-Menü, Segment-Umschalter Designer/Tabelle, ⋯-Menü, Anwenden),
+    Explorer und Details ein-/ausblendbar und ziehbar (gemerkt), Details als
+    Overlay unter 1180 px, Canvas-Kopf mattiert und per Container-Query
+    zweizeilig, wenn es eng wird, Strg+K für die Suche.
+  - **Tempo:** Zustände, Zähler und Glossar-Vorschläge rechnen nur noch die
+    geänderten Zeilen und ihre Glossar-Gruppe nach (`derive.ts`, getestet
+    gegen die volle Rechnung) statt 50.000 Zeilen je Tastendruck. Der
+    Designer baut seine Struktur einmal aus der geladenen Datei; Texte und
+    Zustände kommen über einen Live-Store, eine Änderung zeichnet nur die
+    betroffenen Beschriftungen und Zähler neu. Konsistenz-Prüfung nach dem
+    Zeichnen, Tabellen-Daten nur in der Tabellenansicht.
+  - **Laden:** Namensauflösung parallel (Formulare, Ansichten und Spalten
+    gleichzeitig, je 4 Anfragen), Wiederholung bei Fehlern, ein
+    fehlgeschlagener Block kostet nicht mehr den Rest; Spalten erscheinen
+    vor den Formularen. Formulare, Ansichten und Auswahlwerte getrennt und
+    zwischengespeichert (zurück zu einer Tabelle = sofort da). App-Abfragen
+    in Blöcken, Sitemap-Zuordnung ohne Groß-/Kleinschreibung, Sitemaps
+    ohne App eigene Einträge.
+  - **Korrekturen:** F8 startet bei der Kopie, an der man ist (nicht beim
+    Titel); „korrekt so“ mit „Nur offene“ springt weiter statt nach oben;
+    Tab/Strg+Enter landen nie in einer leeren Registerkarte; Sprachwechsel
+    behält Registerkarte, Bereich und Filter; der Designer bleibt hinter der
+    Tabellenansicht bestehen; F8 ruht unter Dialogen; ein zu langer Text
+    behält beim Verlassen den Fokus; eigene Formulartexte benennen nie
+    versehentlich die Spalte um; Tabellen-Zähler zeigen, was auf Formularen
+    liegt; „Weitere Beschriftungen“ zählt wie die Tabellenansicht;
+    Dashboards nur, wenn die Auflösung sie als Formular kennt;
+    Bereich per Tastatur wählbar, Pfeiltasten in Registerkarten,
+    Leertaste öffnet Beschriftungen, Zustand für Screenreader.
 
 - Fehlerbehebungen aus dem Review (2026-10-03):
   - **Kein doppelter Import.** Für Aktionen mit Wirkung (Import, Publish)

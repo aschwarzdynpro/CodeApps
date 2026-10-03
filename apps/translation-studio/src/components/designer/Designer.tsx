@@ -1,20 +1,27 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Popover, PopoverSurface, PopoverTrigger, Switch, ToggleButton } from '@fluentui/react-components'
-import { KeyboardRegular, PanelRightContractRegular, PanelRightExpandRegular } from '@fluentui/react-icons'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { Popover, PopoverSurface, PopoverTrigger, ToggleButton } from '@fluentui/react-components'
+import {
+  HighlightRegular,
+  KeyboardRegular,
+  PanelLeftContractRegular,
+  PanelLeftExpandRegular,
+  PanelRightContractRegular,
+  PanelRightExpandRegular,
+  SubtitlesRegular,
+} from '@fluentui/react-icons'
 import type { TranslationService } from '../../services/translationService'
-import { useLoad } from '../../hooks/useLoad'
+import { useLoad, type LoadCache } from '../../hooks/useLoad'
 import type { AppRecord, ComponentInfo, LabelRow, Lcid, TranslationFile } from '../../types/translation'
-import { buildExplorer } from '../../utils/designerTree'
+import { rowPositions, type Derived } from '../../utils/derive'
+import { buildExplorer, tableCanvasRows } from '../../utils/designerTree'
 import { parseFormXml, type FormLayout } from '../../utils/formXml'
-import type { StateCounts } from '../../utils/gaps'
-import type { Suggestion } from '../../utils/glossary'
-import { buildIndex, countRows, coverageOf } from '../../utils/labelIndex'
+import { buildIndex, coverageOf } from '../../utils/labelIndex'
 import { languageName, languageTag } from '../../utils/languages'
 import { parseSitemap, type SiteMapArea } from '../../utils/sitemapXml'
-import { loadDetailsOpen, saveDetailsOpen } from '../../utils/storage'
+import { DEFAULT_PANES, loadDetailsOpen, loadPanes, saveDetailsOpen, savePanes, type Panes } from '../../utils/storage'
 import { parseView, type ViewLayout } from '../../utils/viewXml'
 import { S } from '../../strings'
-import { DesignerContext, refKey, targetKey, type DesignerApi, type DesignerTarget, type LabelRef } from './context'
+import { DesignerContext, LiveContext, LiveStore, refKey, targetKey, useLiveValue, type DesignerApi, type DesignerTarget, type LabelRef, type Live } from './context'
 import { appRows, formRefs, rowsOf, viewRefs } from './refs'
 import { Explorer } from './Explorer'
 import { Inspector, KeyList } from './Inspector'
@@ -23,19 +30,21 @@ import { TableCanvas } from './TableCanvas'
 import { FormCanvas } from './FormCanvas'
 import { ViewCanvas } from './ViewCanvas'
 import { AppCanvas } from './AppCanvas'
+import { Splitter } from './Splitter'
 import './designer.css'
 
 export interface DesignerProps {
-  /** The file with the current edits applied. */
-  file: TranslationFile
+  /** The loaded file without edits: the structure every canvas builds on. */
+  origin: TranslationFile
+  /** States, counts and suggestions of the edited file (incremental, from the studio). */
+  derived: Derived
   components: ReadonlyMap<string, ComponentInfo>
   targets: Lcid[]
-  acknowledged: ReadonlySet<string>
   readOnly: boolean
   /** Component names are still being resolved (forms/views not known yet). */
   resolving: boolean
-  suggestions: ReadonlyMap<string, Suggestion>
-  sameBase: ReadonlyMap<string, number>
+  /** Remembers where the user was (per solution) across reloads and view switches. */
+  memoryKey: string
   onEdit: (rowKey: string, lcid: Lcid, value: string) => void
   onRevert: (rowKey: string, lcid: Lcid) => void
   onAccept: (row: LabelRow, lcid: Lcid, value: string, all: boolean) => void
@@ -55,17 +64,24 @@ function safely<T>(fn: () => T): Parsed<T> {
   }
 }
 
+/** Where the user was, per solution: survives a reload after an import and a look at the table view. */
+const remembered = new Map<string, { target: DesignerTarget; lcid: Lcid | null }>()
+
 /**
  * The translation designer: explorer (apps, tables, forms, views,
  * dashboards) on the left, the component as users see it in the middle,
  * the selected label in every language on the right. Edits go into the same
  * change list as the table view and out with the same import.
+ *
+ * Structure (index, tree, layouts) comes from the loaded file and stays put
+ * while the user edits; texts, states and counts flow through a live store,
+ * so an edit re-renders only the labels and counters it touches.
  */
 export function Designer(props: DesignerProps) {
-  const { file, components, targets, acknowledged } = props
-  const base = file.baseLanguage
-  const [target, setTarget] = useState<DesignerTarget>({ kind: 'home' })
-  const [lcidChoice, setLcid] = useState<Lcid | null>(null)
+  const { origin, derived, components, targets, memoryKey } = props
+  const base = origin.baseLanguage
+  const [target, setTarget] = useState<DesignerTarget>(() => remembered.get(memoryKey)?.target ?? { kind: 'home' })
+  const [lcidChoice, setLcidChoice] = useState<Lcid | null>(() => remembered.get(memoryKey)?.lcid ?? null)
   const [showBase, setShowBase] = useState(false)
   const [focusGaps, setFocusGaps] = useState(false)
   const [selected, setSelected] = useState<LabelRef | null>(null)
@@ -75,53 +91,89 @@ export function Designer(props: DesignerProps) {
     setDetailsState(open)
     saveDetailsOpen(open)
   }
+  // Explorer shown and pane widths; kept in the browser.
+  const [panes, setPanesState] = useState<Panes>(loadPanes)
+  const setPanes = (next: Partial<Panes>) => setPanesState((p) => ({ ...p, ...next }))
+  useEffect(() => savePanes(panes), [panes])
   const rootRef = useRef<HTMLDivElement>(null)
+  /** While a splitter is dragged: set the width on the element only, no re-render of the canvas. */
+  const preview = (prop: '--ex-w' | '--insp-w', px: number) => rootRef.current?.style.setProperty(prop, `${px}px`)
   const lcid = lcidChoice !== null && targets.includes(lcidChoice) ? lcidChoice : targets[0]
 
-  const index = useMemo(() => buildIndex(file, components), [file, components])
-  const tree = useMemo(() => buildExplorer(file, components), [file, components])
-  const tableCounts = useMemo(() => new Map(tree.tables.map((t) => [t.table, countRows(t.rows, lcid, base, acknowledged)])), [tree, lcid, base, acknowledged])
+  // ---- structure: from the loaded file, unchanged by edits -----------------
+  const index = useMemo(() => buildIndex(origin, components), [origin, components])
+  const tree = useMemo(() => buildExplorer(origin, components, !props.resolving), [origin, components, props.resolving])
+  const pos = rowPositions(origin)
+  const canvasRows = useMemo(() => new Map(tree.tables.map((t) => [t.table, tableCanvasRows(t.rows, components, props.resolving)])), [tree, components, props.resolving])
 
-  // ---- data of the selected table: forms, views, choice groups ------------
+  // ---- live data: changes with every edit and click ------------------------
+  const selectedKey = selected ? refKey(selected) : null
+  const live: Live = useMemo(
+    () => ({ gaps: derived.gaps, counts: derived.counts, acknowledged: derived.acknowledged, suggestions: derived.suggestions, sameBase: derived.sameBase, selectedKey }),
+    [derived, selectedKey],
+  )
+  const [store] = useState(() => new LiveStore(live))
+  // Before paint: subscribed labels re-render in the same frame as the edit.
+  useLayoutEffect(() => store.set(live), [store, live])
+
+  // ---- stable actions: the studio's handlers change every render ------------
+  const latest = useRef(props)
+  useLayoutEffect(() => {
+    latest.current = props
+  })
+  const actions = useMemo(
+    () => ({
+      onEdit: (rowKey: string, l: Lcid, value: string) => latest.current.onEdit(rowKey, l, value),
+      onRevert: (rowKey: string, l: Lcid) => latest.current.onRevert(rowKey, l),
+      onAccept: (row: LabelRow, l: Lcid, value: string, all: boolean) => latest.current.onAccept(row, l, value, all),
+      onAcknowledge: (rowKey: string, l: Lcid, on: boolean) => latest.current.onAcknowledge(rowKey, l, on),
+      onRefused: (message: string) => latest.current.onRefused(message),
+      onShowOther: () => latest.current.onShowOther(),
+    }),
+    [],
+  )
+
+  // ---- definitions of the selected table, dashboard and the apps -----------
+  // One cache per loaded file: going back to a table shows it at once.
+  const [cache] = useState<LoadCache>(() => new Map())
   const tableName = 'table' in target ? target.table : ''
   const tableEntry = tree.tables.find((t) => t.table === tableName)
   const formIds = tableEntry?.forms.map((f) => f.id).join(',') ?? ''
   const viewIds = tableEntry?.views.map((v) => v.id).join(',') ?? ''
-  const loadTable = useCallback(
-    async (svc: TranslationService) => {
-      const [forms, views, choices] = await Promise.all([
-        svc.getForms(formIds ? formIds.split(',') : []),
-        svc.getViews(viewIds ? viewIds.split(',') : []),
-        svc.getChoiceGroups(tableName, base).catch((err: unknown) => {
-          console.warn('[translation] choice groups not readable', err)
-          return null
-        }),
-      ])
-      return { forms, views, choices }
-    },
-    [tableName, formIds, viewIds, base],
+  // Separate loads: a failing view query doesn't hide the forms, the choices don't reload when names resolve.
+  const loadForms = useCallback((svc: TranslationService) => svc.getForms(formIds.split(',')), [formIds])
+  const formsRes = useLoad(formIds ? `forms:${formIds}` : null, loadForms, cache)
+  const loadViews = useCallback((svc: TranslationService) => svc.getViews(viewIds.split(',')), [viewIds])
+  const viewsRes = useLoad(viewIds ? `views:${viewIds}` : null, loadViews, cache)
+  const loadChoices = useCallback(
+    (svc: TranslationService) =>
+      svc.getChoiceGroups(tableName, base).catch((err: unknown) => {
+        console.warn('[translation] choice groups not readable', err)
+        return null
+      }),
+    [tableName, base],
   )
-  const tableRes = useLoad(tableName ? `table:${tableName}|${formIds}|${viewIds}` : null, loadTable)
+  const choicesRes = useLoad(tableName ? `choices:${tableName}` : null, loadChoices, cache)
 
   const dashId = target.kind === 'dashboard' ? target.id : ''
   const loadDash = useCallback((svc: TranslationService) => svc.getForms([dashId]), [dashId])
-  const dashRes = useLoad(dashId ? `dash:${dashId}` : null, loadDash)
+  const dashRes = useLoad(dashId ? `dash:${dashId}` : null, loadDash, cache)
 
   const appIds = tree.apps.map((a) => a.id).join(',')
   const sitemapIds = tree.sitemaps.join(',')
   const loadApps = useCallback((svc: TranslationService) => svc.getApps(appIds ? appIds.split(',') : [], sitemapIds ? sitemapIds.split(',') : []), [appIds, sitemapIds])
-  const appsRes = useLoad(appIds || sitemapIds ? `apps:${appIds}|${sitemapIds}` : null, loadApps)
+  const appsRes = useLoad(appIds || sitemapIds ? `apps:${appIds}|${sitemapIds}` : null, loadApps, cache)
 
   const forms = useMemo(() => {
     const m = new Map<string, Parsed<FormLayout> & { name: string; table: string; type: number }>()
-    for (const f of [...(tableRes.data?.forms ?? []), ...(dashRes.data ?? [])]) m.set(f.id, { ...safely(() => parseFormXml(f.formxml)), name: f.name, table: f.table, type: f.type })
+    for (const f of [...(formsRes.data ?? []), ...(dashRes.data ?? [])]) m.set(f.id, { ...safely(() => parseFormXml(f.formxml)), name: f.name, table: f.table, type: f.type })
     return m
-  }, [tableRes.data, dashRes.data])
+  }, [formsRes.data, dashRes.data])
   const views = useMemo(() => {
     const m = new Map<string, Parsed<ViewLayout> & { name: string; table: string }>()
-    for (const v of tableRes.data?.views ?? []) m.set(v.id, { ...safely(() => parseView(v.layoutxml, v.fetchxml, v.table)), name: v.name, table: v.table })
+    for (const v of viewsRes.data ?? []) m.set(v.id, { ...safely(() => parseView(v.layoutxml, v.fetchxml, v.table)), name: v.name, table: v.table })
     return m
-  }, [tableRes.data])
+  }, [viewsRes.data])
   const apps = useMemo(() => {
     const m = new Map<string, { app: AppRecord; areas: SiteMapArea[]; error?: string }>()
     for (const a of appsRes.data ?? []) {
@@ -133,55 +185,78 @@ export function Designer(props: DesignerProps) {
     return m
   }, [appsRes.data])
 
-  const itemCounts = useMemo(() => {
-    const m = new Map<string, StateCounts>()
-    const count = (rows: (LabelRow | null)[]) => countRows(rows, lcid, base, acknowledged)
-    for (const [id, f] of forms) if (f.layout) m.set(`form:${id}`, count(rowsOf(formRefs(index, id, f.table, f.name, f.layout, base))))
-    for (const [id, v] of views) if (v.layout) m.set(`view:${id}`, count(rowsOf(viewRefs(index, id, v.name, v.layout))))
-    for (const [id, a] of apps) m.set(`app:${id}`, count(appRows(index, a.app.id, a.app.sitemap?.id ?? '', a.areas)))
+  /** Sitemaps the explorer lists on their own: all of them without apps, else those no app of the file uses. */
+  const loneSitemaps = useMemo(
+    () => (tree.apps.length === 0 ? tree.sitemaps : (appsRes.data ?? []).filter((a) => !a.id && a.sitemap && tree.sitemaps.includes(a.sitemap.id)).map((a) => a.sitemap!.id)),
+    [tree, appsRes.data],
+  )
+
+  /** File rows per loaded form/view/app (structure), for the explorer's counters. */
+  const itemRows = useMemo(() => {
+    const m = new Map<string, (LabelRow | null)[]>()
+    for (const [id, f] of forms) if (f.layout) m.set(`form:${id}`, rowsOf(formRefs(index, id, f.table, f.name, f.layout, base)))
+    for (const [id, v] of views) if (v.layout) m.set(`view:${id}`, rowsOf(viewRefs(index, id, v.name, v.layout)))
+    for (const [id, a] of apps) m.set(`app:${id}`, appRows(index, a.app.id, a.app.sitemap?.id ?? '', a.areas))
     return m
-  }, [forms, views, apps, index, lcid, base, acknowledged])
+  }, [forms, views, apps, index, base])
 
-  const languageCoverage = useMemo(() => new Map(targets.map((l) => [l, coverageOf(countRows(file.rows, l, base, acknowledged))])), [file, targets, base, acknowledged])
-
-  const select = useCallback((t: DesignerTarget) => {
-    setTarget(t)
-    setSelected(null)
-  }, [])
+  const select = useCallback(
+    (t: DesignerTarget) => {
+      setTarget(t)
+      setSelected(null)
+      remembered.set(memoryKey, { target: t, lcid: remembered.get(memoryKey)?.lcid ?? null })
+    },
+    [memoryKey],
+  )
+  const setLcid = useCallback(
+    (l: Lcid) => {
+      setLcidChoice(l)
+      remembered.set(memoryKey, { target: remembered.get(memoryKey)?.target ?? { kind: 'home' }, lcid: l })
+    },
+    [memoryKey],
+  )
 
   const api: DesignerApi = useMemo(
     () => ({
-      file,
+      origin,
       index,
+      pos,
       components,
       lcid,
       targets,
       baseLanguage: base,
-      acknowledged,
       readOnly: props.readOnly,
       showBase,
       focusGaps,
       resolving: props.resolving,
-      suggestions: props.suggestions,
-      sameBase: props.sameBase,
-      selectedKey: selected ? refKey(selected) : null,
       select: setSelected,
-      onEdit: props.onEdit,
-      onRevert: props.onRevert,
-      onAccept: props.onAccept,
-      onAcknowledge: props.onAcknowledge,
-      onRefused: props.onRefused,
+      onEdit: actions.onEdit,
+      onRevert: actions.onRevert,
+      onAccept: actions.onAccept,
+      onAcknowledge: actions.onAcknowledge,
+      onRefused: actions.onRefused,
     }),
-    [file, index, components, lcid, targets, base, acknowledged, props.readOnly, showBase, focusGaps, props.resolving, props.suggestions, props.sameBase, selected, props.onEdit, props.onRevert, props.onAccept, props.onAcknowledge, props.onRefused],
+    [origin, index, pos, components, lcid, targets, base, props.readOnly, showBase, focusGaps, props.resolving, actions],
   )
 
-  // F8 / Shift+F8 anywhere while the designer is shown (focus may be on the page body after an edit).
+  // F8 / Shift+F8 anywhere while the designer is shown (focus may be on the page body after an edit); Ctrl+K searches.
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== 'F8') return
-      const button = rootRef.current?.querySelector<HTMLButtonElement>(`[data-canvas] [data-nav="${e.shiftKey ? 'prev' : 'next'}"]`)
+      const root = rootRef.current
+      // Not while hidden behind the table view or under a dialog.
+      if (!root || root.closest('[hidden]') || document.querySelector('[role="dialog"], [role="alertdialog"]')) return
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPanesState((p) => (p.explorer ? p : { ...p, explorer: true }))
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => rootRef.current?.querySelector<HTMLInputElement>('.ex__search input')?.select()))
+        return
+      }
+      if (e.key !== 'F8' || e.defaultPrevented) return
+      const button = root.querySelector<HTMLButtonElement>(`[data-canvas] [data-nav="${e.shiftKey ? 'prev' : 'next'}"]`)
       if (!button) return
       e.preventDefault()
+      // Let an open editor (details panel) commit before the selection moves on.
+      if (document.activeElement instanceof HTMLElement && document.activeElement.tagName === 'TEXTAREA') document.activeElement.blur()
       button.click()
     }
     window.addEventListener('keydown', onKey)
@@ -201,22 +276,34 @@ export function Designer(props: DesignerProps) {
   const canvas = (() => {
     switch (target.kind) {
       case 'home':
-        return <HomeCanvas tree={tree} tableCounts={tableCounts} onSelect={select} onLanguage={setLcid} />
+        return <HomeCanvas tree={tree} onSelect={select} onLanguage={setLcid} />
       case 'table':
-        return tableEntry ? <TableCanvas table={tableEntry.table} label={tableEntry.label} rows={tableEntry.rows} choices={tableRes.data?.choices ?? null} /> : problem(S.designer.gone)
+        return tableEntry ? (
+          <TableCanvas
+            table={tableEntry.table}
+            label={tableEntry.label}
+            rows={tableEntry.rows}
+            choices={choicesRes.data ?? null}
+            forms={tableEntry.forms}
+            views={tableEntry.views}
+            onSelect={select}
+          />
+        ) : (
+          problem(S.designer.gone)
+        )
       case 'form':
       case 'dashboard': {
-        const res = target.kind === 'form' ? tableRes : dashRes
+        const res = target.kind === 'form' ? formsRes : dashRes
         if (res.error) return problem(S.preview.loadError(res.error))
         const f = forms.get(target.id)
-        if (!f) return res.loading ? loading(S.preview.loading) : problem(S.preview.notFound)
+        if (!f) return res.loading || props.resolving ? loading(S.preview.loading) : problem(S.preview.notFound)
         if (f.error) return problem(f.error)
         return <FormCanvas formId={target.id} formName={f.name} table={f.table} type={target.kind === 'dashboard' ? 0 : f.type} layout={f.layout!} />
       }
       case 'view': {
-        if (tableRes.error) return problem(S.preview.loadError(tableRes.error))
+        if (viewsRes.error) return problem(S.preview.loadError(viewsRes.error))
         const v = views.get(target.id)
-        if (!v) return tableRes.loading ? loading(S.designer.loadingView) : problem(S.designer.viewNotFound)
+        if (!v) return viewsRes.loading || props.resolving ? loading(S.designer.loadingView) : problem(S.designer.viewNotFound)
         if (v.error) return problem(v.error)
         return <ViewCanvas viewId={target.id} viewName={v.name} table={v.table} layout={v.layout!} />
       }
@@ -235,52 +322,118 @@ export function Designer(props: DesignerProps) {
     }
   })()
 
+  const cls = ['designer', panes.explorer ? '' : 'designer--noex', details ? '' : 'designer--nodetails'].filter(Boolean).join(' ')
+  const sizes = { '--ex-w': `${panes.explorerWidth}px`, '--insp-w': `${panes.detailsWidth}px` } as CSSProperties
+
   return (
     <DesignerContext.Provider value={api}>
-      <div className={`designer${details ? '' : ' designer--nodetails'}`} ref={rootRef}>
-        <Explorer tree={tree} tableCounts={tableCounts} itemCounts={itemCounts} target={target} onSelect={select} onShowOther={props.onShowOther} />
-        <div className="designer__bar">
-          {targets.length > 1 ? (
-            <div className="designer__langs" role="radiogroup" aria-label={S.preview.language}>
-              {targets.map((l) => (
-                <button key={l} type="button" role="radio" aria-checked={l === lcid} className={`pill${l === lcid ? ' pill--active' : ''}`} onClick={() => setLcid(l)}>
-                  {languageName(l)} <span className="pill__pct">{Math.floor(languageCoverage.get(l) ?? 0)} %</span>
+      <LiveContext.Provider value={store}>
+        <div className={cls} ref={rootRef} style={sizes}>
+          {panes.explorer ? (
+            <>
+              <Explorer tree={tree} loneSitemaps={loneSitemaps} itemRows={itemRows} canvasRows={canvasRows} target={target} onSelect={select} onShowOther={actions.onShowOther} />
+              <Splitter
+                side="left"
+                className="split--ex"
+                value={panes.explorerWidth}
+                min={200}
+                max={480}
+                label={S.designer.explorerResize}
+                onPreview={(px) => preview('--ex-w', px)}
+                onCommit={(w) => setPanes({ explorerWidth: w })}
+                onReset={() => setPanes({ explorerWidth: DEFAULT_PANES.explorerWidth })}
+              />
+            </>
+          ) : null}
+          <div className="designer__bar">
+            <button
+              type="button"
+              className="designer__iconbtn"
+              title={panes.explorer ? S.designer.explorerHide : S.designer.explorerShow}
+              aria-label={panes.explorer ? S.designer.explorerHide : S.designer.explorerShow}
+              aria-pressed={panes.explorer}
+              onClick={() => setPanes({ explorer: !panes.explorer })}
+            >
+              {panes.explorer ? <PanelLeftContractRegular /> : <PanelLeftExpandRegular />}
+            </button>
+            {targets.length > 1 ? (
+              <div className="designer__langs" role="radiogroup" aria-label={S.preview.language}>
+                {targets.map((l) => (
+                  <LanguagePill key={l} lcid={l} active={l === lcid} onPick={setLcid} />
+                ))}
+              </div>
+            ) : (
+              <span className="designer__lang">{languageName(lcid)}</span>
+            )}
+            <span className="designer__spacer" />
+            <ToggleButton
+              size="small"
+              appearance="subtle"
+              icon={<SubtitlesRegular />}
+              checked={showBase}
+              title={S.preview.showBase(languageName(base))}
+              aria-label={S.preview.showBase(languageName(base))}
+              onClick={() => setShowBase(!showBase)}
+            >
+              <span className="designer__tlabel">{S.designer.showBaseShort(languageName(base))}</span>
+            </ToggleButton>
+            <ToggleButton size="small" appearance="subtle" icon={<HighlightRegular />} checked={focusGaps} title={S.designer.focusGaps} aria-label={S.designer.focusGaps} onClick={() => setFocusGaps(!focusGaps)}>
+              <span className="designer__tlabel">{S.designer.focusGaps}</span>
+            </ToggleButton>
+            <Popover withArrow positioning="below-end">
+              <PopoverTrigger disableButtonEnhancement>
+                <button type="button" className="designer__iconbtn" title={S.designer.keysButton} aria-label={S.designer.keysButton}>
+                  <KeyboardRegular />
                 </button>
-              ))}
-            </div>
-          ) : (
-            <span className="designer__lang">{languageName(lcid)}</span>
-          )}
-          <span className="designer__spacer" />
-          {props.resolving ? <span className="muted small">{S.scope.resolving}</span> : null}
-          <Switch label={S.preview.showBase(languageName(base))} checked={showBase} onChange={(_, v) => setShowBase(v.checked)} />
-          <Switch label={S.designer.focusGaps} checked={focusGaps} onChange={(_, v) => setFocusGaps(v.checked)} />
-          <Popover withArrow positioning="below-end">
-            <PopoverTrigger disableButtonEnhancement>
-              <button type="button" className="designer__iconbtn" title={S.designer.keysButton} aria-label={S.designer.keysButton}>
-                <KeyboardRegular />
-              </button>
-            </PopoverTrigger>
-            <PopoverSurface className="designer__keys">
-              <KeyList />
-            </PopoverSurface>
-          </Popover>
-          <ToggleButton
-            size="small"
-            appearance="subtle"
-            checked={details}
-            icon={details ? <PanelRightContractRegular /> : <PanelRightExpandRegular />}
-            title={details ? S.designer.detailsHide : S.designer.detailsShow}
-            onClick={() => setDetails(!details)}
-          >
-            {S.designer.details}
-          </ToggleButton>
+              </PopoverTrigger>
+              <PopoverSurface className="designer__keys">
+                <KeyList />
+              </PopoverSurface>
+            </Popover>
+            <ToggleButton
+              size="small"
+              appearance="subtle"
+              checked={details}
+              icon={details ? <PanelRightContractRegular /> : <PanelRightExpandRegular />}
+              title={details ? S.designer.detailsHide : S.designer.detailsShow}
+              aria-label={details ? S.designer.detailsHide : S.designer.detailsShow}
+              onClick={() => setDetails(!details)}
+            >
+              <span className="designer__tlabel">{S.designer.details}</span>
+            </ToggleButton>
+          </div>
+          {/* Keyed by target only: switching the language keeps the tab, area and filters. */}
+          <div className="designer__canvas" key={targetKey(target)} lang={languageTag(lcid)}>
+            {canvas}
+          </div>
+          {details ? (
+            <>
+              <Splitter
+                side="right"
+                className="split--insp"
+                value={panes.detailsWidth}
+                min={260}
+                max={560}
+                label={S.designer.detailsResize}
+                onPreview={(px) => preview('--insp-w', px)}
+                onCommit={(w) => setPanes({ detailsWidth: w })}
+                onReset={() => setPanes({ detailsWidth: DEFAULT_PANES.detailsWidth })}
+              />
+              <Inspector labelRef={selected} onClose={() => setDetails(false)} />
+            </>
+          ) : null}
         </div>
-        <div className="designer__canvas" key={`${targetKey(target)}|${lcid}`} lang={languageTag(lcid)}>
-          {canvas}
-        </div>
-        {details ? <Inspector labelRef={selected} onClose={() => setDetails(false)} /> : null}
-      </div>
+      </LiveContext.Provider>
     </DesignerContext.Provider>
+  )
+}
+
+/** Language switch with its coverage, which follows the edits. */
+function LanguagePill({ lcid, active, onPick }: { lcid: Lcid; active: boolean; onPick: (l: Lcid) => void }) {
+  const pct = useLiveValue((live) => Math.floor(coverageOf(live.counts[lcid] ?? { missing: 0, untranslated: 0, changed: 0, ok: 0 })))
+  return (
+    <button type="button" role="radio" aria-checked={active} className={`pill${active ? ' pill--active' : ''}`} onClick={() => onPick(lcid)}>
+      {languageName(lcid)} <span className="pill__pct">{pct} %</span>
+    </button>
   )
 }

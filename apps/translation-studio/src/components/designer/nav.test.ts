@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
-import { currentLabel, findGap, jumpToGap } from './nav'
+import { currentLabel, findGap, jumpToGap, markCurrent } from './nav'
 
 let opened: string | undefined
 
@@ -46,5 +46,16 @@ describe('gap navigation', () => {
     expect(currentLabel(root)?.id).toBe('b')
     expect(jumpToGap(currentLabel(root), 1, root)).toBe(true)
     expect(opened).toBe('c')
+  })
+
+  it('starts from the copy the user activated, not from an echo of the same label', () => {
+    // The title (an echo) and the name card show the same selected row.
+    const root = canvas(label('title', false, 'lt--selected" data-echo="1') + label('card', false, 'lt--selected') + label('x', true))
+    expect(currentLabel(root)?.id).toBe('card')
+    markCurrent(root.querySelector('#title'))
+    expect(currentLabel(root)?.id).toBe('title')
+    markCurrent(root.querySelector('#card'))
+    expect(root.querySelectorAll('[data-current]')).toHaveLength(1)
+    expect(currentLabel(root)?.id).toBe('card')
   })
 })

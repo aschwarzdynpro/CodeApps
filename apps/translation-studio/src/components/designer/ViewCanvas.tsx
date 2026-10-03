@@ -1,6 +1,5 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { ChevronDownRegular, LinkRegular } from '@fluentui/react-icons'
-import { countRows } from '../../utils/labelIndex'
 import type { ViewLayout } from '../../utils/viewXml'
 import { S } from '../../strings'
 import { useDesigner } from './context'
@@ -20,10 +19,10 @@ const SKELETON_ROWS = 6
 const barWidth = (row: number, col: number) => 35 + ((row * 37 + col * 53) % 55)
 
 /** The view as a list: view switcher with its name, column headers (= column display names), placeholder rows. */
-export function ViewCanvas({ viewId, viewName, table, layout }: ViewCanvasProps) {
+export const ViewCanvas = memo(function ViewCanvas({ viewId, viewName, table, layout }: ViewCanvasProps) {
   const d = useDesigner()
   const refs = useMemo(() => viewRefs(d.index, viewId, viewName, layout), [d.index, viewId, viewName, layout])
-  const counts = useMemo(() => countRows(rowsOf(refs), d.lcid, d.baseLanguage, d.acknowledged), [refs, d.lcid, d.baseLanguage, d.acknowledged])
+  const rows = useMemo(() => rowsOf(refs), [refs])
   const nameRef = refs[0]
   const descRef = refs[1]?.role === S.designer.roles.viewDescription ? refs[1] : null
   const linkedLabel = (t: string) => tableNameRow(d.index, t, 'LocalizedName')?.values[d.baseLanguage] || t
@@ -35,8 +34,7 @@ export function ViewCanvas({ viewId, viewName, table, layout }: ViewCanvasProps)
         kicker={`${S.designer.kinds.view} · ${table}`}
         title={<LabelText labelRef={nameRef} className="lt--title" empty={viewName} echo />}
         sub={descRef ? <LabelText labelRef={descRef} /> : null}
-        counts={counts}
-        rows={rowsOf(refs)}
+        rows={rows}
         note={S.designer.viewNote}
       />
       <div className="mda mda--list">
@@ -75,4 +73,4 @@ export function ViewCanvas({ viewId, viewName, table, layout }: ViewCanvasProps)
       </div>
     </div>
   )
-}
+})

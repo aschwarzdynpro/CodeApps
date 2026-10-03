@@ -34,7 +34,7 @@ mehrsprachige Kunde. Im Spiel sind nur Metadaten, keine Kundendaten.
 | **Anwenden** | Diff-Vorschau (Zellen je Sprache, vorher/nachher). Ablauf: Prüfen, ob ein Import läuft → Datei bauen → `ImportTranslation` → Importjob pollen (pausiert bei `document.hidden`, Bearbeiten gesperrt) → `PublishAllXml` (Standard an, abschaltbar, „Jetzt veröffentlichen“ nachträglich mit Bestätigung) → Ergebnis mit Meldungen des Jobs und Protokoll-Download |
 | **Verlauf** | Die letzten 25 Läufe lokal im Browser (v2: eigene Tabelle) |
 | **Einrichtung** | Prüft Org-URL, Konnektor, native Aktionen, Lesbarkeit von Solutions, Basissprache und Importjobs. „Export testen“ zeigt Weg, Größe, Sprachen und Anzahl der Beschriftungen. Bei nur einer Sprache: Hinweis „keine weiteren Sprachen installiert“ |
-| **Designer** | Standardansicht nach dem Laden (Umschalter „Tabelle \| Designer“). **Explorer** links: Übersicht, Apps, Tabellen → Tabelle & Spalten, Formulare, Ansichten, Dashboards; Fortschrittsring und offene Beschriftungen je Eintrag, Suche. **Canvas** in der Mitte, so wie die Nutzer es sehen: Tabellen-Steckbrief (Namen, Spalten mit Suche/„Nur offene“, Auswahlwerte nach Spalte gruppiert), Formular (Kopfzeile, Registerkarten, Abschnitte, Felder), Ansicht (Name, Spaltenköpfe, verknüpfte Spalten), Model-driven App (App-Name, Navigation aus der Sitemap). **Details** (Inspektor) rechts, ein-/ausblendbar und gemerkt: die Beschriftung in allen Zielsprachen mit Glossar-Vorschlag, „×n überall“, „korrekt so“, ↶. Bearbeiten direkt im Canvas: Klick → tippen, Enter übernimmt, **Tab springt zur nächsten Lücke**, Strg+Enter/✓ „korrekt so“ und weiter, F8/Umschalt+F8. Formularspalten brechen unter 300 px um, Silbentrennung in der Canvas-Sprache. Glühbirne an Lücken mit Vorschlag, „n Vorschläge übernehmen“ je Seite, Feier bei „alles übersetzt“. Gleiche Änderungsliste wie die Tabelle |
+| **Designer** | Standardansicht nach dem Laden (Umschalter „Designer \| Tabelle“ in der Befehlsleiste). **Explorer** links: Übersicht, Apps, Tabellen → Tabelle & Spalten, Formulare, Ansichten, Dashboards; Fortschrittsring und offene Beschriftungen je Eintrag, Suche (Strg+K). **Canvas** in der Mitte, so wie die Nutzer es sehen: Tabellen-Steckbrief (Namen, Formulare & Ansichten mit ihren offenen Beschriftungen, Spalten mit Suche/„Nur offene“, Auswahlwerte nach Spalte gruppiert), Formular (Kopfzeile, Registerkarten, Abschnitte, Felder), Ansicht (Name, Spaltenköpfe, verknüpfte Spalten), Model-driven App (App-Name, Navigation aus der Sitemap). **Details** (Inspektor) rechts: die Beschriftung in allen Zielsprachen mit Glossar-Vorschlag, „×n überall“, „korrekt so“, ↶. Explorer und Details ein-/ausblendbar und in der Breite ziehbar (gemerkt), in schmalen Fenstern liegen die Details über dem Canvas. Bearbeiten direkt im Canvas: Klick → tippen, Enter übernimmt, **Tab springt zur nächsten Lücke**, Strg+Enter/✓ „korrekt so“ und weiter, F8/Umschalt+F8, Pfeiltasten in Registerkarten. Glühbirne an Lücken mit Vorschlag, „n Vorschläge übernehmen“ je Seite, Feier bei „alles übersetzt“. Merkt sich die Stelle über Ansichtswechsel, Sprachwechsel und Neuladen. Gleiche Änderungsliste wie die Tabelle |
 | **Hilfe** | Drawer mit Suche, 12 Abschnitte |
 
 ### Leitplanken (im Code durchgesetzt)
@@ -68,10 +68,10 @@ Der Dataverse-Konnektor kann nur POST-Aktionen und Tabellen-Reads
 | Basissprache | `organizations?$select=languagecode` | Konnektor; sonst „Base Language Code“ im Informationsblatt, sonst erste Sprachspalte |
 | Export | `ExportTranslation { SolutionName }` → `ExportTranslationFile` (Base64-Zip) | 1. native Aktion — die App trägt sie selbst in `dataSourcesInfo` ein (Pfad `/api/data/v9.2/solutions/Microsoft.Dynamics.CRM.ExportTranslation`), weil die CLI sie nicht generieren kann, siehe unten; 2. Konnektor „unbound action“ (Dataverse: `Resource not found for the segment`), 3. Konnektor mit Pfad `solutions/…` (läuft bei großen Solutions in den Konnektor-Timeout) — der erste funktionierende Weg wird gemerkt |
 | Parsen | JSZip, eigener SpreadsheetML-Scanner mit Offsets | pure functions, Vitest |
-| Namen auflösen | Tabelle steht in der Datei (`Entity name`). `EntityDefinitions` je 10 Tabellen mit `Attributes(MetadataId, LogicalName)`: Attribut-IDs = Spalten, übrige `DisplayName`/`Description`-IDs dieser Tabellen = Auswahlwerte. `name`/`description`-IDs per FetchXML `in` gegen `systemform` (→ Formular, `type`) und `savedquery` (→ Ansicht) | Konnektor, best effort |
-| Formulare (Designer) | FetchXML auf `systemforms` (`formxml`, `name`, `objecttypecode`, `type`) für alle Formulare der gewählten Tabelle bzw. das gewählte Dashboard | Konnektor |
+| Namen auflösen | Tabelle steht in der Datei (`Entity name`). `EntityDefinitions` je 10 Tabellen mit `Attributes(MetadataId, LogicalName)`: Attribut-IDs = Spalten, übrige `DisplayName`/`Description`-IDs dieser Tabellen = Auswahlwerte. `name`/`description`-IDs per FetchXML `in` gegen `systemform` (→ Formular, `type`) und `savedquery` (→ Ansicht). Alles parallel (je 4 Anfragen, Blöcke von 10 Tabellen bzw. 50 IDs), jeder Block mit einer Wiederholung; ein fehlgeschlagener Block wird übersprungen, nicht der Rest. Spalten kommen zuerst an (Teilergebnis) | Konnektor, best effort |
+| Formulare (Designer) | FetchXML auf `systemforms` (`formxml`, `name`, `objecttypecode`, `type`) für alle Formulare der gewählten Tabelle bzw. das gewählte Dashboard; Formulare, Ansichten und Auswahlwerte als getrennte Abfragen, je geladener Datei zwischengespeichert | Konnektor |
 | Ansichten (Designer) | FetchXML auf `savedqueries` (`layoutxml`, `fetchxml`, `querytype`); Spalten verknüpfter Tabellen über die Aliase der `link-entity` | Konnektor |
-| Apps (Designer) | `AppModule`-/`SiteMap`-Zeilen der Datei → FetchXML auf `appmodules` (`uniquename`) und `sitemaps` (`sitemapxml`; App ↔ Sitemap über `sitemapnameunique` = `uniquename`) | Konnektor |
+| Apps (Designer) | `AppModule`-/`SiteMap`-Zeilen der Datei → FetchXML auf `appmodules` (`uniquename`) und `sitemaps` (`sitemapxml`; App ↔ Sitemap über `sitemapnameunique` = `uniquename`, ohne Groß-/Kleinschreibung; Sitemaps ohne App als eigene Einträge), in Blöcken von 50 IDs | Konnektor |
 | Auswahlwerte je Spalte (Designer) | `EntityDefinitions(LogicalName=…)/Attributes/Microsoft.Dynamics.CRM.{Picklist,MultiSelectPicklist,State,Status,Boolean}AttributeMetadata` mit `OptionSet` — als native GET-„APIs“ von der App selbst in `dataSourcesInfo` registriert (wie der Export); Zuordnung über die `MetadataId` der Option, sonst eindeutigen Basistext. Scheitert es, stehen die Werte ungruppiert | native Abfrage, best effort |
 | Import | `ImportTranslation { TranslationFile, ImportJobId }`; Zip = Export-Zip mit ersetzter `CrmTranslations.xml` | native Aktion, sonst Konnektor |
 | Fortschritt | FetchXML auf `importjobs` (`progress`, `startedon`, `completedon`, am Ende `data`) alle 2 s; Aufruf und Polling laufen parallel | Konnektor |
@@ -156,7 +156,8 @@ src/
 │   ├── viewXml.ts               # layoutxml + fetchxml → Spalten einer Ansicht
 │   ├── sitemapXml.ts            # sitemapxml → Bereiche/Gruppen/Unterbereiche
 │   ├── designerTree.ts          # Explorer: Apps, Tabellen mit Formularen/Ansichten, Dashboards
-│   ├── labelIndex.ts            # Zeilen je ID+Spalte, Spalten je Tabelle, Zähler
+│   ├── labelIndex.ts            # Zeilen je ID+Spalte, Spalten und Namen je Tabelle, countLive
+│   ├── derive.ts                # Zustände, Zähler, Vorschläge — inkrementell je Änderung
 │   └── storage.ts / download.ts # Verlauf, „korrekt so“, Downloads
 ├── services/
 │   ├── translationService.ts    # Interface + Auswahl Dataverse/Mock
@@ -167,8 +168,9 @@ src/
 │   └── mockData.ts              # fiktives Fuhrpark-Szenario in en/de/fr (keine Kundendaten)
 ├── fixtures/CrmTranslations.sample.xml  # synthetische Test-Fixture, drei Sprachen
 ├── help/                        # HelpPanel, helpContent, helpContext
-├── components/designer/         # Designer, Explorer, Inspector, LabelText, CanvasHeader,
-│                                # Home-/Table-/Form-/View-/AppCanvas, refs, nav, context, designer.css
+├── components/designer/         # Designer, Explorer, Inspector, LabelText, CanvasHeader, Splitter,
+│                                # Home-/Table-/Form-/View-/AppCanvas, refs, nav, designer.css,
+│                                # context (Struktur-Kontext + Live-Store)
 └── components/                  # StudioView, Matrix, LoadProgress, ApplyDialog,
                                  # CsvImportDialog, ConsistencyDialog, HistoryView, SetupView, ui, Modal
 ```

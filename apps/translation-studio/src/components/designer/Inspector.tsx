@@ -1,13 +1,11 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { ArrowUndoRegular, CheckmarkRegular, CursorClickRegular, InfoRegular, LightbulbRegular, LockClosedRegular, PanelRightContractRegular } from '@fluentui/react-icons'
 import { cellId, type LabelRow, type Lcid } from '../../types/translation'
-import { cellState } from '../../utils/gaps'
 import { glossaryKey } from '../../utils/glossary'
-import { labelKey } from '../../utils/labelIndex'
 import { languageLabel, languageName } from '../../utils/languages'
 import { MAX_LABEL_LENGTH } from '../../utils/translationFile'
 import { S } from '../../strings'
-import { useDesigner, type LabelRef } from './context'
+import { liveRow, liveState, useDesigner, useLiveState, type LabelRef, type Live } from './context'
 
 /** The keyboard flow of the canvas, as a list of keys. */
 export function KeyList() {
@@ -38,6 +36,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
  */
 export function Inspector({ labelRef, onClose }: { labelRef: LabelRef | null; onClose: () => void }) {
   const d = useDesigner()
+  const live = useLiveState()
   if (!labelRef) {
     return (
       <aside className="insp insp--empty">
@@ -48,8 +47,8 @@ export function Inspector({ labelRef, onClose }: { labelRef: LabelRef | null; on
       </aside>
     )
   }
-  // The row object changes with every edit; look it up fresh so the editors show the current text.
-  const row = labelRef.row ? (d.index.byId.get(labelKey(labelRef.row.objectId, labelRef.row.column)) ?? labelRef.row) : null
+  // The current version of the selected row (by its key, so a repeated label never swaps in another row).
+  const row = labelRef.row ? liveRow(live, d.pos, labelRef.row) : null
   const base = row ? (row.values[d.baseLanguage] ?? '') : (labelRef.fallback[d.baseLanguage] ?? '')
 
   return (
@@ -64,7 +63,7 @@ export function Inspector({ labelRef, onClose }: { labelRef: LabelRef | null; on
         <div className="insp__basetext">{base || <em className="muted">—</em>}</div>
       </div>
       {row ? (
-        d.targets.map((l) => <LanguageEditor key={`${row.key}|${l}`} row={row} lcid={l} current={l === d.lcid} />)
+        d.targets.map((l) => <LanguageEditor key={`${row.key}|${l}`} row={row} live={live} lcid={l} current={l === d.lcid} />)
       ) : (
         <>
           {d.targets.map((l) => (
@@ -97,18 +96,26 @@ export function Inspector({ labelRef, onClose }: { labelRef: LabelRef | null; on
   )
 }
 
-function LanguageEditor({ row, lcid, current }: { row: LabelRow; lcid: Lcid; current: boolean }) {
+function LanguageEditor({ row, live, lcid, current }: { row: LabelRow; live: Live; lcid: Lcid; current: boolean }) {
   const d = useDesigner()
   const value = row.values[lcid] ?? ''
   const [draft, setDraft] = useState<string | null>(null)
   // Esc discards: the blur that follows must not commit the stale draft.
   const discard = useRef(false)
-  const state = cellState(row, lcid, d.baseLanguage, d.acknowledged)
+  const state = liveState(live, d.pos, row, lcid)
   const id = cellId(row.key, lcid)
-  const suggestion = d.suggestions.get(id)
-  const same = suggestion ? (d.sameBase.get(`${glossaryKey(row.values[d.baseLanguage] ?? '')}|${lcid}`) ?? 0) : 0
+  const suggestion = live.suggestions.get(id)
+  const same = suggestion ? (live.sameBase.get(`${glossaryKey(row.values[d.baseLanguage] ?? '')}|${lcid}`) ?? 0) : 0
   const shown = draft ?? value
   const tooLong = shown.length > MAX_LABEL_LENGTH
+  if (!state) {
+    return (
+      <div className="insp__field insp__field--ro">
+        <span className="insp__lang">{languageName(lcid)}</span>
+        <div className="insp__rotext muted">{S.designer.noColumn}</div>
+      </div>
+    )
+  }
 
   const commit = () => {
     if (discard.current) {
@@ -132,8 +139,9 @@ function LanguageEditor({ row, lcid, current }: { row: LabelRow; lcid: Lcid; cur
   }
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
+      // Take the text and stay in the field (blurring would drop keyboard users on the page body).
       e.preventDefault()
-      e.currentTarget.blur()
+      commit()
     } else if (e.key === 'Escape') {
       discard.current = true
       setDraft(null)

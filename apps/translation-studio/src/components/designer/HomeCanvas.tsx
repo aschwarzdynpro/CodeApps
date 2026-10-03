@@ -1,27 +1,24 @@
-import { useMemo, type ReactElement } from 'react'
+import { memo, useMemo, type ReactElement } from 'react'
 import { AppsListRegular, BoardRegular, DocumentRegular, SparkleRegular, TableRegular, TableSimpleRegular } from '@fluentui/react-icons'
 import type { ExplorerTree } from '../../utils/designerTree'
-import type { StateCounts } from '../../utils/gaps'
 import type { Lcid } from '../../types/translation'
-import { countRows, coverageOf, gapsOf } from '../../utils/labelIndex'
+import { countLive, coverageOf, gapsOf } from '../../utils/labelIndex'
 import { languageName } from '../../utils/languages'
 import { S } from '../../strings'
-import { useDesigner, type DesignerTarget } from './context'
+import { useDesigner, useLiveState, type DesignerTarget } from './context'
 
 interface HomeCanvasProps {
   tree: ExplorerTree
-  tableCounts: ReadonlyMap<string, StateCounts>
   onSelect: (t: DesignerTarget) => void
   onLanguage: (lcid: Lcid) => void
 }
 
 /** Start page of the designer: coverage per language, what the solution contains, where the most work is. */
-export function HomeCanvas({ tree, tableCounts, onSelect, onLanguage }: HomeCanvasProps) {
+export const HomeCanvas = memo(function HomeCanvas({ tree, onSelect, onLanguage }: HomeCanvasProps) {
   const d = useDesigner()
-  const perLanguage = useMemo(
-    () => d.targets.map((l) => ({ lcid: l, counts: countRows(d.file.rows, l, d.baseLanguage, d.acknowledged) })),
-    [d.file, d.targets, d.baseLanguage, d.acknowledged],
-  )
+  const live = useLiveState()
+  const perLanguage = d.targets.map((l) => ({ lcid: l, counts: live.counts[l] ?? { missing: 0, untranslated: 0, changed: 0, ok: 0 } }))
+  const tableCounts = useMemo(() => new Map(tree.tables.map((t) => [t.table, countLive(live.gaps, d.pos, t.rows, d.lcid)])), [tree, live.gaps, d.pos, d.lcid])
   const worst = tree.tables
     .map((t) => ({ t, gaps: gapsOf(tableCounts.get(t.table) ?? { missing: 0, untranslated: 0, changed: 0, ok: 0 }) }))
     .filter((x) => x.gaps > 0)
@@ -94,7 +91,7 @@ export function HomeCanvas({ tree, tableCounts, onSelect, onLanguage }: HomeCanv
       </section>
     </div>
   )
-}
+})
 
 function Stat({ icon, value, label }: { icon: ReactElement; value: number; label: string }) {
   return (

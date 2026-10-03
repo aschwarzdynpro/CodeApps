@@ -37,9 +37,21 @@ export function openLabel(el: HTMLElement): void {
   el.querySelector<HTMLElement>('[data-open]')?.click()
 }
 
-/** The label the user is on: the open editor, else the selected label. */
+/**
+ * The label the user is on: the open editor, else the copy last activated
+ * (a label can appear twice, e.g. as title and in the bar), else the first
+ * selected copy that isn't an echo.
+ */
 export function currentLabel(root: Element): Element | null {
-  return root.querySelector('.lt--editing') ?? root.querySelector('.lt--selected')
+  return root.querySelector('.lt--editing') ?? root.querySelector('[data-current]') ?? root.querySelector('.lt--selected:not([data-echo])') ?? root.querySelector('.lt--selected')
+}
+
+/** Marks `el` as the copy the user activated (see {@link currentLabel}). */
+export function markCurrent(el: Element | null): void {
+  const root = el?.closest('[data-canvas]')
+  if (!el || !root) return
+  for (const other of root.querySelectorAll('[data-current]')) if (other !== el) other.removeAttribute('data-current')
+  el.setAttribute('data-current', '1')
 }
 
 /**
@@ -63,12 +75,16 @@ export function jumpToGap(from: Element | null, dir: 1 | -1, root?: Element | nu
   return true
 }
 
-/** After a tab/area switch has rendered: open the first (dir 1) or last gap inside `part()`. */
+/**
+ * After a tab/area switch has rendered: open the first (dir 1) or last gap
+ * inside `part()`; if that part has none after all, any gap of the canvas.
+ */
 export function jumpAfterRender(part: () => Element | null | undefined, dir: 1 | -1): void {
   window.requestAnimationFrame(() =>
     window.requestAnimationFrame(() => {
       const root = part()
-      const target = root ? findGap(root, null, dir) : null
+      const canvas = root?.closest('[data-canvas]')
+      const target = (root ? findGap(root, null, dir) : null) ?? (canvas ? findGap(canvas, null, dir) : null)
       if (target) openLabel(target)
     }),
   )

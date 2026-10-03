@@ -31,7 +31,7 @@ export interface TranslationService {
   /** `ExportTranslation` — the zip with `CrmTranslations.xml`. */
   exportTranslations(solutionUniqueName: string): Promise<ExportResult>
   /** Table/name/kind per object id of the file (best effort, for filters and display). */
-  resolveComponents(file: TranslationFile): Promise<Map<string, ComponentInfo>>
+  resolveComponents(file: TranslationFile, onPartial?: (partial: Map<string, ComponentInfo>) => void): Promise<Map<string, ComponentInfo>>
   /** Forms with their `formxml`, for the designer (missing ids are left out). */
   getForms(formIds: string[]): Promise<FormRecord[]>
   /** Views with `layoutxml`/`fetchxml`, for the designer. */

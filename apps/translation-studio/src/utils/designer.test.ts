@@ -4,8 +4,11 @@ import fixture from '../fixtures/CrmTranslations.sample.xml?raw'
 import { parseTranslationFile } from './translationFile'
 import { parseView } from './viewXml'
 import { parseSitemap, siteMapTitle } from './sitemapXml'
-import { buildExplorer } from './designerTree'
-import { buildIndex, columnRow, countRows, coverageOf, gapsOf } from './labelIndex'
+import { buildExplorer, tableCanvasRows } from './designerTree'
+import { buildIndex, columnRow, countLive, coverageOf, gapsOf } from './labelIndex'
+import { findGaps } from './gaps'
+import { rowPositions } from './derive'
+import { elementRef } from '../components/designer/refs'
 import type { ComponentInfo } from '../types/translation'
 
 const VEHICLE_FORM = 'd4000000-0000-4000-8000-000000000001'
@@ -89,13 +92,35 @@ describe('explorer and label index', () => {
     expect(buildExplorer(file, new Map()).tables[1].forms).toEqual([])
   })
 
+  it('the table canvas leaves form and view labels to their own canvases', () => {
+    const vehicle = buildExplorer(file, components).tables[1]
+    const onCanvas = tableCanvasRows(vehicle.rows, components, false)
+    expect(onCanvas.some((r) => r.objectId === VEHICLE_FORM)).toBe(false)
+    expect(onCanvas.some((r) => r.objectId === MILEAGE)).toBe(true)
+  })
+
+  it('a field shows the column name only when the form shows it too', () => {
+    const index = buildIndex(file, components)
+    const same = elementRef(index, 'pro_vehicle', '', { 1033: 'Mileage' }, 'pro_mileage', 'Feld', 'ctx', 1033)
+    expect(same.row?.objectId).toBe(MILEAGE)
+    expect(same.fromColumn).toBe(true)
+    // An own form text the export doesn't carry stays read only: editing must not rename the column.
+    const own = elementRef(index, 'pro_vehicle', '', { 1033: 'Odometer' }, 'pro_mileage', 'Feld', 'ctx', 1033)
+    expect(own.row).toBeNull()
+    expect(own.fallback[1033]).toBe('Odometer')
+  })
+
   it('finds column rows by table and logical name and counts states', () => {
     const index = buildIndex(file, components)
     expect(columnRow(index, 'pro_vehicle', 'pro_mileage')?.values[1033]).toBe('Mileage')
     expect(columnRow(index, 'pro_vehicle', 'pro_unknown')).toBeUndefined()
-    const counts = countRows(index.byTable.get('pro_vehicle')!, 1031, 1033, new Set())
+    const gaps = findGaps(file, { languages: [1031, 1036] })
+    const rows = index.byTable.get('pro_vehicle')!
+    const counts = countLive(gaps, rowPositions(file), [...rows, ...rows, null], 1031)
     expect(gapsOf(counts)).toBe(counts.missing + counts.untranslated)
+    // Each row once, however often it is passed.
     expect(counts.missing + counts.untranslated + counts.changed + counts.ok).toBe(11)
+    expect(index.tableNames.get('pro_vehicle')?.one?.values[1033]).toBe('Vehicle')
     expect(coverageOf({ missing: 0, untranslated: 0, changed: 0, ok: 0 })).toBe(100)
     expect(coverageOf({ missing: 1, untranslated: 0, changed: 1, ok: 2 })).toBe(75)
   })
@@ -117,6 +142,8 @@ describe('explorer on the mock solution', async () => {
       expect(t.views).toHaveLength(3)
     }
     expect(tree.dashboards).toEqual([])
+    // The designer's "other labels" button counts what the table view shows for kind "other".
+    expect(tree.otherCount).toBe(file.rows.filter((r) => (components.get(r.objectId)?.kind ?? r.kind) === 'other').length)
   })
 
   it('mock app and views parse and resolve against the file', () => {

@@ -125,7 +125,15 @@ export const HELP_SECTIONS: HelpSection[] = [
     summary: 'Alle Übersetzungen so sehen, wie die Nutzer sie sehen — Tabellen, Formulare, Ansichten, Apps.',
     blocks: [
       {
-        p: 'Der **Designer** ist die Standardansicht nach dem Laden (Umschalter **Tabelle | Designer** links in der Werkzeugleiste). Links die Komponenten der Solution, in der Mitte die gewählte Komponente so, wie sie in der App aussieht, rechts die angeklickte Beschriftung in allen Sprachen.',
+        p: 'Der **Designer** ist die Standardansicht nach dem Laden (Umschalter **Designer | Tabelle** in der Befehlsleiste oben). Links die Komponenten der Solution, in der Mitte die gewählte Komponente so, wie sie in der App aussieht, rechts auf Wunsch die **Details** zur angeklickten Beschriftung.',
+      },
+      {
+        list: [
+          '**Platz einteilen:** Komponentenliste links und Details rechts lassen sich ein- und ausblenden (Symbole in der Leiste über dem Canvas) und an der Trennlinie in der Breite ziehen — auch mit den Pfeiltasten, Doppelklick stellt die Standardbreite her. Der Browser merkt sich das. In schmalen Fenstern legen sich die Details über den Canvas.',
+          '**Strg+K** springt in die Suche der Komponentenliste.',
+          'Der Designer merkt sich, wo man war: nach einem Blick in die Tabellenansicht, nach einem Sprachwechsel (Registerkarte und Filter bleiben) und nach dem Neuladen im Anschluss an einen Import.',
+          'Oben in der **Befehlsleiste**: Solution, Laden, die Zielsprachen (Menü), die Ansicht, Konsistenz, weitere Aktionen (⋯: CSV einlesen/exportieren), Verwerfen und Anwenden.',
+        ],
       },
       { h: 'Links: Komponenten' },
       {
@@ -142,7 +150,7 @@ export const HELP_SECTIONS: HelpSection[] = [
         table: {
           head: ['Komponente', 'Was zu sehen ist'],
           rows: [
-            ['Tabelle & Spalten', 'Namen der Tabelle (Einzahl, Mehrzahl, Beschreibung), alle Spalten mit Anzeigename und Beschreibung (Suche, „Nur offene“), Auswahlwerte gruppiert nach ihrer Spalte.'],
+            ['Tabelle & Spalten', 'Namen der Tabelle (Einzahl, Mehrzahl, Beschreibung), **Formulare & Ansichten** der Tabelle mit der Zahl offener Beschriftungen dort (ein Klick öffnet sie), alle Spalten mit Anzeigename und Beschreibung (Suche, „Nur offene“), Auswahlwerte gruppiert nach ihrer Spalte.'],
             ['Formular', 'Kopfzeile, Registerkarten (mit Zahl offener Beschriftungen), Abschnitte und Felder in ihren Spalten.'],
             ['Ansicht', 'Ansichtsname und die Liste mit ihren Spaltenköpfen; Spalten verknüpfter Tabellen sind mit 🔗 markiert.'],
             ['App', 'Kopfleiste mit App-Namen, Navigation mit Bereichen, Gruppen und Unterbereichen aus der Sitemap.'],
@@ -163,6 +171,7 @@ export const HELP_SECTIONS: HelpSection[] = [
             ['Esc', 'verwerfen'],
             ['Strg+Enter oder ✓', 'vermutlich unübersetzt, aber **korrekt so** (z. B. „Status“ ist auch auf Deutsch „Status“) — markieren und weiter zur nächsten Lücke'],
             ['F8 / Umschalt+F8', 'nächste / vorige Lücke der Seite'],
+            ['Pfeiltasten', 'in den Registerkarten eines Formulars und den Bereichen einer App wechseln'],
           ],
         },
       },
@@ -176,7 +185,7 @@ export const HELP_SECTIONS: HelpSection[] = [
             ['Glühbirne', 'Vorschlag aus dem Glossar (derselbe Basistext ist anderswo übersetzt) — ein Klick übernimmt ihn.'],
             ['gepunktet unterstrichen', 'Kein eigener Text an dieser Stelle: das ist der **Spalten- bzw. Tabellenname**. Eine Änderung gilt überall, wo er vorkommt (z. B. Spaltenköpfe in Ansichten, Felder ohne eigenen Formulartext, Unterbereiche einer App).'],
             ['grau', 'Steht nicht in der Exportdatei, nur Anzeige.'],
-            ['rot gestrichelt', 'Text aus der Sitemap ohne Übersetzung: steht nicht im Übersetzungsexport, im App-Designer pflegen.'],
+            ['rot gestrichelt', 'Text aus der Sitemap oder ein eigener Formulartext ohne Übersetzung: steht nicht im Übersetzungsexport, im App- bzw. Formular-Designer pflegen. Ein Feld, dessen Formulartext vom Spaltennamen abweicht, zeigt diesen Text (nur Anzeige) — so benennt eine Änderung nie versehentlich die Spalte um.'],
             ['blass / „ausgeblendet“', 'Registerkarte, Abschnitt oder Feld ist unsichtbar bzw. die Beschriftung ausgeschaltet — übersetzen lässt sie sich trotzdem.'],
           ],
         },

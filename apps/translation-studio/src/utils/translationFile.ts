@@ -146,8 +146,12 @@ export interface ApplyResult {
  * language, never empties a cell (whether an empty cell clears a label on
  * import is unverified), never exceeds the import's 500-character limit.
  */
+const positions = new WeakMap<readonly LabelRow[], Map<string, number>>()
+
 export function applyEdits(file: TranslationFile, edits: CellEdit[]): ApplyResult {
-  const byKey = new Map(file.rows.map((r, i) => [r.key, i]))
+  // The key → position map of a loaded file is built once, not per edit.
+  let byKey = positions.get(file.rows)
+  if (!byKey) positions.set(file.rows, (byKey = new Map(file.rows.map((r, i) => [r.key, i]))))
   const next = new Map<number, Record<Lcid, string>>()
   const skipped: ApplyResult['skipped'] = []
 

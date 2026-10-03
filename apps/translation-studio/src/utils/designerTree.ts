@@ -36,12 +36,19 @@ export interface ExplorerTree {
   dashboards: ExplorerItem[]
   /** Rows the designer has no canvas for (ribbon, messages, solution …). */
   other: LabelRow[]
+  /** Rows of kind "other" — exactly what the table view shows for that kind. */
+  otherCount: number
 }
 
 const FORM_ORDER = [2, 7, 6, 11, 5]
 const rank = (t: number | undefined) => (t !== undefined && FORM_ORDER.includes(t) ? FORM_ORDER.indexOf(t) : FORM_ORDER.length)
 
-export function buildExplorer(file: TranslationFile, components: ReadonlyMap<string, ComponentInfo>): ExplorerTree {
+/**
+ * @param resolved The metadata lookup has finished: only entries it found to
+ * be forms are listed as dashboards from then on (before, every named
+ * non-table entry is listed provisionally).
+ */
+export function buildExplorer(file: TranslationFile, components: ReadonlyMap<string, ComponentInfo>, resolved = true): ExplorerTree {
   const base = file.baseLanguage
   const tables = new Map<string, ExplorerTable>()
   const table = (name: string) => {
@@ -57,6 +64,7 @@ export function buildExplorer(file: TranslationFile, components: ReadonlyMap<str
   const dashboards: ExplorerItem[] = []
   const other: LabelRow[] = []
   const listed = new Set<string>()
+  let otherCount = 0
 
   for (const r of file.rows) {
     if (!r.objectId) {
@@ -65,6 +73,7 @@ export function buildExplorer(file: TranslationFile, components: ReadonlyMap<str
     }
     const info = components.get(r.objectId)
     const kind = kindOf(r, components)
+    if (kind === 'other') otherCount++
     const name = r.values[base] || info?.name || r.objectId
     if (r.type === 'AppModule') {
       if (r.column === 'name' && !listed.has(r.objectId)) {
@@ -79,7 +88,7 @@ export function buildExplorer(file: TranslationFile, components: ReadonlyMap<str
     }
     if (!isTableName(r.type)) {
       // Dashboards are listed under their display name instead of a table.
-      if (kind === 'form') {
+      if (kind === 'form' && (!resolved || info?.kind === 'form')) {
         if (r.column === 'name' && !listed.has(r.objectId)) {
           listed.add(r.objectId)
           dashboards.push({ id: r.objectId, name, table: '', type: 0 })
@@ -113,5 +122,19 @@ export function buildExplorer(file: TranslationFile, components: ReadonlyMap<str
     tables: [...tables.values()].sort((a, b) => a.label.localeCompare(b.label)),
     dashboards: dashboards.sort(byName),
     other,
+    otherCount: otherCount + file.rows.filter((r) => !r.objectId && r.kind === 'other').length,
   }
+}
+
+/**
+ * Rows the table canvas shows: names, columns, choice values, other table
+ * labels, and — once the lookup is done — form/view names it couldn't place.
+ * Form element labels and form/view names live on their own canvases.
+ */
+export function tableCanvasRows(rows: readonly LabelRow[], components: ReadonlyMap<string, ComponentInfo>, resolving: boolean): LabelRow[] {
+  return rows.filter((r) => {
+    const kind = kindOf(r, components)
+    if (kind === 'table' || kind === 'column' || kind === 'choice' || kind === 'other') return true
+    return !resolving && (r.column === 'name' || r.column === 'description') && !components.get(r.objectId)?.kind
+  })
 }

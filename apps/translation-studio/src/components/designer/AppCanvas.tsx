@@ -1,10 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { AppsRegular, ChevronDownRegular, NavigationRegular, SearchRegular, TableSimpleRegular } from '@fluentui/react-icons'
 import type { AppRecord } from '../../types/translation'
-import { countRows, gapsOf, labelKey } from '../../utils/labelIndex'
+import { countLive, gapsOf, labelKey } from '../../utils/labelIndex'
 import type { SiteMapArea, SiteMapNode, SiteMapSubArea } from '../../utils/sitemapXml'
 import { S } from '../../strings'
-import { useDesigner, type LabelRef } from './context'
+import { useDesigner, useLiveStore, type LabelRef } from './context'
 import { LabelText } from './LabelText'
 import { appRows, tableNameRow } from './refs'
 import { CanvasHeader } from './CanvasHeader'
@@ -24,8 +24,9 @@ interface AppCanvasProps {
  * in the export); own sitemap titles are shown read only — the translation
  * export doesn't carry them.
  */
-export function AppCanvas({ appId, appName, app, areas }: AppCanvasProps) {
+export const AppCanvas = memo(function AppCanvas({ appId, appName, app, areas }: AppCanvasProps) {
   const d = useDesigner()
+  const store = useLiveStore()
   const [areaIndex, setAreaIndex] = useState(0)
   const [subId, setSubId] = useState<string | null>(null)
   const area = areas[Math.min(areaIndex, Math.max(0, areas.length - 1))] as SiteMapArea | undefined
@@ -53,25 +54,22 @@ export function AppCanvas({ appId, appName, app, areas }: AppCanvasProps) {
 
   // Editable rows come from appRows (same source as the explorer); read-only sitemap titles are only reported.
   const rows = useMemo(() => appRows(d.index, appId, app?.sitemap?.id ?? '', areas), [d.index, appId, app, areas])
-  const counts = useMemo(() => countRows(rows, d.lcid, d.baseLanguage, d.acknowledged), [rows, d.lcid, d.baseLanguage, d.acknowledged])
   const missingTitle = (n: SiteMapNode) => !!(n.titles[d.baseLanguage] || n.title) && !n.titles[d.lcid]
   const roMissing = areas.reduce(
     (sum, a) => sum + (missingTitle(a) ? 1 : 0) + a.groups.reduce((s2, g) => s2 + (missingTitle(g) ? 1 : 0) + g.subareas.filter((s) => (Object.keys(s.titles).length > 0 || s.title) && missingTitle(s)).length, 0),
     0,
   )
-  const areaGaps = useMemo(
-    () => areas.map((a) => gapsOf(countRows(appRows(d.index, '', '', [a]), d.lcid, d.baseLanguage, d.acknowledged))),
-    [areas, d.index, d.lcid, d.baseLanguage, d.acknowledged],
-  )
+  const areaRows = useMemo(() => areas.map((a) => appRows(d.index, '', '', [a])), [areas, d.index])
   const root = useRef<HTMLDivElement>(null)
   const currentArea = area ? areas.indexOf(area) : 0
-  // The visible area is done: go to the next area with gaps (cyclic).
+  // The visible area is done: go to the next area with gaps (cyclic), by the counts of now.
   const onExhausted = useCallback(
     (dir: 1 | -1) => {
+      const live = store.get()
       const n = areas.length
       for (let step = 1; step < n; step++) {
         const i = (currentArea + dir * step + n) % n
-        if (areaGaps[i] > 0) {
+        if (gapsOf(countLive(live.gaps, d.pos, areaRows[i], d.lcid)) > 0) {
           setAreaIndex(i)
           setSubId(null)
           jumpAfterRender(() => root.current?.querySelector('.app__nav'), dir)
@@ -80,8 +78,17 @@ export function AppCanvas({ appId, appName, app, areas }: AppCanvasProps) {
       }
       return false
     },
-    [areas.length, currentArea, areaGaps],
+    [store, areas.length, currentArea, areaRows, d.pos, d.lcid],
   )
+  const onAreaKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
+    e.preventDefault()
+    const n = areas.length
+    const next = (currentArea + (e.key === 'ArrowRight' ? 1 : -1) + n) % n
+    setAreaIndex(next)
+    setSubId(null)
+    ;(e.currentTarget.children[next] as HTMLElement | undefined)?.focus()
+  }
 
   const appRef: LabelRef = { row: nameRow, fallback: { [d.baseLanguage]: app?.name || appName }, role: S.designer.roles.appName, context: appName }
   const selectedSub = area?.groups.flatMap((g) => g.subareas).find((s) => s.id === subId) ?? area?.groups[0]?.subareas[0]
@@ -94,7 +101,6 @@ export function AppCanvas({ appId, appName, app, areas }: AppCanvasProps) {
           kicker={`${S.designer.kinds.app}${app?.uniqueName ? ` · ${app.uniqueName}` : ''}`}
           title={<LabelText labelRef={appRef} className="lt--title" empty={appName} echo />}
           sub={descRow ? <LabelText labelRef={{ row: descRow, fallback: {}, role: S.designer.roles.appDescription, context: appName }} /> : null}
-          counts={counts}
           rows={rows}
           note={roMissing > 0 ? S.designer.sitemapNote(roMissing) : S.designer.sitemapNoteNone}
         />
@@ -123,6 +129,9 @@ export function AppCanvas({ appId, appName, app, areas }: AppCanvasProps) {
                           key={s.id}
                           className={`app__sub${s === selectedSub ? ' app__sub--active' : ''}`}
                           onClickCapture={() => setSubId(s.id)}
+                          onKeyDownCapture={(e) => {
+                            if (e.key === 'Enter' || e.key === 'F2' || e.key === ' ') setSubId(s.id)
+                          }}
                         >
                           {s.entity ? <TableSimpleRegular aria-hidden /> : <AppsRegular aria-hidden />}
                           <LabelText labelRef={subRef(s, `${context} › ${g.titles[d.baseLanguage] || g.id}`)} empty={s.id} />
@@ -137,9 +146,20 @@ export function AppCanvas({ appId, appName, app, areas }: AppCanvasProps) {
               {areas.length > 0 ? (
                 <div className="app__areas">
                   {areas.length > 1 ? (
-                    <div className="app__areapick" role="tablist" aria-label={S.designer.areas}>
+                    <div className="app__areapick" role="tablist" aria-label={S.designer.areas} onKeyDown={onAreaKey}>
                       {areas.map((a, i) => (
-                        <button key={a.id} type="button" role="tab" aria-selected={a === area} className={`app__area${a === area ? ' app__area--active' : ''}`} onClick={() => setAreaIndex(i)}>
+                        <button
+                          key={a.id}
+                          type="button"
+                          role="tab"
+                          tabIndex={a === area ? 0 : -1}
+                          aria-selected={a === area}
+                          className={`app__area${a === area ? ' app__area--active' : ''}`}
+                          onClick={() => {
+                            setAreaIndex(i)
+                            setSubId(null)
+                          }}
+                        >
                           {areaTitle(a)}
                         </button>
                       ))}
@@ -181,4 +201,4 @@ export function AppCanvas({ appId, appName, app, areas }: AppCanvasProps) {
       </div>
     </CanvasNav.Provider>
   )
-}
+})

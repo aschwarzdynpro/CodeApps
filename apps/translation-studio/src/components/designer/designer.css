@@ -1,28 +1,155 @@
 /* ==========================================================================
-   Translation designer: explorer | canvas | inspector
+   Translation designer: explorer | canvas | details
+   Panes sit in a named grid; the splitters are their own (thin) tracks.
+   Widths come from --ex-w / --insp-w (set inline, dragged live).
    ========================================================================== */
 
 .designer {
+  --ex-w: 280px;
+  --insp-w: 320px;
+  --split: 10px;
+  position: relative;
   flex: 1;
   min-height: 420px;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 300px;
+  grid-template-columns: var(--ex-w) var(--split) minmax(0, 1fr) var(--split) var(--insp-w);
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 8px 12px;
+  grid-template-areas:
+    'ex exs bar bar bar'
+    'ex exs canvas is insp';
+  row-gap: 8px;
 }
 
-/* Explorer spans both rows; the bar spans canvas and details panel. */
+.designer--nodetails {
+  grid-template-columns: var(--ex-w) var(--split) minmax(0, 1fr);
+  grid-template-areas:
+    'ex exs bar'
+    'ex exs canvas';
+}
+
+.designer--noex {
+  grid-template-columns: minmax(0, 1fr) var(--split) var(--insp-w);
+  grid-template-areas:
+    'bar bar bar'
+    'canvas is insp';
+}
+
+.designer--noex.designer--nodetails {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'bar'
+    'canvas';
+}
+
 .designer > .ex {
-  grid-row: 1 / span 2;
+  grid-area: ex;
+  animation: ds-pane-left 160ms ease-out;
+}
+
+.designer > .split--ex {
+  grid-area: exs;
 }
 
 .designer > .designer__bar {
-  grid-column: 2 / -1;
+  grid-area: bar;
 }
 
-/* Details panel closed: the canvas takes the width. */
-.designer--nodetails {
-  grid-template-columns: 280px minmax(0, 1fr);
+.designer > .designer__canvas {
+  grid-area: canvas;
+}
+
+.designer > .split--insp {
+  grid-area: is;
+}
+
+.designer > .insp {
+  grid-area: insp;
+  animation: ds-pane-right 160ms ease-out;
+}
+
+@keyframes ds-pane-left {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+
+@keyframes ds-pane-right {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+}
+
+/* ---------- splitter ---------- */
+.split {
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.split::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 120ms;
+}
+
+.split:hover::after,
+.split:active::after {
+  background: color-mix(in srgb, var(--brand) 55%, transparent);
+}
+
+.split:focus-visible::after {
+  background: var(--brand);
+  width: 3px;
+}
+
+/*
+ * Narrow window: the details float over the canvas instead of taking a
+ * column, so the form keeps its width.
+ */
+@media (max-width: 1180px) {
+  .designer,
+  .designer--nodetails {
+    grid-template-columns: var(--ex-w) var(--split) minmax(0, 1fr);
+    grid-template-areas:
+      'ex exs bar'
+      'ex exs canvas';
+  }
+
+  .designer--noex,
+  .designer--noex.designer--nodetails {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'bar'
+      'canvas';
+  }
+
+  .designer > .split--insp {
+    display: none;
+  }
+
+  .designer > .insp {
+    position: absolute;
+    top: 48px;
+    right: 0;
+    bottom: 0;
+    z-index: 6;
+    width: min(var(--insp-w), 88%);
+    box-shadow: 0 12px 40px rgba(16, 24, 40, 0.18), 0 2px 8px rgba(16, 24, 40, 0.08);
+  }
+
+  .designer__tlabel {
+    display: none;
+  }
 }
 
 .designer__iconbtn {
@@ -38,9 +165,11 @@
   color: var(--muted);
   font-size: 18px;
   cursor: pointer;
+  transition: background 100ms, color 100ms;
 }
 
 .designer__iconbtn:hover {
+  background: var(--surface);
   border-color: var(--border);
   color: var(--text);
 }
@@ -56,13 +185,15 @@
 .designer__bar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
+  min-height: 36px;
   flex-wrap: wrap;
 }
 
 .designer__langs {
   display: flex;
   gap: 6px;
+  margin-left: 4px;
 }
 
 .designer__lang {
@@ -74,10 +205,14 @@
 }
 
 .designer__canvas {
-  flex: 1;
   min-height: 0;
+  min-width: 0;
   overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
   border-radius: 12px;
+  container: canvas / inline-size;
   animation: ds-fade 180ms ease-out;
 }
 
@@ -345,12 +480,34 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
-  flex-wrap: wrap;
   padding: 14px 18px;
-  background: var(--surface);
+  /* Frosted while the canvas scrolls underneath. */
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  backdrop-filter: saturate(1.6) blur(14px);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow);
+}
+
+/* Narrow canvas (details open, small window): titles on top, status as one row below. */
+@container canvas (max-width: 860px) {
+  .canvas__head {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .canvas__status {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .canvas__note {
+    flex-basis: 100%;
+  }
 }
 
 .canvas__head--done {
@@ -1604,16 +1761,6 @@
   font-weight: 600;
 }
 
-@media (max-width: 1280px) {
-  .designer {
-    grid-template-columns: 250px minmax(0, 1fr) 270px;
-  }
-
-  .designer--nodetails {
-    grid-template-columns: 250px minmax(0, 1fr);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .designer__canvas,
   .canvas__done--party,
@@ -1661,4 +1808,63 @@ button.home__lang:hover {
 
 .ex__item > svg.ex__ok {
   color: var(--ok);
+}
+
+/* ---------- large lists: skip layout and paint of what is off screen (the DOM stays for gap navigation) ---------- */
+.ex__table {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 46px;
+}
+
+.ex__table--active {
+  content-visibility: visible;
+}
+
+.tc__column,
+.tc__group {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 44px;
+}
+
+/* ---------- table canvas: forms and views of the table ---------- */
+.tc__elsewhere .tc__cardtitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tc__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tc__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color 120ms, background 120ms;
+}
+
+.tc__link:hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.tc__link svg {
+  flex-shrink: 0;
+  color: var(--muted);
 }

@@ -79,6 +79,30 @@ export function saveDetailsOpen(open: boolean): void {
   write(DETAILS, open)
 }
 
+/** Designer panes: explorer shown, widths of explorer and details (px). */
+export interface Panes {
+  explorer: boolean
+  explorerWidth: number
+  detailsWidth: number
+}
+
+const PANES = 'translation-studio.panes'
+export const DEFAULT_PANES: Panes = { explorer: true, explorerWidth: 280, detailsWidth: 320 }
+
+export function loadPanes(): Panes {
+  const v = read<Partial<Panes>>(PANES, {})
+  const num = (n: unknown, d: number) => (typeof n === 'number' && Number.isFinite(n) ? n : d)
+  return {
+    explorer: typeof v.explorer === 'boolean' ? v.explorer : DEFAULT_PANES.explorer,
+    explorerWidth: num(v.explorerWidth, DEFAULT_PANES.explorerWidth),
+    detailsWidth: num(v.detailsWidth, DEFAULT_PANES.detailsWidth),
+  }
+}
+
+export function savePanes(panes: Panes): void {
+  write(PANES, panes)
+}
+
 const ackKey = (orgUrl: string, solution: string) => `${ACK}.${orgUrl || 'mock'}.${solution}`
 
 /** Cell ids marked "correct as is" for one solution. */
