@@ -43,6 +43,19 @@ const NAMES: Record<number, string> = {
   2074: 'Serbisch (lateinisch)',
 }
 
+/** BCP 47 tags for the languages above (hyphenation and spell checking in the canvas). */
+const TAGS: Record<number, string> = {
+  1025: 'ar', 1026: 'bg', 1027: 'ca', 1028: 'zh-TW', 1029: 'cs', 1030: 'da', 1031: 'de', 1032: 'el', 1033: 'en', 1035: 'fi',
+  1036: 'fr', 1037: 'he', 1038: 'hu', 1040: 'it', 1041: 'ja', 1042: 'ko', 1043: 'nl', 1044: 'nb', 1045: 'pl', 1046: 'pt-BR',
+  1048: 'ro', 1049: 'ru', 1050: 'hr', 1051: 'sk', 1053: 'sv', 1054: 'th', 1055: 'tr', 1057: 'id', 1058: 'uk', 1060: 'sl',
+  1061: 'et', 1062: 'lv', 1063: 'lt', 1066: 'vi', 2052: 'zh-CN', 2070: 'pt-PT', 3082: 'es', 3098: 'sr-Cyrl', 2074: 'sr-Latn',
+}
+
+/** Language tag of an LCID, undefined when unknown. */
+export function languageTag(lcid: Lcid): string | undefined {
+  return TAGS[lcid]
+}
+
 export function languageName(lcid: Lcid): string {
   return NAMES[lcid] ?? `Sprache ${lcid}`
 }

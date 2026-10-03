@@ -161,6 +161,7 @@ export const HELP_SECTIONS: HelpSection[] = [
             ['Enter', 'übernehmen'],
             ['Tab / Umschalt+Tab', 'übernehmen und zur nächsten / vorigen Lücke springen'],
             ['Esc', 'verwerfen'],
+            ['Strg+Enter oder ✓', 'vermutlich unübersetzt, aber **korrekt so** (z. B. „Status“ ist auch auf Deutsch „Status“) — markieren und weiter zur nächsten Lücke'],
             ['F8 / Umschalt+F8', 'nächste / vorige Lücke der Seite'],
           ],
         },
@@ -181,7 +182,7 @@ export const HELP_SECTIONS: HelpSection[] = [
         },
       },
       {
-        p: 'Rechts im **Inspektor** steht die gewählte Beschriftung in allen Zielsprachen nebeneinander, mit Vorschlag, „×n überall übernehmen“, „korrekt so“ und ↶. Darüber die Sprach-Pillen (Abdeckung je Sprache), „Basistext darunter zeigen“ und „Lücken hervorheben“ (alles Fertige wird blass).',
+        p: 'Über **Details** (oben rechts) blendet sich rechts der **Inspektor** ein: die gewählte Beschriftung in allen Zielsprachen nebeneinander, mit Vorschlag, „×n überall übernehmen“, „korrekt so“ und ↶. Ausgeblendet hat der Canvas die volle Breite; die Wahl merkt sich der Browser (ohne eigene Wahl ist er nur auf breiten Bildschirmen offen). Daneben die Sprach-Pillen (Abdeckung je Sprache), „Basistext darunter zeigen“, „Lücken hervorheben“ (alles Fertige wird blass) und die Tastenkürzel hinter dem Tastatur-Symbol.',
       },
       {
         tip: 'Alle Änderungen aus Designer und Tabelle landen in **einer** Liste und gehen gemeinsam mit **Anwenden** hinaus. Formulare, Ansichten und Apps kommen live aus der Umgebung (`formxml`, `layoutxml`, `sitemapxml`), die Texte aus der Exportdatei.',

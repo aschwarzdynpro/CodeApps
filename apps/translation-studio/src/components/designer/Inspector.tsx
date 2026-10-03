@@ -1,5 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowUndoRegular, CheckmarkRegular, CursorClickRegular, InfoRegular, LightbulbRegular, LockClosedRegular } from '@fluentui/react-icons'
+import { ArrowUndoRegular, CheckmarkRegular, CursorClickRegular, InfoRegular, LightbulbRegular, LockClosedRegular, PanelRightContractRegular } from '@fluentui/react-icons'
 import { cellId, type LabelRow, type Lcid } from '../../types/translation'
 import { cellState } from '../../utils/gaps'
 import { glossaryKey } from '../../utils/glossary'
@@ -9,25 +9,42 @@ import { MAX_LABEL_LENGTH } from '../../utils/translationFile'
 import { S } from '../../strings'
 import { useDesigner, type LabelRef } from './context'
 
+/** The keyboard flow of the canvas, as a list of keys. */
+export function KeyList() {
+  return (
+    <ul className="insp__keys">
+      {S.designer.keys.map(([k, t]) => (
+        <li key={k}>
+          <kbd>{k}</kbd> {t}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function CloseButton({ onClose }: { onClose: () => void }) {
+  return (
+    <button type="button" className="insp__close" title={S.designer.detailsHide} aria-label={S.designer.detailsHide} onClick={onClose}>
+      <PanelRightContractRegular />
+    </button>
+  )
+}
+
 /**
- * The selected label in every language: base text, one editor per target
- * language with glossary suggestion, "correct as is" and undo. Without a
- * selection it explains the keyboard flow.
+ * The details panel: the selected label in every language, base text, one
+ * editor per target language with glossary suggestion, "correct as is" and
+ * undo. Without a selection it explains the keyboard flow. Can be closed
+ * (the canvas then takes the width).
  */
-export function Inspector({ labelRef }: { labelRef: LabelRef | null }) {
+export function Inspector({ labelRef, onClose }: { labelRef: LabelRef | null; onClose: () => void }) {
   const d = useDesigner()
   if (!labelRef) {
     return (
       <aside className="insp insp--empty">
+        <CloseButton onClose={onClose} />
         <CursorClickRegular className="insp__hero" aria-hidden />
         <strong>{S.designer.inspectorEmpty}</strong>
-        <ul className="insp__keys">
-          {S.designer.keys.map(([k, t]) => (
-            <li key={k}>
-              <kbd>{k}</kbd> {t}
-            </li>
-          ))}
-        </ul>
+        <KeyList />
       </aside>
     )
   }
@@ -38,6 +55,7 @@ export function Inspector({ labelRef }: { labelRef: LabelRef | null }) {
   return (
     <aside className="insp">
       <div className="insp__head">
+        <CloseButton onClose={onClose} />
         <span className="insp__role">{labelRef.role}</span>
         <span className="insp__context">{labelRef.context}</span>
       </div>
@@ -155,8 +173,8 @@ function LanguageEditor({ row, lcid, current }: { row: LabelRow; lcid: Lcid; cur
             </>
           ) : null}
           {state === 'untranslated' ? (
-            <button type="button" className="insp__chip" onClick={() => d.onAcknowledge(row.key, lcid, true)}>
-              <CheckmarkRegular aria-hidden /> {S.matrix.acknowledge}
+            <button type="button" className="insp__chip" title={S.matrix.acknowledge} onClick={() => d.onAcknowledge(row.key, lcid, true)}>
+              <CheckmarkRegular aria-hidden /> {S.designer.acknowledgeShort}
             </button>
           ) : null}
           {state === 'changed' ? (

@@ -67,6 +67,18 @@ export function saveExportDuration(orgUrl: string, solution: string, ms: number)
   write(DURATION, { ...read<Record<string, number>>(DURATION, {}), [durationKey(orgUrl, solution)]: Math.round(ms) })
 }
 
+const DETAILS = 'translation-studio.details'
+
+/** Whether the designer's details panel (inspector) is open; null when the user never chose. */
+export function loadDetailsOpen(): boolean | null {
+  const v = read<unknown>(DETAILS, null)
+  return typeof v === 'boolean' ? v : null
+}
+
+export function saveDetailsOpen(open: boolean): void {
+  write(DETAILS, open)
+}
+
 const ackKey = (orgUrl: string, solution: string) => `${ACK}.${orgUrl || 'mock'}.${solution}`
 
 /** Cell ids marked "correct as is" for one solution. */

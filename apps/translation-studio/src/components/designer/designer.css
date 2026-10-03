@@ -6,16 +6,51 @@
   flex: 1;
   min-height: 420px;
   display: grid;
-  grid-template-columns: 290px minmax(0, 1fr) 330px;
-  gap: 12px;
+  grid-template-columns: 280px minmax(0, 1fr) 300px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px 12px;
 }
 
-.designer__center {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  gap: 8px;
+/* Explorer spans both rows; the bar spans canvas and details panel. */
+.designer > .ex {
+  grid-row: 1 / span 2;
+}
+
+.designer > .designer__bar {
+  grid-column: 2 / -1;
+}
+
+/* Details panel closed: the canvas takes the width. */
+.designer--nodetails {
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.designer__iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.designer__iconbtn:hover {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.designer__keys {
+  padding: 12px 14px;
+}
+
+.designer__keys .insp__keys {
+  margin: 0;
 }
 
 .designer__bar {
@@ -531,7 +566,9 @@
   margin: -1px -5px;
   border-radius: 5px;
   border-bottom: 2px solid transparent;
-  overflow-wrap: anywhere;
+  /* Break inside a word only when it doesn't fit, hyphenated in the canvas language. */
+  overflow-wrap: break-word;
+  hyphens: auto;
   cursor: pointer;
   transition: background 120ms, box-shadow 120ms;
 }
@@ -627,6 +664,22 @@
   max-width: 100%;
   box-shadow: 0 0 0 3px rgba(15, 108, 189, 0.15);
   outline: none;
+}
+
+.lt__ack {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ok);
+  cursor: pointer;
+}
+
+.lt__ack:hover {
+  border-color: var(--ok);
 }
 
 .lt__revert {
@@ -727,8 +780,10 @@
   font-size: 15px;
 }
 
+/* Columns wrap below 300px each, like a model-driven form on a narrow screen. */
 .mda__columns {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
   align-items: flex-start;
 }
@@ -737,7 +792,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-width: 0;
+  min-width: min(100%, 300px);
   flex-grow: 1;
   flex-shrink: 1;
 }
@@ -1172,6 +1227,7 @@
 
 /* ---------- inspector ---------- */
 .insp {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1181,6 +1237,29 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
+}
+
+.insp__close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.insp__close:hover {
+  border-color: var(--border);
+  color: var(--text);
 }
 
 .insp--empty {
@@ -1226,6 +1305,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding-right: 32px;
 }
 
 .insp__role {
@@ -1526,7 +1606,11 @@
 
 @media (max-width: 1280px) {
   .designer {
-    grid-template-columns: 250px minmax(0, 1fr) 280px;
+    grid-template-columns: 250px minmax(0, 1fr) 270px;
+  }
+
+  .designer--nodetails {
+    grid-template-columns: 250px minmax(0, 1fr);
   }
 }
 

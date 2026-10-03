@@ -1,5 +1,5 @@
 import { useContext, useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowUndoRegular, LightbulbFilled } from '@fluentui/react-icons'
+import { ArrowUndoRegular, CheckmarkRegular, LightbulbFilled } from '@fluentui/react-icons'
 import { cellId } from '../../types/translation'
 import { cellState } from '../../utils/gaps'
 import { languageLabel } from '../../utils/languages'
@@ -23,7 +23,9 @@ interface LabelTextProps {
  * One label on a canvas. Click (or Enter/F2 on focus) selects it for the
  * inspector and opens the inline editor for the canvas language. Enter
  * takes the text, Tab takes it and jumps to the next gap (Shift+Tab: the
- * previous one), Esc discards. Read-only labels (not in the file) only select.
+ * previous one), Esc discards, Ctrl+Enter marks a probably untranslated
+ * label "correct as is" and moves on. Read-only labels (not in the file)
+ * only select.
  */
 export function LabelText({ labelRef, hidden, className, empty, echo }: LabelTextProps) {
   const d = useDesigner()
@@ -78,8 +80,23 @@ export function LabelText({ labelRef, hidden, className, empty, echo }: LabelTex
   // Closing the editor removes the focused input; keep the focus on the label so keys keep working.
   const refocus = () => window.requestAnimationFrame(() => box.current?.querySelector<HTMLElement>('[data-open]')?.focus())
 
+  /** "Correct as is" for a label identical to the base text, then on to the next gap. */
+  const acknowledge = () => {
+    if (!row) return
+    const from = box.current
+    handled.current = true
+    setDraft(null)
+    d.onAcknowledge(row.key, d.lcid, true)
+    window.requestAnimationFrame(() => {
+      if (!jumpToGap(from, 1, null, onExhausted)) refocus()
+    })
+  }
+
   const onInputKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Escape') {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && state === 'untranslated' && e.currentTarget.value === value) {
+      e.preventDefault()
+      acknowledge()
+    } else if (e.key === 'Escape') {
       e.preventDefault()
       handled.current = true
       setDraft(null)
@@ -135,6 +152,19 @@ export function LabelText({ labelRef, hidden, className, empty, echo }: LabelTex
           }}
           onKeyDown={onInputKey}
         />
+        {state === 'untranslated' && draft === value ? (
+          <button
+            type="button"
+            className="lt__ack"
+            title={`${S.matrix.acknowledge} · ${S.designer.ackKey}`}
+            aria-label={S.matrix.acknowledge}
+            // Keep the input focused: its blur would commit before the click lands.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={acknowledge}
+          >
+            <CheckmarkRegular />
+          </button>
+        ) : null}
       </span>
     )
   }

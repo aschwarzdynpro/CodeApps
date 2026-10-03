@@ -201,6 +201,10 @@ XML, Node):
     Spalte, Formular, Ansicht, Model-driven App mit Sitemap-Navigation),
     Inspektor mit allen Sprachen. Tab-Fluss von Lücke zu Lücke, F8,
     Glossar-Vorschläge am Canvas, Feier bei „alles übersetzt“.
+  - **Mehr Platz im Designer:** Inspektor als ein-/ausblendbare
+    „Details“ (gemerkt, ohne Wahl nur ab 1600 px offen), Tastenkürzel im
+    Popover, „korrekt so“ direkt im Canvas (Strg+Enter / ✓), Formularspalten
+    brechen um statt zu quetschen, Silbentrennung in der Canvas-Sprache.
 
 - Fehlerbehebungen aus dem Review (2026-10-03):
   - **Kein doppelter Import.** Für Aktionen mit Wirkung (Import, Publish)

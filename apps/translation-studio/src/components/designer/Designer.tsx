@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Switch } from '@fluentui/react-components'
+import { Popover, PopoverSurface, PopoverTrigger, Switch, ToggleButton } from '@fluentui/react-components'
+import { KeyboardRegular, PanelRightContractRegular, PanelRightExpandRegular } from '@fluentui/react-icons'
 import type { TranslationService } from '../../services/translationService'
 import { useLoad } from '../../hooks/useLoad'
 import type { AppRecord, ComponentInfo, LabelRow, Lcid, TranslationFile } from '../../types/translation'
@@ -8,14 +9,15 @@ import { parseFormXml, type FormLayout } from '../../utils/formXml'
 import type { StateCounts } from '../../utils/gaps'
 import type { Suggestion } from '../../utils/glossary'
 import { buildIndex, countRows, coverageOf } from '../../utils/labelIndex'
-import { languageName } from '../../utils/languages'
+import { languageName, languageTag } from '../../utils/languages'
 import { parseSitemap, type SiteMapArea } from '../../utils/sitemapXml'
+import { loadDetailsOpen, saveDetailsOpen } from '../../utils/storage'
 import { parseView, type ViewLayout } from '../../utils/viewXml'
 import { S } from '../../strings'
 import { DesignerContext, refKey, targetKey, type DesignerApi, type DesignerTarget, type LabelRef } from './context'
 import { appRows, formRefs, rowsOf, viewRefs } from './refs'
 import { Explorer } from './Explorer'
-import { Inspector } from './Inspector'
+import { Inspector, KeyList } from './Inspector'
 import { HomeCanvas } from './HomeCanvas'
 import { TableCanvas } from './TableCanvas'
 import { FormCanvas } from './FormCanvas'
@@ -67,6 +69,12 @@ export function Designer(props: DesignerProps) {
   const [showBase, setShowBase] = useState(false)
   const [focusGaps, setFocusGaps] = useState(false)
   const [selected, setSelected] = useState<LabelRef | null>(null)
+  // Details panel: the user's last choice, else open only where the canvas still has room.
+  const [details, setDetailsState] = useState(() => loadDetailsOpen() ?? window.innerWidth >= 1600)
+  const setDetails = (open: boolean) => {
+    setDetailsState(open)
+    saveDetailsOpen(open)
+  }
   const rootRef = useRef<HTMLDivElement>(null)
   const lcid = lcidChoice !== null && targets.includes(lcidChoice) ? lcidChoice : targets[0]
 
@@ -229,31 +237,49 @@ export function Designer(props: DesignerProps) {
 
   return (
     <DesignerContext.Provider value={api}>
-      <div className="designer" ref={rootRef}>
+      <div className={`designer${details ? '' : ' designer--nodetails'}`} ref={rootRef}>
         <Explorer tree={tree} tableCounts={tableCounts} itemCounts={itemCounts} target={target} onSelect={select} onShowOther={props.onShowOther} />
-        <div className="designer__center">
-          <div className="designer__bar">
-            {targets.length > 1 ? (
-              <div className="designer__langs" role="radiogroup" aria-label={S.preview.language}>
-                {targets.map((l) => (
-                  <button key={l} type="button" role="radio" aria-checked={l === lcid} className={`pill${l === lcid ? ' pill--active' : ''}`} onClick={() => setLcid(l)}>
-                    {languageName(l)} <span className="pill__pct">{Math.floor(languageCoverage.get(l) ?? 0)} %</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <span className="designer__lang">{languageName(lcid)}</span>
-            )}
-            <span className="designer__spacer" />
-            {props.resolving ? <span className="muted small">{S.scope.resolving}</span> : null}
-            <Switch label={S.preview.showBase(languageName(base))} checked={showBase} onChange={(_, v) => setShowBase(v.checked)} />
-            <Switch label={S.designer.focusGaps} checked={focusGaps} onChange={(_, v) => setFocusGaps(v.checked)} />
-          </div>
-          <div className="designer__canvas" key={`${targetKey(target)}|${lcid}`}>
-            {canvas}
-          </div>
+        <div className="designer__bar">
+          {targets.length > 1 ? (
+            <div className="designer__langs" role="radiogroup" aria-label={S.preview.language}>
+              {targets.map((l) => (
+                <button key={l} type="button" role="radio" aria-checked={l === lcid} className={`pill${l === lcid ? ' pill--active' : ''}`} onClick={() => setLcid(l)}>
+                  {languageName(l)} <span className="pill__pct">{Math.floor(languageCoverage.get(l) ?? 0)} %</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="designer__lang">{languageName(lcid)}</span>
+          )}
+          <span className="designer__spacer" />
+          {props.resolving ? <span className="muted small">{S.scope.resolving}</span> : null}
+          <Switch label={S.preview.showBase(languageName(base))} checked={showBase} onChange={(_, v) => setShowBase(v.checked)} />
+          <Switch label={S.designer.focusGaps} checked={focusGaps} onChange={(_, v) => setFocusGaps(v.checked)} />
+          <Popover withArrow positioning="below-end">
+            <PopoverTrigger disableButtonEnhancement>
+              <button type="button" className="designer__iconbtn" title={S.designer.keysButton} aria-label={S.designer.keysButton}>
+                <KeyboardRegular />
+              </button>
+            </PopoverTrigger>
+            <PopoverSurface className="designer__keys">
+              <KeyList />
+            </PopoverSurface>
+          </Popover>
+          <ToggleButton
+            size="small"
+            appearance="subtle"
+            checked={details}
+            icon={details ? <PanelRightContractRegular /> : <PanelRightExpandRegular />}
+            title={details ? S.designer.detailsHide : S.designer.detailsShow}
+            onClick={() => setDetails(!details)}
+          >
+            {S.designer.details}
+          </ToggleButton>
         </div>
-        <Inspector labelRef={selected} />
+        <div className="designer__canvas" key={`${targetKey(target)}|${lcid}`} lang={languageTag(lcid)}>
+          {canvas}
+        </div>
+        {details ? <Inspector labelRef={selected} onClose={() => setDetails(false)} /> : null}
       </div>
     </DesignerContext.Provider>
   )
