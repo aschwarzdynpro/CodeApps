@@ -47,8 +47,13 @@ export interface RunOptions {
   /** Set `cancelled` to stop polling (dialog closed); the import itself continues in Dataverse. */
   signal?: { cancelled: boolean }
   pollMs?: number
-  /** Give up waiting for a job that never appears. */
+  /** Give up waiting for a job that never appears after the call returned. */
   missingJobMs?: number
+  /**
+   * Polls after a failed call before giving up: the job row (with the reason
+   * in its log) can show up a moment after the call's error.
+   */
+  failedCallPolls?: number
   maxWaitMs?: number
   sleep?: (ms: number) => Promise<void>
   isHidden?: () => boolean
@@ -65,6 +70,7 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
   const isHidden = o.isHidden ?? defaultHidden
   const pollMs = o.pollMs ?? 2000
   const missingJobMs = o.missingJobMs ?? 60_000
+  const failedCallPolls = o.failedCallPolls ?? 3
   const maxWaitMs = o.maxWaitMs ?? 30 * 60_000
   const progress: RunProgress = {
     steps: { check: 'pending', build: 'pending', upload: 'pending', job: 'pending', publish: o.publish ? 'pending' : 'skipped' },
@@ -133,6 +139,7 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
 
   const started = Date.now()
   let job: ImportJobState | null = null
+  let pollsAfterError = 0
   step('job', 'running')
   for (;;) {
     if (o.signal?.cancelled) return { status: 'error', jobId, job, log: [], error: 'abgebrochen', published: false }
@@ -150,10 +157,16 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
       progress.jobProgress = job.progress
       emit()
       if (importStatus(job) !== 'running') break
-    } else if (callDone && Date.now() - callDoneAt >= (callError ? 0 : missingJobMs)) {
-      // The call ended and no job turned up: the import never started.
+    } else if (callDone && callError) {
+      // Failed call: look a few more times for the job and its log, then report the call's error.
+      if (pollsAfterError++ >= failedCallPolls) {
+        step('job', 'failed')
+        return fail('upload', callError, jobId, null)
+      }
+    } else if (callDone && Date.now() - callDoneAt >= missingJobMs) {
+      // The call succeeded and no job turned up: the import never started.
       step('job', 'failed')
-      return fail('upload', callError ?? new Error('Der Importjob ist nicht auffindbar — Import vermutlich nicht gestartet.'), jobId, null)
+      return fail('upload', new Error('Der Importjob ist nicht auffindbar — Import vermutlich nicht gestartet.'), jobId, null)
     }
     if (Date.now() - started > maxWaitMs) return fail('job', new Error('Der Importjob läuft ungewöhnlich lange — Stand im Maker-Portal prüfen.'), jobId, job)
     await sleep(pollMs)

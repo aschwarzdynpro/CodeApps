@@ -72,6 +72,12 @@ Der Dataverse-Konnektor kann nur POST-Aktionen und Tabellen-Reads
 | Fortschritt | FetchXML auf `importjobs` (`progress`, `startedon`, `completedon`, am Ende `data`) alle 2 s; Aufruf und Polling laufen parallel | Konnektor |
 | Publish | `PublishAllXml` | native Aktion, sonst Konnektor |
 
+**Wegwechsel nur ohne Risiko:** Beim Export probiert die App bei jedem
+Fehler den nächsten Weg. Bei Import und Publish nur, wenn der vorige Weg
+nachweislich nicht existiert („No HTTP resource“, 404). Ein Timeout kann
+heißen, dass der Import auf dem Server schon läuft — ein zweiter Weg würde
+doppelt importieren (`mayTryNextRoute` in `src/services/dataverseApi.ts`).
+
 **Identität:** Benutzer-Connection (wie Serienplanung und Schedule Board
 Manager), keine SP-Connection. Export und Import brauchen das Recht,
 Anpassungen zu exportieren bzw. zu importieren (System Customizer).

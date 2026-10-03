@@ -110,11 +110,41 @@ export interface ActionSpec {
   params: [string, unknown][]
   /** Collection the action is bound to, e.g. `solutions` (third route). */
   boundTo?: string
+  /**
+   * The action changes something (import, publish). Such a call may have run
+   * on the server even though the client saw an error (timeout, dropped
+   * connection) — so another route is only tried when this one provably
+   * doesn't exist, never after an error of the call itself.
+   */
+  sideEffects?: boolean
 }
 
 /**
- * Calls a Dataverse action over the first route that works. A route that
- * fails with a privilege error is final — another route won't grant rights.
+ * Errors that mean "this route can't address the action" — the request never
+ * reached it: the connector's "No HTTP resource found" for a GET function or a
+ * bound action (solution-forge gotcha #8), an unknown segment, 404.
+ */
+const ROUTE_UNAVAILABLE =
+  /no http resource|resource not found for the segment|not found for the segment|0x8006088a|\b404\b|could not find (a|an) (action|operation|function)|is not a valid (action|operation)|unbound action .* (not|cannot)|does not support (the )?(operation|action)/i
+
+export function routeUnavailable(message: string): boolean {
+  return ROUTE_UNAVAILABLE.test(message)
+}
+
+/**
+ * Whether a failed route may be followed by the next one. Never after a
+ * privilege error (another route won't grant rights); for actions with side
+ * effects only when the route provably wasn't there.
+ */
+export function mayTryNextRoute(spec: Pick<ActionSpec, 'sideEffects'>, err: unknown): boolean {
+  if (err instanceof DataverseError && err.privilege) return false
+  if (!spec.sideEffects) return true
+  return routeUnavailable(errorText(err))
+}
+
+/**
+ * Calls a Dataverse action over the first route that works (see
+ * {@link mayTryNextRoute} for when a failure stops the search).
  */
 export async function callAction(spec: ActionSpec): Promise<{ data: unknown; route: Route }> {
   const routes: Route[] = ['native', 'connector', ...(spec.boundTo ? (['connector-bound'] as Route[]) : [])]
@@ -139,7 +169,7 @@ export async function callAction(spec: ActionSpec): Promise<{ data: unknown; rou
       workingRoute.set(spec.name, route)
       return { data, route }
     } catch (err) {
-      if (err instanceof DataverseError && err.privilege) throw err
+      if (!mayTryNextRoute(spec, err)) throw err instanceof DataverseError ? err : new DataverseError(errorText(err))
       errors.push(`${route}: ${errorText(err)}`)
     }
   }

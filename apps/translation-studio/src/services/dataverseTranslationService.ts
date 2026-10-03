@@ -134,7 +134,7 @@ export const dataverseTranslationService: TranslationService = {
   },
 
   async importTranslations(zipBase64, importJobId) {
-    await callAction({ name: 'ImportTranslation', params: [['TranslationFile', zipBase64], ['ImportJobId', importJobId]] })
+    await callAction({ name: 'ImportTranslation', params: [['TranslationFile', zipBase64], ['ImportJobId', importJobId]], sideEffects: true })
   },
 
   async getImportJob(id, withLog) {
@@ -160,7 +160,7 @@ export const dataverseTranslationService: TranslationService = {
   },
 
   async publishAll() {
-    await callAction({ name: 'PublishAllXml', params: [] })
+    await callAction({ name: 'PublishAllXml', params: [], sideEffects: true })
   },
 
   async checkSetup() {

@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from 'react'
+import { useDeferredValue, useMemo, useRef, useState } from 'react'
 import { Checkbox, Input, ToggleButton } from '@fluentui/react-components'
 import { ArrowDownloadRegular, ArrowUploadRegular, BranchCompareRegular, LightbulbRegular, LockClosedRegular, SearchRegular } from '@fluentui/react-icons'
 import type { TranslationService } from '../services/translationService'
@@ -57,6 +57,8 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
   const [locked, setLocked] = useState(false)
   const [noPrivilege, setNoPrivilege] = useState(false)
   const deferredText = useDeferredValue(text)
+  /** Number of the latest load: results of an older one are dropped. */
+  const loadSeq = useRef(0)
 
   const solutions = useMemo(() => {
     const list = solutionsRes.data ?? []
@@ -126,6 +128,8 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
   async function load(name: string) {
     const solution = solutions.find((s) => s.uniqueName === name)
     if (!solution) return
+    const seq = ++loadSeq.current
+    const latest = () => seq === loadSeq.current
     setLoading(true)
     setLoadError(null)
     try {
@@ -133,6 +137,7 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
       const [exported, base] = await Promise.all([svc.exportTranslations(name), svc.baseLanguage()])
       const xml = await readTranslationZip(exported.zip)
       const file = parseTranslationFile(xml, base ? { baseLanguage: base } : {})
+      if (!latest()) return
       if (loaded?.solution.uniqueName !== name) {
         // Another solution: start from the default view, not from the last one's filters.
         setStateFilter('gaps')
@@ -148,13 +153,21 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
       setResolving(true)
       svc
         .resolveComponents(file)
-        .then(setComponents, (err: unknown) => console.warn('[translation] components', err))
-        .finally(() => setResolving(false))
+        .then(
+          (map) => {
+            if (latest()) setComponents(map)
+          },
+          (err: unknown) => console.warn('[translation] components', err),
+        )
+        .finally(() => {
+          if (latest()) setResolving(false)
+        })
     } catch (err) {
+      if (!latest()) return
       const msg = err instanceof Error ? err.message : String(err)
       setLoadError(err instanceof DataverseError && err.privilege ? `${S.errors.privilegeExport} (${msg})` : msg)
     } finally {
-      setLoading(false)
+      if (latest()) setLoading(false)
     }
   }
 

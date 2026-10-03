@@ -54,7 +54,16 @@ export function ApplyDialog({ solution, file, exportZip, changes, components, on
     const runId = crypto.randomUUID()
     const counts = Object.fromEntries(perLanguage)
     saveRun({ id: runId, at: new Date().toISOString(), orgUrl: svc.orgUrl, solution: solution.uniqueName, counts, importJobId: null, status: 'running', published: false, message: '' })
-    const result = await runImport({ svc, file, exportZip, publish, onProgress: setProgress, signal: signal.current })
+    let result: RunOutcome
+    try {
+      result = await runImport({ svc, file, exportZip, publish, onProgress: setProgress, signal: signal.current })
+    } catch (err) {
+      // runImport reports its own failures; this is the unexpected rest — never leave the studio locked.
+      result = { status: 'error', jobId: null, job: null, log: [], error: err instanceof Error ? err.message : String(err), published: false }
+      setProgress((p) => p ?? { steps: { check: 'failed', build: 'pending', upload: 'pending', job: 'pending', publish: 'skipped' }, jobProgress: null, paused: false })
+    } finally {
+      onLock(false)
+    }
     saveRun({
       id: runId,
       at: new Date().toISOString(),
@@ -66,7 +75,6 @@ export function ApplyDialog({ solution, file, exportZip, changes, components, on
       published: result.published,
       message: result.error ?? result.publishError ?? (result.log.length ? `${result.log.length} Meldungen` : ''),
     })
-    onLock(false)
     setOutcome(result)
   }
 

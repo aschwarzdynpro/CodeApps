@@ -87,6 +87,23 @@ describe('runImport', () => {
     expect(quiet.publishAll).not.toHaveBeenCalled()
   })
 
+  it('after a failed call it still picks up a job that appears late, with its log', async () => {
+    const failed = { ...job(0, true), data: '<r result="failure" errortext="Datei ungültig"/>' }
+    const svc = stub({ importTranslations: vi.fn(async () => Promise.reject(new Error('Bad request'))) }, [null, null, failed])
+    const out = await runImport((await opts(svc)).o)
+    expect(out.status).toBe('failed')
+    expect(out.log).toEqual([expect.objectContaining({ text: 'Datei ungültig' })])
+    expect(out.error).toBe('Bad request')
+  })
+
+  it('reports the call error when no job turns up after a failed call', async () => {
+    const svc = stub({ importTranslations: vi.fn(async () => Promise.reject(new Error('Bad request'))) }, [null])
+    const out = await runImport((await opts(svc)).o)
+    expect(out).toMatchObject({ status: 'error', error: 'Bad request' })
+    // One poll while the call is pending, one after its error, then three grace polls.
+    expect((svc.getImportJob as ReturnType<typeof vi.fn>).mock.calls.length).toBe(5)
+  })
+
   it('gives up when the call ended and no job exists', async () => {
     const out = await runImport((await opts(stub({}, [null]))).o)
     expect(out.error).toMatch(/nicht auffindbar/)
