@@ -199,7 +199,7 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
       .filter((r) => glossaryKey(r.values[current.baseLanguage] ?? '') === key && suggestions.has(cellId(r.key, lcid)))
       .map((r) => ({ rowKey: r.key, lcid, value }))
     addEdits(list)
-    notify(`${list.length} × „${value}“ übernommen.`)
+    notify(S.toolbar.acceptedSame(list.length, value))
   }
   const acceptAllInView = () => {
     const list: CellEdit[] = []
@@ -208,7 +208,7 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
       if (s) list.push({ rowKey: g.row.key, lcid: l, value: s.value })
     }
     addEdits(list)
-    notify(`${list.length} Vorschläge übernommen — vor dem Import prüfen.`)
+    notify(S.toolbar.acceptedAll(list.length))
   }
 
   const exportCsvFile = () => {
@@ -298,7 +298,7 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
 
       {current && !onlyBase && targets.length > 0 ? (
         <>
-          <section className="kpis" aria-label="Kennzahlen je Sprache">
+          <section className="kpis" aria-label={S.kpi.label}>
             {targets.map((l) => {
               const c = counts[l]
               const total = c.missing + c.untranslated + c.changed + c.ok

@@ -36,7 +36,7 @@ export default function App() {
             <TranslateRegular className="topbar__logo" aria-hidden />
             {S.app.title}
           </div>
-          <TabList className="topbar__nav" selectedValue={view} onTabSelect={(_, d) => setView(d.value as View)} aria-label="Bereiche">
+          <TabList className="topbar__nav" selectedValue={view} onTabSelect={(_, d) => setView(d.value as View)} aria-label={S.app.navLabel}>
             <Tab value="studio">{S.app.nav.studio}</Tab>
             <Tab value="history">{S.app.nav.history}</Tab>
             <Tab value="setup">{S.app.nav.setup}</Tab>

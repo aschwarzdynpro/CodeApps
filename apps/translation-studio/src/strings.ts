@@ -12,6 +12,7 @@ export const S = {
   app: {
     title: 'Translation Studio',
     nav: { studio: 'Studio', history: 'Verlauf', setup: 'Einrichtung' },
+    navLabel: 'Bereiche',
     help: 'Hilfe',
     helpTitle: 'Hilfe zum aktuellen Bereich',
     modeMock: 'Mock-Daten',
@@ -42,6 +43,7 @@ export const S = {
   },
 
   kpi: {
+    label: 'Kennzahlen je Sprache',
     missing: 'fehlt',
     untranslated: 'vermutlich unübersetzt',
     changed: 'geändert',
@@ -91,6 +93,8 @@ export const S = {
     discard: 'Änderungen verwerfen',
     discardConfirm: (n: number) => `${plural(n, 'Änderung', 'Änderungen')} verwerfen?`,
     apply: (n: number) => `Anwenden (${n.toLocaleString('de-DE')})`,
+    acceptedSame: (n: number, v: string) => `${n.toLocaleString('de-DE')} × „${v}“ übernommen.`,
+    acceptedAll: (n: number) => `${plural(n, 'Vorschlag', 'Vorschläge')} übernommen — vor dem Import prüfen.`,
     locked: 'Import läuft — Bearbeiten gesperrt',
     readOnly: 'Nur lesen',
   },
@@ -145,6 +149,8 @@ export const S = {
     publishNow: 'Jetzt veröffentlichen',
     publishConfirm: 'Alle Anpassungen der Umgebung veröffentlichen (PublishAllXml)? Das betrifft auch Änderungen anderer Personen.',
     logTitle: 'Meldungen des Importjobs',
+    levelFailure: 'Fehler',
+    levelWarning: 'Warnung',
     logEmpty: 'Keine Fehler oder Warnungen im Protokoll.',
     logDownload: 'Protokoll herunterladen',
     noJob: 'Der Importjob ist nicht auffindbar — Import vermutlich nicht gestartet.',

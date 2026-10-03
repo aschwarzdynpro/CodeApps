@@ -221,7 +221,7 @@ function Result({ outcome, solution }: { outcome: RunOutcome; solution: string }
               <tbody>
                 {outcome.log.map((e, i) => (
                   <tr key={i} className={e.level === 'failure' ? 'is-error' : 'is-warn'}>
-                    <td>{e.level === 'failure' ? 'Fehler' : 'Warnung'}</td>
+                    <td>{e.level === 'failure' ? S.apply.levelFailure : S.apply.levelWarning}</td>
                     <td className="mono">{e.context}</td>
                     <td>{e.text}</td>
                   </tr>
