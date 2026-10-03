@@ -54,6 +54,13 @@ describe('parseTranslationFile', () => {
     expect(parseTranslationFile(fixture, { baseLanguage: 1031 }).languages).toEqual([1031, 1033, 1036])
   })
 
+  it('a file with only the base language has no target languages', () => {
+    const single = fixture.replace(/<Cell[^>]*><Data ss:Type="String">(1031|1036)<\/Data><\/Cell>/g, '')
+    const file = parseTranslationFile(single)
+    expect(file.languages).toEqual([1033])
+    expect(file.rows.every((r) => Object.keys(r.original).join() === '1033')).toBe(true)
+  })
+
   it('rejects text that is not a workbook', () => {
     expect(() => parseTranslationFile('<html></html>')).toThrow(/SpreadsheetML/)
   })

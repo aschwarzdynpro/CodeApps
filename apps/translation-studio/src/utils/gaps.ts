@@ -77,8 +77,9 @@ export function tableOf(row: LabelRow, components: ReadonlyMap<string, Component
 
 export function filterRows(rows: GapRow[], f: MatrixFilter, components: ReadonlyMap<string, ComponentInfo> = new Map()): GapRow[] {
   const words = f.text.toLowerCase().split(/\s+/).filter(Boolean)
+  // "gaps" keeps edited cells, so a row doesn't vanish the moment it is filled.
   const wanted = (s: CellState | undefined) =>
-    s !== undefined && (f.state === 'all' || (f.state === 'gaps' ? s === 'missing' || s === 'untranslated' : s === f.state))
+    s !== undefined && (f.state === 'all' || (f.state === 'gaps' ? s !== 'ok' : s === f.state))
   return rows.filter((r) => {
     if (f.kinds && !f.kinds.has(r.row.kind)) return false
     if (f.table) {
