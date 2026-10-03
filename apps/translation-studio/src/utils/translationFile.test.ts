@@ -21,21 +21,22 @@ describe('parseTranslationFile', () => {
   it('reads languages, base language and information', () => {
     expect(file.baseLanguage).toBe(1033)
     expect(file.languages).toEqual([1033, 1031, 1036])
-    expect(file.info).toContainEqual({ label: 'Organization Name', value: 'Fixture Org' })
+    expect(file.info).toContainEqual({ label: 'Solution Name:', value: 'ProFixture' })
     expect(file.sheets.map((s) => s.name)).toEqual(['Display Strings', 'Localized Labels'])
-    expect(file.sheets[1].keyColumns).toEqual(['Entity Name', 'Object Id', 'Object Column Name'])
+    expect(file.sheets[1].keyColumns).toEqual(['Entity name', 'Object ID', 'Object Column Name'])
   })
 
   it('reads labels with kind, id and texts, honouring sparse cells', () => {
     const labels = file.rows.filter((r) => r.sheet === 'Localized Labels')
     expect(labels).toHaveLength(12)
     const vehicle = labels[0]
-    expect(vehicle).toMatchObject({ type: 'Entity', objectId: VEHICLE, column: 'LocalizedName', kind: 'table' })
+    expect(vehicle).toMatchObject({ type: 'pro_vehicle', objectId: VEHICLE, column: 'LocalizedName', kind: 'table' })
     expect(vehicle.original).toEqual({ 1033: 'Vehicle', 1031: 'Fahrzeug', 1036: 'Véhicule' })
     // <Cell ss:Index="6"> skips the German column.
     expect(file.rows.find((r) => r.objectId === NAME_2)!.original).toEqual({ 1033: 'Name', 1031: '', 1036: 'Nom' })
-    expect(file.rows.find((r) => r.objectId === RETIRED)!.kind).toBe('choice')
-    expect(labels.map((r) => r.kind)).toEqual(expect.arrayContaining(['form', 'view', 'column']))
+    // A choice value looks like a column in the file; only the metadata tells it apart (resolveComponents).
+    expect(file.rows.find((r) => r.objectId === RETIRED)!.kind).toBe('column')
+    expect(new Set(labels.map((r) => r.kind))).toEqual(new Set(['table', 'column', 'form']))
   })
 
   it('decodes entities and line breaks', () => {

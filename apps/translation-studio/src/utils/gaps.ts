@@ -1,4 +1,5 @@
 import { cellId, type CellState, type ComponentInfo, type ComponentKind, type LabelRow, type Lcid, type TranslationFile } from '../types/translation'
+import { isTableName } from './languages'
 
 /** One matrix row: a label plus the state of each target language. */
 export interface GapRow {
@@ -70,9 +71,14 @@ export interface MatrixFilter {
 
 export const NO_TABLE = '\u0000'
 
-/** Table a label belongs to ('' when unknown). */
+/** Table a label belongs to ('' when unknown): from metadata, else `Entity name` when it is a logical name. */
 export function tableOf(row: LabelRow, components: ReadonlyMap<string, ComponentInfo>): string {
-  return components.get(row.objectId)?.table ?? ''
+  return components.get(row.objectId)?.table || (row.objectId && isTableName(row.type) ? row.type : '')
+}
+
+/** Kind of a label, refined by metadata once resolved (choice value, view). */
+export function kindOf(row: LabelRow, components: ReadonlyMap<string, ComponentInfo>): ComponentKind {
+  return components.get(row.objectId)?.kind ?? row.kind
 }
 
 export function filterRows(rows: GapRow[], f: MatrixFilter, components: ReadonlyMap<string, ComponentInfo> = new Map()): GapRow[] {
@@ -81,7 +87,7 @@ export function filterRows(rows: GapRow[], f: MatrixFilter, components: Readonly
   const wanted = (s: CellState | undefined) =>
     s !== undefined && (f.state === 'all' || (f.state === 'gaps' ? s !== 'ok' : s === f.state))
   return rows.filter((r) => {
-    if (f.kinds && !f.kinds.has(r.row.kind)) return false
+    if (f.kinds && !f.kinds.has(kindOf(r.row, components))) return false
     if (f.table) {
       const t = tableOf(r.row, components)
       if (f.table === NO_TABLE ? t !== '' : t !== f.table) return false

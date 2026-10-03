@@ -80,6 +80,47 @@ export interface ComponentInfo {
   table?: string
   /** Readable name of the component (form name, column logical name …). */
   name?: string
+  /** Kind from metadata where the file can't tell (choice value vs. column, view vs. form). */
+  kind?: ComponentKind
+  /** `systemform.type` of a form (2 main, 5 mobile, 6 quick view, 7 quick create, 11 card, 0 dashboard). */
+  formType?: number
+}
+
+/** One form as the designer needs it. */
+export interface FormRecord {
+  id: string
+  name: string
+  /** Logical name of the table ('' for a dashboard without table). */
+  table: string
+  type: number
+  formxml: string
+}
+
+/** One view (`savedquery`) as the designer needs it. */
+export interface ViewRecord {
+  id: string
+  name: string
+  table: string
+  /** `querytype` (0 public, 1 advanced find, 2 associated, 4 quick find, 64 lookup …). */
+  queryType: number
+  layoutxml: string
+  fetchxml: string
+}
+
+/** A model-driven app with its sitemap. */
+export interface AppRecord {
+  /** `appmoduleid` ('' when only the sitemap is known). */
+  id: string
+  name: string
+  uniqueName: string
+  sitemap: { id: string; xml: string } | null
+}
+
+/** The options of one choice column, for grouping choice values under their column. */
+export interface ChoiceGroup {
+  /** Logical name of the column. */
+  attribute: string
+  options: { value: number; metadataId: string; label: string }[]
 }
 
 export interface SolutionRef {

@@ -34,7 +34,7 @@ export const HELP_SECTIONS: HelpSection[] = [
         p: 'Dataverse pflegt Beschriftungen — Tabellen- und Spaltennamen, Auswahlwerte, Formular- und Ansichtsnamen — **je installierter Sprache**. Fehlt eine Übersetzung, sehen Nutzer der anderen Sprache den Text der Basissprache. Das Studio zeigt, **was fehlt**, lässt die Lücken direkt füllen und spielt sie mit einem Klick zurück.',
       },
       {
-        p: 'Die Daten kommen aus dem Standard-Übersetzungsexport von Dataverse („Übersetzungen exportieren“): eine Zip-Datei mit `CrmTranslations.xml`. Das Studio liest sie, zeigt sie als Matrix und importiert dieselbe Datei mit deinen Änderungen wieder („Übersetzungen importieren“). Es ändert nichts an den Metadaten vorbei an diesem Weg.',
+        p: 'Die Daten kommen aus dem Standard-Übersetzungsexport von Dataverse („Übersetzungen exportieren“): eine Zip-Datei mit `CrmTranslations.xml`. Das Studio liest sie, zeigt sie im **Designer** (so, wie die Nutzer Tabellen, Formulare, Ansichten und Apps sehen) und als Tabelle und importiert dieselbe Datei mit deinen Änderungen wieder („Übersetzungen importieren“). Es ändert nichts an den Metadaten vorbei an diesem Weg.',
       },
       { h: 'Aufbau' },
       {
@@ -65,6 +65,13 @@ export const HELP_SECTIONS: HelpSection[] = [
           '**Übersetzungen laden** exportiert die Übersetzungsdatei der Solution. Das dauert je nach Größe Sekunden bis Minuten.',
           'Unter „Sprachen“ die Zielsprachen an- oder abwählen. Die Basissprache ist immer dabei und nie editierbar.',
         ],
+      },
+      { h: 'Fortschritt beim Laden' },
+      {
+        p: 'Während des Ladens zeigt eine Karte die Schritte (**Export auf dem Server**, dann **Datei lesen**) und die Laufzeit. Dataverse baut die Datei in einem einzigen Aufruf und meldet keinen Zwischenstand. Der Balken misst deshalb gegen die **Dauer des letzten Exports derselben Solution** in diesem Browser; beim ersten Mal läuft er ohne Ziel. Zum Vergleich in Waldmann DEV: eine Solution mit 4 Tabellen ≈ 50 s, Waldmann Core (154 Tabellen) ≈ 3 Minuten.',
+      },
+      {
+        tip: '**Warten abbrechen** verwirft nur das Ergebnis. Der Export auf dem Server läuft zu Ende, ändert aber nichts.',
       },
       {
         p: 'Der Export enthält **alle Beschriftungen der Tabellen** in der Solution — auch Formulare und Spalten, die selbst nicht in der Solution liegen (so exportiert Dataverse). Die Typen (Tabellen, Spalten, Auswahlwerte …) wählst du danach im Filter.',
@@ -112,6 +119,76 @@ export const HELP_SECTIONS: HelpSection[] = [
     ],
   },
   {
+    id: 'designer',
+    group: 'Studio',
+    title: 'Designer',
+    summary: 'Alle Übersetzungen so sehen, wie die Nutzer sie sehen — Tabellen, Formulare, Ansichten, Apps.',
+    blocks: [
+      {
+        p: 'Der **Designer** ist die Standardansicht nach dem Laden (Umschalter **Tabelle | Designer** links in der Werkzeugleiste). Links die Komponenten der Solution, in der Mitte die gewählte Komponente so, wie sie in der App aussieht, rechts die angeklickte Beschriftung in allen Sprachen.',
+      },
+      { h: 'Links: Komponenten' },
+      {
+        list: [
+          '**Übersicht**: Abdeckung je Sprache (Klick auf einen Ring wechselt die Sprache), Anzahl Apps, Tabellen, Formulare, Ansichten, Dashboards und die Tabellen mit den meisten offenen Beschriftungen.',
+          '**Apps**: Model-driven Apps der Solution mit ihrer Navigation.',
+          '**Tabellen**: erst die Tabelle wählen, dann darunter **Tabelle & Spalten**, ihre **Formulare** und **Ansichten**. Ring = Anteil übersetzt, rote Zahl = offen (fehlt oder vermutlich unübersetzt), blaue Zahl = nur noch Änderungen, ✓ = fertig.',
+          '**Dashboards** und am Ende **Weitere Beschriftungen** (Ribbon, Meldungen, Solution …) — die öffnen die Tabellenansicht, gefiltert auf „Sonstiges“.',
+          'Die Suche oben findet Tabellen, Formulare und Ansichten nach Namen.',
+        ],
+      },
+      { h: 'Mitte: die Komponente' },
+      {
+        table: {
+          head: ['Komponente', 'Was zu sehen ist'],
+          rows: [
+            ['Tabelle & Spalten', 'Namen der Tabelle (Einzahl, Mehrzahl, Beschreibung), alle Spalten mit Anzeigename und Beschreibung (Suche, „Nur offene“), Auswahlwerte gruppiert nach ihrer Spalte.'],
+            ['Formular', 'Kopfzeile, Registerkarten (mit Zahl offener Beschriftungen), Abschnitte und Felder in ihren Spalten.'],
+            ['Ansicht', 'Ansichtsname und die Liste mit ihren Spaltenköpfen; Spalten verknüpfter Tabellen sind mit 🔗 markiert.'],
+            ['App', 'Kopfleiste mit App-Namen, Navigation mit Bereichen, Gruppen und Unterbereichen aus der Sitemap.'],
+          ],
+        },
+      },
+      {
+        p: 'Der Kopf jeder Seite zeigt den Fortschritt in der gewählten Sprache, die offenen Beschriftungen, **n Vorschläge übernehmen** (Glossar) und **Nächste Lücke**. Ist alles übersetzt, sagt er es — mit einer kleinen Feier, sobald Änderungen auf „Anwenden“ warten.',
+      },
+      { h: 'Bearbeiten' },
+      {
+        table: {
+          head: ['Taste', 'Wirkung'],
+          rows: [
+            ['Klick, Enter, F2', 'Beschriftung wählen und bearbeiten'],
+            ['Enter', 'übernehmen'],
+            ['Tab / Umschalt+Tab', 'übernehmen und zur nächsten / vorigen Lücke springen'],
+            ['Esc', 'verwerfen'],
+            ['F8 / Umschalt+F8', 'nächste / vorige Lücke der Seite'],
+          ],
+        },
+      },
+      {
+        table: {
+          head: ['Darstellung', 'Bedeutung'],
+          rows: [
+            ['rot, kursiv', 'Übersetzung fehlt; zu sehen ist der Basistext, so wie ihn die Nutzer jetzt sehen.'],
+            ['gelb', 'Vermutlich unübersetzt (gleicher Text wie die Basissprache).'],
+            ['blau', 'Geändert, noch nicht importiert; ↶ nimmt zurück.'],
+            ['Glühbirne', 'Vorschlag aus dem Glossar (derselbe Basistext ist anderswo übersetzt) — ein Klick übernimmt ihn.'],
+            ['gepunktet unterstrichen', 'Kein eigener Text an dieser Stelle: das ist der **Spalten- bzw. Tabellenname**. Eine Änderung gilt überall, wo er vorkommt (z. B. Spaltenköpfe in Ansichten, Felder ohne eigenen Formulartext, Unterbereiche einer App).'],
+            ['grau', 'Steht nicht in der Exportdatei, nur Anzeige.'],
+            ['rot gestrichelt', 'Text aus der Sitemap ohne Übersetzung: steht nicht im Übersetzungsexport, im App-Designer pflegen.'],
+            ['blass / „ausgeblendet“', 'Registerkarte, Abschnitt oder Feld ist unsichtbar bzw. die Beschriftung ausgeschaltet — übersetzen lässt sie sich trotzdem.'],
+          ],
+        },
+      },
+      {
+        p: 'Rechts im **Inspektor** steht die gewählte Beschriftung in allen Zielsprachen nebeneinander, mit Vorschlag, „×n überall übernehmen“, „korrekt so“ und ↶. Darüber die Sprach-Pillen (Abdeckung je Sprache), „Basistext darunter zeigen“ und „Lücken hervorheben“ (alles Fertige wird blass).',
+      },
+      {
+        tip: 'Alle Änderungen aus Designer und Tabelle landen in **einer** Liste und gehen gemeinsam mit **Anwenden** hinaus. Formulare, Ansichten und Apps kommen live aus der Umgebung (`formxml`, `layoutxml`, `sitemapxml`), die Texte aus der Exportdatei.',
+      },
+    ],
+  },
+  {
     id: 'filter',
     group: 'Studio',
     title: 'Filter',
@@ -120,8 +197,8 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         list: [
           '**Zustand**: Alle, Lücken und Bearbeitetes (fehlt, vermutlich unübersetzt, geändert — Standard; eine gefüllte Zeile bleibt so sichtbar), nur fehlende, nur vermutlich unübersetzte, nur geänderte. Es zählt jede gewählte Sprache.',
-          '**Typ**: Tabellen, Spalten, Auswahlwerte, Formulare, Ansichten, Sonstiges — Knöpfe an/aus.',
-          '**Tabelle**: aus den Metadaten der Umgebung aufgelöst. Beschriftungen ohne bekannte Tabelle stehen unter „(ohne Tabelle)“.',
+          '**Typ**: Tabellen, Spalten, Auswahlwerte, Formulare, Ansichten, Sonstiges — Knöpfe an/aus. „Formulare“ umfasst Formularnamen und die Beschriftungen auf Formularen (Registerkarten, Abschnitte, Felder) sowie Dashboards. Auswahlwerte und Ansichten erkennt das Studio erst, wenn die Komponentennamen aufgelöst sind; bis dahin stehen sie unter Spalten bzw. Formulare.',
+          '**Tabelle**: steht in der Exportdatei („Entity name“). Ribbon, Sitemap, App, Solution und Ähnliches stehen unter „(ohne Tabelle)“.',
           '**Volltext**: sucht in allen Texten, Schlüsseln, Tabellen- und Komponentennamen; mehrere Wörter grenzen ein.',
         ],
       },
@@ -259,7 +336,7 @@ export const HELP_SECTIONS: HelpSection[] = [
 
 /** Help section for an area of the app. */
 export const HELP_FOR: Record<string, string> = {
-  studio: 'matrix',
+  studio: 'designer',
   history: 'verlauf',
   setup: 'einrichtung',
 }

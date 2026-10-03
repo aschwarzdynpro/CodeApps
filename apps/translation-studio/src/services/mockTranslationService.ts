@@ -1,7 +1,7 @@
 import type { ImportJobState, SetupCheck } from '../types/translation'
 import { parseTranslationFile } from '../utils/translationFile'
 import { base64ToBytes, createTranslationZip, readTranslationZip } from '../utils/translationZip'
-import { createMockState, MOCK_BASE, mockComponents, renderTranslationXml } from './mockData'
+import { createMockState, MOCK_BASE, mockApps, mockChoiceGroups, mockComponents, mockForm, mockViews, renderTranslationXml } from './mockData'
 import type { TranslationService } from './translationService'
 
 /**
@@ -64,6 +64,14 @@ export const mockTranslationService: TranslationService = {
   },
 
   resolveComponents: () => delay(mockComponents(state.labels), 200),
+
+  getForms: (ids) => delay(ids.map((id) => mockForm(state, id)).filter((f) => f !== null), 300),
+
+  getViews: (ids) => delay(mockViews(state, ids), 250),
+
+  getApps: (appIds, sitemapIds) => delay(mockApps(state, appIds, sitemapIds), 250),
+
+  getChoiceGroups: (table, baseLanguage) => delay(mockChoiceGroups(state, table, baseLanguage), 200),
 
   async importTranslations(zipBase64, importJobId) {
     if ([...jobs.values()].some((j) => Date.now() - j.started < JOB_MS)) throw new Error('Es läuft bereits ein Import (Mock).')

@@ -40,7 +40,7 @@ describe('mock translation service', () => {
 
   it('simulates an import job and persists the labels across solutions', async () => {
     const { zip, file } = await exportFile('ProFleet')
-    const gap = findGaps(file).find((g) => g.states[1036] === 'missing' && g.row.type === 'Attribute')!
+    const gap = findGaps(file).find((g) => g.states[1036] === 'missing' && g.row.column === 'DisplayName')!
     const { file: edited } = applyEdits(file, [{ rowKey: gap.row.key, lcid: 1036, value: 'Texte simulé' }])
     const b64 = await buildImportZip(zip, serializeTranslationFile(edited))
 

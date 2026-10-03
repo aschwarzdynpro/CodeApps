@@ -26,7 +26,7 @@ mehrsprachige Kunde. Im Spiel sind nur Metadaten, keine Kundendaten.
 
 | Bereich | Inhalt |
 | --- | --- |
-| **Scope** | Solution aus `solution` wählen: unmanaged bearbeitbar, managed nur lesen. „Default“ mit Größenwarnung. Danach Zielsprachen an- und abwählen. Die Komponententypen wirken als Filter, weil der Export immer die ganze Solution enthält |
+| **Scope** | Solution aus `solution` wählen: unmanaged bearbeitbar, managed nur lesen. „Default“ mit Größenwarnung. Danach Zielsprachen an- und abwählen. Die Komponententypen wirken als Filter, weil der Export immer die ganze Solution enthält. Beim Laden eine Fortschrittskarte: Schritte, Laufzeit, Balken gegen die letzte Exportdauer der Solution (lokal gespeichert), „Warten abbrechen“ |
 | **Lückenmatrix** | Zeile = Beschriftung (Typ, Komponente, Spalte), dazu der Basistext (nur lesen) und je Zielsprache eine editierbare Zelle. Zustände: **fehlt** (rot), **vermutlich unübersetzt** (identisch mit Basistext, gelb; per ✓ als „korrekt so“ markierbar, lokal je Solution gespeichert), **geändert** (blau, ↶ nimmt zurück), ok. Eigene Fensterung mit festen Spalten, auch für zehntausende Zeilen |
 | **Filter & KPI** | Zustand (Standard: Lücken und Bearbeitetes), Typ (Tabellen, Spalten, Auswahlwerte, Formulare, Ansichten, Sonstiges), Tabelle (aus Metadaten), Volltext. KPI-Leiste je Sprache: Abdeckung in %, fehlt, vermutlich unübersetzt, geändert |
 | **Glossar** | Vorschlag, wenn derselbe Basistext anderswo übersetzt ist: einzeln, „×n“ für alle gleichen Basistexte, oder als Bulk für alle gefilterten Zeilen. **Konsistenz**: gleicher Basistext mit verschiedenen Übersetzungen, „vereinheitlichen“ |
@@ -34,7 +34,8 @@ mehrsprachige Kunde. Im Spiel sind nur Metadaten, keine Kundendaten.
 | **Anwenden** | Diff-Vorschau (Zellen je Sprache, vorher/nachher). Ablauf: Prüfen, ob ein Import läuft → Datei bauen → `ImportTranslation` → Importjob pollen (pausiert bei `document.hidden`, Bearbeiten gesperrt) → `PublishAllXml` (Standard an, abschaltbar, „Jetzt veröffentlichen“ nachträglich mit Bestätigung) → Ergebnis mit Meldungen des Jobs und Protokoll-Download |
 | **Verlauf** | Die letzten 25 Läufe lokal im Browser (v2: eigene Tabelle) |
 | **Einrichtung** | Prüft Org-URL, Konnektor, native Aktionen, Lesbarkeit von Solutions, Basissprache und Importjobs. „Export testen“ zeigt Weg, Größe, Sprachen und Anzahl der Beschriftungen. Bei nur einer Sprache: Hinweis „keine weiteren Sprachen installiert“ |
-| **Hilfe** | Drawer mit Suche, 11 Abschnitte |
+| **Designer** | Standardansicht nach dem Laden (Umschalter „Tabelle \| Designer“). **Explorer** links: Übersicht, Apps, Tabellen → Tabelle & Spalten, Formulare, Ansichten, Dashboards; Fortschrittsring und offene Beschriftungen je Eintrag, Suche. **Canvas** in der Mitte, so wie die Nutzer es sehen: Tabellen-Steckbrief (Namen, Spalten mit Suche/„Nur offene“, Auswahlwerte nach Spalte gruppiert), Formular (Kopfzeile, Registerkarten, Abschnitte, Felder), Ansicht (Name, Spaltenköpfe, verknüpfte Spalten), Model-driven App (App-Name, Navigation aus der Sitemap). **Inspektor** rechts: die Beschriftung in allen Zielsprachen mit Glossar-Vorschlag, „×n überall“, „korrekt so“, ↶. Bearbeiten direkt im Canvas: Klick → tippen, Enter übernimmt, **Tab springt zur nächsten Lücke**, F8/Umschalt+F8. Glühbirne an Lücken mit Vorschlag, „n Vorschläge übernehmen“ je Seite, Feier bei „alles übersetzt“. Gleiche Änderungsliste wie die Tabelle |
+| **Hilfe** | Drawer mit Suche, 12 Abschnitte |
 
 ### Leitplanken (im Code durchgesetzt)
 
@@ -65,9 +66,13 @@ Der Dataverse-Konnektor kann nur POST-Aktionen und Tabellen-Reads
 | --- | --- | --- |
 | Solutions | FetchXML auf `solutions` (`isvisible = 1`, Publisher per Link) | Konnektor `ListRecordsWithOrganization` |
 | Basissprache | `organizations?$select=languagecode` | Konnektor; sonst „Base Language Code“ im Informationsblatt, sonst erste Sprachspalte |
-| Export | `ExportTranslation { SolutionName }` → `ExportTranslationFile` (Base64-Zip) | 1. native Aktion, 2. Konnektor „unbound action“, 3. Konnektor mit Pfad `solutions/Microsoft.Dynamics.CRM.ExportTranslation` — der erste funktionierende Weg wird gemerkt |
+| Export | `ExportTranslation { SolutionName }` → `ExportTranslationFile` (Base64-Zip) | 1. native Aktion — die App trägt sie selbst in `dataSourcesInfo` ein (Pfad `/api/data/v9.2/solutions/Microsoft.Dynamics.CRM.ExportTranslation`), weil die CLI sie nicht generieren kann, siehe unten; 2. Konnektor „unbound action“ (Dataverse: `Resource not found for the segment`), 3. Konnektor mit Pfad `solutions/…` (läuft bei großen Solutions in den Konnektor-Timeout) — der erste funktionierende Weg wird gemerkt |
 | Parsen | JSZip, eigener SpreadsheetML-Scanner mit Offsets | pure functions, Vitest |
-| Namen auflösen | `EntityDefinitions` (MetadataId → Tabelle; Attribute je 10 Tabellen), `systemform`/`savedquery` per FetchXML `in` | Konnektor, best effort |
+| Namen auflösen | Tabelle steht in der Datei (`Entity name`). `EntityDefinitions` je 10 Tabellen mit `Attributes(MetadataId, LogicalName)`: Attribut-IDs = Spalten, übrige `DisplayName`/`Description`-IDs dieser Tabellen = Auswahlwerte. `name`/`description`-IDs per FetchXML `in` gegen `systemform` (→ Formular, `type`) und `savedquery` (→ Ansicht) | Konnektor, best effort |
+| Formulare (Designer) | FetchXML auf `systemforms` (`formxml`, `name`, `objecttypecode`, `type`) für alle Formulare der gewählten Tabelle bzw. das gewählte Dashboard | Konnektor |
+| Ansichten (Designer) | FetchXML auf `savedqueries` (`layoutxml`, `fetchxml`, `querytype`); Spalten verknüpfter Tabellen über die Aliase der `link-entity` | Konnektor |
+| Apps (Designer) | `AppModule`-/`SiteMap`-Zeilen der Datei → FetchXML auf `appmodules` (`uniquename`) und `sitemaps` (`sitemapxml`; App ↔ Sitemap über `sitemapnameunique` = `uniquename`) | Konnektor |
+| Auswahlwerte je Spalte (Designer) | `EntityDefinitions(LogicalName=…)/Attributes/Microsoft.Dynamics.CRM.{Picklist,MultiSelectPicklist,State,Status,Boolean}AttributeMetadata` mit `OptionSet` — als native GET-„APIs“ von der App selbst in `dataSourcesInfo` registriert (wie der Export); Zuordnung über die `MetadataId` der Option, sonst eindeutigen Basistext. Scheitert es, stehen die Werte ungruppiert | native Abfrage, best effort |
 | Import | `ImportTranslation { TranslationFile, ImportJobId }`; Zip = Export-Zip mit ersetzter `CrmTranslations.xml` | native Aktion, sonst Konnektor |
 | Fortschritt | FetchXML auf `importjobs` (`progress`, `startedon`, `completedon`, am Ende `data`) alle 2 s; Aufruf und Polling laufen parallel | Konnektor |
 | Publish | `PublishAllXml` | native Aktion, sonst Konnektor |
@@ -89,19 +94,42 @@ meldet die Einrichtungsseite.
 
 ### Format `CrmTranslations.xml`
 
-Excel-2003-XML (SpreadsheetML) in einer Zip-Datei mit `[Content_Types].xml`.
-Laut Microsoft Learn muss der Import diese Zip-Datei „so wie exportiert“
-bekommen. Blätter: „Information“ (Organisation, Basissprache), „Display
-Strings“ und „Localized Labels“. „Localized Labels“ hat die Spalten
-`Entity Name`, `Object Id`, `Object Column Name` und je Sprache eine Spalte
-mit dem LCID als Überschrift.
+Geprüft an echten Exporten aus Waldmann DEV (2026-10-03). Excel-2003-XML
+(SpreadsheetML, UTF-8) in einer Zip-Datei mit `[Content_Types].xml`. Laut
+Microsoft Learn muss der Import diese Zip-Datei „so wie exportiert“
+bekommen. Drei Blätter:
+
+- **Information** — `Organization ID:`, `Exported on:`, `Base language name:`,
+  `Base language ID:`, `Solution Name:`.
+- **Display Strings** — `Entity name`, `Display String Key`, je Sprache eine
+  Spalte (Meldungstexte, Ribbon …).
+- **Localized Labels** — `Entity name`, `Object ID` (GUID ohne Klammern),
+  `Object Column Name`, je Sprache eine Spalte mit dem LCID als Überschrift.
+
+`Entity name` ist der **logische Tabellenname** (`contact`, `wal_project`),
+die Art der Beschriftung folgt aus `Object Column Name` — Groß-/Kleinschreibung
+zählt:
+
+| `Object Column Name` | `Object ID` | Art |
+| --- | --- | --- |
+| `LocalizedName`, `LocalizedCollectionName`, `Description` | MetadataId der Tabelle | Tabelle |
+| `DisplayName`, `Description` | MetadataId der Spalte **oder** des Auswahlwerts | Spalte / Auswahlwert (nur über Metadaten unterscheidbar) |
+| `displayname` | ID von Registerkarte, Abschnitt oder Feld im `formxml` | Formularbeschriftung |
+| `name`, `description` | `formid` oder `savedqueryid` | Formular- bzw. Ansichtsname |
+| `CustomLabel`, `button…` | — | Sonstiges |
+
+Daneben stehen Zeilen, deren `Entity name` keine Tabelle ist: `Solution`,
+`Publisher`, `RibbonCustomization`, `Workflow Categories`, `AppModule`,
+`SiteMap`, `CustomAPI…`, `AppSetting` (→ Sonstiges) und Dashboards unter
+ihrem Anzeigenamen („Dashboard GVL“, → Formular).
 
 Der Parser ist generisch: Schlüsselspalten sind alle Spalten vor der ersten
-LCID-Spalte. Er versteht dünn besetzte Zeilen (`ss:Index`), `ss:MergeAcross`,
-Rich-Text in `<Data>` und Präfixe (`ss:Cell`). Die Typ-Zuordnung
-(`Entity` → Tabellen, `Attribute` → Spalten, `…Picklist…`/`OptionSet` →
-Auswahlwerte, `…Form…` → Formulare, `SavedQuery` → Ansichten) steht in
-`src/utils/languages.ts → componentKind`. Siehe „Offen“.
+LCID-Spalte, Überschriften werden ohne Groß-/Kleinschreibung erkannt. Er
+versteht dünn besetzte Zeilen (`ss:Index`), `ss:MergeAcross`, Rich-Text in
+`<Data>` und Präfixe (`ss:Cell`). Die Typ-Zuordnung steht in
+`src/utils/languages.ts → componentKind`, die Verfeinerung (Auswahlwert,
+Ansicht) in `resolveComponents`. Größenordnung: Waldmann Core = 1,7 MB Zip,
+19 MB XML, 35.751 Zeilen, Parsen 0,2 s.
 
 ## Aufbau
 
@@ -123,7 +151,12 @@ src/
 │   ├── csv.ts                   # exportCsv, parseCsv, csvToEdits
 │   ├── translationZip.ts        # Zip lesen/neu bauen, Base64
 │   ├── importLog.ts             # Status und Meldungen eines Importjobs
-│   ├── languages.ts             # LCID-Namen, Typ-Zuordnung
+│   ├── languages.ts             # LCID-Namen, Typ-Zuordnung (componentKind)
+│   ├── formXml.ts               # formxml → Registerkarten/Abschnitte/Felder
+│   ├── viewXml.ts               # layoutxml + fetchxml → Spalten einer Ansicht
+│   ├── sitemapXml.ts            # sitemapxml → Bereiche/Gruppen/Unterbereiche
+│   ├── designerTree.ts          # Explorer: Apps, Tabellen mit Formularen/Ansichten, Dashboards
+│   ├── labelIndex.ts            # Zeilen je ID+Spalte, Spalten je Tabelle, Zähler
 │   └── storage.ts / download.ts # Verlauf, „korrekt so“, Downloads
 ├── services/
 │   ├── translationService.ts    # Interface + Auswahl Dataverse/Mock
@@ -134,8 +167,10 @@ src/
 │   └── mockData.ts              # fiktives Fuhrpark-Szenario in en/de/fr (keine Kundendaten)
 ├── fixtures/CrmTranslations.sample.xml  # synthetische Test-Fixture, drei Sprachen
 ├── help/                        # HelpPanel, helpContent, helpContext
-└── components/                  # StudioView, Matrix, ApplyDialog, CsvImportDialog,
-                                 # ConsistencyDialog, HistoryView, SetupView, ui, Modal
+├── components/designer/         # Designer, Explorer, Inspector, LabelText, CanvasHeader,
+│                                # Home-/Table-/Form-/View-/AppCanvas, refs, nav, context, designer.css
+└── components/                  # StudioView, Matrix, LoadProgress, ApplyDialog,
+                                 # CsvImportDialog, ConsistencyDialog, HistoryView, SetupView, ui, Modal
 ```
 
 ## Entwickeln
@@ -179,22 +214,32 @@ Für Code App und Connection dein **Benutzerkonto**
    pac code add-data-source -a shared_commondataserviceforapps -c <connection-id>
    ```
 
-3. **Native Aktionen** einbinden. `ExportTranslation` ist laut Microsoft an
-   die `solution`-Collection gebunden; ob der Konnektor sie ungebunden
-   erreicht, ist offen. Die npm-CLI heißt in der aktuellen Doku `pa`, ältere
-   Versionen `power-apps`:
+3. **Native Aktionen** einbinden. Das geht nur mit der npm-CLI
+   (`@microsoft/power-apps-cli`, geprüft mit 0.11.6), `pac code` kann es nicht.
+   Die npm-CLI hat einen eigenen Login-Cache
+   (`~/.powerapps-cli/cache/auth/msal_cache.json`) und bricht ab, wenn darin
+   mehr als ein Konto liegt (solution-forge `CLAUDE.md`, „npm-CLI-Konto“).
+   Im Waldmann-Tenant funktioniert **Device Code nicht** für die npm-CLI. Also
+   `npx power-apps logout` und interaktiv anmelden, mit Kontoauswahl
+   (`prompt: 'select_account'`): `scripts/login-npm-cli.mjs` aus
+   solution-forge mit Authority `e75294b3-231c-459e-89ef-ad823a88d11f` und
+   `acquireTokenInteractive` statt `acquireTokenByDeviceCode`. Den
+   Browser-Login der CLI selbst nicht nehmen, der greift per SSO das falsche
+   Konto. Wer die CLI sonst für Schulz nutzt, sichert den Cache vorher und
+   stellt ihn danach wieder her.
 
    ```bash
-   pa app find-dataverse-api --search "Translation"     # zeigt Bindung und Parameter
-   pa app add dataverse-api --api-name ExportTranslation
-   pa app add dataverse-api --api-name ImportTranslation
-   pa app add dataverse-api --api-name PublishAllXml
+   npx power-apps find-dataverse-api --search Translation   # zeigt Bindung und Parameter
+   npx power-apps add-dataverse-api --api-name ImportTranslation --non-interactive
+   npx power-apps add-dataverse-api --api-name PublishAllXml --non-interactive
    ```
 
-   Danach in `src/generated/services/` nachsehen, welche Signatur
-   `ExportTranslationService.ExportTranslation` hat. Erwartet die App einen
-   anderen ersten Parameter, `callAction` in `src/services/dataverseApi.ts`
-   anpassen (siehe „Offen“).
+   **`ExportTranslation` lässt sich nicht einbinden** (CLI 0.11.6, 2026-10-03):
+   Die CLI hält die Collection-Bindung für einen Tabellennamen und scheitert
+   mit 404 auf `EntityDefinitions(LogicalName='Collection(mscrm.solution)')`.
+   Der Export läuft deshalb über die Konnektor-Wege 2 und 3 in `callAction`
+   (siehe „Offen“). Weitere Tabellen-Datenquellen immer **vor** den Aktionen
+   hinzufügen (Gotcha in `apps/audit-explorer/README.md`).
 4. Org-URL setzen und bauen:
 
    ```bash
@@ -241,15 +286,25 @@ Sprachen installiert“.
 
 ## Deployment-Stand
 
-Noch nicht deployt, nicht gegen echtes Dataverse getestet. Ziel zuerst:
-Waldmann D365 DEV (`waldmann-dev.crm4`, Env
-`33146d71-4fe8-e1d7-af2f-f80fe968fc47`); danach der ASC-Playground als
-Ein-Sprachen-Gegenprobe.
+Erstes Deployment am 2026-10-03 nach Waldmann D365 DEV, noch nicht im
+Browser gegen echtes Dataverse getestet (Einrichtung, „Export testen“ und
+Akzeptanz stehen aus). Danach der ASC-Playground als Ein-Sprachen-Gegenprobe.
 
 | Umgebung | Env-ID | App-ID | Stand |
 | --- | --- | --- | --- |
-| Waldmann D365 DEV | `33146d71-4fe8-e1d7-af2f-f80fe968fc47` | — | nicht deployt |
+| Waldmann D365 DEV | `33146d71-4fe8-e1d7-af2f-f80fe968fc47` | `0331862d-1088-41b5-9040-52a7dd85d00e` | gepusht 2026-10-03 |
 | ASC SFA CS Playground | — | — | nicht deployt |
+
+Waldmann D365 DEV im Detail:
+
+- pac-Profil `WaldmannUser` (`AAD_ADM_HSO_Schwarz`, Device Code). Conditional
+  Access lässt die Anmeldung nach 10 h ablaufen.
+- Konnektor: Benutzer-Connection `253596d5064a48408195a7b73a844b9c`
+  (Microsoft Dataverse, `AAD_ADM_HSO_Schwarz`). Die SP-Connection
+  „D365 AppReg“ bewusst nicht.
+- Native Aktionen: `ImportTranslation`, `PublishAllXml`. `ExportTranslation`
+  fehlt (CLI-Fehler, siehe Einrichtung Schritt 3).
+- Play: `https://apps.powerapps.com/play/e/33146d71-4fe8-e1d7-af2f-f80fe968fc47/app/0331862d-1088-41b5-9040-52a7dd85d00e?tenantId=e75294b3-231c-459e-89ef-ad823a88d11f`
 
 ## Offen
 
@@ -274,13 +329,19 @@ Per Microsoft Learn geprüft (Stand 2026-10-03):
 
 Offen, bis live geprüft — jeweils mit der Stelle im Code:
 
-- **Weg für `ExportTranslation`.** Geht der native generierte Service mit
-  einer Collection-Bindung? Wie sieht seine Signatur aus (erwartet die
-  Doku für gebundene Aktionen eine ID als ersten Parameter)? Weist der
-  Konnektor die Aktion als „unbound“ ab? Der dritte Weg
-  `solutions/Microsoft.Dynamics.CRM.ExportTranslation` über den Konnektor
-  ist ein Versuch ohne Beleg. Code: `callAction` in
-  `src/services/dataverseApi.ts`; „Export testen“ zeigt den genutzten Weg.
+- **Weg für `ExportTranslation`.** Geprüft 2026-10-03 in Waldmann DEV: Die
+  npm-CLI 0.11.6 kann die Aktion wegen der Collection-Bindung nicht
+  generieren. Der Konnektor ungebunden liefert `Resource not found for the
+  segment 'ExportTranslation'`, mit Pfad `solutions/…` läuft er bei Waldmann
+  Core in „Invocation of API timed out“. Deshalb trägt die App die native
+  Aktion selbst in `dataSourcesInfo` ein (`dataverseApi.ts`, gilt nur, wenn
+  die App native Dataverse-APIs hat). **Ob das SDK den Aufruf so ausführt,
+  ist live noch nicht bestätigt.**
+- **Exportdauer gegen Timeout.** Direkt über die Web API gemessen: 4 Tabellen
+  ≈ 48 s, Waldmann Core (154 Tabellen, 159 Formulare) **172 s**. Power Apps
+  nennt 180 s als Grenze — große Solutions liegen knapp darunter. Ob der
+  native Weg in der Code App dieselbe Grenze hat, ist offen. Ein
+  asynchrones Gegenstück zu `ExportTranslation` gibt es nicht.
 - **Antwortform der generierten Services** (`data` vs. `value`,
   `ExportTranslationFile` verschachtelt?). `pick()` sucht defensiv in drei
   Ebenen.
@@ -306,15 +367,21 @@ Offen, bis live geprüft — jeweils mit der Stelle im Code:
   App pollt parallel zum Aufruf. Bleibt nach Ende des Aufrufs 60 s lang
   kein Job sichtbar, gilt der Import als nicht gestartet. Alternative:
   `ImportTranslationAsync` (Roadmap).
-- **Blattstruktur und Typwerte:** Die Spaltennamen, das Informationsblatt
-  und die Werte in `Entity Name` stammen aus Sekundärquellen und
-  Erfahrung, nicht aus der Microsoft-Doku. Nach dem ersten echten Export
-  die Typ-Zuordnung (`componentKind`) und die Fixture abgleichen.
-- **Namensauflösung.** Annahme: `Object Id` ist bei Tabellen und Spalten
-  die `MetadataId`, bei Formularen und Ansichten die `formid` bzw.
-  `savedqueryid`. Bei Auswahlwerten ist die Tabelle unbekannt.
-  `EntityDefinitions` mit `$expand=Attributes` für zehn Tabellen in einem
-  Aufruf ist aus solution-forge bekannt, hier aber nicht geprüft.
+- **Blattstruktur und Typwerte:** geklärt am echten Export, siehe „Format“.
+- **Namensauflösung.** `EntityDefinitions` mit `$filter` über zehn
+  `LogicalName` und `$expand=Attributes` ist aus solution-forge bekannt,
+  hier aber nicht live geprüft. Scheitert der Aufruf, bleiben Auswahlwerte
+  unter „Spalten“ (sie werden nie geraten).
+- **Designer-Abfragen.** Die nativen Metadaten-Abfragen für Auswahlwerte
+  (selbst registriert wie der Export) und die Verknüpfung App ↔ Sitemap
+  über `sitemapnameunique` = `appmodule.uniquename` sind live nicht
+  geprüft. Eigene Sitemap-Titel stehen nicht im Übersetzungsexport; der
+  Designer zeigt sie nur (rot gestrichelt, wenn die Zielsprache fehlt).
+- **Formularelement-IDs.** Annahme: Die `Object ID` der `displayname`-Zeilen
+  ist die `id` von Registerkarte, Abschnitt bzw. Feld im `formxml` (ohne
+  Klammern, klein). Im Mock und in den Tests so, live noch nicht
+  abgeglichen. Passt eine ID nicht, zeigt die Vorschau den Text aus dem
+  `formxml` grau und nur lesend.
 - **Rechte-Erkennung.** Der Fehlertext wird heuristisch geprüft
   (`privilege`, `prv…`, `0x80040220`). Welche Rechte genau die beiden
   Übersetzungsnachrichten verlangen, sagt die Doku nicht (die Seite

@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { ArrowUndoRegular, CheckmarkRegular, LightbulbRegular } from '@fluentui/react-icons'
 import { cellId, type ComponentInfo, type Lcid, type LabelRow } from '../types/translation'
-import type { GapRow } from '../utils/gaps'
+import { kindOf, tableOf, type GapRow } from '../utils/gaps'
 import type { Suggestion } from '../utils/glossary'
 import { glossaryKey } from '../utils/glossary'
 import { languageLabel } from '../utils/languages'
@@ -107,11 +107,13 @@ type RowProps = MatrixProps & { gap: GapRow; index: number }
 const MatrixRow = memo(function MatrixRow({ gap, index, baseLanguage, languages, components, ...rest }: RowProps) {
   const { row } = gap
   const c = components.get(row.objectId)
-  const component = c ? [c.table, c.name && c.name !== c.table ? c.name : ''].filter(Boolean).join(' · ') : row.objectId ? `${row.objectId.slice(0, 8)}…` : row.sheet
+  const table = tableOf(row, components)
+  const component =
+    [table, c?.name && c.name !== table ? c.name : ''].filter(Boolean).join(' · ') || (row.objectId ? `${row.objectId.slice(0, 8)}…` : row.sheet)
   return (
     <div className="matrix__row" role="row" aria-rowindex={index + 2} style={{ top: index * ROW_HEIGHT, height: ROW_HEIGHT }}>
       <div className="mcol mcol--type" title={row.type || row.sheet}>
-        <span>{S.kinds[row.kind]}</span>
+        <span>{S.kinds[kindOf(row, components)]}</span>
         <span className="muted small">{row.type || row.sheet}</span>
       </div>
       <div className="mcol" title={row.objectId ? `${component}\n${row.objectId}` : component}>

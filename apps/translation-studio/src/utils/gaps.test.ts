@@ -53,10 +53,15 @@ describe('filterRows', () => {
   })
 
   it('filters by kind, table and text', () => {
-    expect(filterRows(gaps, { ...all, kinds: new Set(['choice']) }).map((g) => g.row.type)).toEqual(['AttributePicklistValue', 'AttributePicklistValue'])
+    // Choice values are refined by metadata (kind in the components map).
+    const choices = new Map(['c3000000-0000-4000-8000-000000000001', 'c3000000-0000-4000-8000-000000000002'].map((id) => [id, { table: 'pro_vehicle', kind: 'choice' as const }]))
+    expect(filterRows(gaps, { ...all, kinds: new Set(['choice']) }, choices).map((g) => g.row.objectId)).toEqual([...choices.keys()])
+    expect(filterRows(gaps, { ...all, kinds: new Set(['choice']) })).toEqual([])
     const components = new Map([['b2000000-0000-4000-8000-000000000004', { table: 'pro_vehicle', name: 'pro_mileage' }]])
-    expect(filterRows(gaps, { ...all, table: 'pro_vehicle' }, components)).toHaveLength(1)
-    expect(filterRows(gaps, { ...all, table: NO_TABLE }, components)).toHaveLength(file.rows.length - 1)
+    // Without metadata the table comes from "Entity name".
+    expect(filterRows(gaps, { ...all, table: 'pro_inspection' })).toHaveLength(1)
+    expect(filterRows(gaps, { ...all, table: 'pro_vehicle' }, components)).toHaveLength(file.rows.length - 3)
+    expect(filterRows(gaps, { ...all, table: NO_TABLE }, components)).toHaveLength(2)
     expect(filterRows(gaps, { ...all, text: 'pro_mileage' }, components)).toHaveLength(1)
     expect(filterRows(gaps, { ...all, text: 'aktive fahrz' })).toHaveLength(1)
   })

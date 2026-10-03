@@ -164,7 +164,43 @@ XML, Node):
 
 ---
 
+## Designer — nächste Schritte
+
+- ⭐ **Sitemap-Titel schreiben** (M, ⚠): stehen nicht im Übersetzungsexport.
+  Weg: `sitemap.sitemapxml` per Konnektor-Update (PATCH auf eine Tabelle,
+  geht) und `PublishXml` mit `<sitemaps>`. Braucht eine Entscheidung, weil
+  es ein zweiter Schreibweg neben dem Import ist.
+- **Geschäftsprozessfluss, Befehlsleiste, Diagramme** als eigene Canvases
+  (M): Stufen-/Schrittnamen (`workflow`/`processstage`), moderne
+  Befehle (`appaction`, stehen schon in der Datei), Diagrammnamen.
+- **Zuletzt bearbeitet / Sprungliste** im Explorer (S): die letzten fünf
+  Komponenten, „weiter, wo ich war“ nach dem Neuladen.
+- **„In der App öffnen“** (S): Deep Link aus dem Canvas auf Formular oder
+  Ansicht der Umgebung, um das Ergebnis nach dem Veröffentlichen zu sehen.
+- **Formular-Zähler vorab** (S): Die Zähler je Formular und Ansicht
+  erscheinen heute erst, wenn ihre Tabelle gewählt ist (dann werden
+  `formxml`/`layoutxml` geladen). Im Hintergrund alle laden, gedrosselt.
+
 ## Umgesetzt
+
+- Erster Live-Kontakt mit Waldmann DEV (2026-10-03):
+  - **Export als native Aktion.** Die CLI kann das an die
+    `solution`-Collection gebundene `ExportTranslation` nicht generieren,
+    der Konnektor läuft in den Timeout. Die App trägt die Aktion selbst in
+    `dataSourcesInfo` ein (Pfad `solutions/Microsoft.Dynamics.CRM.ExportTranslation`).
+  - **Echtes Dateiformat.** `Entity name` ist der logische Tabellenname,
+    die Art folgt aus `Object Column Name` (`LocalizedName`, `DisplayName`,
+    `displayname` …). Typ-Zuordnung, Namensauflösung, Mock und Fixture
+    darauf umgestellt; Auswahlwerte und Ansichten verfeinert die
+    Metadaten-Auflösung.
+  - **Fortschritt beim Laden:** Schritte, Laufzeit, Balken gegen die
+    letzte Exportdauer der Solution, „Warten abbrechen“.
+  - **Designer** statt Formular-Vorschau: Explorer (Apps, Tabellen →
+    Tabelle & Spalten, Formulare, Ansichten, Dashboards) mit Fortschritt je
+    Eintrag, Canvas je Komponente (Tabellen-Steckbrief mit Auswahlwerten je
+    Spalte, Formular, Ansicht, Model-driven App mit Sitemap-Navigation),
+    Inspektor mit allen Sprachen. Tab-Fluss von Lücke zu Lücke, F8,
+    Glossar-Vorschläge am Canvas, Feier bei „alles übersetzt“.
 
 - Fehlerbehebungen aus dem Review (2026-10-03):
   - **Kein doppelter Import.** Für Aktionen mit Wirkung (Import, Publish)

@@ -967,3 +967,56 @@
     width: 100%;
   }
 }
+
+/* ---------- load progress ---------- */
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  max-width: 760px;
+}
+
+.progress__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.progress__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.progress__step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress__step--done {
+  color: var(--ok);
+}
+
+.progress__step--todo {
+  color: var(--muted);
+}
+
+.progress p {
+  margin: 0;
+}
+
+/* ---------- view switch ---------- */
+.views {
+  display: flex;
+  gap: 6px;
+}

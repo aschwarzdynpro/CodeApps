@@ -62,20 +62,56 @@ export function isLcid(text: string): boolean {
 export const KIND_ORDER: ComponentKind[] = ['table', 'column', 'choice', 'form', 'view', 'other']
 
 /**
- * Category of a label from the `Entity Name` column of "Localized Labels".
- * The values are the metadata types that own the label (Entity, Attribute,
- * SystemForm, SavedQuery …). Matching is by substring so variants
- * (AttributePicklistValue, OptionSetValue, FormXml …) land in the right group;
- * anything unknown is "other" — see README „Offen“.
+ * `Entity name` values of "Localized Labels" that are not a table (checked
+ * against real exports, 2026-10-03). Anything else that isn't a logical name
+ * is a dashboard, listed under its display name ("Dashboard GVL").
  */
-export function componentKind(type: string): ComponentKind {
-  const t = type.toLowerCase()
-  if (!t) return 'other'
-  if (t === 'entity' || t === 'entitymetadata') return 'table'
-  if (t.includes('picklist') || t.includes('optionset') || t.includes('option') || t.includes('statusvalue') || t.includes('statevalue'))
-    return 'choice'
-  if (t === 'attribute' || t === 'attributemetadata') return 'column'
-  if (t.includes('form') || t === 'tab' || t === 'section' || t === 'cell' || t === 'label') return 'form'
-  if (t.includes('savedquery') || t.includes('view')) return 'view'
-  return 'other'
+const NON_TABLE_TYPES = new Set([
+  'Solution',
+  'Publisher',
+  'RibbonCustomization',
+  'Workflow Categories',
+  'AppModule',
+  'SiteMap',
+  'AppSetting',
+  'CustomAPI',
+  'CustomAPIRequestParameter',
+  'CustomAPIResponseProperty',
+])
+
+/** `Entity name` is a table's logical name (`account`, `wal_project`). */
+export function isTableName(type: string): boolean {
+  return /^[a-z][a-z0-9_]*$/.test(type)
+}
+
+/**
+ * Category of a "Localized Labels" row. In the real export `Entity name` is
+ * the table's logical name and the kind follows from `Object Column Name`
+ * (case matters):
+ *
+ * - `LocalizedName`, `LocalizedCollectionName` → table; `Description` of the
+ *   same object id too (`tableLabel`)
+ * - `DisplayName`, `Description` → column — or a choice value, which only
+ *   the metadata tells apart (`resolveComponents` refines it)
+ * - `displayname` → form element (tab, section, field label); `name`,
+ *   `description` → form or view name (refined from metadata as well)
+ */
+export function componentKind(type: string, column: string, tableLabel = false): ComponentKind {
+  if (!type || NON_TABLE_TYPES.has(type)) return 'other'
+  if (!isTableName(type)) return column === 'displayname' || column === 'name' || column === 'description' ? 'form' : 'other'
+  switch (column) {
+    case 'LocalizedName':
+    case 'LocalizedCollectionName':
+      return 'table'
+    case 'DisplayName':
+      return 'column'
+    case 'Description':
+      return tableLabel ? 'table' : 'column'
+    case 'displayname':
+    case 'name':
+    case 'description':
+      return 'form'
+    default:
+      return 'other'
+  }
 }

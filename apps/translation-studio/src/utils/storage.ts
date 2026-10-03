@@ -54,6 +54,19 @@ export function clearHistory(): void {
   write(HISTORY, [])
 }
 
+const DURATION = 'translation-studio.exportms'
+const durationKey = (orgUrl: string, solution: string) => `${orgUrl || 'mock'}|${solution}`
+
+/** Duration of the last export of a solution in this browser (ms), for the load progress. */
+export function loadExportDuration(orgUrl: string, solution: string): number | null {
+  const ms = read<Record<string, number>>(DURATION, {})[durationKey(orgUrl, solution)]
+  return typeof ms === 'number' && ms > 0 ? ms : null
+}
+
+export function saveExportDuration(orgUrl: string, solution: string, ms: number): void {
+  write(DURATION, { ...read<Record<string, number>>(DURATION, {}), [durationKey(orgUrl, solution)]: Math.round(ms) })
+}
+
 const ackKey = (orgUrl: string, solution: string) => `${ACK}.${orgUrl || 'mock'}.${solution}`
 
 /** Cell ids marked "correct as is" for one solution. */

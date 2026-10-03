@@ -1,3 +1,4 @@
+import { getClient } from '@microsoft/power-apps/data'
 import { ORG_URL } from '../config'
 
 /**
@@ -23,11 +24,98 @@ type ServiceModule = Record<string, Record<string, Operation> | undefined>
 
 const modules = import.meta.glob<ServiceModule>('../generated/services/*Service.ts', { eager: true })
 
-function generated(service: string): Record<string, Operation> | null {
+function generatedService(service: string): Record<string, Operation> | null {
   for (const [path, mod] of Object.entries(modules)) {
     if (path.endsWith(`/${service}.ts`)) return mod[service] ?? null
   }
   return null
+}
+
+/**
+ * `ExportTranslation` as a native action, registered by the app itself.
+ *
+ * The CLI can't generate it (0.11.6 treats the binding
+ * `Collection(mscrm.solution)` as a table name and fails with 404), and the
+ * connector can't address a collection-bound action within its timeout. The
+ * SDK takes the request path of a native action from the generated
+ * `dataSourcesInfo`, and its runtime holds a reference to that object and
+ * copies its entries on the first data call. So the entry is added here, at
+ * module load, before any call. Only when the app has native Dataverse APIs
+ * at all (`default.cds` in power.config.json) and the CLI didn't add it.
+ */
+type DataSourcesInfo = Record<string, unknown>
+const infoModules = import.meta.glob<{ dataSourcesInfo?: DataSourcesInfo }>('../../.power/schemas/appschemas/dataSourcesInfo.ts', { eager: true })
+const dataSourcesInfo = Object.values(infoModules)[0]?.dataSourcesInfo
+const EXPORT_DS = 'exporttranslation'
+const hasNativeDataverse = Object.values(dataSourcesInfo ?? {}).some((ds) => (ds as { dataSourceType?: string })?.dataSourceType === 'Dataverse')
+if (dataSourcesInfo && hasNativeDataverse && !(EXPORT_DS in dataSourcesInfo)) {
+  dataSourcesInfo[EXPORT_DS] = {
+    tableId: '',
+    version: '',
+    primaryKey: '',
+    dataSourceType: 'Dataverse',
+    apis: {
+      ExportTranslation: {
+        path: '/api/data/v9.2/solutions/Microsoft.Dynamics.CRM.ExportTranslation',
+        method: 'POST',
+        parameters: [{ name: 'SolutionName', in: 'body', required: true, type: 'string' }],
+        responseInfo: { 200: { type: 'object' } },
+      },
+    },
+  }
+}
+
+const ownNative: Record<string, Record<string, Operation>> =
+  dataSourcesInfo && EXPORT_DS in dataSourcesInfo && !generatedService('ExportTranslationService')
+    ? {
+        ExportTranslationService: {
+          ExportTranslation: (SolutionName: unknown) =>
+            getClient(dataSourcesInfo as never).executeAsync({
+              dataverseRequest: { action: 'customapi', parameters: { operationName: 'ExportTranslation', tableName: EXPORT_DS, body: { SolutionName } } },
+            }) as Promise<OperationResult>,
+        },
+      }
+    : {}
+
+function generated(service: string): Record<string, Operation> | null {
+  return generatedService(service) ?? ownNative[service] ?? null
+}
+
+/**
+ * Metadata reads the connector can't address (cast segments in the path,
+ * see solution-forge gotcha on path encoding): registered the same way as
+ * the export, as native GET "APIs" with the table as path parameter.
+ */
+const METADATA_DS = 'tsmetadata'
+const optionCast = (cast: string, expand: string) => ({
+  path: `/api/data/v9.2/EntityDefinitions(LogicalName='{table}')/Attributes/Microsoft.Dynamics.CRM.${cast}?$select=LogicalName&$expand=${expand}`,
+  method: 'GET',
+  parameters: [{ name: 'table', in: 'path', required: true, type: 'string', format: 'dataverse-entity-set-name' }],
+  responseInfo: { 200: { type: 'object' } },
+})
+export const OPTION_QUERIES = {
+  PicklistOptions: optionCast('PicklistAttributeMetadata', 'OptionSet($select=Options),GlobalOptionSet($select=Options)'),
+  MultiSelectOptions: optionCast('MultiSelectPicklistAttributeMetadata', 'OptionSet($select=Options),GlobalOptionSet($select=Options)'),
+  StateOptions: optionCast('StateAttributeMetadata', 'OptionSet($select=Options)'),
+  StatusOptions: optionCast('StatusAttributeMetadata', 'OptionSet($select=Options)'),
+  BooleanOptions: optionCast('BooleanAttributeMetadata', 'OptionSet($select=TrueOption,FalseOption)'),
+}
+if (dataSourcesInfo && hasNativeDataverse && !(METADATA_DS in dataSourcesInfo)) {
+  dataSourcesInfo[METADATA_DS] = { tableId: '', version: '', primaryKey: '', dataSourceType: 'Dataverse', apis: OPTION_QUERIES }
+}
+
+/** True when the native metadata reads are available (deployed app with native Dataverse APIs). */
+export const hasMetadataReads = (): boolean => !!dataSourcesInfo && METADATA_DS in dataSourcesInfo
+
+/** One native metadata read; throws `DataverseError` like the other calls. */
+export async function metadataGet(api: keyof typeof OPTION_QUERIES, table: string): Promise<Row[]> {
+  if (!hasMetadataReads()) throw new DataverseError('Native Metadaten-Abfragen sind nicht eingebunden.')
+  const op: Operation = () =>
+    getClient(dataSourcesInfo as never).executeAsync({
+      dataverseRequest: { action: 'customapi', parameters: { operationName: api, tableName: METADATA_DS, body: { table } } },
+    }) as Promise<OperationResult>
+  const data = await run(op, [])
+  return ((data as { value?: Row[] } | null)?.value ?? []) as Row[]
 }
 
 export const CONNECTOR_SERVICE = 'MicrosoftDataverseService'

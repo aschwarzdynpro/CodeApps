@@ -88,6 +88,7 @@ export function parseTranslationFile(xml: string, options: ParseOptions = {}): T
     columnsBySheet[sheetIndex] = langCols
 
     const idx = (name: string) => keyColumns.findIndex((k) => norm(k) === norm(name))
+    // Matched case-insensitively: the real export writes "Entity name" / "Object ID".
     const typeCol = idx('Entity Name')
     const idCol = idx('Object Id')
     const columnCol = idx('Object Column Name')
@@ -112,7 +113,7 @@ export function parseTranslationFile(xml: string, options: ParseOptions = {}): T
         type,
         objectId: structured ? keys[idCol].replace(/[{}]/g, '').toLowerCase() : '',
         column: structured ? keys[columnCol] : keys.filter(Boolean).join(' / '),
-        kind: componentKind(type),
+        kind: 'other',
         original,
         values: original,
         loc: { sheet: sheetIndex, row: r },
@@ -123,6 +124,10 @@ export function parseTranslationFile(xml: string, options: ParseOptions = {}): T
   })
 
   if (sheets.length === 0) throw new Error('Die Datei enthält kein Blatt mit Sprachspalten (z. B. „Localized Labels“).')
+  // Kinds need the whole file: a `Description` is a table label when the same
+  // object id also carries the table name.
+  const tableIds = new Set(rows.filter((r) => r.column === 'LocalizedName' || r.column === 'LocalizedCollectionName').map((r) => r.objectId))
+  for (const r of rows) r.kind = r.objectId ? componentKind(r.type, r.column, tableIds.has(r.objectId)) : 'other'
   const baseLanguage = options.baseLanguage ?? baseFromInfo(info) ?? order[0]
   const languages = [baseLanguage, ...order.filter((l) => l !== baseLanguage)]
   return { xml, baseLanguage, languages, info, sheets, rows, layout, columnsBySheet }

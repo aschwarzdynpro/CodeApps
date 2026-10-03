@@ -1,6 +1,15 @@
 import { useDeferredValue, useMemo, useRef, useState } from 'react'
 import { Checkbox, Input, ToggleButton } from '@fluentui/react-components'
-import { ArrowDownloadRegular, ArrowUploadRegular, BranchCompareRegular, LightbulbRegular, LockClosedRegular, SearchRegular } from '@fluentui/react-icons'
+import {
+  ArrowDownloadRegular,
+  ArrowUploadRegular,
+  BranchCompareRegular,
+  DesignIdeasRegular,
+  LightbulbRegular,
+  LockClosedRegular,
+  SearchRegular,
+  TableSimpleRegular,
+} from '@fluentui/react-icons'
 import type { TranslationService } from '../services/translationService'
 import { getTranslationService } from '../services/translationService'
 import { DataverseError } from '../services/dataverseApi'
@@ -9,17 +18,19 @@ import { useLoad } from '../hooks/useLoad'
 import { cellId, type CellEdit, type ComponentInfo, type ComponentKind, type Lcid, type LabelRow, type SolutionRef, type TranslationFile } from '../types/translation'
 import { applyEdits, parseTranslationFile } from '../utils/translationFile'
 import { readTranslationZip } from '../utils/translationZip'
-import { countStates, filterRows, findGaps, NO_TABLE, tableOf, type StateFilter } from '../utils/gaps'
+import { countStates, filterRows, findGaps, kindOf, NO_TABLE, tableOf, type StateFilter } from '../utils/gaps'
 import { consistencyReport, glossaryKey, suggestFromGlossary } from '../utils/glossary'
 import { exportCsv } from '../utils/csv'
 import { KIND_ORDER, languageLabel, languageName } from '../utils/languages'
-import { loadAcknowledged, saveAcknowledged } from '../utils/storage'
+import { loadAcknowledged, loadExportDuration, saveAcknowledged, saveExportDuration } from '../utils/storage'
 import { downloadText, formatDateTime, stamp } from '../utils/download'
 import { Matrix } from './Matrix'
 import { ApplyDialog } from './ApplyDialog'
 import { CsvImportDialog } from './CsvImportDialog'
 import { ConsistencyDialog } from './ConsistencyDialog'
 import { ConfirmDialog } from './Modal'
+import { LoadProgress, type LoadProgressState } from './LoadProgress'
+import { Designer } from './designer/Designer'
 import { Btn, Select, type SelectOption } from './ui'
 import { S } from '../strings'
 
@@ -43,6 +54,7 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
   const [solutionName, setSolutionName] = useState('')
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState<LoadProgressState | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [components, setComponents] = useState<ReadonlyMap<string, ComponentInfo>>(new Map())
   const [resolving, setResolving] = useState(false)
@@ -54,11 +66,14 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
   const [table, setTable] = useState('')
   const [text, setText] = useState('')
   const [dialog, setDialog] = useState<Dialog>(null)
+  const [view, setView] = useState<'matrix' | 'designer'>('designer')
   const [locked, setLocked] = useState(false)
   const [noPrivilege, setNoPrivilege] = useState(false)
   const deferredText = useDeferredValue(text)
   /** Number of the latest load: results of an older one are dropped. */
   const loadSeq = useRef(0)
+  /** File whose names are being resolved: a result for any other file is dropped (independent of loads that fail or are cancelled). */
+  const resolvingFor = useRef<TranslationFile | null>(null)
 
   const solutions = useMemo(() => {
     const list = solutionsRes.data ?? []
@@ -104,9 +119,12 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
   )
   const kindCounts = useMemo(() => {
     const m = new Map<ComponentKind, number>()
-    for (const g of gaps) m.set(g.row.kind, (m.get(g.row.kind) ?? 0) + 1)
+    for (const g of gaps) {
+      const k = kindOf(g.row, components)
+      m.set(k, (m.get(k) ?? 0) + 1)
+    }
     return m
-  }, [gaps])
+  }, [gaps, components])
   const tableOptions = useMemo(() => {
     const m = new Map<string, number>()
     for (const g of gaps) {
@@ -134,7 +152,15 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
     setLoadError(null)
     try {
       const svc = await getTranslationService()
+      const startedAt = Date.now()
+      setProgress({ phase: 'export', name: solution.friendlyName, phaseAt: startedAt, lastMs: loadExportDuration(svc.orgUrl, name) })
       const [exported, base] = await Promise.all([svc.exportTranslations(name), svc.baseLanguage()])
+      if (!latest()) return
+      const readAt = Date.now()
+      saveExportDuration(svc.orgUrl, name, readAt - startedAt)
+      setProgress((p) => (p ? { ...p, phase: 'read', phaseAt: readAt } : p))
+      // Let the new phase paint before unzipping and parsing block the thread.
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
       const xml = await readTranslationZip(exported.zip)
       const file = parseTranslationFile(xml, base ? { baseLanguage: base } : {})
       if (!latest()) return
@@ -151,24 +177,36 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
       setTargets(file.languages.filter((l) => l !== file.baseLanguage))
       setComponents(new Map())
       setResolving(true)
+      resolvingFor.current = file
       svc
         .resolveComponents(file)
         .then(
           (map) => {
-            if (latest()) setComponents(map)
+            if (resolvingFor.current === file) setComponents(map)
           },
           (err: unknown) => console.warn('[translation] components', err),
         )
         .finally(() => {
-          if (latest()) setResolving(false)
+          if (resolvingFor.current === file) setResolving(false)
         })
     } catch (err) {
       if (!latest()) return
       const msg = err instanceof Error ? err.message : String(err)
       setLoadError(err instanceof DataverseError && err.privilege ? `${S.errors.privilegeExport} (${msg})` : msg)
     } finally {
-      if (latest()) setLoading(false)
+      if (latest()) {
+        setLoading(false)
+        setProgress(null)
+      }
     }
+  }
+
+  /** Stops waiting for the export; its result is dropped (the export itself changes nothing). */
+  function cancelLoad() {
+    loadSeq.current++
+    setLoading(false)
+    setProgress(null)
+    notify(S.progress.canceled)
   }
 
   const requestLoad = () => {
@@ -213,6 +251,14 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
       .map((r) => ({ rowKey: r.key, lcid, value }))
     addEdits(list)
     notify(S.toolbar.acceptedSame(list.length, value))
+  }
+  const refused = (m: string) => notify(m, 'error')
+  /** From the designer: the labels it has no canvas for (ribbon, messages …) in the table view. */
+  const showOther = () => {
+    setView('matrix')
+    setKinds(new Set<ComponentKind>(['other']))
+    setTable('')
+    setText('')
   }
   const acceptAllInView = () => {
     const list: CellEdit[] = []
@@ -297,6 +343,7 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
         {chosen?.isManaged ? <div className="notice notice--warn">{S.scope.managedWarn}</div> : null}
         {loadError ? <div className="notice notice--error">{loadError}</div> : null}
         {noPrivilege ? <div className="notice notice--warn">{S.apply.privilege}</div> : null}
+        {progress ? <LoadProgress state={progress} onCancel={cancelLoad} /> : null}
         {loaded && current ? (
           <p className="muted small">
             <strong>{loaded.solution.friendlyName}</strong> ·{' '}
@@ -306,92 +353,108 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
         ) : null}
       </section>
 
-      {!loaded ? <div className="empty">{S.scope.nothingLoaded}</div> : null}
+      {!loaded && !progress ? <div className="empty">{S.scope.nothingLoaded}</div> : null}
       {onlyBase ? <div className="notice notice--warn studio__single">{S.scope.singleLanguage}</div> : null}
 
       {current && !onlyBase && targets.length > 0 ? (
         <>
-          <section className="kpis" aria-label={S.kpi.label}>
-            {targets.map((l) => {
-              const c = counts[l]
-              const total = c.missing + c.untranslated + c.changed + c.ok
-              const pct = total === 0 ? 100 : ((c.ok + c.changed) / total) * 100
-              return (
-                <div key={l} className="kpi">
-                  <div className="kpi__head">
-                    <strong>{languageName(l)}</strong>
-                    <span className="muted small">{S.kpi.coverage(pct)}</span>
+          {view === 'matrix' ? (
+            <section className="kpis" aria-label={S.kpi.label}>
+              {targets.map((l) => {
+                const c = counts[l]
+                const total = c.missing + c.untranslated + c.changed + c.ok
+                const pct = total === 0 ? 100 : ((c.ok + c.changed) / total) * 100
+                return (
+                  <div key={l} className="kpi">
+                    <div className="kpi__head">
+                      <strong>{languageName(l)}</strong>
+                      <span className="muted small">{S.kpi.coverage(pct)}</span>
+                    </div>
+                    <div className="kpi__bar" aria-hidden>
+                      <span className="kpi__fill" style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="kpi__counts">
+                      {(['missing', 'untranslated', 'changed'] as const).map((s) => (
+                        <button key={s} type="button" className={`state state--${s}`} onClick={() => setStateFilter(s)} title={S.filter.state}>
+                          {c[s].toLocaleString('de-DE')} {S.kpi[s]}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="kpi__bar" aria-hidden>
-                    <span className="kpi__fill" style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className="kpi__counts">
-                    {(['missing', 'untranslated', 'changed'] as const).map((s) => (
-                      <button key={s} type="button" className={`state state--${s}`} onClick={() => setStateFilter(s)} title={S.filter.state}>
-                        {c[s].toLocaleString('de-DE')} {S.kpi[s]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </section>
+                )
+              })}
+            </section>
+          ) : null}
 
-          <section className="filters">
-            <div className="filters__state">
-              <Select value={stateFilter} options={stateOptions} onChange={(v) => setStateFilter(v as StateFilter)} aria-label={S.filter.state} small />
-            </div>
-            <div className="filters__kinds" role="group" aria-label={S.filter.kinds}>
-              {KIND_ORDER.filter((k) => kindCounts.has(k)).map((k) => (
-                <ToggleButton key={k} size="small" checked={kinds === null || kinds.has(k)} onClick={() => toggleKind(k)}>
-                  {S.kinds[k]} <span className="muted small">&nbsp;{kindCounts.get(k)}</span>
-                </ToggleButton>
-              ))}
-            </div>
-            <div className="filters__table">
-              <Select value={table} options={tableOptions} onChange={setTable} aria-label={S.filter.table} small />
-            </div>
-            <Input
-              size="small"
-              className="filters__text"
-              contentBefore={<SearchRegular />}
-              placeholder={S.filter.text}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              aria-label={S.filter.text}
-            />
-            {filterActive ? (
-              <Btn
-                kind="ghost"
-                small
-                onClick={() => {
-                  setStateFilter('all')
-                  setKinds(null)
-                  setTable('')
-                  setText('')
-                }}
-              >
-                {S.filter.reset}
-              </Btn>
-            ) : null}
-            <span className="muted small filters__count">{S.filter.count(filtered.length, gaps.length)}</span>
-          </section>
+          {view === 'matrix' ? (
+            <section className="filters">
+              <div className="filters__state">
+                <Select value={stateFilter} options={stateOptions} onChange={(v) => setStateFilter(v as StateFilter)} aria-label={S.filter.state} small />
+              </div>
+              <div className="filters__kinds" role="group" aria-label={S.filter.kinds}>
+                {KIND_ORDER.filter((k) => kindCounts.has(k)).map((k) => (
+                  <ToggleButton key={k} size="small" checked={kinds === null || kinds.has(k)} onClick={() => toggleKind(k)}>
+                    {S.kinds[k]} <span className="muted small">&nbsp;{kindCounts.get(k)}</span>
+                  </ToggleButton>
+                ))}
+              </div>
+              <div className="filters__table">
+                <Select value={table} options={tableOptions} onChange={setTable} aria-label={S.filter.table} small />
+              </div>
+              <Input
+                size="small"
+                className="filters__text"
+                contentBefore={<SearchRegular />}
+                placeholder={S.filter.text}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                aria-label={S.filter.text}
+              />
+              {filterActive ? (
+                <Btn
+                  kind="ghost"
+                  small
+                  onClick={() => {
+                    setStateFilter('all')
+                    setKinds(null)
+                    setTable('')
+                    setText('')
+                  }}
+                >
+                  {S.filter.reset}
+                </Btn>
+              ) : null}
+              <span className="muted small filters__count">{S.filter.count(filtered.length, gaps.length)}</span>
+            </section>
+          ) : null}
 
           <section className="toolbar studio__toolbar">
+            <div className="views" role="group" aria-label={S.views.label}>
+              <ToggleButton size="small" icon={<TableSimpleRegular />} checked={view === 'matrix'} onClick={() => setView('matrix')}>
+                {S.views.matrix}
+              </ToggleButton>
+              <ToggleButton size="small" icon={<DesignIdeasRegular />} checked={view === 'designer'} onClick={() => setView('designer')}>
+                {S.views.designer}
+              </ToggleButton>
+            </div>
             {readOnly ? (
               <span className="badge badge--lock">
                 <LockClosedRegular aria-hidden /> {locked ? S.toolbar.locked : S.toolbar.readOnly}
               </span>
             ) : null}
-            <Btn icon={<LightbulbRegular />} disabled={readOnly || suggestionsInView === 0} onClick={acceptAllInView} title={S.toolbar.acceptAllTitle}>
-              {S.toolbar.acceptAll(suggestionsInView)}
-            </Btn>
+            {view === 'matrix' ? (
+              <Btn icon={<LightbulbRegular />} disabled={readOnly || suggestionsInView === 0} onClick={acceptAllInView} title={S.toolbar.acceptAllTitle}>
+                {S.toolbar.acceptAll(suggestionsInView)}
+              </Btn>
+            ) : null}
             <Btn icon={<BranchCompareRegular />} disabled={inconsistencies.length === 0} onClick={() => setDialog('consistency')}>
               {S.toolbar.consistency(inconsistencies.length)}
             </Btn>
-            <Btn icon={<ArrowDownloadRegular />} disabled={filtered.length === 0} onClick={exportCsvFile} title={S.toolbar.csvExportTitle}>
-              {S.toolbar.csvExport(filtered.length)}
-            </Btn>
+            {view === 'matrix' ? (
+              <Btn icon={<ArrowDownloadRegular />} disabled={filtered.length === 0} onClick={exportCsvFile} title={S.toolbar.csvExportTitle}>
+                {S.toolbar.csvExport(filtered.length)}
+              </Btn>
+            ) : null}
             <Btn icon={<ArrowUploadRegular />} disabled={readOnly} onClick={() => setDialog('csv')}>
               {S.toolbar.csvImport}
             </Btn>
@@ -404,21 +467,41 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
             </Btn>
           </section>
 
-          <Matrix
-            rows={filtered}
-            baseLanguage={current.baseLanguage}
-            languages={targets}
-            components={components}
-            suggestions={suggestions}
-            sameBase={sameBase}
-            acknowledged={ack}
-            readOnly={readOnly}
-            onEdit={setEdit}
-            onRevert={revert}
-            onAccept={accept}
-            onAcknowledge={acknowledge}
-            onRefused={(m) => notify(m, 'error')}
-          />
+          {view === 'matrix' ? (
+            <Matrix
+              rows={filtered}
+              baseLanguage={current.baseLanguage}
+              languages={targets}
+              components={components}
+              suggestions={suggestions}
+              sameBase={sameBase}
+              acknowledged={ack}
+              readOnly={readOnly}
+              onEdit={setEdit}
+              onRevert={revert}
+              onAccept={accept}
+              onAcknowledge={acknowledge}
+              onRefused={(m) => notify(m, 'error')}
+            />
+          ) : (
+            <Designer
+              key={`${loaded?.solution.uniqueName}|${loaded?.at}`}
+              file={current}
+              components={components}
+              targets={targets}
+              acknowledged={ack}
+              readOnly={readOnly}
+              resolving={resolving}
+              suggestions={suggestions}
+              sameBase={sameBase}
+              onEdit={setEdit}
+              onRevert={revert}
+              onAccept={accept}
+              onAcknowledge={acknowledge}
+              onRefused={refused}
+              onShowOther={showOther}
+            />
+          )}
         </>
       ) : null}
 

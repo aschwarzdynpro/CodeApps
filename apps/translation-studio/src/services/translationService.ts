@@ -1,4 +1,16 @@
-import type { ComponentInfo, ExportResult, ImportJobState, Lcid, SetupCheck, SolutionRef, TranslationFile } from '../types/translation'
+import type {
+  AppRecord,
+  ChoiceGroup,
+  ComponentInfo,
+  ExportResult,
+  FormRecord,
+  ImportJobState,
+  Lcid,
+  SetupCheck,
+  SolutionRef,
+  TranslationFile,
+  ViewRecord,
+} from '../types/translation'
 import { powerModeReady } from '../PowerProvider'
 import { dataverseTranslationService } from './dataverseTranslationService'
 import { mockTranslationService } from './mockTranslationService'
@@ -18,8 +30,16 @@ export interface TranslationService {
   baseLanguage(): Promise<Lcid | null>
   /** `ExportTranslation` — the zip with `CrmTranslations.xml`. */
   exportTranslations(solutionUniqueName: string): Promise<ExportResult>
-  /** Table/name per object id of the file (best effort, for filters and display). */
+  /** Table/name/kind per object id of the file (best effort, for filters and display). */
   resolveComponents(file: TranslationFile): Promise<Map<string, ComponentInfo>>
+  /** Forms with their `formxml`, for the designer (missing ids are left out). */
+  getForms(formIds: string[]): Promise<FormRecord[]>
+  /** Views with `layoutxml`/`fetchxml`, for the designer. */
+  getViews(viewIds: string[]): Promise<ViewRecord[]>
+  /** Model-driven apps and sitemaps from the file (`AppModule`/`SiteMap` rows), each app with its sitemap. */
+  getApps(appIds: string[], sitemapIds: string[]): Promise<AppRecord[]>
+  /** Options per choice column of a table (to group choice values under their column); best effort. */
+  getChoiceGroups(table: string, baseLanguage: Lcid): Promise<ChoiceGroup[]>
   /**
    * `ImportTranslation` with a new import job id. Resolves when the call
    * returns (the import may still run); progress via {@link getImportJob}.
