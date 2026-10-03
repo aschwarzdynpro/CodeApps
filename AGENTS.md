@@ -36,6 +36,7 @@ CodeApps/
 │   ├── series-planner/     # Code App: Serienplanung — wiederkehrende Projekteinsätze als Arbeitsaufträge + Buchungen (Schulz UAT)
 │   └── my-day/             # Gen Page in Sales Hub (Waldmann): Termine/Aufgaben/Projektaufgaben + Leads/Projekte/Anfragen/Workorders
 ├── docs/                   # SETUP.md (neue App anlegen), IDEAS*.md, HANDOVER.md (Audit Explorer)
+│   └── concepts/           # je ein Konzept + Kickoff-Prompt für noch nicht gebaute Apps (translation-studio, territory-planner)
 ├── marketing/              # Sales-Deck + Handout der Solution Administration Console
 ├── .claude/skills/         # create-release (managed Export + GitHub-Release, nur solution-forge)
 ├── AGENTS.md               # diese Datei

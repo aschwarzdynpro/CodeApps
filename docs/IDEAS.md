@@ -97,3 +97,19 @@ letzte Aufträge, Umsatz-Trends – alles auf einem Screen.
 Umfang, klarer Mehrwert und deckt die wichtigsten Bausteine ab (Dataverse-CRUD,
 Listen/Detail-UI, Charts, ein Konnektor für Benachrichtigungen). Eine solide
 Vorlage für alle weiteren Apps im Repo.
+
+---
+
+## Ausgearbeitete Konzepte (Oktober 2026)
+
+Aus dem Brainstorming vom 2026-10-03 sind zwei Ideen zu umsetzungsreifen
+Konzepten mit Kickoff-Prompt für je eine eigene Claude-Session geworden:
+
+- [`concepts/translation-studio.md`](concepts/translation-studio.md) —
+  Übersetzungs-Studio: Lücken in Dataverse-Beschriftungen je Sprache
+  sehen, inline pflegen, per `ExportTranslation`/`ImportTranslation`
+  zurückschreiben (Waldmann, drei Sprachen).
+- [`concepts/territory-planner.md`](concepts/territory-planner.md) —
+  Gebietsplanung: PLZ-Gebiete auf einer Karte, Hygiene-Report und
+  Umplanung mit Vorschau auf Basis des bestehenden Waldmann-Modells
+  (`territory`, `wal_postalcoderange`).
