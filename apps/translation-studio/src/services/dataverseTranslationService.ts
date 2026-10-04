@@ -3,6 +3,7 @@ import type { AppRecord, ChoiceGroup, ComponentInfo, ImportJobState, SetupCheck,
 import { base64ToBytes } from '../utils/translationZip'
 import { callAction, DataverseError, fetchXml, hasConnector, metadataGet, nativeActions, odata, pick, type Row } from './dataverseApi'
 import type { TranslationService } from './translationService'
+import { tableKey } from '../utils/designerTree'
 
 /**
  * Dataverse implementation. Reads go through the Dataverse connector (user
@@ -153,9 +154,13 @@ export const dataverseTranslationService: TranslationService = {
     const attributes = new Map<string, { table: string; name: string }>()
     const readTables = new Set<string>()
     await lookup('column names', [...new Set(columnRows.map((r) => r.type))], 10, async (part) => {
-      const rows = await odata('EntityDefinitions', 'LogicalName', part.map((n) => `LogicalName eq '${n}'`).join(' or '), 'Attributes($select=MetadataId,LogicalName)')
+      const rows = await odata('EntityDefinitions', 'LogicalName,DisplayName', part.map((n) => `LogicalName eq '${n}'`).join(' or '), 'Attributes($select=MetadataId,LogicalName)')
       for (const t of rows) {
         readTables.add(str(t.LogicalName))
+        // The table's name for the explorer when the export doesn't carry it (only some of its parts are in the solution).
+        const label = (t.DisplayName ?? null) as { LocalizedLabels?: Row[]; UserLocalizedLabel?: Row | null } | null
+        const name = str(label?.LocalizedLabels?.find((l) => num(l.LanguageCode) === file.baseLanguage)?.Label ?? label?.UserLocalizedLabel?.Label)
+        if (name) out.set(tableKey(str(t.LogicalName)), { table: str(t.LogicalName), name, kind: 'table' })
         for (const a of (t.Attributes as Row[] | undefined) ?? []) attributes.set(str(a.MetadataId).toLowerCase(), { table: str(t.LogicalName), name: str(a.LogicalName) })
       }
     })
@@ -209,28 +214,56 @@ export const dataverseTranslationService: TranslationService = {
     // Chunked like the other lookups: a long id list must not hit the URL length limit of a GET.
     const appParts = await pool(chunks(appIds.filter(guid), 50), PARALLEL, (part) =>
       retry(() =>
-        fetchXml('appmodules', `<fetch><entity name="appmodule"><attribute name="appmoduleid" /><attribute name="name" /><attribute name="uniquename" />${inFilter('appmoduleid', part)}</entity></fetch>`),
+        fetchXml(
+          'appmodules',
+          `<fetch><entity name="appmodule"><attribute name="appmoduleid" /><attribute name="appmoduleidunique" /><attribute name="name" /><attribute name="uniquename" />${inFilter('appmoduleid', part)}</entity></fetch>`,
+        ),
       ),
     )
     const apps = appParts.flat()
+    // The app's sitemap: its app module component of type 62 (objectid = sitemapid). The unique
+    // names often differ (Sales Hub: app "msdynce_saleshub", sitemap "SalesHubSitemap").
+    const uniques = apps.map((a) => str(a.appmoduleidunique).toLowerCase()).filter(guid)
+    const linkParts = await pool(chunks(uniques, 50), PARALLEL, (part) =>
+      retry(() =>
+        fetchXml(
+          'appmodulecomponents',
+          `<fetch><entity name="appmodulecomponent"><attribute name="objectid" /><attribute name="appmoduleidunique" />` +
+            `<filter><condition attribute="componenttype" operator="eq" value="62" /><condition attribute="appmoduleidunique" operator="in">${values(part)}</condition></filter></entity></fetch>`,
+        ),
+      ).catch((err: unknown) => {
+        console.warn('[translation] app components not readable, matching sitemaps by name', err)
+        return [] as Row[]
+      }),
+    )
+    const linked = new Map<string, string>()
+    for (const r of linkParts.flat()) {
+      const app = str(r._appmoduleidunique_value ?? r.appmoduleidunique).toLowerCase()
+      const map = str(r.objectid).toLowerCase()
+      if (app && map && !linked.has(app)) linked.set(app, map)
+    }
     const sitemapQuery = (condition: string) =>
       retry(() =>
         fetchXml('sitemaps', `<fetch><entity name="sitemap"><attribute name="sitemapid" /><attribute name="sitemapnameunique" /><attribute name="sitemapxml" /><filter>${condition}</filter></entity></fetch>`),
       )
     const uniqueNames = apps.map((a) => str(a.uniquename)).filter(Boolean)
+    const mapIds = [...new Set([...sitemapIds.filter(guid).map((id) => id.toLowerCase()), ...linked.values()])]
     const mapParts = await pool(
       [
-        ...chunks(sitemapIds.filter(guid), 50).map((part) => `<condition attribute="sitemapid" operator="in">${values(part)}</condition>`),
+        ...chunks(mapIds, 50).map((part) => `<condition attribute="sitemapid" operator="in">${values(part)}</condition>`),
         ...chunks(uniqueNames, 50).map((part) => `<condition attribute="sitemapnameunique" operator="in">${values(part)}</condition>`),
       ],
       PARALLEL,
       sitemapQuery,
     )
     const maps = [...new Map(mapParts.flat().map((m) => [str(m.sitemapid).toLowerCase(), m])).values()]
-    // App ↔ sitemap by unique name; Dataverse compares names case-insensitively, so do we.
-    const sitemapOf = (unique: string) => maps.find((m) => str(m.sitemapnameunique).toLowerCase() === unique.toLowerCase())
+    // By the component link, else by unique name (case-insensitive, as Dataverse compares names).
+    const sitemapOf = (a: Row) => {
+      const id = linked.get(str(a.appmoduleidunique).toLowerCase())
+      return (id ? maps.find((m) => str(m.sitemapid).toLowerCase() === id) : undefined) ?? maps.find((m) => str(m.sitemapnameunique).toLowerCase() === str(a.uniquename).toLowerCase())
+    }
     const out: AppRecord[] = apps.map((a) => {
-      const m = sitemapOf(str(a.uniquename))
+      const m = sitemapOf(a)
       return { id: str(a.appmoduleid).toLowerCase(), name: str(a.name), uniqueName: str(a.uniquename), sitemap: m ? { id: str(m.sitemapid).toLowerCase(), xml: str(m.sitemapxml) } : null }
     })
     for (const m of maps) {

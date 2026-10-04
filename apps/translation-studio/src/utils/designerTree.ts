@@ -40,6 +40,9 @@ export interface ExplorerTree {
   otherCount: number
 }
 
+/** Key of a table's own entry in the components map (display name from the metadata). */
+export const tableKey = (logicalName: string) => `table:${logicalName}`
+
 const FORM_ORDER = [2, 7, 6, 11, 5]
 const rank = (t: number | undefined) => (t !== undefined && FORM_ORDER.includes(t) ? FORM_ORDER.indexOf(t) : FORM_ORDER.length)
 
@@ -54,7 +57,7 @@ export function buildExplorer(file: TranslationFile, components: ReadonlyMap<str
   const table = (name: string) => {
     let t = tables.get(name)
     if (!t) {
-      t = { table: name, label: name, rows: [], forms: [], views: [] }
+      t = { table: name, label: components.get(tableKey(name))?.name || name, rows: [], forms: [], views: [] }
       tables.set(name, t)
     }
     return t

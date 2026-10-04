@@ -256,8 +256,15 @@ XML, Node):
     einzeilig, „Formulare & Ansichten“ kompakt (offene zuerst, „Alle
     anzeigen“), Nachbar-Menü mit Höhenbegrenzung und Filter, Sprungleiste
     auf der Tabellenseite, Text im Editor beim Öffnen markiert, weitere
-    Formulartypen benannt. Noch nicht live gesehen: App-Canvas (keine App
-    in der Test-Solution), Import.
+    Formulartypen benannt.
+  - **Test mit WaldmannCore (2026-10-04):** Export 2:16–2:52 in der App
+    (unter dem 3-Minuten-Limit, aber knapp), 228 Tabellen, 701 Formulare,
+    1.726 Ansichten, 8 Apps, 10 Dashboards. 29 Vorschläge auf einmal
+    übernehmen und verwerfen reagiert in unter einer Sekunde, F8 läuft
+    über Registerkarten. Behoben: App ↔ Sitemap über `appmodulecomponent`
+    (Sales Hub zeigte „Keine Sitemap“), Tabellennamen aus den Metadaten,
+    wenn die Datei sie nicht enthält (`lead`, `msdyn_workorder`), Basistext
+    als Platzhalter im leeren Editor. Offen: Import nicht live getestet.
 
 - Fehlerbehebungen aus dem Review (2026-10-03):
   - **Kein doppelter Import.** Für Aktionen mit Wirkung (Import, Publish)

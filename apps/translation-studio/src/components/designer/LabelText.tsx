@@ -174,7 +174,8 @@ export const LabelText = memo(function LabelText({ labelRef, hidden, className, 
           // The input replaces the text the user just clicked; its text is selected, so typing replaces it.
           autoFocus
           onFocus={(e) => e.currentTarget.select()}
-          size={Math.max(6, Math.min(56, draft.length + 2))}
+          size={Math.max(6, Math.min(56, (draft || base).length + 2))}
+          placeholder={base}
           aria-label={`${labelRef.role}: ${base} (${languageLabel(d.lcid)})`}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={(e) => {
