@@ -35,7 +35,8 @@ CodeApps/
 │   ├── schedule-board-manager/ # Code App: URS-Schedule-Boards kopieren/bearbeiten/vergleichen/bulk/transfer (Schulz UAT)
 │   ├── series-planner/     # Code App: Serienplanung — wiederkehrende Projekteinsätze als Arbeitsaufträge + Buchungen (Schulz UAT)
 │   ├── translation-studio/ # Code App: fehlende Übersetzungen von Dataverse-Beschriftungen finden, füllen, importieren (Ziel Waldmann DEV)
-│   └── my-day/             # Gen Page in Sales Hub (Waldmann): Termine/Aufgaben/Projektaufgaben + Leads/Projekte/Anfragen/Workorders
+│   ├── my-day/             # Gen Page in Sales Hub (Waldmann): Termine/Aufgaben/Projektaufgaben + Leads/Projekte/Anfragen/Workorders
+│   └── account-360/        # Gen Page in der Accounts App (Playground): Account-Liste + Stammdaten/Aufgaben/Kontakte/Adressen
 ├── docs/                   # SETUP.md (neue App anlegen), IDEAS*.md, HANDOVER.md (Audit Explorer)
 │   └── concepts/           # je ein Konzept + Kickoff-Prompt (translation-studio — gebaut, territory-planner)
 ├── marketing/              # Sales-Deck + Handout der Solution Administration Console
@@ -195,7 +196,8 @@ Ordner `plugins/model-apps/` — `references/rules.md`, `data-caching.md`,
   ihnen nicht.
 - `pac env fetch --xmlFile <fetchxml>` ist der schnellste Blick in die Daten
   (kein `top` zusammen mit Paging; `aggregate="true"` + `count` funktioniert).
-  Es gibt **keinen** PAC-Befehl, der Datenzeilen schreibt.
+  Einzelne Datenzeilen schreibt `pac` nicht; Massendaten gehen per
+  `pac data import` (Configuration-Migration-Paket, siehe Playground-Abschnitt).
 - `pac model genpage remove` löst eine Seite nur aus der Sitemap; **ein
   `delete` gibt es nicht** — die `uxagentproject`-Zeile bleibt in Dataverse
   (löschen nur im Maker-Portal).
@@ -203,6 +205,19 @@ Ordner `plugins/model-apps/` — `references/rules.md`, `data-caching.md`,
   der Default-Solution; eine eigene Solution ist ein Schritt danach
   (`pac solution import` eines minimalen Pakets, dann
   `add-solution-component`).
+- **`pac model genpage upload` verändert die App, bei jedem Aufruf.** Mit
+  der Meldung „Registering data-source tables as app components" trägt es
+  je Datenquellen-Tabelle **ein** Formular und **eine** Ansicht als
+  App-Komponente ein. Danach zeigt die App nur noch diese eine Ansicht, und
+  Datensätze öffnen ggf. in einem fremden Formular (in der Accounts App:
+  „Customer profile cases", für Task ein inaktives Formular). Einen Schalter
+  dagegen gibt es nicht. Vor dem Upload den Komponenten-Stand sichern
+  (FetchXML auf `appmodulecomponent`), danach im App-Designer
+  zurückstellen. Ablauf in `apps/account-360/README.md`. `pac` kann
+  App-Komponenten und Formulare nicht bearbeiten, das geht nur über den
+  App- bzw. Formular-Designer oder die Web API.
+- FetchXML auf `appmodulecomponent` zeigt den **veröffentlichten** Stand.
+  Ein „Save" im App-Designer ohne Publish taucht dort noch nicht auf.
 
 ## Ablauf, der funktioniert hat
 
@@ -264,11 +279,50 @@ Ordner `plugins/model-apps/` — `references/rules.md`, `data-caching.md`,
   State-Update pro Effect.
 - Overlays (`Dropdown`, `Menu`, `Dialog`) brauchen den `mountNode` der Seite,
   sonst landen sie im Designer-DOM. Wir haben `Dialog` ganz vermieden.
+- **In ein Formular einbetten** (nur Hauptformulare): Formular-Designer ›
+  Components › Display › Generative page. Im Form-XML ein Custom Control
+  `MscrmControls.UxAgentControl` mit `RefId` = Page-ID (statische Eingaben
+  als `PageInput`). Das Formular übergibt `pageInput = { recordId,
+  entityName }`, bei einem ungespeicherten Datensatz nur `{ entityName }`;
+  aus der Sitemap ist `pageInput` `null`. Das generierte
+  `GeneratedComponentProps` hat kein `pageInput` — Typ lokal erweitern
+  (`GeneratedComponentProps & { pageInput?: … }`). Statische Eingaben liest
+  der Designer aus dem Code (`pageInput.data.<key>`) und bietet sie als JSON
+  an. Mit `height: auto` am Seiten-Root wächst die Seite mit dem Inhalt.
+  Muster: `apps/account-360/`. Side Panes (`Xrm.App.sidePanes`) rendern Gen
+  Pages laut Microsoft nicht — Seitendialog per `navigateTo` nehmen.
+- Direkt öffnen zum Testen:
+  `main.aspx?appid=<app-id>&pagetype=genux&id=<page-id>`. Die Seite läuft in
+  einem iframe-Host — ihre `console.*`-Ausgaben und `dataApi`-Aufrufe tauchen
+  im Konsolen-/Netzwerk-Log des Haupt-Tabs **nicht** auf. Zur Diagnose die
+  Fehlermeldung vorübergehend in der UI anzeigen (so bei `apps/account-360/`).
 
-## Umgebung ASC SFA CS Playground (Stand 2026-09-21)
+## Umgebung ASC SFA CS Playground (Stand 2026-10-04)
 
-- `https://ascsfacs.crm4.dynamics.com`, Konto `aschwarz@dynamicspro.de`,
-  nur Sprache 1033 (en-US) — unsere UI-Texte sind trotzdem deutsch, bewusst.
+- `https://ascsfacs.crm4.dynamics.com`, Env-ID
+  `a5b19a39-a9ec-ec82-98b9-74f5cf513c52`, Konto `aschwarz@dynamicspro.de`
+  (pac-Profil `DPRO`), nur Sprache 1033 (en-US) — unsere UI-Texte sind
+  trotzdem deutsch, bewusst.
+- Accounts App: App-ID `909c4288-1c93-ed11-aad1-6045bd8c5f83`
+  (`pro_AccountsApp`) mit `account`, `task`, `pro_customaddress`,
+  `pro_elasticdemo` (plus `contact` für die Gen Page). Gen Page
+  „Account 360" (`apps/account-360/`) `0aab2066-b628-4a4c-aea8-d68eb19671d8`,
+  deployt und im Browser getestet; zusätzlich eingebettet im Account-Formular
+  „Demo Form" (`f70e87be-…`, einziges Account-Formular der App), Tab
+  „Account 360". Demo-Set (9 fiktive Accounts mit Kontakten, Aufgaben,
+  Adressen) per `pac data import`, Generator in `apps/account-360/demo-data/`;
+  die alten Test-Accounts sind deaktiviert.
+- Neue Accounts im Playground: Plugin-Step „SetAutoNumber" überschreibt
+  `accountnumber` beim Create mit „123" (danach per Update korrigieren), und
+  ein Sales-Accelerator-Segment verbindet sie automatisch mit der Sequenz
+  „Demo Sequence" (legt sofort eine Renewal-Aufgabe an; in der Sales Hub per
+  „Disconnect sequence" trennen).
+- Datensätze schreiben ohne zusätzliche Anmeldung: `pac data import` mit
+  einem Configuration-Migration-Paket (`data.xml` + `data_schema.xml`,
+  Verzeichnis oder Zip). Format am sichersten über `pac data export
+  --schemaFile` mit eigenem Schema abgucken. Lookups und Status
+  (`statecode`/`statuscode`, auch erledigte Aufgaben) setzt das Tool in einem
+  zweiten Durchgang.
 - Sales Hub: App-ID `53fc8147-cb62-ed11-9562-000d3a24f3d4`
   (`msdynce_saleshub`). Publisher `DynamicsPro`, Prefix `pro`,
   Option-Value-Prefix 45500.
@@ -310,5 +364,5 @@ Gut: mehrere Tabellen auf einem Screen, Seiten aus einem Datensatz heraus
 geführte Abläufe mit mehreren `createRow`. Schlecht: alles, was
 Konnektoren zum Handeln braucht, Metadaten, Cross-Environment (das ist
 solution-forge), Dateien, Nutzer ohne MDA-Lizenz. Kandidatenliste und
-Bewertung: Pipeline-Kanban, Account 360, „My Day" (gebaut),
+Bewertung: Pipeline-Kanban, Account 360 (gebaut), „My Day" (gebaut),
 Lead-Qualifizierungs-Wizard, Angebotsvergleich.

@@ -10,6 +10,7 @@ Eine neue App anlegen → siehe [`../docs/SETUP.md`](../docs/SETUP.md).
 
 | App | Beschreibung |
 | --- | --- |
+| [`account-360/`](account-360/) | **Generative Page** in der Accounts App (ASC SFA CS Playground) — Account-Liste mit Suche und Aufgaben-Zählern, rechts Stammdaten, KPIs und Tabs für Aufgaben (anlegen, abschließen), Kontakte, Custom Addresses (anlegen) und Elastic Demo. Zusätzlich im Account-Formular „Demo Form" eingebettet (Formular-Modus über `pageInput.recordId`). |
 | [`approval-cockpit/`](approval-cockpit/) | Zentrales Inbox-Dashboard für Genehmigungen aus mehreren Systemen mit Filtern und Bulk-Approve/Reject. |
 | [`audit-explorer/`](audit-explorer/) | Dashboard für die Dataverse Audit History mit Drill-Down von Aggregat-Charts bis zum Feld-Level-Diff. |
 | [`my-day/`](my-day/) | **Generative Page** in Sales Hub (Waldmann D365 DEV) — meine Termine, Aufgaben und Projektaufgaben nach Fälligkeit plus meine offenen Leads, Projekte, Projektanfragen und Workorders mit Stillstands-Badge; UI in de/en/fr. |
