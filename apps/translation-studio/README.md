@@ -295,6 +295,7 @@ Akzeptanz stehen aus). Danach der ASC-Playground als Ein-Sprachen-Gegenprobe.
 | Umgebung | Env-ID | App-ID | Stand |
 | --- | --- | --- | --- |
 | Waldmann D365 DEV | `33146d71-4fe8-e1d7-af2f-f80fe968fc47` | `0331862d-1088-41b5-9040-52a7dd85d00e` | gepusht 2026-10-03 |
+| Waldmann D365 DEV COPY | `409368d3-7046-e7fb-a71c-7620c3f73241` | `ba722e8d-d776-4cec-a8df-1aa9d65d15a6` | gepusht 2026-10-04 (Code Apps im Admin Center freigeschaltet, Admin Mode aus; eigene Dataverse-Connection `5654bf4d…`; Konfiguration in `deploy/copy.*`, gitignored — vor dem Push nach `power.config.json`/`.env` kopieren, danach DEV zurück) |
 | ASC SFA CS Playground | — | — | nicht deployt |
 
 Waldmann D365 DEV im Detail:

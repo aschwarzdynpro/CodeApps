@@ -33,3 +33,6 @@ src/generated/
 .env
 .env.*
 !.env.example
+
+# Per-environment snapshots of power.config.json / .env
+deploy/
