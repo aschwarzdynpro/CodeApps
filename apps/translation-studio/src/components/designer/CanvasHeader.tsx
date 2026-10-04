@@ -6,8 +6,10 @@ import { languageName } from '../../utils/languages'
 import { S } from '../../strings'
 import { liveRow, useDesigner, useLiveStore, useLiveValue, type Live } from './context'
 import { CanvasNav, currentLabel, jumpToGap } from './nav'
+import { Breadcrumb } from './Breadcrumb'
 
 interface CanvasHeaderProps {
+  /** What the canvas is — shown when there is no breadcrumb. */
   kicker: string
   title: ReactNode
   /** Every file row on the canvas (structure rows); counts and suggestions follow the live data. */
@@ -61,7 +63,7 @@ export function CanvasHeader({ kicker, title, rows, sub, note }: CanvasHeaderPro
   return (
     <header className={`canvas__head${gaps === 0 ? ' canvas__head--done' : ''}`}>
       <div className="canvas__titles">
-        <span className="canvas__kicker">{kicker}</span>
+        <Breadcrumb fallback={kicker} />
         <div className="canvas__title">{title}</div>
         {sub ? <div className="canvas__sub">{sub}</div> : null}
       </div>

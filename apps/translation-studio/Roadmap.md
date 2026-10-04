@@ -243,6 +243,11 @@ XML, Node):
     Dashboards nur, wenn die Auflösung sie als Formular kennt;
     Bereich per Tastatur wählbar, Pfeiltasten in Registerkarten,
     Leertaste öffnet Beschriftungen, Zustand für Screenreader.
+  - **Navigationspfad** im Canvas-Kopf (Übersicht › Tabelle › Formular/
+    Ansicht): Rückweg zur Tabelle auch ohne Komponentenliste, das letzte
+    Glied wechselt zu Formularen/Ansichten derselben Tabelle (bzw. anderen
+    Apps, Dashboards), Alt+↑ eine Ebene höher; der Explorer scrollt zum
+    gewählten Eintrag.
 
 - Fehlerbehebungen aus dem Review (2026-10-03):
   - **Kein doppelter Import.** Für Aktionen mit Wirkung (Import, Publish)

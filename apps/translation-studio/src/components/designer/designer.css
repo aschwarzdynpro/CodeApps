@@ -1868,3 +1868,83 @@ button.home__lang:hover {
   flex-shrink: 0;
   color: var(--muted);
 }
+
+/* ---------- breadcrumb in the canvas head ---------- */
+.crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  min-width: 0;
+  margin-left: -6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.crumbs__link,
+.crumbs__current {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 260px;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crumbs__link {
+  cursor: pointer;
+  transition: background 100ms, color 100ms;
+}
+
+.crumbs__link:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.crumbs__link svg {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.crumbs__sub {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.crumbs__sep {
+  flex-shrink: 0;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.crumbs__current {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.crumbs__current--menu {
+  cursor: pointer;
+  transition: background 100ms;
+}
+
+.crumbs__current--menu:hover,
+.crumbs__current--menu[aria-expanded='true'] {
+  background: var(--surface-2);
+}
+
+.crumbs__current--menu svg {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.crumbs__link--self {
+  cursor: default;
+}

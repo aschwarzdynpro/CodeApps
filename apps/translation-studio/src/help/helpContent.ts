@@ -130,6 +130,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         list: [
           '**Platz einteilen:** Komponentenliste links und Details rechts lassen sich ein- und ausblenden (Symbole in der Leiste über dem Canvas) und an der Trennlinie in der Breite ziehen — auch mit den Pfeiltasten, Doppelklick stellt die Standardbreite her. Der Browser merkt sich das. In schmalen Fenstern legen sich die Details über den Canvas.',
+          '**Navigationspfad** im Kopf jeder Seite, z. B. „Übersicht › Vehicle › Hauptformular“: ein Klick auf „Vehicle“ führt zurück zur Tabelle, auf „Übersicht“ zum Start. Das letzte Glied (▾) wechselt direkt zu einem anderen Formular oder einer anderen Ansicht derselben Tabelle. **Alt+↑** geht eine Ebene höher — das klappt auch bei ausgeblendeter Komponentenliste.',
           '**Strg+K** springt in die Suche der Komponentenliste.',
           'Der Designer merkt sich, wo man war: nach einem Blick in die Tabellenansicht, nach einem Sprachwechsel (Registerkarte und Filter bleiben) und nach dem Neuladen im Anschluss an einen Import.',
           'Oben in der **Befehlsleiste**: Solution, Laden, die Zielsprachen (Menü), die Ansicht, Konsistenz, weitere Aktionen (⋯: CSV einlesen/exportieren), Verwerfen und Anwenden.',

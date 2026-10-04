@@ -31,6 +31,7 @@ import { FormCanvas } from './FormCanvas'
 import { ViewCanvas } from './ViewCanvas'
 import { AppCanvas } from './AppCanvas'
 import { Splitter } from './Splitter'
+import { CrumbContext, crumbsFor, parentOf, type CrumbNav } from './crumbs'
 import './designer.css'
 
 export interface DesignerProps {
@@ -216,6 +217,13 @@ export function Designer(props: DesignerProps) {
     [memoryKey],
   )
 
+  // Breadcrumb in the canvas head: the way back up (and Alt+↑).
+  const crumbNav: CrumbNav = useMemo(() => ({ trail: crumbsFor(target, tree), onSelect: select }), [target, tree, select])
+  const crumbRef = useRef(crumbNav)
+  useLayoutEffect(() => {
+    crumbRef.current = crumbNav
+  })
+
   const api: DesignerApi = useMemo(
     () => ({
       origin,
@@ -249,6 +257,15 @@ export function Designer(props: DesignerProps) {
         e.preventDefault()
         setPanesState((p) => (p.explorer ? p : { ...p, explorer: true }))
         window.requestAnimationFrame(() => window.requestAnimationFrame(() => rootRef.current?.querySelector<HTMLInputElement>('.ex__search input')?.select()))
+        return
+      }
+      if (e.altKey && e.key === 'ArrowUp') {
+        // Not while typing: the editor would vanish without its blur.
+        const tag = document.activeElement?.tagName
+        const up = parentOf(crumbRef.current.trail)
+        if (!up || tag === 'INPUT' || tag === 'TEXTAREA') return
+        e.preventDefault()
+        crumbRef.current.onSelect(up)
         return
       }
       if (e.key !== 'F8' || e.defaultPrevented) return
@@ -328,101 +345,103 @@ export function Designer(props: DesignerProps) {
   return (
     <DesignerContext.Provider value={api}>
       <LiveContext.Provider value={store}>
-        <div className={cls} ref={rootRef} style={sizes}>
-          {panes.explorer ? (
-            <>
-              <Explorer tree={tree} loneSitemaps={loneSitemaps} itemRows={itemRows} canvasRows={canvasRows} target={target} onSelect={select} onShowOther={actions.onShowOther} />
-              <Splitter
-                side="left"
-                className="split--ex"
-                value={panes.explorerWidth}
-                min={200}
-                max={480}
-                label={S.designer.explorerResize}
-                onPreview={(px) => preview('--ex-w', px)}
-                onCommit={(w) => setPanes({ explorerWidth: w })}
-                onReset={() => setPanes({ explorerWidth: DEFAULT_PANES.explorerWidth })}
-              />
-            </>
-          ) : null}
-          <div className="designer__bar">
-            <button
-              type="button"
-              className="designer__iconbtn"
-              title={panes.explorer ? S.designer.explorerHide : S.designer.explorerShow}
-              aria-label={panes.explorer ? S.designer.explorerHide : S.designer.explorerShow}
-              aria-pressed={panes.explorer}
-              onClick={() => setPanes({ explorer: !panes.explorer })}
-            >
-              {panes.explorer ? <PanelLeftContractRegular /> : <PanelLeftExpandRegular />}
-            </button>
-            {targets.length > 1 ? (
-              <div className="designer__langs" role="radiogroup" aria-label={S.preview.language}>
-                {targets.map((l) => (
-                  <LanguagePill key={l} lcid={l} active={l === lcid} onPick={setLcid} />
-                ))}
-              </div>
-            ) : (
-              <span className="designer__lang">{languageName(lcid)}</span>
-            )}
-            <span className="designer__spacer" />
-            <ToggleButton
-              size="small"
-              appearance="subtle"
-              icon={<SubtitlesRegular />}
-              checked={showBase}
-              title={S.preview.showBase(languageName(base))}
-              aria-label={S.preview.showBase(languageName(base))}
-              onClick={() => setShowBase(!showBase)}
-            >
-              <span className="designer__tlabel">{S.designer.showBaseShort(languageName(base))}</span>
-            </ToggleButton>
-            <ToggleButton size="small" appearance="subtle" icon={<HighlightRegular />} checked={focusGaps} title={S.designer.focusGaps} aria-label={S.designer.focusGaps} onClick={() => setFocusGaps(!focusGaps)}>
-              <span className="designer__tlabel">{S.designer.focusGaps}</span>
-            </ToggleButton>
-            <Popover withArrow positioning="below-end">
-              <PopoverTrigger disableButtonEnhancement>
-                <button type="button" className="designer__iconbtn" title={S.designer.keysButton} aria-label={S.designer.keysButton}>
-                  <KeyboardRegular />
-                </button>
-              </PopoverTrigger>
-              <PopoverSurface className="designer__keys">
-                <KeyList />
-              </PopoverSurface>
-            </Popover>
-            <ToggleButton
-              size="small"
-              appearance="subtle"
-              checked={details}
-              icon={details ? <PanelRightContractRegular /> : <PanelRightExpandRegular />}
-              title={details ? S.designer.detailsHide : S.designer.detailsShow}
-              aria-label={details ? S.designer.detailsHide : S.designer.detailsShow}
-              onClick={() => setDetails(!details)}
-            >
-              <span className="designer__tlabel">{S.designer.details}</span>
-            </ToggleButton>
+        <CrumbContext.Provider value={crumbNav}>
+          <div className={cls} ref={rootRef} style={sizes}>
+            {panes.explorer ? (
+              <>
+                <Explorer tree={tree} loneSitemaps={loneSitemaps} itemRows={itemRows} canvasRows={canvasRows} target={target} onSelect={select} onShowOther={actions.onShowOther} />
+                <Splitter
+                  side="left"
+                  className="split--ex"
+                  value={panes.explorerWidth}
+                  min={200}
+                  max={480}
+                  label={S.designer.explorerResize}
+                  onPreview={(px) => preview('--ex-w', px)}
+                  onCommit={(w) => setPanes({ explorerWidth: w })}
+                  onReset={() => setPanes({ explorerWidth: DEFAULT_PANES.explorerWidth })}
+                />
+              </>
+            ) : null}
+            <div className="designer__bar">
+              <button
+                type="button"
+                className="designer__iconbtn"
+                title={panes.explorer ? S.designer.explorerHide : S.designer.explorerShow}
+                aria-label={panes.explorer ? S.designer.explorerHide : S.designer.explorerShow}
+                aria-pressed={panes.explorer}
+                onClick={() => setPanes({ explorer: !panes.explorer })}
+              >
+                {panes.explorer ? <PanelLeftContractRegular /> : <PanelLeftExpandRegular />}
+              </button>
+              {targets.length > 1 ? (
+                <div className="designer__langs" role="radiogroup" aria-label={S.preview.language}>
+                  {targets.map((l) => (
+                    <LanguagePill key={l} lcid={l} active={l === lcid} onPick={setLcid} />
+                  ))}
+                </div>
+              ) : (
+                <span className="designer__lang">{languageName(lcid)}</span>
+              )}
+              <span className="designer__spacer" />
+              <ToggleButton
+                size="small"
+                appearance="subtle"
+                icon={<SubtitlesRegular />}
+                checked={showBase}
+                title={S.preview.showBase(languageName(base))}
+                aria-label={S.preview.showBase(languageName(base))}
+                onClick={() => setShowBase(!showBase)}
+              >
+                <span className="designer__tlabel">{S.designer.showBaseShort(languageName(base))}</span>
+              </ToggleButton>
+              <ToggleButton size="small" appearance="subtle" icon={<HighlightRegular />} checked={focusGaps} title={S.designer.focusGaps} aria-label={S.designer.focusGaps} onClick={() => setFocusGaps(!focusGaps)}>
+                <span className="designer__tlabel">{S.designer.focusGaps}</span>
+              </ToggleButton>
+              <Popover withArrow positioning="below-end">
+                <PopoverTrigger disableButtonEnhancement>
+                  <button type="button" className="designer__iconbtn" title={S.designer.keysButton} aria-label={S.designer.keysButton}>
+                    <KeyboardRegular />
+                  </button>
+                </PopoverTrigger>
+                <PopoverSurface className="designer__keys">
+                  <KeyList />
+                </PopoverSurface>
+              </Popover>
+              <ToggleButton
+                size="small"
+                appearance="subtle"
+                checked={details}
+                icon={details ? <PanelRightContractRegular /> : <PanelRightExpandRegular />}
+                title={details ? S.designer.detailsHide : S.designer.detailsShow}
+                aria-label={details ? S.designer.detailsHide : S.designer.detailsShow}
+                onClick={() => setDetails(!details)}
+              >
+                <span className="designer__tlabel">{S.designer.details}</span>
+              </ToggleButton>
+            </div>
+            {/* Keyed by target only: switching the language keeps the tab, area and filters. */}
+            <div className="designer__canvas" key={targetKey(target)} lang={languageTag(lcid)}>
+              {canvas}
+            </div>
+            {details ? (
+              <>
+                <Splitter
+                  side="right"
+                  className="split--insp"
+                  value={panes.detailsWidth}
+                  min={260}
+                  max={560}
+                  label={S.designer.detailsResize}
+                  onPreview={(px) => preview('--insp-w', px)}
+                  onCommit={(w) => setPanes({ detailsWidth: w })}
+                  onReset={() => setPanes({ detailsWidth: DEFAULT_PANES.detailsWidth })}
+                />
+                <Inspector labelRef={selected} onClose={() => setDetails(false)} />
+              </>
+            ) : null}
           </div>
-          {/* Keyed by target only: switching the language keeps the tab, area and filters. */}
-          <div className="designer__canvas" key={targetKey(target)} lang={languageTag(lcid)}>
-            {canvas}
-          </div>
-          {details ? (
-            <>
-              <Splitter
-                side="right"
-                className="split--insp"
-                value={panes.detailsWidth}
-                min={260}
-                max={560}
-                label={S.designer.detailsResize}
-                onPreview={(px) => preview('--insp-w', px)}
-                onCommit={(w) => setPanes({ detailsWidth: w })}
-                onReset={() => setPanes({ detailsWidth: DEFAULT_PANES.detailsWidth })}
-              />
-              <Inspector labelRef={selected} onClose={() => setDetails(false)} />
-            </>
-          ) : null}
-        </div>
+        </CrumbContext.Provider>
       </LiveContext.Provider>
     </DesignerContext.Provider>
   )

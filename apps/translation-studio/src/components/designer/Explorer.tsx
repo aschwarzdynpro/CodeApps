@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Input } from '@fluentui/react-components'
 import {
   AppsListRegular,
@@ -44,6 +44,11 @@ export const Explorer = memo(function Explorer({ tree, loneSitemaps, itemRows, c
   const hit = (s: string) => s.toLowerCase().includes(q)
   const activeTable = 'table' in target ? target.table : ''
   const current = targetKey(target)
+  const root = useRef<HTMLElement>(null)
+  // Coming from the breadcrumb or the home page: bring the entry into view.
+  useEffect(() => {
+    window.requestAnimationFrame(() => root.current?.querySelector('.ex__item--active')?.scrollIntoView({ block: 'nearest' }))
+  }, [current])
 
   // Per edit: one pass over the precomputed states, then only the table entries whose numbers changed re-render.
   const tableCounts = useMemo(() => new Map(tree.tables.map((t) => [t.table, countLive(live.gaps, d.pos, t.rows, d.lcid)])), [tree, live.gaps, d.pos, d.lcid])
@@ -89,7 +94,7 @@ export const Explorer = memo(function Explorer({ tree, loneSitemaps, itemRows, c
   }
 
   return (
-    <aside className="ex" aria-label={S.designer.explorer}>
+    <aside className="ex" aria-label={S.designer.explorer} ref={root}>
       <div className="ex__search">
         <Input size="small" contentBefore={<SearchRegular />} placeholder={S.designer.search} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={S.designer.search} />
       </div>
