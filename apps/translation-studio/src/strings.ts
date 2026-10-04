@@ -338,6 +338,8 @@ export const S = {
     donePublished: 'Import abgeschlossen und veröffentlicht.',
     failed: 'Import fehlgeschlagen.',
     publishFailed: 'Import abgeschlossen, Veröffentlichen fehlgeschlagen:',
+    publishTimeout: 'Import abgeschlossen. Das Veröffentlichen hat nicht rechtzeitig geantwortet und läuft in Dataverse vermutlich weiter — in ein paar Minuten in der App prüfen, sonst „Jetzt veröffentlichen“.',
+    callWarning: (msg: string) => `Der Import-Aufruf hat mit einem Fehler geantwortet („${msg}“) — typisch für die Zeitüberschreitung bei großen Solutions. Der Importjob ist trotzdem durchgelaufen; maßgeblich ist der Job.`,
     publishNow: 'Jetzt veröffentlichen',
     publishConfirm: 'Alle Anpassungen der Umgebung veröffentlichen (PublishAllXml)? Das betrifft auch Änderungen anderer Personen.',
     logTitle: 'Meldungen des Importjobs',

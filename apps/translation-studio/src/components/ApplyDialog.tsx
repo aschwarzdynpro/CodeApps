@@ -12,6 +12,8 @@ import { Btn } from './ui'
 import { S } from '../strings'
 
 const PREVIEW_LIMIT = 300
+/** The answer timed out — the server usually goes on (PublishAllXml on a large environment). */
+const TIMED_OUT = /timed? ?out|timeout|zeitüberschreitung/i
 const STEPS: StepId[] = ['check', 'build', 'upload', 'job', 'publish']
 
 interface Props {
@@ -213,10 +215,11 @@ function Result({ outcome, solution }: { outcome: RunOutcome; solution: string }
         {outcome.error ? ` ${outcome.error}` : ''}
         {outcome.jobId ? <span className="muted small"> · Importjob {outcome.jobId}</span> : null}
       </div>
+      {outcome.callWarning ? <p className="muted small">{S.apply.callWarning(outcome.callWarning)}</p> : null}
       {outcome.privilege ? <div className="notice notice--warn">{S.apply.privilege}</div> : null}
       {outcome.publishError ? (
         <div className="notice notice--warn">
-          {S.apply.publishFailed} {outcome.publishError}
+          {TIMED_OUT.test(outcome.publishError) ? S.apply.publishTimeout : `${S.apply.publishFailed} ${outcome.publishError}`}
         </div>
       ) : null}
       {outcome.job ? (

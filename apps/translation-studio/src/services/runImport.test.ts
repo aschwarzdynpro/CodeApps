@@ -96,6 +96,17 @@ describe('runImport', () => {
     expect(out.error).toBe('Bad request')
   })
 
+  it('lets the job decide when the call times out while the import runs on', async () => {
+    const svc = stub({ importTranslations: vi.fn(async () => Promise.reject(new DataverseError('The request timed out after 180 seconds.'))) }, [job(40), job(90), job(100, true)])
+    const { o, seen } = await opts(svc)
+    const out = await runImport(o)
+    expect(out).toMatchObject({ status: 'succeeded', published: true, callWarning: 'The request timed out after 180 seconds.' })
+    expect(out.error).toBeUndefined()
+    // The call's error never shows as a failed step.
+    expect(seen.some((p) => p.steps.upload === 'failed')).toBe(false)
+    expect(seen.at(-1)?.steps).toMatchObject({ upload: 'done', job: 'done', publish: 'done' })
+  })
+
   it('reports the call error when no job turns up after a failed call', async () => {
     const svc = stub({ importTranslations: vi.fn(async () => Promise.reject(new Error('Bad request'))) }, [null])
     const out = await runImport((await opts(svc)).o)

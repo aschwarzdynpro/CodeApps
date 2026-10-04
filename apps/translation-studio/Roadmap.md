@@ -265,6 +265,12 @@ XML, Node):
     (Sales Hub zeigte „Keine Sitemap“), Tabellennamen aus den Metadaten,
     wenn die Datei sie nicht enthält (`lead`, `msdyn_workorder`), Basistext
     als Platzhalter im leeren Editor. Offen: Import nicht live getestet.
+  - **Erster Import live (DEV COPY, 2026-10-04):** WaldmannCore,
+    Importjob 5 Minuten, erfolgreich. Der `ImportTranslation`-Aufruf lief
+    vorher in den 180-s-Timeout, der Dialog zeigte ihn als rotes ✕,
+    obwohl der Job durchlief. Jetzt entscheidet der Job: Aufruffehler bei
+    erfolgreichem Job sind ein Hinweis, ein Timeout beim Veröffentlichen
+    heißt „läuft vermutlich weiter“ (Vitest).
   - **Formulare und Ansichten getrennt (2026-10-04):** Der
     Tabellen-Steckbrief hat je eine Karte „Formulare“ und „Ansichten“
     (eigene Summe, eigene Sprungmarke). Jeder Eintrag zeigt seinen Typ

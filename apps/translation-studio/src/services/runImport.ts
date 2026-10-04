@@ -34,6 +34,11 @@ export interface RunOutcome {
   privilege?: boolean
   published: boolean
   publishError?: string
+  /**
+   * The import call reported an error, but the job ran through (typically the
+   * call's timeout on a large solution while Dataverse kept importing).
+   */
+  callWarning?: string
 }
 
 export interface RunOptions {
@@ -143,7 +148,8 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
   step('job', 'running')
   for (;;) {
     if (o.signal?.cancelled) return { status: 'error', jobId, job, log: [], error: 'abgebrochen', published: false }
-    if (callDone && progress.steps.upload === 'running') step('upload', callError ? 'failed' : 'done')
+    // A failed call isn't the verdict yet: after a timeout the import goes on, and the job decides.
+    if (callDone && !callError && progress.steps.upload === 'running') step('upload', 'done')
     if (callError instanceof DataverseError && callError.privilege) {
       step('job', 'failed')
       return fail('upload', callError, jobId, job)
@@ -185,9 +191,12 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
   } catch (err) {
     console.warn('[translation] import log not readable', err)
   }
-  if (progress.steps.upload === 'running') step('upload', 'done')
   const log = parseImportLog(job?.data ?? null)
   const status = job ? importStatus(job) : 'failed'
+  if (progress.steps.upload === 'running') step('upload', callError && status !== 'succeeded' ? 'failed' : 'done')
+  // The job succeeded although the call failed: keep the call's message as a note, not as an error.
+  const callWarning = callError && status === 'succeeded' ? message(callError) : undefined
+  if (callWarning) console.warn('[translation] import call failed, job succeeded', callError)
   progress.jobProgress = job?.progress ?? progress.jobProgress
   step('job', status === 'succeeded' ? 'done' : 'failed')
   if (status !== 'succeeded') {
@@ -196,14 +205,14 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
   }
 
   // 5. Publish.
-  if (!o.publish) return { status: 'succeeded', jobId, job, log, published: false }
+  if (!o.publish) return { status: 'succeeded', jobId, job, log, published: false, callWarning }
   step('publish', 'running')
   try {
     await o.svc.publishAll()
     step('publish', 'done')
-    return { status: 'succeeded', jobId, job, log, published: true }
+    return { status: 'succeeded', jobId, job, log, published: true, callWarning }
   } catch (err) {
     step('publish', 'failed')
-    return { status: 'succeeded', jobId, job, log, published: false, publishError: message(err) }
+    return { status: 'succeeded', jobId, job, log, published: false, publishError: message(err), callWarning }
   }
 }

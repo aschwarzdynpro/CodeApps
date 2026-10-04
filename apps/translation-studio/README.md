@@ -365,10 +365,15 @@ Offen, bis live geprüft — jeweils mit der Stelle im Code:
     only“)?
   - Welches Format hat `data` bei Übersetzungen? `parseImportLog` liest
     `result="failure|warning"` wie bei Solution-Importen.
-- **Synchron oder asynchron?** Ob `ImportTranslation` erst nach dem Import
-  zurückkehrt und dabei in den Timeout läuft, ist nicht dokumentiert. Die
-  App pollt parallel zum Aufruf. Bleibt nach Ende des Aufrufs 60 s lang
-  kein Job sichtbar, gilt der Import als nicht gestartet. Alternative:
+- **Synchron oder asynchron?** Geklärt am 2026-10-04 in DEV COPY:
+  `ImportTranslation` ist synchron. Mit WaldmannCore lief der Importjob
+  5 Minuten (21:51–21:56), der Aufruf brach vorher mit dem
+  180-s-Timeout ab, der Import lief in Dataverse weiter und war
+  erfolgreich. Die App pollt parallel zum Aufruf; der Job entscheidet.
+  Ein Fehler des Aufrufs bei erfolgreichem Job ist nur ein Hinweis im
+  Ergebnis, kein Fehler. Bleibt nach Ende des Aufrufs 60 s lang kein Job
+  sichtbar, gilt der Import als nicht gestartet. Ein Timeout beim
+  Veröffentlichen heißt „läuft vermutlich weiter“. Sauberer wäre
   `ImportTranslationAsync` (Roadmap).
 - **Blattstruktur und Typwerte:** geklärt am echten Export, siehe „Format“.
 - **Namensauflösung.** `EntityDefinitions` mit `$filter` über zehn
