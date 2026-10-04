@@ -265,6 +265,12 @@ XML, Node):
     (Sales Hub zeigte „Keine Sitemap“), Tabellennamen aus den Metadaten,
     wenn die Datei sie nicht enthält (`lead`, `msdyn_workorder`), Basistext
     als Platzhalter im leeren Editor. Offen: Import nicht live getestet.
+  - **Formulare und Ansichten getrennt (2026-10-04):** Der
+    Tabellen-Steckbrief hat je eine Karte „Formulare“ und „Ansichten“
+    (eigene Summe, eigene Sprungmarke). Jeder Eintrag zeigt seinen Typ
+    wie die Komponentenliste: Hauptformular, Schnellansicht, Karte … bzw.
+    Öffentlich, Erweiterte Suche, Zugeordnet, Schnellsuche, Nachschlagen
+    (`querytype`, sobald die Ansichten geladen sind — auch im Explorer).
 
 - Fehlerbehebungen aus dem Review (2026-10-03):
   - **Kein doppelter Import.** Für Aktionen mit Wirkung (Import, Publish)

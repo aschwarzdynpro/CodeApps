@@ -1827,7 +1827,7 @@ button.home__lang:hover {
 }
 
 /* ---------- table canvas: forms and views of the table ---------- */
-.tc__elsewhere .tc__cardtitle {
+.tc__items .tc__cardtitle {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2025,6 +2025,15 @@ button.home__lang:hover {
 .tc__linkname {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Form/view type: the same line the explorer shows under the name. */
+.tc__linktype {
+  flex-shrink: 0;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
 }
 
 .tc__link .ex__badge,

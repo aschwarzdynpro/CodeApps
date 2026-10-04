@@ -14,11 +14,12 @@ import {
   TextBulletListSquareRegular,
 } from '@fluentui/react-icons'
 import type { LabelRow } from '../../types/translation'
-import type { ExplorerItem, ExplorerTable, ExplorerTree } from '../../utils/designerTree'
+import type { ExplorerTable, ExplorerTree } from '../../utils/designerTree'
 import type { StateCounts } from '../../utils/gaps'
 import { countLive, coverageOf, gapsOf } from '../../utils/labelIndex'
 import { S } from '../../strings'
 import { targetKey, useDesigner, useLiveState, type DesignerTarget } from './context'
+import { formType, viewType } from './itemTypes'
 
 interface ExplorerProps {
   tree: ExplorerTree
@@ -26,6 +27,8 @@ interface ExplorerProps {
   loneSitemaps: readonly string[]
   /** File rows per form/view/app (`form:id`, `view:id`, `app:id`), as far as their definitions are loaded. */
   itemRows: ReadonlyMap<string, readonly (LabelRow | null)[]>
+  /** `querytype` per view whose definition is loaded. */
+  viewTypes: ReadonlyMap<string, number>
   /** File rows the table canvas shows, per table. */
   canvasRows: ReadonlyMap<string, readonly LabelRow[]>
   target: DesignerTarget
@@ -34,7 +37,7 @@ interface ExplorerProps {
 }
 
 /** Navigation of the designer: apps, tables with forms and views, dashboards — with progress per entry. */
-export const Explorer = memo(function Explorer({ tree, loneSitemaps, itemRows, canvasRows, target, onSelect, onShowOther }: ExplorerProps) {
+export const Explorer = memo(function Explorer({ tree, loneSitemaps, itemRows, viewTypes, canvasRows, target, onSelect, onShowOther }: ExplorerProps) {
   const d = useDesigner()
   const live = useLiveState()
   const [query, setQuery] = useState('')
@@ -135,7 +138,7 @@ export const Explorer = memo(function Explorer({ tree, loneSitemaps, itemRows, c
                     {forms.length > 0 ? <div className="ex__childtitle">{S.designer.forms}</div> : null}
                     {forms.map((f) => item({ kind: 'form', table: t.table, id: f.id }, <DocumentRegular aria-hidden />, f.name, countOf(itemRows.get(`form:${f.id}`)), formType(f)))}
                     {views.length > 0 ? <div className="ex__childtitle">{S.designer.views}</div> : null}
-                    {views.map((v) => item({ kind: 'view', table: t.table, id: v.id }, <TableSimpleRegular aria-hidden />, v.name, countOf(itemRows.get(`view:${v.id}`))))}
+                    {views.map((v) => item({ kind: 'view', table: t.table, id: v.id }, <TableSimpleRegular aria-hidden />, v.name, countOf(itemRows.get(`view:${v.id}`)), viewType(viewTypes, v.id)))}
                     {forms.length === 0 && views.length === 0 ? <div className="ex__none">{S.designer.noFormsViews}</div> : null}
                   </div>
                 ) : null}
@@ -194,7 +197,6 @@ const TableHead = memo(function TableHead({ t, expanded, active, missing, untran
   )
 })
 
-const formType = (f: ExplorerItem) => (f.type !== undefined ? S.preview.formTypes[f.type] : undefined)
 
 function Badge({ counts }: { counts: StateCounts | undefined }) {
   if (!counts) return null

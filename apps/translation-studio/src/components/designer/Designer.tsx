@@ -175,6 +175,8 @@ export function Designer(props: DesignerProps) {
     for (const v of viewsRes.data ?? []) m.set(v.id, { ...safely(() => parseView(v.layoutxml, v.fetchxml, v.table)), name: v.name, table: v.table })
     return m
   }, [viewsRes.data])
+  /** `querytype` per loaded view, for the type next to its name. */
+  const viewTypes = useMemo(() => new Map((viewsRes.data ?? []).map((v) => [v.id, v.queryType])), [viewsRes.data])
   const apps = useMemo(() => {
     const m = new Map<string, { app: AppRecord; areas: SiteMapArea[]; error?: string }>()
     for (const a of appsRes.data ?? []) {
@@ -303,6 +305,7 @@ export function Designer(props: DesignerProps) {
             choices={choicesRes.data ?? null}
             forms={tableEntry.forms}
             views={tableEntry.views}
+            viewTypes={viewTypes}
             itemRows={itemRows}
             onSelect={select}
           />
@@ -350,7 +353,7 @@ export function Designer(props: DesignerProps) {
           <div className={cls} ref={rootRef} style={sizes}>
             {panes.explorer ? (
               <>
-                <Explorer tree={tree} loneSitemaps={loneSitemaps} itemRows={itemRows} canvasRows={canvasRows} target={target} onSelect={select} onShowOther={actions.onShowOther} />
+                <Explorer tree={tree} loneSitemaps={loneSitemaps} itemRows={itemRows} viewTypes={viewTypes} canvasRows={canvasRows} target={target} onSelect={select} onShowOther={actions.onShowOther} />
                 <Splitter
                   side="left"
                   className="split--ex"

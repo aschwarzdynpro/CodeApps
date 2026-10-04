@@ -151,7 +151,7 @@ export const HELP_SECTIONS: HelpSection[] = [
         table: {
           head: ['Komponente', 'Was zu sehen ist'],
           rows: [
-            ['Tabelle & Spalten', 'Namen der Tabelle (Einzahl, Mehrzahl, Beschreibung), **Formulare & Ansichten** der Tabelle — die mit den meisten offenen Beschriftungen zuerst, der Rest über „Alle anzeigen“ —, alle Spalten mit Anzeigename und Beschreibung (Suche, „Nur offene“), Auswahlwerte gruppiert nach ihrer Spalte. Die Sprungleiste im Kopf (Namen, Formulare & Ansichten, Spalten, Auswahlwerte, Weitere) führt direkt zu den Abschnitten.'],
+            ['Tabelle & Spalten', 'Namen der Tabelle (Einzahl, Mehrzahl, Beschreibung), je eine Karte **Formulare** und **Ansichten** der Tabelle mit dem Typ neben dem Namen (Hauptformular, Schnellansicht, Karte … bzw. Öffentlich, Schnellsuche, Nachschlagen …) — die mit den meisten offenen Beschriftungen zuerst, der Rest über „Alle anzeigen“ —, alle Spalten mit Anzeigename und Beschreibung (Suche, „Nur offene“), Auswahlwerte gruppiert nach ihrer Spalte. Die Sprungleiste im Kopf (Namen, Formulare, Ansichten, Spalten, Auswahlwerte, Weitere) führt direkt zu den Abschnitten.'],
             ['Formular', 'Kopfzeile, Registerkarten (mit Zahl offener Beschriftungen), Abschnitte und Felder in ihren Spalten.'],
             ['Ansicht', 'Ansichtsname und die Liste mit ihren Spaltenköpfen; Spalten verknüpfter Tabellen sind mit 🔗 markiert.'],
             ['App', 'Kopfleiste mit App-Namen, Navigation mit Bereichen, Gruppen und Unterbereichen aus der Sitemap.'],
