@@ -18,6 +18,8 @@ interface CanvasHeaderProps {
   sub?: ReactNode
   /** Note next to the counters (e.g. read-only sitemap titles). */
   note?: ReactNode
+  /** A row under the head, e.g. jump links to the sections of a long canvas. */
+  nav?: ReactNode
 }
 
 /**
@@ -25,7 +27,7 @@ interface CanvasHeaderProps {
  * the next gap. When nothing is left the head says so — with a small
  * celebration once there are changes waiting to be applied.
  */
-export function CanvasHeader({ kicker, title, rows, sub, note }: CanvasHeaderProps) {
+export function CanvasHeader({ kicker, title, rows, sub, note, nav }: CanvasHeaderProps) {
   const d = useDesigner()
   const store = useLiveStore()
   const onExhausted = useContext(CanvasNav)
@@ -107,6 +109,7 @@ export function CanvasHeader({ kicker, title, rows, sub, note }: CanvasHeaderPro
         )}
         {note ? <div className="canvas__note">{note}</div> : null}
       </div>
+      {nav ? <div className="canvas__jump">{nav}</div> : null}
     </header>
   )
 }

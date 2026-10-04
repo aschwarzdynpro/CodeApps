@@ -151,7 +151,7 @@ export const HELP_SECTIONS: HelpSection[] = [
         table: {
           head: ['Komponente', 'Was zu sehen ist'],
           rows: [
-            ['Tabelle & Spalten', 'Namen der Tabelle (Einzahl, Mehrzahl, Beschreibung), **Formulare & Ansichten** der Tabelle mit der Zahl offener Beschriftungen dort (ein Klick öffnet sie), alle Spalten mit Anzeigename und Beschreibung (Suche, „Nur offene“), Auswahlwerte gruppiert nach ihrer Spalte.'],
+            ['Tabelle & Spalten', 'Namen der Tabelle (Einzahl, Mehrzahl, Beschreibung), **Formulare & Ansichten** der Tabelle — die mit den meisten offenen Beschriftungen zuerst, der Rest über „Alle anzeigen“ —, alle Spalten mit Anzeigename und Beschreibung (Suche, „Nur offene“), Auswahlwerte gruppiert nach ihrer Spalte. Die Sprungleiste im Kopf (Namen, Formulare & Ansichten, Spalten, Auswahlwerte, Weitere) führt direkt zu den Abschnitten.'],
             ['Formular', 'Kopfzeile, Registerkarten (mit Zahl offener Beschriftungen), Abschnitte und Felder in ihren Spalten.'],
             ['Ansicht', 'Ansichtsname und die Liste mit ihren Spaltenköpfen; Spalten verknüpfter Tabellen sind mit 🔗 markiert.'],
             ['App', 'Kopfleiste mit App-Namen, Navigation mit Bereichen, Gruppen und Unterbereichen aus der Sitemap.'],
@@ -166,7 +166,7 @@ export const HELP_SECTIONS: HelpSection[] = [
         table: {
           head: ['Taste', 'Wirkung'],
           rows: [
-            ['Klick, Enter, F2', 'Beschriftung wählen und bearbeiten'],
+            ['Klick, Enter, F2', 'Beschriftung wählen und bearbeiten — der Text ist markiert, Tippen ersetzt ihn'],
             ['Enter', 'übernehmen'],
             ['Tab / Umschalt+Tab', 'übernehmen und zur nächsten / vorigen Lücke springen'],
             ['Esc', 'verwerfen'],

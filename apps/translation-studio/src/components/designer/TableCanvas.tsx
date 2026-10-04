@@ -1,6 +1,6 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useMemo, useRef, useState, type RefObject } from 'react'
 import { Input, Switch } from '@fluentui/react-components'
-import { DocumentRegular, SearchRegular, TableSimpleRegular } from '@fluentui/react-icons'
+import { CheckmarkCircleFilled, DocumentRegular, SearchRegular, TableSimpleRegular } from '@fluentui/react-icons'
 import type { ChoiceGroup, LabelRow } from '../../types/translation'
 import { kindOf } from '../../utils/gaps'
 import { tableCanvasRows, type ExplorerItem } from '../../utils/designerTree'
@@ -19,6 +19,8 @@ interface TableCanvasProps {
   choices: ChoiceGroup[] | null
   forms: ExplorerItem[]
   views: ExplorerItem[]
+  /** File rows per loaded form/view (`form:id`, `view:id`), for their counters. */
+  itemRows: ReadonlyMap<string, readonly (LabelRow | null)[]>
   onSelect: (t: DesignerTarget) => void
 }
 
@@ -35,7 +37,7 @@ interface ChoiceEntry {
 }
 
 /** Table profile: names, columns (display name + description) and choice values grouped by their column. */
-export const TableCanvas = memo(function TableCanvas({ table, label, rows, choices, forms, views, onSelect }: TableCanvasProps) {
+export const TableCanvas = memo(function TableCanvas({ table, label, rows, choices, forms, views, itemRows, onSelect }: TableCanvasProps) {
   const d = useDesigner()
   const [search, setSearch] = useState('')
   const [gapsOnly, setGapsOnly] = useState(false)
@@ -103,6 +105,40 @@ export const TableCanvas = memo(function TableCanvas({ table, label, rows, choic
   }, [rows, choices, d.components, d.resolving, d.index, table, base])
 
   const ref = (row: LabelRow | undefined, role: string, context = label): LabelRef => ({ row: row ?? null, fallback: {}, role, context })
+  // Sections of a long canvas (account: 260+ columns) and the jump bar in the sticky head.
+  const namesRef = useRef<HTMLElement>(null)
+  const elsewhereRef = useRef<HTMLElement>(null)
+  const columnsRef = useRef<HTMLElement>(null)
+  const choicesRef = useRef<HTMLElement>(null)
+  const otherRef = useRef<HTMLElement>(null)
+  const choiceCount = model.groups.reduce((n, g) => n + g.entries.length, 0) + model.rest.length
+  const showElsewhere = forms.length > 0 || views.length > 0 || model.elsewhere.length > 0
+  const jump = (target: RefObject<HTMLElement | null>) => target.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  const jumpBar = (
+    <nav className="tc__jumps" aria-label={S.designer.jumpTo}>
+      <button type="button" onClick={() => jump(namesRef)}>
+        {S.designer.jumpNames}
+      </button>
+      {showElsewhere ? (
+        <button type="button" onClick={() => jump(elsewhereRef)}>
+          {S.designer.formsAndViews} <span>{forms.length + views.length}</span>
+        </button>
+      ) : null}
+      <button type="button" onClick={() => jump(columnsRef)}>
+        {S.designer.columns} <span>{model.columns.length}</span>
+      </button>
+      {choiceCount > 0 ? (
+        <button type="button" onClick={() => jump(choicesRef)}>
+          {S.designer.choices} <span>{choiceCount}</span>
+        </button>
+      ) : null}
+      {model.other.length > 0 ? (
+        <button type="button" onClick={() => jump(otherRef)}>
+          {S.designer.jumpOther} <span>{model.other.length}</span>
+        </button>
+      ) : null}
+    </nav>
+  )
   const words = search.toLowerCase().split(/\s+/).filter(Boolean)
   // With a filter, which columns show depends on the current texts and states.
   const filterSig = useLiveValue((live) => {
@@ -147,9 +183,10 @@ export const TableCanvas = memo(function TableCanvas({ table, label, rows, choic
         kicker={`${S.designer.kinds.table} · ${table}`}
         title={<LabelText labelRef={ref(model.names.one, S.designer.roles.tableOne)} className="lt--title" empty={table} echo />}
         rows={model.onCanvas}
+        nav={jumpBar}
       />
       <div className="tc">
-        <section className="tc__card">
+        <section className="tc__card" ref={namesRef}>
           <h4 className="tc__cardtitle">{S.designer.tableNames}</h4>
           <div className="tc__names">
             <span className="tc__key">{S.designer.roles.tableOne}</span>
@@ -161,11 +198,9 @@ export const TableCanvas = memo(function TableCanvas({ table, label, rows, choic
           </div>
         </section>
 
-        {forms.length > 0 || views.length > 0 || model.elsewhere.length > 0 ? (
-          <Elsewhere table={table} rows={model.elsewhere} forms={forms} views={views} onSelect={onSelect} />
-        ) : null}
+        {showElsewhere ? <Elsewhere sectionRef={elsewhereRef} table={table} rows={model.elsewhere} forms={forms} views={views} itemRows={itemRows} onSelect={onSelect} /> : null}
 
-        <section className="tc__card">
+        <section className="tc__card" ref={columnsRef}>
           <div className="tc__cardhead">
             <h4 className="tc__cardtitle">
               {S.designer.columns} <span className="muted small">{model.columns.length}</span>
@@ -196,7 +231,7 @@ export const TableCanvas = memo(function TableCanvas({ table, label, rows, choic
         </section>
 
         {model.groups.length > 0 || model.rest.length > 0 ? (
-          <section className="tc__card">
+          <section className="tc__card" ref={choicesRef}>
             <h4 className="tc__cardtitle">{S.designer.choices}</h4>
             {choices === null ? <p className="muted small">{S.designer.choicesUngrouped}</p> : null}
             {model.groups.map((g) => {
@@ -222,7 +257,7 @@ export const TableCanvas = memo(function TableCanvas({ table, label, rows, choic
         ) : null}
 
         {model.other.length > 0 ? (
-          <section className="tc__card">
+          <section className="tc__card" ref={otherRef}>
             <h4 className="tc__cardtitle">{S.designer.moreLabels}</h4>
             <div className="tc__names">
               {model.other.map((r) => (
@@ -236,28 +271,59 @@ export const TableCanvas = memo(function TableCanvas({ table, label, rows, choic
   )
 })
 
-/** Forms and views of the table, with the open labels that live on them. */
-function Elsewhere({ table, rows, forms, views, onSelect }: { table: string; rows: LabelRow[]; forms: ExplorerItem[]; views: ExplorerItem[]; onSelect: (t: DesignerTarget) => void }) {
+const ELSEWHERE_LIMIT = 12
+
+interface ElsewhereProps {
+  sectionRef: RefObject<HTMLElement | null>
+  table: string
+  rows: LabelRow[]
+  forms: ExplorerItem[]
+  views: ExplorerItem[]
+  itemRows: ReadonlyMap<string, readonly (LabelRow | null)[]>
+  onSelect: (t: DesignerTarget) => void
+}
+
+/** Forms and views of the table with their open labels — the ones with work first, the rest on request. */
+function Elsewhere({ sectionRef, table, rows, forms, views, itemRows, onSelect }: ElsewhereProps) {
   const d = useDesigner()
-  const gaps = useLiveValue((live) => gapsOf(countLive(live.gaps, d.pos, rows, d.lcid)))
+  const [all, setAll] = useState(false)
+  const items = [
+    ...forms.map((f) => ({ key: `form:${f.id}`, name: f.name, target: { kind: 'form', table, id: f.id } as DesignerTarget, icon: <DocumentRegular aria-hidden /> })),
+    ...views.map((v) => ({ key: `view:${v.id}`, name: v.name, target: { kind: 'view', table, id: v.id } as DesignerTarget, icon: <TableSimpleRegular aria-hidden /> })),
+  ]
+  // Total of the table's form/view labels, then the open labels per item (-1: definition not loaded).
+  const sig = useLiveValue((live) => {
+    const per = items.map((it) => {
+      const r = itemRows.get(it.key)
+      return r ? gapsOf(countLive(live.gaps, d.pos, r, d.lcid)) : -1
+    })
+    return `${gapsOf(countLive(live.gaps, d.pos, rows, d.lcid))}|${per.join(',')}`
+  })
+  const [totalText, perText] = sig.split('|')
+  const total = Number(totalText)
+  const per = perText ? perText.split(',').map(Number) : []
+  const ranked = items.map((it, i) => ({ ...it, gaps: per[i] ?? -1 })).sort((a, b) => Math.max(b.gaps, 0) - Math.max(a.gaps, 0))
+  const shown = all ? ranked : ranked.slice(0, ELSEWHERE_LIMIT)
   return (
-    <section className="tc__card tc__elsewhere">
+    <section className="tc__card tc__elsewhere" ref={sectionRef}>
       <h4 className="tc__cardtitle">
-        {S.designer.formsAndViews}
-        {gaps > 0 ? <span className="ex__badge">{gaps.toLocaleString('de-DE')}</span> : null}
+        {S.designer.formsAndViews} <span className="muted small">{items.length}</span>
+        {total > 0 ? <span className="ex__badge">{total.toLocaleString('de-DE')}</span> : null}
       </h4>
-      <p className="muted small">{gaps > 0 ? S.designer.elsewhereGaps(gaps) : S.designer.elsewhereNote}</p>
+      <p className="muted small">{total > 0 ? S.designer.elsewhereGaps(total) : S.designer.elsewhereNote}</p>
       <div className="tc__links">
-        {forms.map((f) => (
-          <button key={f.id} type="button" className="tc__link" onClick={() => onSelect({ kind: 'form', table, id: f.id })}>
-            <DocumentRegular aria-hidden /> {f.name}
+        {shown.map((it) => (
+          <button key={it.key} type="button" className="tc__link" onClick={() => onSelect(it.target)} title={it.name}>
+            {it.icon}
+            <span className="tc__linkname">{it.name}</span>
+            {it.gaps > 0 ? <span className="ex__badge">{it.gaps}</span> : it.gaps === 0 ? <CheckmarkCircleFilled className="ex__ok" aria-label={S.designer.done} /> : null}
           </button>
         ))}
-        {views.map((v) => (
-          <button key={v.id} type="button" className="tc__link" onClick={() => onSelect({ kind: 'view', table, id: v.id })}>
-            <TableSimpleRegular aria-hidden /> {v.name}
+        {ranked.length > ELSEWHERE_LIMIT ? (
+          <button type="button" className="tc__more" onClick={() => setAll(!all)}>
+            {all ? S.designer.showLess : S.designer.showAll(ranked.length)}
           </button>
-        ))}
+        ) : null}
       </div>
     </section>
   )

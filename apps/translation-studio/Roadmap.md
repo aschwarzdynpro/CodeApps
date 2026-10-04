@@ -248,6 +248,16 @@ XML, Node):
     Glied wechselt zu Formularen/Ansichten derselben Tabelle (bzw. anderen
     Apps, Dashboards), Alt+↑ eine Ebene höher; der Explorer scrollt zum
     gewählten Eintrag.
+  - **Erster Test in Waldmann DEV per Browser (2026-10-04):** Export,
+    Namensauflösung (101 Formulare, 157 Ansichten), Formular-, Ansichts-
+    und Tabellen-Canvas, Auswahlwert-Gruppen über die nativen
+    Metadaten-Abfragen, Bearbeiten/Tab/Verwerfen, Details und
+    Navigationspfad laufen live. Daraus behoben: lange Solution-Namen
+    einzeilig, „Formulare & Ansichten“ kompakt (offene zuerst, „Alle
+    anzeigen“), Nachbar-Menü mit Höhenbegrenzung und Filter, Sprungleiste
+    auf der Tabellenseite, Text im Editor beim Öffnen markiert, weitere
+    Formulartypen benannt. Noch nicht live gesehen: App-Canvas (keine App
+    in der Test-Solution), Import.
 
 - Fehlerbehebungen aus dem Review (2026-10-03):
   - **Kein doppelter Import.** Für Aktionen mit Wirkung (Import, Publish)

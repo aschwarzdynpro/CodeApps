@@ -303,6 +303,7 @@ export function Designer(props: DesignerProps) {
             choices={choicesRes.data ?? null}
             forms={tableEntry.forms}
             views={tableEntry.views}
+            itemRows={itemRows}
             onSelect={select}
           />
         ) : (

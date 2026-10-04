@@ -118,6 +118,8 @@ export function Select({ id, value, options, onChange, placeholder, disabled, cl
       className={mergeClasses(styles.dropdown, className)}
       listbox={{ className: styles.listbox }}
       value={selected?.label ?? ''}
+      // Own child for the shown value: long names end in "…" on one line instead of growing the field.
+      button={{ children: <span className="select__value">{selected?.label || placeholder || ''}</span>, title: selected?.label }}
       selectedOptions={selected ? [enc(selected.value)] : []}
       placeholder={placeholder}
       disabled={disabled}

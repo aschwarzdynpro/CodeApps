@@ -1156,3 +1156,12 @@
 .studio__pane[hidden] {
   display: none;
 }
+
+/* Select: the shown value on one line, cut off with an ellipsis. */
+.select__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
