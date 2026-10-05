@@ -6,7 +6,7 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
-## Unveröffentlicht (nächstes Release)
+## 1.0.0.30 — 2026-10-05
 
 **Fix: Der Solution-Link an `pro_workingsolution` zeigt wieder auf die eigene
 Umgebung. Sätze, die mit 1.0.0.29 oder älter angelegt, verknüpft oder
@@ -38,6 +38,22 @@ Schema-Änderung, keine neue Flow-Version.**
   lässt sie sich von Hand (Environment-ID im Link durch die eigene ersetzen;
   die Solution-ID bleibt). Eine automatische Migration beim App-Start gibt es
   bewusst nicht.
+- **Folge für eine frische Installation:** Bis die Ersteinrichtung
+  (`pro_environmentconfig`) gespeichert ist, kennt die Console keine
+  Vergleichsumgebungen außer den Contoso-Platzhaltern — vorher war es die
+  Authoring-Umgebung, was genauso wenig stimmte. Der Setup-Wizard blockiert
+  ohnehin, bis die Konfiguration da ist.
+- **Im Playground geprüft:** Ein über die Console neu angelegter Satz trägt im
+  Link die Environment-ID aus `pac org who` und die echte Solution-ID — mit
+  einem Bundle, das selbst keine Environment-ID mehr enthält.
+- **Deploy-Skript: kein Push ohne Data Sources mehr** (betrifft nur
+  Direct-Push, nicht das Paket). Bei widerrufenen Tokens ging eine App ohne
+  jeden Dataverse-Zugriff hinaus: Der Org-Guard fand die Ziel-URL in der
+  *Fehlermeldung* von `pac`, und die gescheiterten `add-data-source`-Aufrufe
+  wurden verschluckt. Jetzt verlangt der Guard Exit-Code 0, die
+  `Org URL:`-Zeile und keinen Fehlertext; jeder Data-Source-Fehler bricht ab,
+  und `power.config.json` wird nach dem Data-Source-Schritt und direkt vor dem
+  Push auf Dataverse-Konnektor + alle 17 Tabellen geprüft.
 
 ## 1.0.0.29 — 2026-09-16
 
