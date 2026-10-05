@@ -124,10 +124,15 @@ export function parseTranslationFile(xml: string, options: ParseOptions = {}): T
   })
 
   if (sheets.length === 0) throw new Error('Die Datei enthält kein Blatt mit Sprachspalten (z. B. „Localized Labels“).')
-  // Kinds need the whole file: a `Description` is a table label when the same
-  // object id also carries the table name.
-  const tableIds = new Set(rows.filter((r) => r.column === 'LocalizedName' || r.column === 'LocalizedCollectionName').map((r) => r.objectId))
-  for (const r of rows) r.kind = r.objectId ? componentKind(r.type, r.column, tableIds.has(r.objectId)) : 'other'
+  // Kinds need the whole file. A table's own object id (per group) is the one
+  // with the plural name; a group may carry more `LocalizedName` rows — the
+  // record types of a "type" column (queueitem: Task, Email, Work Order …,
+  // with the ids of those tables). Without a plural row, the group's first
+  // `LocalizedName`. A `Description` of the table's own id is a table label.
+  const own = new Map<string, string>()
+  for (const r of rows) if (r.column === 'LocalizedCollectionName' && !own.has(r.type)) own.set(r.type, r.objectId)
+  for (const r of rows) if (r.column === 'LocalizedName' && !own.has(r.type)) own.set(r.type, r.objectId)
+  for (const r of rows) r.kind = r.objectId ? componentKind(r.type, r.column, own.get(r.type) === r.objectId) : 'other'
   const baseLanguage = options.baseLanguage ?? baseFromInfo(info) ?? order[0]
   const languages = [baseLanguage, ...order.filter((l) => l !== baseLanguage)]
   return { xml, baseLanguage, languages, info, sheets, rows, layout, columnsBySheet }

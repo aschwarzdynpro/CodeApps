@@ -108,23 +108,26 @@ export function isTableName(type: string): boolean {
  * (case matters):
  *
  * - `LocalizedName`, `LocalizedCollectionName` → table; `Description` of the
- *   same object id too (`tableLabel`)
+ *   same object id too (`ownTable`). A `LocalizedName` of another object id
+ *   is a choice value: the record types of a "type" column (`queueitem`
+ *   lists Task, Email, Work Order … this way)
  * - `DisplayName`, `Description` → column — or a choice value, which only
  *   the metadata tells apart (`resolveComponents` refines it)
  * - `displayname` → form element (tab, section, field label); `name`,
  *   `description` → form or view name (refined from metadata as well)
  */
-export function componentKind(type: string, column: string, tableLabel = false): ComponentKind {
+export function componentKind(type: string, column: string, ownTable?: boolean): ComponentKind {
   if (!type || NON_TABLE_TYPES.has(type)) return 'other'
   if (!isTableName(type)) return column === 'displayname' || column === 'name' || column === 'description' ? 'form' : 'other'
   switch (column) {
     case 'LocalizedName':
+      return ownTable === false ? 'choice' : 'table'
     case 'LocalizedCollectionName':
       return 'table'
     case 'DisplayName':
       return 'column'
     case 'Description':
-      return tableLabel ? 'table' : 'column'
+      return ownTable ? 'table' : 'column'
     case 'displayname':
     case 'name':
     case 'description':

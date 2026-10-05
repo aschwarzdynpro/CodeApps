@@ -276,6 +276,13 @@ XML, Node):
     obwohl der Job durchlief. Jetzt entscheidet der Job: Aufruffehler bei
     erfolgreichem Job sind ein Hinweis, ein Timeout beim Veröffentlichen
     heißt „läuft vermutlich weiter“ (Vitest).
+  - **Tabellenname bei „Typ“-Spalten (2026-10-05):** Die Gruppe einer
+    Tabelle kann weitere `LocalizedName`-Zeilen tragen — die Datensatztypen
+    einer Typ-Spalte mit den IDs der jeweiligen Tabellen (`queueitem`: 41,
+    `connection`: 82). Der Explorer nahm die letzte als Namen („Work Order“
+    statt „Queue Item“), der Steckbrief zeigte sie nirgends. Jetzt ist der
+    eigene Name der mit dem Plural derselben Gruppe; die übrigen sind
+    Auswahlwerte (Vitest).
   - **Asynchron und lesbares Protokoll (2026-10-05):** Import und
     Veröffentlichen über `ImportTranslationAsync`/`PublishAllXmlAsync`
     mit Systemauftrag (s. o.). `importjob.data` von Übersetzungen hat ein

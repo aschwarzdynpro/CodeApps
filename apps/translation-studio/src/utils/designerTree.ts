@@ -101,7 +101,7 @@ export function buildExplorer(file: TranslationFile, components: ReadonlyMap<str
     }
     const t = table(r.type)
     t.rows.push(r)
-    if (r.column === 'LocalizedName' && r.values[base]) t.label = r.values[base]
+    if (r.column === 'LocalizedName' && r.kind === 'table' && r.values[base]) t.label = r.values[base]
     if (r.column !== 'name' || listed.has(r.objectId) || !info?.kind) continue
     if (info.kind === 'form') {
       listed.add(r.objectId)

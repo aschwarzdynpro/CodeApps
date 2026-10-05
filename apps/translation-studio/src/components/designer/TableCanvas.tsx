@@ -61,7 +61,8 @@ export const TableCanvas = memo(function TableCanvas({ table, label, rows, choic
         columns.set(r.objectId, c)
       } else if (kind === 'choice') {
         const c = choiceRows.get(r.objectId) ?? {}
-        if (r.column === 'DisplayName') c.display = r
+        // `LocalizedName`: a record type of a "type" column (queueitem: Task, Work Order …).
+        if (r.column === 'DisplayName' || r.column === 'LocalizedName') c.display = r
         else c.description = r
         choiceRows.set(r.objectId, c)
       } else other.push(r)

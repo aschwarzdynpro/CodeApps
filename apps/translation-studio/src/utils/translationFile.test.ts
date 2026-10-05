@@ -26,6 +26,16 @@ describe('parseTranslationFile', () => {
     expect(file.sheets[1].keyColumns).toEqual(['Entity name', 'Object ID', 'Object Column Name'])
   })
 
+  it('takes the table name from the object with the plural, not from other names in the group', () => {
+    // A "type" column lists record types as further LocalizedName rows of the table (queueitem: Task, Work Order …).
+    const OTHER = 'd4000000-0000-4000-8000-000000000001'
+    const extra = `<Row><Cell><Data ss:Type="String">pro_vehicle</Data></Cell><Cell><Data ss:Type="String">${OTHER}</Data></Cell><Cell><Data ss:Type="String">LocalizedName</Data></Cell><Cell><Data ss:Type="String">Work Order</Data></Cell><Cell><Data ss:Type="String">Arbeitsauftrag</Data></Cell><Cell><Data ss:Type="String"></Data></Cell></Row>`
+    const anchor = fixture.indexOf('<Row', fixture.indexOf('LocalizedCollectionName'))
+    const withTypes = parseTranslationFile(fixture.slice(0, anchor) + extra + fixture.slice(anchor))
+    expect(withTypes.rows.find((r) => r.objectId === OTHER)!.kind).toBe('choice')
+    expect(withTypes.rows.find((r) => r.objectId === VEHICLE && r.column === 'LocalizedName')!.kind).toBe('table')
+  })
+
   it('reads labels with kind, id and texts, honouring sparse cells', () => {
     const labels = file.rows.filter((r) => r.sheet === 'Localized Labels')
     expect(labels).toHaveLength(12)

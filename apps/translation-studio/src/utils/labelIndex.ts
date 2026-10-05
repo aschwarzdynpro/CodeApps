@@ -39,7 +39,7 @@ export function buildIndex(file: TranslationFile, components: ReadonlyMap<string
       const list = byTable.get(r.type)
       if (list) list.push(r)
       else byTable.set(r.type, [r])
-      if (r.column === 'LocalizedName' || r.column === 'LocalizedCollectionName') {
+      if ((r.column === 'LocalizedName' || r.column === 'LocalizedCollectionName') && r.kind === 'table') {
         const names = tableNames.get(r.type) ?? {}
         if (r.column === 'LocalizedName') names.one ??= r
         else names.many ??= r

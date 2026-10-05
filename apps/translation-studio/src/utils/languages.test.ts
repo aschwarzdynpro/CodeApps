@@ -6,6 +6,9 @@ describe('componentKind', () => {
   it('tables, columns, form elements and form/view names under a logical table name', () => {
     expect(componentKind('contact', 'LocalizedName')).toBe('table')
     expect(componentKind('contact', 'LocalizedCollectionName')).toBe('table')
+    // Another object's name in the table's group: a record type of a "type" column.
+    expect(componentKind('queueitem', 'LocalizedName', false)).toBe('choice')
+    expect(componentKind('queueitem', 'LocalizedName', true)).toBe('table')
     expect(componentKind('contact', 'Description', true)).toBe('table')
     expect(componentKind('contact', 'Description')).toBe('column')
     expect(componentKind('contact', 'DisplayName')).toBe('column')
