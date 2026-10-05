@@ -775,8 +775,13 @@ eingebacken, lokal via `.env.local` überschreibbar):
 ```
 VITE_ADO_ORG_URL=https://dev.azure.com/SchulzD365
 VITE_ADO_PROJECT=D365UO
-VITE_ENVIRONMENT_ID=<env-id>   # Fallback für Maker-Links außerhalb des Hosts
 ```
+
+Eine Environment-ID wird **nicht** eingebacken: die App nimmt ihre eigene
+Umgebung zur Laufzeit aus dem Host-Kontext (ersatzweise aus dem
+`pro_environmentconfig`-Satz mit „Is Current"). Ein managed Release wird in
+einer Umgebung gebaut und in vielen installiert — ein Build-Wert wäre überall
+außer auf der Build-Umgebung falsch.
 
 Andere Benutzer der App werden beim ersten Start aufgefordert, ihre
 eigene Azure-DevOps-Verbindung zu bestätigen (Standard-Verhalten von

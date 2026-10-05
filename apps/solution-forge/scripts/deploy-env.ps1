@@ -16,6 +16,13 @@
     pwsh scripts/deploy-env.ps1 -Env playground
     pwsh scripts/deploy-env.ps1 -Env schulz
     pwsh scripts/deploy-env.ps1 -Env schulz -SkipBuild   # nur erneut pushen
+    pwsh scripts/deploy-env.ps1 -Env playground -Release # neutrales Bundle fuer den managed Export
+
+  -Release (nur playground): baut das Bundle OHNE die Umgebungen der Registry
+  und bricht vor dem Push ab, sobald eine Environment-/App-ID oder eine echte
+  *.crm*.dynamics.com-URL im dist steht (Assert-NeutralBundle). Grund: Release
+  1.0.0.29 trug die Playground-Umgebung im Bundle, und jede Installation schrieb
+  deren ID in pro_workingsolution.pro_solutionlink.
 #>
 [CmdletBinding()]
 param(
@@ -24,7 +31,10 @@ param(
   # Set up the environment (config + data sources + build) but do NOT push. Used
   # when a follow-up step must own the push — e.g. the Schulz DevOps-Sync-Flow,
   # which needs 'power-apps add-flow' + 'power-apps push' instead of 'pac code push'.
-  [switch]$NoPush
+  [switch]$NoPush,
+  # Release-Build: neutrale Build-Werte + Bundle-Guard vor dem Push. Nur fuer
+  # den Playground (Authoring-Env des managed Exports, Skill create-release).
+  [switch]$Release
 )
 $ErrorActionPreference = 'Stop'
 $appDir = Split-Path $PSScriptRoot -Parent
@@ -119,6 +129,9 @@ $Registry = @{
 }
 
 $cfg = $Registry[$Env]
+if ($Release -and $Env -ne 'playground') {
+  throw "-Release gibt es nur fuer 'playground' (Authoring-Env des managed Exports)."
+}
 if (-not $cfg.Enabled) {
   Write-Host ""
   Write-Host ">> '$Env' ist fuer Direct-Push DEAKTIVIERT." -ForegroundColor Yellow
@@ -185,8 +198,12 @@ $envJson = $cfg.Envs | ForEach-Object { [pscustomobject]$_ } | ConvertTo-Json -C
 # Fallback bis zur Hydrierung.
 $adoOrg  = if ($cfg.Ado) { $cfg.Ado.OrgUrl }  else { 'https://dev.azure.com/contoso' }
 $adoProj = if ($cfg.Ado) { $cfg.Ado.Project } else { 'D365' }
+# Release: KEINE Umgebungsliste. Das managed Paket geht an fremde Kunden; ein
+# eingebackener Eintrag beschreibt die Build-Umgebung, nicht die Installation.
+# Leerer Wert => config.ts nimmt die Contoso-Platzhalter, bis pro_environmentconfig
+# geladen ist. (Eine Environment-ID liest der Code gar nicht mehr aus dem Build.)
+if ($Release) { $envJson = '' }
 @(
-  "VITE_ENVIRONMENT_ID=$($cfg.EnvId)",
   "VITE_ENVIRONMENTS=$envJson",
   "VITE_ADO_ORG_URL=$adoOrg",
   "VITE_ADO_PROJECT=$adoProj"
@@ -257,6 +274,36 @@ if (-not $SkipBuild) {
     throw "BUILD FAILED (exit $LASTEXITCODE) — Push abgebrochen (sonst wuerde eine veraltete dist/ deployt). Fix: 'npm install' + 'npm run build' bis gruen, dann erneut."
   }
 }
+
+# 7b) Release-Guard: das dist eines Releases darf keine echte Umgebung tragen.
+# Verboten sind alle IDs aus diesem Skript (Registry: Env-, App-, Flow-,
+# Connection-IDs) und aus den .env*-Dateien des App-Ordners, dazu jede
+# *.crm*.dynamics.com-URL ausser den Platzhaltern (contoso-*, org). Die
+# Kontrollsuche nach contoso-dev beweist, dass ueberhaupt gelesen wurde — ohne
+# sie hiesse "0 Treffer" nur "nichts gelesen" (siehe Sweep im Skill create-release).
+function Assert-NeutralBundle {
+  $dist = Join-Path $appDir 'dist'
+  if (-not (Test-Path $dist)) { throw "RELEASE-GUARD: kein dist/ — erst bauen." }
+  $bundle = (Get-ChildItem $dist -Recurse -File -Include *.js, *.html, *.css, *.json |
+    ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+  $bundle = $bundle.ToLowerInvariant()
+  $sources = @(Get-Content $PSCommandPath -Raw) +
+    @(Get-ChildItem $appDir -Force -File -Filter '.env*' | ForEach-Object { Get-Content $_.FullName -Raw })
+  $ids = @([regex]::Matches(($sources -join "`n"), '(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b|\b[0-9a-f]{32}\b') |
+    ForEach-Object { $_.Value.ToLowerInvariant() } | Sort-Object -Unique)
+  $hosts = @([regex]::Matches($bundle, '[a-z0-9-]+\.crm\d*\.dynamics\.com') |
+    ForEach-Object { $_.Value } | Sort-Object -Unique)
+  if ($ids.Count -lt 5 -or $hosts -notcontains 'contoso-dev.crm4.dynamics.com') {
+    throw "RELEASE-GUARD: Kontrollsuche fehlgeschlagen (IDs: $($ids.Count), Hosts: $($hosts -join ', ')) — der Guard hat nichts Verwertbares gelesen."
+  }
+  $leakedIds = @($ids | Where-Object { $bundle.Contains($_) })
+  $foreignHosts = @($hosts | Where-Object { $_ -notmatch '^(contoso(-[a-z]+)?|org)\.crm\d*\.dynamics\.com$' })
+  if ($leakedIds.Count -gt 0 -or $foreignHosts.Count -gt 0) {
+    throw "RELEASE-GUARD: das Bundle traegt echte Umgebungen — Push abgebrochen.`n  IDs: $($leakedIds -join ', ')`n  Hosts: $($foreignHosts -join ', ')"
+  }
+  Write-Host "RELEASE-GUARD ok: keine der $($ids.Count) bekannten IDs im dist, Hosts nur Platzhalter ($($hosts -join ', '))" -ForegroundColor Green
+}
+if ($Release) { Assert-NeutralBundle }
 
 # 8) Profil ERNEUT aktivieren (add-flow setzt es zurueck), GUARD re-check + Push.
 # Der Re-Check bleibt trotz Re-Select stehen: er ist die Absicherung, die greift,

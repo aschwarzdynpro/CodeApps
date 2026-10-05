@@ -61,7 +61,7 @@ Prefix `pro` ist per `provision-model.ps1 -Prefix` theoretisch variabel; die
 | `pro_uniquesolutionname` | String(**50**) | None | Anleger | **Der Join-Key** = `solution.uniquename` |
 | `pro_type_opt` | Choice | None | Anleger | Feature/Bug/Release → siehe §3 |
 | `pro_deploymentstatus` | Choice | None | Anleger/Prozess | Start = `500870000` (None) |
-| `pro_solutionlink` | String(200), Format Url | None | Anleger | `https://make.powerapps.com/environments/{envId}/solutions/{solutionId}` |
+| `pro_solutionlink` | String(200), Format Url | None | Anleger | `https://make.powerapps.com/environments/{envId}/solutions/{solutionId}` — `{envId}` = die Umgebung, in der der Satz liegt (zur Laufzeit ermittelt, nie ein Build-Wert); unbekannt ⇒ leer lassen |
 | `pro_WorkbenchSetting` | Lookup → `pro_workbenchsettings` | **ApplicationRequired** | Anleger | Pflicht-Konfig-Anker, siehe §5.3 |
 | `pro_DeploymentSolution_id` | Lookup → `pro_workingsolution` (self) | None | Merge-Prozess | Ziel-Release |
 | `pro_allowedmergetypes` | MultiSelect Choice | None | Merge-Rules-Tab | Allow-Liste, Werte = `componenttype`-Codes |

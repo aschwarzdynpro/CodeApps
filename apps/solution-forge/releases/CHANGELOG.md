@@ -6,6 +6,39 @@ schritte: siehe [`README.md`](README.md).
 
 ---
 
+## Unveröffentlicht (nächstes Release)
+
+**Fix: Der Solution-Link an `pro_workingsolution` zeigt wieder auf die eigene
+Umgebung. Sätze, die mit 1.0.0.29 oder älter angelegt, verknüpft oder
+nachgetragen wurden, können einen falschen Link tragen. Keine
+Schema-Änderung, keine neue Flow-Version.**
+
+- **Was falsch war.** `pro_solutionlink` wurde beim Anlegen einer Working
+  Solution, beim „Track" einer vorhandenen Solution und beim Re-Link eines
+  Orphans mit einer Environment-ID gefüllt, die **zur Build-Zeit** ins Bundle
+  kam. Ein managed Release wird im Authoring-Playground gebaut — jede
+  Installation schrieb deshalb Links in **diese** Umgebung statt in die eigene.
+  Die Links, die die Console selbst anzeigt, waren nie betroffen: die baut sie
+  zur Laufzeit aus dem Host-Kontext. Falsch ist nur die gespeicherte Spalte
+  (sichtbar in Formularen, Ansichten, Exporten).
+- **Jetzt:** Die Environment-ID für gespeicherte Links kommt nur noch zur
+  Laufzeit — zuerst aus dem Host-Kontext der App, ersatzweise aus dem
+  `pro_environmentconfig`-Satz mit „Is Current". Kennt die Console ihre
+  Umgebung nicht, schreibt sie **keinen** Link (beim Re-Link wird der alte
+  geleert) — ein fehlender Link fällt auf, ein falscher nicht. Eine
+  Build-Zeit-Environment-ID gibt es im Code nicht mehr.
+- **Das Release-Paket trägt keine echte Umgebung mehr.** Der Release-Build
+  (`deploy-env.ps1 -Env playground -Release`) bäckt keine Umgebungsliste ein —
+  bis `pro_environmentconfig` geladen ist, gelten die Contoso-Platzhalter. Ein
+  Guard bricht den Push ab, sobald eine bekannte Environment-/App-ID oder eine
+  echte `*.crm*.dynamics.com`-URL im Bundle steht; der Release-Sweep prüft
+  dasselbe am Zip.
+- **Bestehende Sätze reparieren:** Die Spalte `pro_solutionlink` falscher Sätze
+  zeigt auf `…/environments/<andere Umgebung>/solutions/<id>`. Korrigieren
+  lässt sie sich von Hand (Environment-ID im Link durch die eigene ersetzen;
+  die Solution-ID bleibt). Eine automatische Migration beim App-Start gibt es
+  bewusst nicht.
+
 ## 1.0.0.29 — 2026-09-16
 
 **Der Merge in eine Release-Solution startet sofort sichtbar — die stille

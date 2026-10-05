@@ -110,11 +110,23 @@ Konto und läuft still. Playground (`pac code push`) ist davon nicht betroffen.
 ## Release (managed Export)
 
 Sagt der Nutzer **„Release erzeugen"**, gilt der Skill
-`.claude/skills/create-release/SKILL.md` im Repo-Root: Playground pushen →
+`.claude/skills/create-release/SKILL.md` im Repo-Root: Playground pushen
+(**`deploy-env.ps1 -Env playground -Release`** — neutrales Bundle ohne
+Umgebungsliste + `Assert-NeutralBundle` vor dem Push) →
 Version hochzählen → managed exportieren → **Paketinhalt gegen das Zip
 verifizieren** → CHANGELOG-Sektion aus den Commits seit dem letzten Tag →
 README-Tabelle → altes Zip entfernen → Commit → `gh release create
 SAC_v<version>` mit dem Zip als Asset. Artefakte liegen in `releases/`.
+
+⚠ **Kein Build-Wert darf eine Umgebung benennen, die im Paket landet.** Bis
+1.0.0.29 schrieb `pro_workingsolution.pro_solutionlink` die Build-Zeit-ID
+(`VITE_ENVIRONMENT_ID`) — jede Kundeninstallation verlinkte so in den
+Playground. Seitdem gibt es keine Build-Environment-ID mehr:
+`config.hostEnvironmentId()` = Host-Kontext (von `PowerProvider` vor
+`powerModeReady` gesetzt), sonst die `isCurrent`-Zeile von
+`pro_environmentconfig` — **nur** wenn die Liste zur Laufzeit hydriert wurde
+(`utils/hostEnvironment.ts`, Vitest). Unbekannt ⇒ `persistedSolutionLink`
+liefert `null`, es wird kein Link geschrieben.
 
 ⚠ **Das aktive pac-Profil überlebt den Wechsel zwischen zwei Tool-Aufrufen
 nicht.** Am 2026-08-05 landete eine Versionserhöhung deshalb in Schulz INT-11

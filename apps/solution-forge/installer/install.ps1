@@ -187,13 +187,14 @@ if ($curEnv -and $curEnv.Count -gt 0) {
 Title 'Code App konfigurieren & deployen'
 Push-Location $appRoot
 try {
-  # .env.local carries only the deploy-time intrinsics: this environment's id +
-  # URL. The current-env URL is needed for the very first read (before the
-  # config tables load); everything else is data-driven from Dataverse.
+  # .env.local carries only the deploy-time intrinsics: this environment's
+  # URL + id as the current entry. The current-env URL is needed for the very
+  # first read (before the config tables load); everything else is data-driven
+  # from Dataverse. (There is no VITE_ENVIRONMENT_ID any more — the app takes
+  # its own environment id from the host context at runtime.)
   $curRow = [pscustomobject]@{ key='dev'; label='Current'; url=$EnvironmentUrl.TrimEnd('/'); environmentId=$envId; isCurrent=$true }
   $envJson = (,$curRow) | ConvertTo-Json -Compress -AsArray
   $envLines = @(
-    "VITE_ENVIRONMENT_ID=$envId",
     "VITE_ENVIRONMENTS=$envJson"
   )
   Set-Content -Path (Join-Path $appRoot '.env.local') -Value ($envLines -join "`n") -NoNewline

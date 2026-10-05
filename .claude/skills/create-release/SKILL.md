@@ -65,11 +65,20 @@ auch wenn es überflüssig scheint:
 
 ```powershell
 cd apps/solution-forge
-./scripts/deploy-env.ps1 -Env playground
+./scripts/deploy-env.ps1 -Env playground -Release
 ```
 
 Das Skript hat einen eigenen Org-Guard und pusht mit `--solutionName`, die App
 landet also in der Solution. Läuft es durch, ist der Playground aktuell.
+
+**`-Release` ist Pflicht.** Ohne den Schalter bäckt das Skript die
+Playground-Umgebung als `VITE_ENVIRONMENTS` ins Bundle — so ist 1.0.0.29
+ausgeliefert worden, und jede Kundeninstallation schrieb die Playground-ID in
+`pro_workingsolution.pro_solutionlink`. Mit `-Release` bleibt die Liste leer
+(Contoso-Platzhalter), und `Assert-NeutralBundle` bricht **vor dem Push** ab,
+sobald eine ID aus der Registry oder den `.env*`-Dateien oder eine echte
+`*.crm*.dynamics.com`-URL im `dist` steht. Meldet der Guard etwas: nicht
+umgehen, Ursache finden.
 
 ### 3. Version bestimmen und setzen
 
@@ -153,6 +162,23 @@ for pat in pro_transferrun crm4.dynamics.com; do
 done   # beide > 0, sonst greift der Sweep nicht
 ```
 
+**Umgebungen.** Das Paket darf keine echte Umgebung tragen — weder eine
+Environment-/App-ID aus der Registry von `deploy-env.ps1` noch eine
+Dataverse-URL außer den Platzhaltern. Die IDs kommen aus dem Skript selbst,
+damit eine neue Umgebung in der Registry automatisch mitgeprüft wird:
+
+```bash
+# weiter in apps/solution-forge/releases, $Z wie oben
+unzip -p $Z | grep -aoE "[a-z0-9-]+\.crm[0-9]*\.dynamics\.com" | sort | uniq -c
+#   erlaubt: nur contoso-dev/-uat/-prod und org (Platzhalter im Setup-Wizard)
+for g in $(cat ../scripts/deploy-env.ps1 ../.env* 2>/dev/null | grep -oiE "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}" | sort -u); do
+  n=$(unzip -p $Z | grep -aoi "$g" | wc -l); [ "$n" -gt 0 ] && echo "  LEAK $g: $n"
+done; echo "  (keine LEAK-Zeile = sauber)"
+```
+
+Steht hier etwas, wurde ohne `-Release` gebaut (Schritt 2) — nicht
+veröffentlichen.
+
 ### 6. CHANGELOG schreiben — aus den Commits, nicht aus dem Gedächtnis
 
 Letztes Release finden und die **vollständigen** Commit-Botschaften lesen,
@@ -163,7 +189,9 @@ git log $(git describe --tags --match "SAC_v*" --abbrev=0)..HEAD --reverse --for
 ```
 
 Daraus eine neue Sektion **oben** in `releases/CHANGELOG.md`, **auf Deutsch**,
-im Stil der vorhandenen Einträge:
+im Stil der vorhandenen Einträge. Steht dort schon eine Sektion
+„Unveröffentlicht (nächstes Release)", wird sie zur Versions-Sektion: Überschrift
+ersetzen, Inhalt mit den übrigen Commits zusammenführen.
 
 - Überschrift `## <version> — <YYYY-MM-DD>`
 - **Fetter Leitabsatz** mit dem Thema des Releases. Bringt es

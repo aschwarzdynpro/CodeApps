@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from 'react'
 import { getContext } from '@microsoft/power-apps/app'
+import { setHostContextEnvironmentId } from './config'
 
 /**
  * PowerProvider detects whether the app is running inside a Power Apps host
@@ -190,6 +191,9 @@ export function PowerProvider({ children }: { children: ReactNode }) {
       } catch {
         // Bridge threw — treat as standalone, use mock.
       }
+      // Before resolving: service code that awaits powerModeReady (e.g. the
+      // pro_solutionlink writes) must already see the host environment.
+      setHostContextEnvironmentId(environmentId)
       // Resolve regardless of cancellation so any pending service calls unblock.
       resolveMode(mode)
       if (!cancelled)

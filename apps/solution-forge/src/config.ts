@@ -1,28 +1,31 @@
 /**
- * Deployment-specific links. The environment id is detected at runtime from
- * the Power Apps host context (see PowerProvider); these env vars are the
- * fallback for plain local development and for the Azure DevOps organisation,
- * which the host can't know. Set them in `.env.local`:
+ * Deployment-specific links. The host environment id is resolved at RUNTIME
+ * only — from the Power Apps host context (see PowerProvider), else from the
+ * `pro_environmentconfig` row flagged current ({@link hostEnvironmentId}).
+ * There is deliberately no build-time environment id: a managed release is
+ * built in one environment and installed in many, so a baked-in id is wrong
+ * everywhere but the build machine. The Azure DevOps organisation, which the
+ * host can't know, still has build-time fallbacks in `.env.local`:
  *
- *   VITE_ENVIRONMENT_ID=84280d0b-…       # Dataverse environment (maker links)
  *   VITE_ADO_ORG_URL=https://dev.azure.com/dynpro
  *   VITE_ADO_PROJECT=MyProject           # project containing the work items
  */
 
 import type { EnvironmentDef } from './types/comparison'
-
-// Project defaults — not secrets; env vars override them at build time.
-// (.env files are gitignored repo-wide, so the defaults live here.)
-const DEFAULT_ENVIRONMENT_ID = '00000000-0000-0000-0000-000000000000'
+import {
+  isRealEnvironmentId,
+  resolveHostEnvironmentId,
+} from './utils/hostEnvironment'
 
 /**
  * Placeholder environments, matching the fictional Contoso tenant the offline
- * demo data uses. They are NEVER what a real installation runs on: the deploy
- * script writes `VITE_ENVIRONMENTS` + `VITE_ENVIRONMENT_ID` into `.env.local`
- * at build time, and `pro_environmentconfig` overrides both again at startup.
- * These only surface where neither exists — local dev and the mock demo — so
- * they deliberately name no real customer, and the ids are all zeroes rather
- * than a real environment's GUID.
+ * demo data uses. They are NEVER what a real installation runs on:
+ * `pro_environmentconfig` replaces the list at startup (applyRuntimeConfig).
+ * A direct push (deploy-env.ps1 / install.ps1) also bakes the target's list
+ * into `VITE_ENVIRONMENTS` as the value used until that load completes; a
+ * release build does NOT (deploy-env.ps1 -Release), so it ships these. They
+ * deliberately name no real customer, and the ids are all zeroes rather than a
+ * real environment's GUID.
  */
 const DEFAULT_ENVIRONMENTS: EnvironmentDef[] = [
   {
@@ -65,6 +68,29 @@ function parseEnvironments(): EnvironmentDef[] {
 // fallback used until that load completes. Consumers read these as ES live
 // bindings, so they pick up the hydrated values on the next access.
 export let ENVIRONMENTS: EnvironmentDef[] = parseEnvironments()
+/** True once ENVIRONMENTS comes from `pro_environmentconfig`, not the build. */
+let ENVIRONMENTS_FROM_RUNTIME = false
+/** Environment id the host context reported; set by PowerProvider. */
+let HOST_CONTEXT_ENVIRONMENT_ID: string | null = null
+
+/** Record the environment id from the host context. PowerProvider calls this
+ *  before `powerModeReady` resolves, so service code sees it. */
+export function setHostContextEnvironmentId(id: string | null): void {
+  HOST_CONTEXT_ENVIRONMENT_ID = id
+}
+
+/**
+ * The environment the console runs in, or null when unknown: host context
+ * first, then the current row of `pro_environmentconfig`. Never a build-time
+ * value — see utils/hostEnvironment.ts for why.
+ */
+export function hostEnvironmentId(): string | null {
+  return resolveHostEnvironmentId(
+    HOST_CONTEXT_ENVIRONMENT_ID,
+    ENVIRONMENTS,
+    ENVIRONMENTS_FROM_RUNTIME,
+  )
+}
 // Placeholders only — hydrated from pro_workbenchsettings at startup.
 const DEFAULT_ADO_ORG_URL = 'https://dev.azure.com/contoso'
 const DEFAULT_ADO_PROJECT = 'D365'
@@ -106,9 +132,13 @@ export function orgUrlForEnvKey(envKey: string): string {
   return (envByKey(envKey)?.url ?? '').replace(/\/+$/, '')
 }
 
-/** Dataverse environment id for a configured env key (maker/portal links). */
+/** Dataverse environment id for a configured env key (maker/portal links).
+ *  An unconfigured id is '' — except for the host, whose id is known at
+ *  runtime anyway. Never another environment's id. */
 export function environmentIdForEnvKey(envKey: string): string {
-  return envByKey(envKey)?.environmentId ?? FALLBACK_ENVIRONMENT_ID
+  const env = envByKey(envKey)
+  if (env?.environmentId) return env.environmentId
+  return env?.isCurrent ? (hostEnvironmentId() ?? '') : ''
 }
 
 /** Whether the given key is the host environment (where native writes land). */
@@ -116,8 +146,12 @@ export function isCurrentEnvKey(envKey: string): boolean {
   return envByKey(envKey)?.isCurrent === true
 }
 
-export const FALLBACK_ENVIRONMENT_ID: string =
-  import.meta.env.VITE_ENVIRONMENT_ID ?? DEFAULT_ENVIRONMENT_ID
+/** Environment segment for a portal link: `null` means "the host"; an empty
+ *  or placeholder id means unknown (→ null, the caller links generically). */
+function linkEnvironmentId(environmentId: string | null): string | null {
+  const id = environmentId === null ? hostEnvironmentId() : environmentId
+  return isRealEnvironmentId(id) ? id : null
+}
 
 let ADO_ORG_URL: string =
   import.meta.env.VITE_ADO_ORG_URL ?? DEFAULT_ADO_ORG_URL
@@ -200,7 +234,10 @@ export interface RuntimeConfig {
  * see the new values via ES live bindings on their next read.
  */
 export function applyRuntimeConfig(cfg: RuntimeConfig): void {
-  if (cfg.environments && cfg.environments.length > 0) ENVIRONMENTS = cfg.environments
+  if (cfg.environments && cfg.environments.length > 0) {
+    ENVIRONMENTS = cfg.environments
+    ENVIRONMENTS_FROM_RUNTIME = true
+  }
   if (cfg.adoOrgUrl) {
     ADO_ORG_URL = cfg.adoOrgUrl
     ADO_ACCOUNT = adoAccount(ADO_ORG_URL)
@@ -221,16 +258,27 @@ export function applyRuntimeConfig(cfg: RuntimeConfig): void {
   }
 }
 
-/** Maker-portal deep link to one solution (objects list), or the solutions
- *  area when no environment id is known. */
+/** Maker-portal deep link to one solution (objects list), or the portal home
+ *  when no environment id is known. `null` = the host environment. */
 export function makerSolutionUrl(
   environmentId: string | null,
   solutionId: string,
 ): string {
-  const envId = environmentId || FALLBACK_ENVIRONMENT_ID
+  const envId = linkEnvironmentId(environmentId)
   return envId
     ? `https://make.powerapps.com/environments/${envId}/solutions/${solutionId}`
     : 'https://make.powerapps.com'
+}
+
+/**
+ * The link stored on `pro_workingsolution.pro_solutionlink` — always the
+ * host environment as resolved at runtime, or null when it is unknown. Callers
+ * then write no link: a missing link is visible, a wrong one is not (releases
+ * up to 1.0.0.29 wrote the build environment's id here).
+ */
+export function persistedSolutionLink(solutionId: string): string | null {
+  const envId = hostEnvironmentId()
+  return envId ? makerSolutionUrl(envId, solutionId) : null
 }
 
 /** Maker-portal deep link to the Solutions area of a specific environment —
@@ -239,7 +287,7 @@ export function makerSolutionUrl(
  *  layers). Used as the last-resort fallback when neither the target
  *  solution nor a known per-type route segment is available. */
 export function makerEnvSolutionsUrl(environmentId: string): string {
-  const envId = environmentId || FALLBACK_ENVIRONMENT_ID
+  const envId = linkEnvironmentId(environmentId)
   return envId
     ? `https://make.powerapps.com/environments/${envId}/solutions`
     : 'https://make.powerapps.com'
@@ -331,7 +379,8 @@ export function flowDetailsUrl(
   environmentId: string | null,
   flowIdUnique: string,
 ): string {
-  const envId = environmentId || FALLBACK_ENVIRONMENT_ID
+  const envId = linkEnvironmentId(environmentId)
+  if (!envId) return 'https://make.powerautomate.com'
   return `https://make.powerautomate.com/environments/${envId}/flows/${flowIdUnique}/details`
 }
 
@@ -345,7 +394,8 @@ export function flowRunUrl(
   flowIdUnique: string,
   runName: string,
 ): string {
-  const envId = environmentId || FALLBACK_ENVIRONMENT_ID
+  const envId = linkEnvironmentId(environmentId)
+  if (!envId) return 'https://make.powerautomate.com'
   return `https://make.powerautomate.com/environments/${envId}/flows/${flowIdUnique}/runs/${runName}`
 }
 

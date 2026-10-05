@@ -31,7 +31,7 @@ import {
   DEVOPS_PANEL_ENABLED,
   ENVIRONMENTS,
   makerLayerPath,
-  makerSolutionUrl,
+  persistedSolutionLink,
 } from '../config'
 import type { RuntimeConfig } from '../config'
 import type { EnvKey } from '../types/comparison'
@@ -1144,6 +1144,10 @@ export class DataverseSolutionService implements SolutionService {
     input: TrackSolutionInput,
   ): Promise<string | undefined> {
     const workbenchSettingId = await this.defaultWorkbenchSettingId()
+    // Host environment as resolved at runtime; unknown ⇒ no link at all.
+    const solutionLink = persistedSolutionLink(input.solutionId)
+    if (!solutionLink)
+      console.warn('[solutions] host environment unknown — saving without a solution link')
     const rowRecord = {
       pro_name: input.title,
       // pro_devopsid is required by the table; releases store the
@@ -1153,7 +1157,7 @@ export class DataverseSolutionService implements SolutionService {
           ? input.devOpsId.trim() || 'N/A'
           : input.devOpsId,
       pro_uniquesolutionname: input.uniqueName,
-      pro_solutionlink: makerSolutionUrl(null, input.solutionId),
+      ...(solutionLink ? { pro_solutionlink: solutionLink } : {}),
       pro_type_opt: TYPE_OPT_BY_KIND[input.kind],
       pro_deploymentstatus: DEPLOYMENT_STATUS_NONE,
       ...(workbenchSettingId
@@ -1428,7 +1432,9 @@ export class DataverseSolutionService implements SolutionService {
       recordId,
       {
         pro_uniquesolutionname: target.uniqueName,
-        pro_solutionlink: makerSolutionUrl(null, target.id),
+        // Cleared rather than kept when the host is unknown: the old link
+        // points at the solution this record is being moved away from.
+        pro_solutionlink: persistedSolutionLink(target.id),
       } as unknown as Partial<
         Omit<Pro_workingsolutionsBase, 'pro_workingsolutionid'>
       >,
