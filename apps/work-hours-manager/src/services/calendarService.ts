@@ -28,10 +28,10 @@ export interface CalendarService {
   getTrees(calendarIds: string[]): Promise<Record<string, CalendarTree>>
   /**
    * Effective working time per calendar (`msdyn_LoadCalendars`), keyed by
-   * lower-cased calendar id. Null when the action isn't reachable — the UI
+   * lower-cased calendar id. Throws when the action isn't reachable — the UI
    * then derives the working time from the rules and says so.
    */
-  loadSlots(calendarIds: string[], from: string, to: string): Promise<Record<string, Slot[]> | null>
+  loadSlots(calendarIds: string[], from: string, to: string): Promise<Record<string, Slot[]>>
   /** Business closures of the organization between two instants. */
   loadClosures(from: string, to: string): Promise<Closure[]>
   loadTimeOff(resourceIds: string[], from: string, to: string): Promise<TimeOffRequest[]>
