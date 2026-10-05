@@ -400,6 +400,10 @@ export const S = {
     yes: 'ja',
     no: 'nein',
     unknown: 'unbekannt',
+    job: 'Importjob',
+    copyJob: 'ID des Importjobs kopieren (Maker-Portal → Lösungen → Verlauf)',
+    copyPrompt: 'ID des Importjobs:',
+    publishUnknown: 'keine Antwort vom Server — das Veröffentlichen lief vermutlich trotzdem durch',
     status: { succeeded: 'erfolgreich', failed: 'fehlgeschlagen', running: 'lief noch', error: 'Fehler' },
   },
 

@@ -15,8 +15,10 @@ export interface RunRecord {
   status: 'succeeded' | 'failed' | 'running' | 'error'
   /** null: unknown (publishing didn't answer in time). */
   published: boolean | null
-  /** Short outcome: error text or "n Meldungen". */
+  /** Short outcome of the import: error text or "n Meldungen". */
   message: string
+  /** Why publishing failed or is unknown (runs before 2026-10-05 kept it in `message`). */
+  publishMessage?: string
 }
 
 const HISTORY = 'translation-studio.history'

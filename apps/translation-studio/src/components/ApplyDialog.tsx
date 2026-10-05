@@ -94,7 +94,8 @@ export function ApplyDialog({ solution, file, exportZip, changes, components, on
       importJobId: result.jobId,
       status: result.status,
       published: result.published,
-      message: result.error ?? result.publishError ?? (result.log.length ? `${result.log.length} Meldungen` : ''),
+      message: result.error ?? (result.log.length ? `${result.log.length} Meldungen` : ''),
+      publishMessage: result.publishError,
     })
     setOutcome(result)
   }

@@ -1171,3 +1171,25 @@
   white-space: nowrap;
   text-align: left;
 }
+
+/* ---------- run history ---------- */
+.history__job {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.history__copy {
+  display: inline-flex;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.history__copy:hover {
+  color: var(--brand);
+  background: var(--brand-soft);
+}
