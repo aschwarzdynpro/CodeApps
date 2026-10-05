@@ -31,11 +31,83 @@ führt beides in pure functions zusammen (`resolveDay`).
 | Phase | Inhalt | Stand |
 | --- | --- | --- |
 | 0 Discovery | Metadaten der Actions, echte Regelbäume, Zählungen, Rechte (Schulz UAT) | **wartet auf den Nutzer** — Befehle unten; bis dahin synthetische Fixtures (`src/fixtures/calendars.ts`) |
-| 1 Fundament | Scaffold, Domänentypen, `rules`/`resolve`/`timezones`/`holidays` mit Tests, Mock inkl. Server-Emulation der Actions | fertig, `npm test` grün |
-| 2 Lesen | Shell, Ressourcenliste, Wochen-/Monatskalender mit Herkunft, Regel-Inspektor, Diagnose 5.1–5.5, Dataverse-Reads | in Arbeit |
-| 3 Einzel-Edit | `intents.ts`, Editor mit Vorschau, Save/Delete | offen |
-| 4 Massenlauf | `plan`/`undo`, Assistent, Verlauf, Rückgängig | offen |
-| 5 Feiertage & Abschluss | Schließungen, Jahr aus Regelwerk, Hilfe, Doku | offen |
+| 1 Fundament | Scaffold, Domänentypen, `rules`/`resolve`/`timezones`/`holidays` mit Tests, Mock inkl. Server-Emulation der Actions | fertig |
+| 2 Lesen | Shell, Ressourcenliste, Wochen-/Monatskalender mit Herkunft, Regel-Inspektor, Diagnose 5.1–5.5, Dataverse-Reads | fertig (Mock); live offen |
+| 3 Einzel-Edit | `intents.ts`, Editor mit Vorschau, Save/Delete | fertig (Mock); live offen |
+| 4 Massenlauf | `plan`/`undo`, Assistent, Verlauf, Rückgängig | fertig (Mock); live offen |
+| 5 Feiertage & Abschluss | Schließungen, Jahr aus Regelwerk, Hilfe, Doku | fertig; Deployment nach Rücksprache |
+
+`npm run build`, `lint` und `test` (89 Tests) sind grün; alle Bereiche sind
+mit Playwright gegen den Mock durchgespielt (Lesen, Editor, Massenlauf mit
+Rückgängig, Feiertage, Hilfe). **Nichts ist gegen echtes Dataverse
+verifiziert** — siehe „Verifiziert (live)“ und „Offen“.
+
+## Funktionen
+
+| Bereich | Inhalt |
+| --- | --- |
+| **Ressourcen** | DataGrid mit Suche, Facetten (Org-Einheit, Kategorie, Gebiet), Inaktive, „nur mit Befunden“; Spalten Typ, Zeitzone, Stunden im Zeitraum, Regeln, Status, Befunde; Mehrfachauswahl als Eingang in die Massenaktion. Kalender als **Woche** (Ressource × Tag, 24-h-Balken: Arbeitszeit, Pause, Abwesenheit, Nicht-Arbeit, Schließung, Kapazität ≠ 1 schraffiert) oder **Monat** (fokussierte Ressource). Tages-Popover mit jedem Segment, Herkunft (Wiederholung/Einzeltag/Pause/Abwesenheit/Schließung) und Sprung in den Inspektor; Grund für Tage ohne Arbeitszeit (kein Arbeitstag, Regel ausgelaufen, beginnt später, keine Regel). |
+| **Regel-Inspektor** | InlineDrawer mit Tree: Block (Wurzelregel) → innerer Kalender → Blattregeln; Gruppen „je Wochentag verschieden“; Rang, Art, Zeitzone (Abweichung markiert); Felder und Roh-JSON des gewählten Blocks; verwaiste innere Kalender und nicht interpretierbare Regeln. Aktionen: Arbeitszeit/Abwesenheit/Nicht-Arbeit anlegen, Bearbeiten, Einzeltag, Beenden, Löschen. |
+| **Editor** | Dialog mit Eingabe- und Vorschau-Tab: Einmal / wöchentlich (Wochentage, Ende) / je Wochentag verschieden (Zeiten je Tag); Zeiten als Arbeit/Pause (Pausen dürfen in der Arbeitszeit liegen, werden ausgeschnitten), ganztägig über n Tage, Kapazität, Schließungen beachten, Zeitzone der Regel (Default Ressource); Abwesenheit/Nicht-Arbeit mit Grund; Bearbeiten ganz oder „dieser und folgende ab Datum“; Einzeltag einer Wiederholung; Beenden; Löschen mit Vorschau. Vorschau: betroffene Tage (4 Wochen) vorher/nachher aus der Server-Emulation plus die Aufrufe an die API. Validierung spiegelt die API-Grenzen. |
+| **Vorlagen** | Liste der `msdyn_workhourtemplate` mit ihren Regeln; Inspektor und Editor wie bei Ressourcen (EntityLogicalName `msdyn_workhourtemplate`); „Auf Ressourcen anwenden“ startet den Massenlauf. |
+| **Massenlauf** | OverlayDrawer-Assistent: Ressourcen (max. 50) → Aktion (Vorlage ab Stichtag, optional bestehende Wiederholungen am Vortag beenden und spätere löschen; oder Abwesenheit/Nicht-Arbeit mit Datum, Tagen, Grund) → Vorschau-Tabelle je Ressource (h/Woche vorher/nachher, Regeln, Status, Hinweis) → Ausführen sequentiell mit Fortschritt, abbrechbar, Stopp beim ersten Fehler. Jeder Lauf beginnt mit einem Snapshot der betroffenen Bäume. |
+| **Läufe** | Verlauf lokal (letzte 20) mit Ergebnis je Ressource, JSON-Download, **Rückgängig** als normaler Lauf mit Vorschau: löscht angelegte Regeln, stellt Enden wieder her, legt gelöschte Regeln neu an (Baumvergleich bis auf IDs im Test). |
+| **Feiertage** | Schließungen des Jahres (lokale Tage in der Anzeige-Zeitzone), anlegen (`msdyn_BusinessClosureSave`), löschen (Versuch, siehe Offen); Regelwerk DE bundesweit + 16 Länder, AT, CH mit Osterformel; Abgleich vorhanden/fehlt/anderer Name/nur teilweise, Schließungen außerhalb des Regelwerks, Dubletten; fehlende markieren und in einem Schritt anlegen. |
+| **Diagnose** | Kacheln mit Zahl und Schwere, gefilterte Liste, „Im Kalender zeigen“: 5.1 ohne Arbeitszeit (60 Tage, aus Slots wenn vorhanden), 5.2 Wiederholung endet in 90 Tagen / endete ohne Nachfolgerin, 5.3 Zeitzone Regel ≠ Ressource, 5.4 inaktiv mit Buchungen nach heute, 5.5 ohne Kalender / ohne Regeln / verwaiste innere Kalender. |
+| **Einrichtung, Hilfe** | Einrichtungsseite (Konnektor, Org-URL, Ressourcen lesbar, Schließungskalender, `msdyn_LoadCalendars`); Hilfe-Panel mit Inhaltsverzeichnis und Suche (`src/help/helpContent.ts` — bei sichtbaren Änderungen nachziehen). |
+
+Toolbar: Woche/Monat, Zeitraum, Anzeige-Zeitzone (umschaltbar, Sommerzeit
+über `Intl`), `UseV2`-Schalter (lokal gespeichert), Neu laden, Modus-Badge
+(Dataverse / Mock-Daten / Nur lesen nach einem Rechtefehler).
+
+## Datenpfad
+
+| Feature | Lesen | Schreiben |
+| --- | --- | --- |
+| Liste | `bookableresources` (Name, Typ, `timezone`, `_calendarid_value`, Org-Einheit, Status, `_userid_value`), `bookableresourcecategoryassns`, `msdyn_resourceterritories` — Konnektor `ListRecordsWithOrganization` mit Annotationen | — |
+| Kalender | `msdyn_LoadCalendars` (`LoadCalendarsInput`) je 50 Kalender für den sichtbaren Zeitraum; Org-Kalender per `organizations.businessclosurecalendarid` + `calendars?$expand=calendar_calendar_rules`; `msdyn_timeoffrequests` im Zeitraum | — |
+| Inspektor | `calendars?$filter=calendarid eq …&$expand=calendar_calendar_rules` (je 20), dann die inneren Kalender gebündelt | — |
+| Editor | Baum aus dem Inspektor | `msdyn_SaveCalendar` (`CalendarEventInfo` als JSON-String: IsEdit/InnerCalendarId, IsVaried/Action, RecurrenceSplit, RecurrenceEndDate, ObserveClosure, TimeZoneCode, ResourceId, UseV2), `msdyn_DeleteCalendar` — `PerformUnboundActionWithOrganization` |
+| Vorlage anwenden | Baum der Vorlage (`msdyn_workhourtemplates.msdyn_calendarid`) | je Ressource: optional `RecurrenceEndDate` auf bestehende Wiederholungen (IsEdit) bzw. Delete späterer, dann Save der Vorlagenregeln ab Stichtag |
+| Rückgängig | Snapshot (lokal, JSON) + aktueller Baum | Delete der neu entstandenen `InnerCalendarIds`, Save mit altem `RecurrenceEndDate` (offen = `9999-12-30`), Save gelöschter Regeln neu |
+| Schließungen | Org-Kalender per `$expand` | `msdyn_BusinessClosureSave` (`Name`, `Start`, `End`); Löschen: Versuch `msdyn_DeleteCalendar` mit `EntityLogicalName = calendar` |
+| Diagnose | Liste + Bäume + Slots; `bookableresourcebookings` als FetchXML-Aggregat (Buchungen ab heute je inaktiver Ressource) | — |
+
+Identität: Benutzer-Connection am Dataverse-Konnektor; alles läuft mit den
+Rechten des angemeldeten Nutzers, die Actions prüfen bei Benutzer-Ressourcen
+das Eigenkalender-Recht über `ResourceId`. Nie `calendarrule`-Zeilen.
+
+## Aufbau
+
+```
+src/
+├── PowerProvider.tsx            # Host-Erkennung (Kopie aus series-planner)
+├── config.ts                    # VITE_ORG_URL, Limits (50 je Lauf, 20 Läufe, 90/60 Tage), Defaults (TZ 110, UseV2)
+├── strings.ts                   # alle UI-Texte (Deutsch)
+├── types/calendar.ts            # Resource, Template, RawCalendar/Rule, CalendarTree/RuleBlock/LeafRule, Slot, Closure,
+│                                # DayResolution, Finding, Work-Hours-API-Typen, RunRecord
+├── fixtures/calendars.ts        # synthetische Bäume nach dem Modell (Builder makeBlock/makeClosure)
+├── utils/
+│   ├── dates.ts, timezones.ts   # Datum/Zeit, Intl-Zonen; Dataverse-Codes ↔ IANA
+│   ├── rules.ts                 # Baum lesen (Wurzel/innere/Blatt, Rang, Muster, Gruppen), Beschreibung
+│   ├── resolve.ts               # expandTree (Server-Nachbau: Rang, V2-Schnitt, Abwesenheit, Schließung), resolveDay
+│   ├── engine.ts                # Server-Emulation von Save/Delete/BusinessClosureSave (Mock, Vorschau, Tests)
+│   ├── intents.ts               # EditIntent → CalendarEventInfo; Validierung; Nachtschicht-Split; Pausen ausschneiden
+│   ├── preview.ts               # Vorschau: Aufrufe auf Kopie des Baums, Tage vorher/nachher
+│   ├── plan.ts, undo.ts         # Massenlauf-Plan, Rückgängig-Plan; runHistory.ts lokaler Verlauf
+│   ├── holidays.ts              # Regelwerke DE/AT/CH, Osterformel, Abgleich
+│   ├── diagnostics.ts           # Befunde 5.1–5.5
+│   └── range.ts, format.ts, resourceFilter.ts, resourceResolution.ts, closures.ts, calendarStrings.ts
+├── services/
+│   ├── calendarService.ts       # Interface + Auswahl Dataverse/Mock, PrivilegeError
+│   ├── dataverseApi.ts          # Konnektor über import.meta.glob (odata, fetchXml, unboundAction)
+│   ├── dataverseCalendarService.ts
+│   ├── runCalendarPlan.ts       # Lauf ausführen, sequentiell, Ergebnis je Schritt
+│   ├── mockCalendarService.ts, mockData.ts
+├── hooks/useLoad.ts, calendarData.ts
+├── components/ shell/ resources/ calendar/ rules/ runs/ diagnostics/ views/ ui.tsx
+└── help/helpContent.ts, HelpPanel.tsx
+```
 
 ## Phase 0 — Discovery in Schulz UAT (für den Nutzer)
 
@@ -120,6 +192,66 @@ Was aus den Ergebnissen entschieden wird, steht unter „Offen“.
 | `msdyn_workhourtemplate` | Entity-Set `msdyn_workhourtemplates`, `msdyn_calendarid` ist eine **Textspalte** (200), `msdyn_bookableresourceid` = Vorlagen-Ressource | [msdyn_workhourtemplate](https://learn.microsoft.com/en-us/dynamics365/field-service/developer/reference/entities/msdyn_workhourtemplate) |
 | `msdyn_timeoffrequest` | `msdyn_starttime`, `msdyn_endtime`, `msdyn_resource`, `msdyn_approvedby`; nur statecode Aktiv/Inaktiv, kein eigenes Genehmigungsfeld dokumentiert | [msdyn_timeoffrequest](https://learn.microsoft.com/en-us/dynamics365/field-service/developer/reference/entities/msdyn_timeoffrequest) |
 
+## Verifiziert (live, Schulz UAT)
+
+Noch nichts. Diese Tabelle füllt der Live-Test nach der Akzeptanzliste des
+Konzepts; bis dahin gilt alles Schreibende als unverifiziert.
+
+| Fall | Erwartung | Ergebnis |
+| --- | --- | --- |
+| Arbeitszeit einmal (Einzeltag) | Save ohne Pattern, Rang-1-Block im Baum, Slot in `msdyn_LoadCalendars` | offen |
+| Wöchentlich mit Pause | Save mit `FREQ=WEEKLY`, drei Rules (0/1/0), Formular zeigt dieselben Zeiten | offen |
+| Je Wochentag verschieden | `IsVaried` + `Action 1`, ein `groupdesignator`, Delete mit `IsVaried` entfernt alle Teile | offen |
+| Abwesenheit mit Grund, ganztägig | `WorkHourType 3`, `InnerCalendarDescription`, Rang 1, kein Slot an den Tagen | offen |
+| Nicht-Arbeit mit Uhrzeit | `WorkHourType 2`, Slot entsprechend verkürzt | offen |
+| Bearbeiten ganze Wiederholung | `IsEdit` + `InnerCalendarId`, ID bleibt | offen |
+| „Dieser und folgende“ | `RecurrenceSplit`, alte Regel endet am Vortag, neue ID | offen |
+| Einzeltag aus Wiederholung | ohne `IsEdit`, mit `InnerCalendarId` — wo liegt der Tag im Baum? | offen |
+| Wiederholung beenden | `RecurrenceEndDate` `T23:59:59Z` ⇒ gewählter Tag ist der letzte | offen |
+| Nachtschicht | zwei Saves, Board zeigt 22–06 | offen |
+| Löschen | `msdyn_DeleteCalendar` im String `CalendarEventInfo` | offen |
+| Vorlage auf 3 Testressourcen | Lauf, dann Rückgängig: Baum gleich bis auf IDs | offen |
+| Feiertage 2027 (Bayern) anlegen | `msdyn_BusinessClosureSave` je Tag, Serienplanung erkennt sie | offen |
+| Schließung löschen | Versuch `msdyn_DeleteCalendar` auf dem Org-Kalender | offen |
+| `UseV2` | Parameter akzeptiert, zwei parallele Wiederholungen bleiben | offen |
+| Rechtefehler | Save ohne Recht ⇒ Klartext, App „Nur lesen“ | offen |
+| Befund 5.1 | stimmt mit manueller Prüfung auf dem Board überein | offen |
+
+## Einrichtung (Schulz UAT)
+
+Voraussetzung: Field Service / URS in der Umgebung, Konto mit Lese- und
+Schreibrecht auf Kalender, Ressourcen, Vorlagen und dem Eigenkalender-Recht
+(„Service Management“). Die App braucht **nur den Dataverse-Konnektor** mit
+einer **Benutzer-Connection** (keine SP-Connection — sonst schreibt jeder
+Nutzer mit den Rechten des SP) und die Org-URL. Profilwahl, Prüfung und
+schreibende Aktion gehören in **einen** Aufruf (Root-`AGENTS.md`); alle
+Logins per Device Code und nur, wenn der Nutzer sie anstößt.
+
+```bash
+cd apps/work-hours-manager && npm install
+pac auth select --name SchulzNEW && pac org who         # muss operations-d365-schulz-uat-1-1.crm4 zeigen
+pac code init --environment 2eaa34de-dcf1-e949-86d9-82d9fd748045 \
+  --displayName "Arbeitszeiten & Kalender" --buildPath "./dist" \
+  --fileEntryPoint "index.html" --appUrl "http://localhost:3000"
+pac code add-data-source -a shared_commondataserviceforapps -c <connection-id>   # Benutzer-Connection (UAT: 4a9f0463…)
+cp .env.example .env   # VITE_ORG_URL=https://operations-d365-schulz-uat-1-1.crm4.dynamics.com
+npm run build && npm run dev                              # „Local Play“ im Host, Bereich „Einrichtung“: alles grün?
+```
+
+`power-apps init` / `power-apps push` (npm-CLI) sind gleichwertig; das Ziel
+bestimmt allein die `environmentId` in `power.config.json`. Vor dem Push
+prüfen, dass dort `2eaa34de-…` steht. Push und Deployment nur nach
+Rücksprache; dann Live-Test nach der Tabelle oben, Ergebnisse eintragen.
+
+Gegenprobe ASC-Playground (ohne Field Service): Ressourcenliste leer ⇒ die
+App zeigt den Hinweis „Keine Ressourcen sichtbar …“, Diagnose ohne Befunde.
+
+## Deployment-Stand
+
+Nicht deployt. Ziel Schulz UAT (`operations-d365-schulz-uat-1-1.crm4`,
+Env-ID `2eaa34de-dcf1-e949-86d9-82d9fd748045`), danach ASC-Playground als
+Gegenprobe. Push nur nach Rücksprache. Weiterer Ausbau: [`Roadmap.md`](Roadmap.md).
+
 ## Offen
 
 **Entscheidungen nach Phase 0**
@@ -175,13 +307,31 @@ ihnen; der Phase-0-Export bestätigt oder korrigiert sie in `rules.ts`):
   und Labels stammen aus der Doku.
 - Regionale Feiertage: Regelwerke aus eigenem Wissen (Stand 2026), ohne
   kantonale Sonderfälle der Schweiz und ohne Augsburger Friedensfest.
+- Rückgängig stellt ein offenes Ende über `RecurrenceEndDate = 9999-12-30T23:59:59Z`
+  wieder her (Doku: Default-Ende der Wiederholungen) — ob die API den Wert
+  annimmt, ist offen; sonst Alternative „neu anlegen“.
+- Beim Bearbeiten einer Wiederholung senden wir `StartTime` mit dem
+  ursprünglichen Startdatum (wie das Doku-Beispiel), beim Split mit dem
+  Teilungsdatum. Für Teile einer Gruppe (`IsVaried`) wählen wir `Action 3`,
+  wenn nur Zeiten/Kapazität sich ändern, sonst `4`; die Doku beschreibt nicht,
+  was passiert, wenn man sich vertut.
+- Der Massenlauf interpretiert die Zeiten der Vorlage in der **Zeitzone der
+  Ressource** (`TimeZoneCode` = `bookableresource.timezone`), nicht in der
+  Zeitzone der Vorlagenregeln.
+- `msdyn_LoadCalendars` über den Konnektor liefert `CalendarEvents` als
+  String (so die Serienplanung) — die App akzeptiert String und Objekt.
+- Schließungen werden ganztägig in der **Anzeige-Zeitzone** angelegt; die
+  Organisation könnte eine andere Zeitzone erwarten.
+- Verlauf und Snapshot liegen nur im Browser (`localStorage`, letzte 20);
+  ein großer Lauf kann das Speicherlimit erreichen — dann bleibt der
+  JSON-Download.
 
 ## Entwickeln
 
 ```bash
 npm install
-npm run dev      # http://localhost:3000 — ohne Host: Mock-Daten (14 fiktive Ressourcen, 4 Vorlagen, Schließungen)
-npm run test     # Vitest: dates, timezones, rules, resolve, holidays, mockEngine
+npm run dev      # http://localhost:3000 — ohne Host: Mock-Daten (14 fiktive Ressourcen, 4 Vorlagen, Schließungen; Save/Delete emuliert)
+npm run test     # Vitest: dates, timezones, rules, resolve, engine, intents (+preview), plan (+undo, runPlan), holidays, diagnostics, help
 npm run build    # tsc -b && vite build
 npm run lint
 ```

@@ -19,6 +19,8 @@ import { HolidaysView } from './components/views/HolidaysView'
 import { RunsView } from './components/views/RunsView'
 import { RunWizardDrawer, type WizardMode } from './components/runs/RunWizardDrawer'
 import { listRuns } from './utils/runHistory'
+import { HelpPanel } from './help/HelpPanel'
+import { HELP_FOR } from './help/helpContent'
 import type { RunRecord } from './types/calendar'
 import type { RunTargetInput } from './utils/plan'
 import { SetupView } from './components/views/SetupView'
@@ -68,6 +70,7 @@ export default function App() {
   const [readOnly, setReadOnly] = useState(false)
   const [editor, setEditor] = useState<{ kind: 'resource' | 'template'; id: string; request: EditorRequest; epoch: number } | null>(null)
   const [runs, setRuns] = useState<RunRecord[]>(listRuns)
+  const [help, setHelp] = useState<{ open: boolean; section: string | null }>({ open: false, section: null })
   const [wizard, setWizard] = useState<{ mode: WizardMode; epoch: number } | null>(null)
 
   const visible = visibleRange(range)
@@ -187,7 +190,7 @@ export default function App() {
           mode={mode}
           ready={ready}
           readOnly={readOnly}
-          onHelp={() => notify('Hilfe folgt in Phase 5.')}
+          onHelp={() => setHelp({ open: true, section: HELP_FOR[view] ?? null })}
           onReload={data.reloadAll}
         />
         {errors.map((e) => (
@@ -226,7 +229,18 @@ export default function App() {
             ) : view === 'templates' ? (
               <TemplatesView templates={data.templates.data} trees={trees} focusedId={focusedTemplate?.id ?? null} onFocus={(id) => setFocus({ kind: 'template', id, blockId: null })} onApply={readOnly ? null : (templateId) => openWizard({ kind: 'new', templateId })} />
             ) : view === 'holidays' ? (
-              <HolidaysView year={holidayYear} onYear={setHolidayYear} closures={yearClosures.data} error={yearClosures.error} viewerTz={settings.viewerTz} />
+              <HolidaysView
+                year={holidayYear}
+                onYear={setHolidayYear}
+                closures={yearClosures.data}
+                error={yearClosures.error}
+                viewerTz={settings.viewerTz}
+                readOnly={readOnly}
+                today={today}
+                notify={notify}
+                onChanged={() => setTreeVersion((v) => v + 1)}
+                onPrivilegeError={() => setReadOnly(true)}
+              />
             ) : view === 'diagnostics' ? (
               <DiagnosticsView findings={findings} fromSlots={slotsData !== null} onShowResource={showResourceRule} />
             ) : view === 'runs' ? (
@@ -277,6 +291,7 @@ export default function App() {
           ) : null}
         </div>
       </div>
+      <HelpPanel open={help.open} section={help.section} onClose={() => setHelp({ open: false, section: null })} />
       <Toaster toasterId={toasterId} position="bottom-end" />
     </div>
   )

@@ -35,10 +35,11 @@ CodeApps/
 │   ├── schedule-board-manager/ # Code App: URS-Schedule-Boards kopieren/bearbeiten/vergleichen/bulk/transfer (Schulz UAT)
 │   ├── series-planner/     # Code App: Serienplanung — wiederkehrende Projekteinsätze als Arbeitsaufträge + Buchungen (Schulz UAT)
 │   ├── translation-studio/ # Code App: fehlende Übersetzungen von Dataverse-Beschriftungen finden, füllen, importieren (Ziel Waldmann DEV)
+│   ├── work-hours-manager/ # Code App: Arbeitszeiten & Kalender — Herkunft, Editor, Massenlauf, Feiertage über die Work-Hours-Actions (Schulz UAT)
 │   ├── my-day/             # Gen Page in Sales Hub (Waldmann): Termine/Aufgaben/Projektaufgaben + Leads/Projekte/Anfragen/Workorders
 │   └── account-360/        # Gen Page in der Accounts App (Playground): Account-Liste + Stammdaten/Aufgaben/Kontakte/Adressen
 ├── docs/                   # SETUP.md (neue App anlegen), IDEAS*.md, HANDOVER.md (Audit Explorer)
-│   └── concepts/           # je ein Konzept + Kickoff-Prompt (translation-studio — gebaut, territory-planner)
+│   └── concepts/           # je ein Konzept + Kickoff-Prompt (translation-studio, work-hours-manager — gebaut; territory-planner)
 ├── marketing/              # Sales-Deck + Handout der Solution Administration Console
 ├── .claude/skills/         # create-release (managed Export + GitHub-Release, nur solution-forge)
 ├── AGENTS.md               # diese Datei
@@ -85,7 +86,7 @@ Console" (npm-Name `solution-administration-console`).
 | `npm run dev` | Vite-Dev-Server (`http://localhost:3000`, „Local Play" in Power Apps) |
 | `npm run build` | `tsc -b && vite build` — **muss grün sein vor jedem Commit** |
 | `npm run lint` | ESLint (React 19, react-hooks, React-Compiler-Regeln) — **muss grün sein** |
-| `npm run test` | Vitest (solution-forge, schedule-board-manager, series-planner, translation-studio; Tests liegen neben `src/utils/*`) |
+| `npm run test` | Vitest (solution-forge, schedule-board-manager, series-planner, translation-studio, work-hours-manager; Tests liegen neben `src/utils/*`) |
 | `power-apps push` / `pac code push` | Veröffentlicht in die Ziel-Umgebung — **nie blind**, siehe unten |
 
 Toolchain: Node 24 (LTS reicht), `@microsoft/power-apps` (npm-CLI, global),
@@ -94,11 +95,11 @@ Toolchain: Node 24 (LTS reicht), `@microsoft/power-apps` (npm-CLI, global),
 
 ## Gitignored, aber build-relevant (häufigste Stolperfalle)
 
-In `audit-explorer`, `schedule-board-manager`, `series-planner`, `translation-studio` und `solution-forge` sind **`power.config.json`** und
+In `audit-explorer`, `schedule-board-manager`, `series-planner`, `translation-studio`, `work-hours-manager` und `solution-forge` sind **`power.config.json`** und
 **`src/generated/`** gitignored (environment-spezifisch bzw. generiert).
 Nach frischem Clone oder Branch-Merge fehlen sie ⇒ Build bricht mit
-`Cannot find module '../generated/...'` (Ausnahme `translation-studio`: lädt die
-generierten Clients per `import.meta.glob` und baut auch ohne). Wiederherstellen mit
+`Cannot find module '../generated/...'` (Ausnahme `translation-studio` und
+`work-hours-manager`: laden die generierten Clients per `import.meta.glob` und bauen auch ohne). Wiederherstellen mit
 `power-apps init` + Data Sources hinzufügen — für solution-forge **nur über
 den Wrapper** `scripts/add-data-source.ps1`, nicht `pac` direkt (Bootstrap-
 Sequenz steht in dessen `CLAUDE.md`). `sales-dashboard` committet beides.
