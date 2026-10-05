@@ -127,6 +127,23 @@ describe('runImport', () => {
     expect(await runImport((await opts(svc, false)).o)).toMatchObject({ status: 'succeeded' })
   })
 
+  it('shows the running system job and its start, and ends with it while the job row lags at 0 %', async () => {
+    const states = ['running', 'running', 'succeeded'] as const
+    let n = 0
+    const started = { ...job(0), startedOn: '2026-10-05T17:24:14Z' }
+    const svc = stub(
+      {
+        importTranslations: vi.fn(async () => ({ asyncOperationId: 'op-1' })),
+        getAsyncOperation: vi.fn(async (id: string) => ({ id, message: null, state: states[Math.min(n++, states.length - 1)] })),
+      },
+      // The row never completes: only the system job says the import is done; the log has the verdict.
+      [started, started, started, started, started, started, { ...started, data: '<importtranslations><status>Succeeded</status></importtranslations>' }],
+    )
+    const { o, seen } = await opts(svc, false)
+    expect(await runImport(o)).toMatchObject({ status: 'succeeded' })
+    expect(seen.some((p) => p.systemJob === 'running' && p.jobStartedAt === Date.parse('2026-10-05T17:24:14Z'))).toBe(true)
+  })
+
   it('reports a failed import system job with its message', async () => {
     const svc = stub(
       {

@@ -68,6 +68,16 @@ export function saveExportDuration(orgUrl: string, solution: string, ms: number)
   write(DURATION, { ...read<Record<string, number>>(DURATION, {}), [durationKey(orgUrl, solution)]: Math.round(ms) })
 }
 
+/** Duration of the last import job of a solution in this browser (ms): the apply dialog measures against it. */
+export function loadImportDuration(orgUrl: string, solution: string): number | null {
+  const ms = read<Record<string, number>>(DURATION, {})[`import|${durationKey(orgUrl, solution)}`]
+  return typeof ms === 'number' && ms > 0 ? ms : null
+}
+
+export function saveImportDuration(orgUrl: string, solution: string, ms: number): void {
+  write(DURATION, { ...read<Record<string, number>>(DURATION, {}), [`import|${durationKey(orgUrl, solution)}`]: Math.round(ms) })
+}
+
 const DETAILS = 'translation-studio.details'
 
 /** Whether the designer's details panel (inspector) is open; null when the user never chose. */

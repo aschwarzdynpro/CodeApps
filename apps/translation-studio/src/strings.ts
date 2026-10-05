@@ -339,6 +339,11 @@ export const S = {
     },
     jobProgress: (pct: number) => `${Math.round(pct)} %`,
     jobWaiting: 'warte auf den Importjob …',
+    queued: 'Systemauftrag wartet in der Warteschlange',
+    since: (t: string) => `läuft seit ${t}`,
+    noIntermediate: (last: string | null) =>
+      `Der Import läuft als Systemauftrag in Dataverse. Bei Übersetzungen meldet der Importjob keinen Zwischenstand — 0 % bis zum Ende. ${last ? `Der letzte Import dieser Solution dauerte ${last}; daran misst sich der Balken.` : 'Große Solutions brauchen mehrere Minuten (WaldmannCore: ~5).'}`,
+    publishLong: 'Veröffentlichen läuft als Systemauftrag und dauert in großen Umgebungen mehrere Minuten (Waldmann: ~6).',
     paused: 'pausiert, solange die App im Hintergrund ist',
     running: (id: string) => `Es läuft bereits ein Import (Job ${id.slice(0, 8)}…). Erst wenn er fertig ist, lässt sich ein neuer starten.`,
     unchanged: 'Die Datei ist unverändert — es gibt nichts zu importieren.',

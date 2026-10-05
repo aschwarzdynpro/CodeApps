@@ -276,6 +276,15 @@ XML, Node):
     obwohl der Job durchlief. Jetzt entscheidet der Job: Aufruffehler bei
     erfolgreichem Job sind ein Hinweis, ein Timeout beim Veröffentlichen
     heißt „läuft vermutlich weiter“ (Vitest).
+  - **Import sichtbar am Leben (2026-10-05):** Beim asynchronen
+    Übersetzungsimport bleibt der Importjob bis zum Ende bei 0 % (live:
+    WaldmannCore, Systemauftrag „In Bearbeitung“, Job 0 %) — der Dialog sah
+    aus, als hinge er. Jetzt: Zustand des Systemauftrags (Warteschlange /
+    in Bearbeitung), „läuft seit m:ss“ für Import und Veröffentlichen,
+    Hinweis auf den fehlenden Zwischenstand, Balken gegen die Dauer des
+    letzten Imports der Solution (sonst unbestimmt). Endet der
+    Systemauftrag, während die Jobzeile noch 0 % zeigt, entscheidet das
+    Protokoll (Vitest).
   - **Tabellenname bei „Typ“-Spalten (2026-10-05):** Die Gruppe einer
     Tabelle kann weitere `LocalizedName`-Zeilen tragen — die Datensatztypen
     einer Typ-Spalte mit den IDs der jeweiligen Tabellen (`queueitem`: 41,

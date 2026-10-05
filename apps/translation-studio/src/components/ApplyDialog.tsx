@@ -5,7 +5,8 @@ import type { CellChange, ComponentInfo, SolutionRef, TranslationFile } from '..
 import { getTranslationService } from '../services/translationService'
 import { publishAndWait, runImport, type RunOutcome, type RunProgress, type StepId } from '../services/runImport'
 import { languageName } from '../utils/languages'
-import { saveRun } from '../utils/storage'
+import { loadImportDuration, saveImportDuration, saveRun } from '../utils/storage'
+import { formatDuration, useNow } from '../hooks/useNow'
 import { downloadText, stamp } from '../utils/download'
 import { ConfirmDialog, Modal } from './Modal'
 import { Btn } from './ui'
@@ -32,6 +33,8 @@ export function ApplyDialog({ solution, file, exportZip, changes, components, on
   const [progress, setProgress] = useState<RunProgress | null>(null)
   const [outcome, setOutcome] = useState<RunOutcome | null>(null)
   const [publishing, setPublishing] = useState<'confirm' | 'running' | null>(null)
+  /** Duration of the last import of this solution (ms), read when the run starts. */
+  const [lastMs, setLastMs] = useState<number | null>(null)
   const signal = useRef({ cancelled: false })
 
   useEffect(() => {
@@ -47,12 +50,15 @@ export function ApplyDialog({ solution, file, exportZip, changes, components, on
   const perLanguage = new Map<number, number>()
   for (const c of changes) perLanguage.set(c.lcid, (perLanguage.get(c.lcid) ?? 0) + 1)
   const running = progress !== null && outcome === null
+  // Ticks while running: the elapsed times show the import is alive although Dataverse reports 0 % until the end.
+  const now = useNow(1000, running)
 
   const start = async () => {
     const svc = await getTranslationService()
     onLock(true)
     const runId = crypto.randomUUID()
     const counts = Object.fromEntries(perLanguage)
+    setLastMs(loadImportDuration(svc.orgUrl, solution.uniqueName))
     saveRun({ id: runId, at: new Date().toISOString(), orgUrl: svc.orgUrl, solution: solution.uniqueName, counts, importJobId: null, status: 'running', published: false, message: '' })
     let result: RunOutcome
     try {
@@ -60,10 +66,25 @@ export function ApplyDialog({ solution, file, exportZip, changes, components, on
     } catch (err) {
       // runImport reports its own failures; this is the unexpected rest — never leave the studio locked.
       result = { status: 'error', jobId: null, job: null, log: [], error: err instanceof Error ? err.message : String(err), published: false }
-      setProgress((p) => p ?? { steps: { check: 'failed', build: 'pending', upload: 'pending', job: 'pending', publish: 'skipped' }, jobProgress: null, paused: false })
+      setProgress(
+        (p) =>
+          p ?? {
+            steps: { check: 'failed', build: 'pending', upload: 'pending', job: 'pending', publish: 'skipped' },
+            jobProgress: null,
+            paused: false,
+            jobStartedAt: null,
+            systemJob: null,
+            publishStartedAt: null,
+            publishJob: null,
+          },
+      )
     } finally {
       onLock(false)
     }
+    // The import job's own duration (server times), for the next run's progress bar.
+    const job = result.status === 'succeeded' ? result.job : null
+    const took = job?.startedOn && job.completedOn ? Date.parse(job.completedOn) - Date.parse(job.startedOn) : NaN
+    if (Number.isFinite(took) && took > 0) saveImportDuration(svc.orgUrl, solution.uniqueName, took)
     saveRun({
       id: runId,
       at: new Date().toISOString(),
@@ -178,15 +199,30 @@ export function ApplyDialog({ solution, file, exportZip, changes, components, on
                   <span className="step__label">{S.apply.steps[id]}</span>
                   {id === 'job' && st !== 'pending' ? (
                     <span className="step__detail">
-                      {progress.jobProgress === null ? S.apply.jobWaiting : S.apply.jobProgress(progress.jobProgress)}
+                      {progress.jobProgress === null
+                        ? progress.systemJob === 'waiting'
+                          ? S.apply.queued
+                          : S.apply.jobWaiting
+                        : S.apply.jobProgress(progress.jobProgress)}
+                      {st === 'running' && progress.jobStartedAt !== null ? ` · ${S.apply.since(formatDuration(now - progress.jobStartedAt))}` : ''}
                       {progress.paused ? ` · ${S.apply.paused}` : ''}
+                    </span>
+                  ) : null}
+                  {id === 'publish' && st === 'running' && progress.publishStartedAt !== null ? (
+                    <span className="step__detail">
+                      {progress.publishJob === 'waiting' ? `${S.apply.queued} · ` : ''}
+                      {S.apply.since(formatDuration(now - progress.publishStartedAt))}
                     </span>
                   ) : null}
                 </li>
               )
             })}
           </ol>
-          {running ? <ProgressBar value={progress.jobProgress === null ? undefined : progress.jobProgress / 100} /> : null}
+          {running ? <ProgressBar value={barValue(progress, lastMs, now)} /> : null}
+          {running && progress.steps.job === 'running' && progress.jobStartedAt !== null && (progress.jobProgress ?? 0) === 0 ? (
+            <p className="muted small">{S.apply.noIntermediate(lastMs !== null ? formatDuration(lastMs) : null)}</p>
+          ) : null}
+          {running && progress.steps.publish === 'running' ? <p className="muted small">{S.apply.publishLong}</p> : null}
           {outcome ? <Result outcome={outcome} solution={solution.uniqueName} /> : null}
         </>
       )}
@@ -201,6 +237,18 @@ export function ApplyDialog({ solution, file, exportZip, changes, components, on
       ) : null}
     </Modal>
   )
+}
+
+/**
+ * The bar while running: the job's own percentage once it moves; before that
+ * (a translation import stays at 0 % until done) the time against the last
+ * import of the solution; without one — and while publishing — indeterminate.
+ */
+function barValue(p: RunProgress, lastMs: number | null, now: number): number | undefined {
+  if (p.steps.job !== 'running') return undefined
+  if (p.jobProgress !== null && p.jobProgress > 0) return Math.min(p.jobProgress / 100, 0.99)
+  if (p.jobStartedAt !== null && lastMs !== null) return Math.min((now - p.jobStartedAt) / lastMs, 0.95)
+  return undefined
 }
 
 function Result({ outcome, solution }: { outcome: RunOutcome; solution: string }) {

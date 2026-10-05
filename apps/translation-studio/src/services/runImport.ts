@@ -25,6 +25,13 @@ export interface RunProgress {
   steps: Record<StepId, StepStatus>
   jobProgress: number | null
   paused: boolean
+  /** Start of the import job (server time, ms) — Dataverse reports 0 % until a translation import is done. */
+  jobStartedAt: number | null
+  /** State of the import's system job (`ImportTranslationAsync`), as far as readable. */
+  systemJob: AsyncOperationState['state'] | null
+  /** Start of publishing (ms) and the state of its system job. */
+  publishStartedAt: number | null
+  publishJob: AsyncOperationState['state'] | null
 }
 
 export interface RunOutcome {
@@ -85,6 +92,8 @@ export interface PublishResult {
 
 export interface PublishOptions {
   svc: TranslationService
+  /** State of the system job on every poll (null: not readable). */
+  onState?: (state: AsyncOperationState['state'] | null) => void
   signal?: { cancelled: boolean }
   pollMs?: number
   maxWaitMs?: number
@@ -119,6 +128,7 @@ export async function publishAndWait(o: PublishOptions): Promise<PublishResult> 
     } catch (err) {
       console.warn('[translation] publish job not readable', err)
     }
+    o.onState?.(op?.state ?? null)
     if (op?.state === 'succeeded') return { published: true }
     if (op?.state === 'failed' || op?.state === 'canceled') return { published: false, error: op.message ?? `Systemauftrag ${op.state === 'canceled' ? 'abgebrochen' : 'fehlgeschlagen'}` }
     if (Date.now() - started > maxWaitMs) return { published: null, error: 'Das Veröffentlichen läuft ungewöhnlich lange — Systemaufträge im Maker-Portal prüfen.' }
@@ -138,6 +148,10 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
     steps: { check: 'pending', build: 'pending', upload: 'pending', job: 'pending', publish: o.publish ? 'pending' : 'skipped' },
     jobProgress: null,
     paused: false,
+    jobStartedAt: null,
+    systemJob: null,
+    publishStartedAt: null,
+    publishJob: null,
   }
   const emit = () => o.onProgress({ ...progress, steps: { ...progress.steps } })
   const step = (id: StepId, s: StepStatus) => {
@@ -205,6 +219,23 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
   let job: ImportJobState | null = null
   let pollsAfterError = 0
   let asyncDoneAt = 0
+  let polls = 0
+  /** The import's system job ended successfully (its import job may lag behind). */
+  let systemJobDone = false
+  const readSystemJob = async () => {
+    if (!asyncOperationId) return null
+    try {
+      const op = await o.svc.getAsyncOperation(asyncOperationId)
+      if (op && op.state !== progress.systemJob) {
+        progress.systemJob = op.state
+        emit()
+      }
+      return op
+    } catch (err) {
+      console.warn('[translation] import system job not readable', err)
+      return null
+    }
+  }
   step('job', 'running')
   for (;;) {
     if (o.signal?.cancelled) return { status: 'error', jobId, job, log: [], error: 'abgebrochen', published: false }
@@ -221,8 +252,19 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
     }
     if (job) {
       progress.jobProgress = job.progress
+      const startedAt = job.startedOn ? Date.parse(job.startedOn) : NaN
+      progress.jobStartedAt = Number.isFinite(startedAt) ? startedAt : (progress.jobStartedAt ?? Date.now())
       emit()
       if (importStatus(job) !== 'running') break
+      // A translation import reports 0 % until it's done: the system job shows it's alive, and when it ends.
+      if (asyncOperationId && polls++ % 2 === 0) {
+        const op = await readSystemJob()
+        if (op?.state === 'failed' || op?.state === 'canceled') break
+        if (op?.state === 'succeeded') {
+          systemJobDone = true
+          break
+        }
+      }
     } else if (callDone && callError) {
       // Failed call: look a few more times for the job and its log, then report the call's error.
       if (pollsAfterError++ >= failedCallPolls) {
@@ -231,12 +273,7 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
       }
     } else if (callDone && asyncOperationId && !asyncDoneAt) {
       // Asynchronous import: the job row appears once the system job runs — it may wait in the queue first.
-      let op: AsyncOperationState | null = null
-      try {
-        op = await o.svc.getAsyncOperation(asyncOperationId)
-      } catch (err) {
-        console.warn('[translation] import system job not readable', err)
-      }
+      const op = await readSystemJob()
       if (op?.state === 'failed' || op?.state === 'canceled') {
         step('job', 'failed')
         return fail('upload', new Error(op.message ?? 'Der Systemauftrag des Imports ist fehlgeschlagen.'), jobId, null)
@@ -265,7 +302,10 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
     console.warn('[translation] import log not readable', err)
   }
   const log = parseImportLog(job?.data ?? null)
-  const status = job ? importStatus(job) : 'failed'
+  let status = job ? importStatus(job) : 'failed'
+  // The system job ended fine while the import job row still looks unfinished and its log has no verdict.
+  if (status === 'running' && systemJobDone) status = 'succeeded'
+  if (status === 'running') status = 'failed'
   if (progress.steps.upload === 'running') step('upload', callError && status !== 'succeeded' ? 'failed' : 'done')
   // The job succeeded although the call failed: keep the call's message as a note, not as an error.
   const callWarning = callError && status === 'succeeded' ? message(callError) : undefined
@@ -279,8 +319,21 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
 
   // 5. Publish.
   if (!o.publish) return { status: 'succeeded', jobId, job, log, published: false, callWarning }
+  progress.publishStartedAt = Date.now()
   step('publish', 'running')
-  const pub = await publishAndWait({ svc: o.svc, signal: o.signal, sleep, isHidden, pollMs: o.pollMs, maxWaitMs })
+  const pub = await publishAndWait({
+    svc: o.svc,
+    signal: o.signal,
+    sleep,
+    isHidden,
+    pollMs: o.pollMs,
+    maxWaitMs,
+    onState: (state) => {
+      if (state === progress.publishJob) return
+      progress.publishJob = state
+      emit()
+    },
+  })
   step('publish', pub.published === true ? 'done' : pub.published === null ? 'unknown' : 'failed')
   return { status: 'succeeded', jobId, job, log, published: pub.published, publishError: pub.error, callWarning }
 }
