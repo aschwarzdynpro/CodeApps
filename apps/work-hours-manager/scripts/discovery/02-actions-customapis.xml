@@ -1,0 +1,29 @@
+<!-- Dieselben Actions, falls sie als Custom API registriert sind (neuere URS-Versionen);
+     Request-Parameter und Response-Eigenschaften mit Typ. Hier zeigt sich auch, ob es eine
+     „Vorlage anwenden“-Action oder ein Löschen für Geschäftsschließungen gibt. -->
+<fetch>
+  <entity name="customapi">
+    <attribute name="uniquename" />
+    <attribute name="displayname" />
+    <attribute name="bindingtype" />
+    <attribute name="boundentitylogicalname" />
+    <attribute name="isfunction" />
+    <attribute name="isprivate" />
+    <filter type="or">
+      <condition attribute="uniquename" operator="like" value="%Calendar%" />
+      <condition attribute="uniquename" operator="like" value="%Closure%" />
+      <condition attribute="uniquename" operator="like" value="%WorkHour%" />
+      <condition attribute="uniquename" operator="like" value="%Template%" />
+    </filter>
+    <link-entity name="customapirequestparameter" from="customapiid" to="customapiid" alias="in" link-type="outer">
+      <attribute name="uniquename" />
+      <attribute name="type" />
+      <attribute name="isoptional" />
+    </link-entity>
+    <link-entity name="customapiresponseproperty" from="customapiid" to="customapiid" alias="out" link-type="outer">
+      <attribute name="uniquename" />
+      <attribute name="type" />
+    </link-entity>
+    <order attribute="uniquename" />
+  </entity>
+</fetch>

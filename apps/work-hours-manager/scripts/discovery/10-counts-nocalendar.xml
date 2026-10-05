@@ -1,0 +1,10 @@
+<!-- Zählung: aktive Ressourcen ohne Kalender. -->
+<fetch aggregate="true">
+  <entity name="bookableresource">
+    <attribute name="bookableresourceid" alias="ohne_kalender" aggregate="count" />
+    <filter>
+      <condition attribute="statecode" operator="eq" value="0" />
+      <condition attribute="calendarid" operator="null" />
+    </filter>
+  </entity>
+</fetch>

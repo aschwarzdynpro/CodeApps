@@ -1,0 +1,8 @@
+<!-- Kalender der Geschäftsschließungen der Organisation (für 08 und für die App-Einrichtung). -->
+<fetch>
+  <entity name="organization">
+    <attribute name="name" />
+    <attribute name="businessclosurecalendarid" />
+    <attribute name="languagecode" />
+  </entity>
+</fetch>

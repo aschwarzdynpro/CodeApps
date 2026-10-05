@@ -1,0 +1,8 @@
+<!-- Zählung: Ressourcen je Typ und Status; „mit/ohne Kalender“ zeigt die Spalte calendarid (null = ohne). -->
+<fetch aggregate="true">
+  <entity name="bookableresource">
+    <attribute name="bookableresourceid" alias="anzahl" aggregate="count" />
+    <attribute name="resourcetype" alias="typ" groupby="true" />
+    <attribute name="statecode" alias="status" groupby="true" />
+  </entity>
+</fetch>

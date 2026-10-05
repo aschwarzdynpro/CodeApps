@@ -1,0 +1,15 @@
+<!-- Rechte des Testkontos: Sicherheitsrollen des angemeldeten Benutzers. -->
+<fetch>
+  <entity name="systemuser">
+    <attribute name="fullname" />
+    <attribute name="domainname" />
+    <filter>
+      <condition attribute="systemuserid" operator="eq-userid" />
+    </filter>
+    <link-entity name="systemuserroles" from="systemuserid" to="systemuserid" intersect="true">
+      <link-entity name="role" from="roleid" to="roleid" alias="rolle">
+        <attribute name="name" />
+      </link-entity>
+    </link-entity>
+  </entity>
+</fetch>

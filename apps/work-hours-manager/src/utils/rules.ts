@@ -1,0 +1,314 @@
+import { DEFAULT_TIME_ZONE_CODE } from '../config'
+import { S } from '../strings'
+import type { CalendarTree, LeafRule, RawCalendar, RawCalendarRule, RuleBlock, Weekday, WorkHourKind } from '../types/calendar'
+import { addDays, dateOnly, formatDate, formatTime, formatWeekdays, parseDate, timeOfDayMinutes, weekday } from './dates'
+import { timeZoneLabel } from './timezones'
+
+/**
+ * Reading the calendar tree: `calendar` → root `calendarrule` (pattern,
+ * rank, effective interval, time zone, pointer to the inner calendar) →
+ * inner `calendar` → leaf rules (offset, duration, type codes, effort).
+ *
+ * Conventions we rely on (see README "Offen" — to be confirmed against the
+ * Phase-0 export of real trees):
+ * - date/time fields of calendar rules are "UTC-naive": the ISO time portion
+ *   is the local time of `timezonecode`, exactly like the Work Hours API's
+ *   StartTime/EndTime;
+ * - the type of a leaf is `timecode`/`subcode` (SDK enums TimeCode/SubCode);
+ * - the parts of a varied recurrence share one `groupdesignator`.
+ */
+
+export const OPEN_END_YEAR = 9999
+
+/**
+ * `timecode`/`subcode` → kind. TimeCode: 0 Available, 1 Busy, 2 Unavailable,
+ * 3 Filter. SubCode: 1 Schedulable, 4 Break, 5 Holiday, 6 Vacation …
+ */
+export function classifyRule(timeCode: number | null | undefined, subCode: number | null | undefined): WorkHourKind {
+  if (timeCode === 0) return 'work'
+  if (timeCode === 2) {
+    if (subCode === 4) return 'break'
+    if (subCode === 5) return 'closure'
+    if (subCode === 6) return 'timeoff'
+    return 'nonwork'
+  }
+  if (timeCode === 1) return 'nonwork'
+  return 'unknown'
+}
+
+/** Kind → the `timecode`/`subcode` pair we expect the server to store (used by the mock engine and tests). */
+export const CODES_OF_KIND: Record<Exclude<WorkHourKind, 'unknown'>, { timeCode: number; subCode: number }> = {
+  work: { timeCode: 0, subCode: 1 },
+  break: { timeCode: 2, subCode: 4 },
+  nonwork: { timeCode: 2, subCode: 0 },
+  timeoff: { timeCode: 2, subCode: 6 },
+  closure: { timeCode: 2, subCode: 5 },
+}
+
+// ---------------------------------------------------------------------------
+// Patterns
+// ---------------------------------------------------------------------------
+
+export const BYDAY: Record<Weekday, string> = { 1: 'MO', 2: 'TU', 3: 'WE', 4: 'TH', 5: 'FR', 6: 'SA', 7: 'SU' }
+const WEEKDAY_OF_BYDAY: Record<string, Weekday> = { MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6, SU: 7 }
+/** Order the API documentation uses. */
+const BYDAY_ORDER: Weekday[] = [7, 1, 2, 3, 4, 5, 6]
+
+export interface Pattern {
+  freq: string
+  interval: number
+  weekdays: Weekday[] | null
+  count: number | null
+}
+
+/** `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU` → { freq, interval, weekdays }. Tolerates spaces and lower case. */
+export function parsePattern(pattern: string | null | undefined): Pattern | null {
+  if (!pattern) return null
+  const parts = Object.fromEntries(
+    pattern
+      .split(';')
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .map((p) => {
+        const i = p.indexOf('=')
+        return i < 0 ? [p.toUpperCase(), ''] : [p.slice(0, i).trim().toUpperCase(), p.slice(i + 1).trim().toUpperCase()]
+      }),
+  ) as Record<string, string>
+  const freq = parts.FREQ ?? ''
+  if (!freq) return null
+  const weekdays = parts.BYDAY
+    ? parts.BYDAY.split(',')
+        .map((d) => WEEKDAY_OF_BYDAY[d.trim().slice(-2)])
+        .filter((d): d is Weekday => d !== undefined)
+    : null
+  return { freq, interval: Number(parts.INTERVAL ?? 1) || 1, weekdays: weekdays && weekdays.length ? [...new Set(weekdays)] : weekdays ? [] : null, count: parts.COUNT ? Number(parts.COUNT) : null }
+}
+
+/** The only pattern the Work Hours API accepts, with BYDAY in the documented order (SU first). */
+export function formatPattern(weekdays: Weekday[]): string {
+  const set = new Set(weekdays)
+  return `FREQ=WEEKLY;INTERVAL=1;BYDAY=${BYDAY_ORDER.filter((d) => set.has(d))
+    .map((d) => BYDAY[d])
+    .join(',')}`
+}
+
+// ---------------------------------------------------------------------------
+// Tree
+// ---------------------------------------------------------------------------
+
+const asBool = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : v === 'true' ? true : v === 'false' ? false : null)
+const asNum = (v: unknown): number | null => (v === null || v === undefined || v === '' ? null : Number.isFinite(Number(v)) ? Number(v) : null)
+const asStr = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null)
+
+/** Normalizes a connector/Web API row into `RawCalendarRule` (numbers may arrive as strings, booleans as "true"). */
+export function normalizeRule(row: Record<string, unknown>): RawCalendarRule {
+  return {
+    calendarruleid: String(row.calendarruleid ?? ''),
+    _calendarid_value: String(row._calendarid_value ?? row.calendarid ?? ''),
+    _innercalendarid_value: asStr(row._innercalendarid_value ?? row.innercalendarid),
+    name: asStr(row.name),
+    description: asStr(row.description),
+    pattern: asStr(row.pattern),
+    starttime: asStr(row.starttime),
+    endtime: asStr(row.endtime),
+    duration: asNum(row.duration),
+    effort: asNum(row.effort),
+    timecode: asNum(row.timecode),
+    subcode: asNum(row.subcode),
+    rank: asNum(row.rank),
+    timezonecode: asNum(row.timezonecode),
+    effectiveintervalstart: asStr(row.effectiveintervalstart),
+    effectiveintervalend: asStr(row.effectiveintervalend),
+    extentcode: asNum(row.extentcode),
+    isselected: asBool(row.isselected),
+    issimple: asBool(row.issimple),
+    ismodified: asBool(row.ismodified),
+    isvaried: asBool(row.isvaried),
+    offset: asNum(row.offset),
+    groupdesignator: asStr(row.groupdesignator),
+    createdon: asStr(row.createdon),
+    modifiedon: asStr(row.modifiedon),
+  }
+}
+
+export function normalizeCalendar(row: Record<string, unknown>): RawCalendar {
+  const rules = (row.calendar_calendar_rules as Record<string, unknown>[] | undefined) ?? []
+  return {
+    calendarid: String(row.calendarid ?? ''),
+    name: asStr(row.name),
+    description: asStr(row.description),
+    type: asNum(row.type),
+    calendar_calendar_rules: rules.map(normalizeRule),
+  }
+}
+
+function toLeaf(r: RawCalendarRule): LeafRule {
+  const startMin = r.offset ?? timeOfDayMinutes(r.starttime) ?? 0
+  return { id: r.calendarruleid, kind: classifyRule(r.timecode, r.subcode), startMin, duration: r.duration ?? 0, effort: r.effort, timeCode: r.timecode, subCode: r.subcode, raw: r }
+}
+
+const isOpenEnd = (date: string | null): boolean => date === null || parseDate(date).y >= OPEN_END_YEAR
+
+function toBlock(root: RawCalendarRule, inner: RawCalendar | null): RuleBlock | null {
+  const start = dateOnly(root.effectiveintervalstart) ?? dateOnly(root.starttime)
+  if (!start) return null
+  const pattern = parsePattern(root.pattern)
+  const weekdays = pattern && pattern.freq === 'WEEKLY' && pattern.weekdays && pattern.weekdays.length ? pattern.weekdays : null
+  const rank = root.rank ?? (weekdays ? 0 : 1)
+  const leaves = inner ? inner.calendar_calendar_rules.map(toLeaf).sort((a, b) => a.startMin - b.startMin) : root._innercalendarid_value ? [] : [toLeaf(root)]
+  const rootStartMin = timeOfDayMinutes(root.starttime) ?? 0
+  const rootDuration = root.duration ?? 0
+  const startMin = leaves.length ? Math.min(...leaves.map((l) => l.startMin)) : rootStartMin
+  const endMin = leaves.length ? Math.max(...leaves.map((l) => l.startMin + l.duration)) : rootStartMin + rootDuration
+  const intervalEnd = dateOnly(root.effectiveintervalend)
+  let end: string | null
+  if (weekdays) end = isOpenEnd(intervalEnd) ? null : intervalEnd
+  // Occurrences (time off, closures, single days) carry their span in starttime + duration; several days ⇒ end = start + n-1.
+  else if (rootDuration > 0) end = addDays(start, Math.max(0, Math.ceil((rootStartMin + rootDuration) / 1440) - 1))
+  else end = isOpenEnd(intervalEnd) ? start : intervalEnd
+  const kind: WorkHourKind = leaves.some((l) => l.kind === 'work') ? 'work' : (leaves[0]?.kind ?? classifyRule(root.timecode, root.subcode))
+  return {
+    rootRuleId: root.calendarruleid,
+    innerCalendarId: root._innercalendarid_value,
+    rank,
+    pattern: root.pattern,
+    weekdays,
+    groupId: root.groupdesignator,
+    start,
+    end,
+    timeZoneCode: root.timezonecode ?? leaves.find((l) => l.raw.timezonecode !== null)?.raw.timezonecode ?? DEFAULT_TIME_ZONE_CODE,
+    description: root.description ?? inner?.description ?? root.name ?? null,
+    leaves,
+    kind,
+    startMin,
+    endMin,
+    modifiedOn: root.modifiedon,
+    createdOn: root.createdon,
+    raw: { root, inner },
+  }
+}
+
+/**
+ * Builds the model from the entity's calendar and the inner calendars read
+ * for it. Blocks are sorted by start date, then rank, then creation.
+ */
+export function buildTree(calendar: RawCalendar, innerCalendars: RawCalendar[]): CalendarTree {
+  const inner = new Map(innerCalendars.map((c) => [c.calendarid.toLowerCase(), c]))
+  const referenced = new Set<string>()
+  const blocks: RuleBlock[] = []
+  const unparsed: RawCalendarRule[] = []
+  for (const root of calendar.calendar_calendar_rules) {
+    const innerId = root._innercalendarid_value?.toLowerCase() ?? null
+    if (innerId) referenced.add(innerId)
+    const block = toBlock(root, innerId ? (inner.get(innerId) ?? null) : null)
+    if (block) blocks.push(block)
+    else unparsed.push(root)
+  }
+  blocks.sort((a, b) => a.start.localeCompare(b.start) || a.rank - b.rank || (a.createdOn ?? '').localeCompare(b.createdOn ?? ''))
+  return {
+    calendarId: calendar.calendarid,
+    name: calendar.name,
+    blocks,
+    orphanInnerCalendars: innerCalendars.filter((c) => !referenced.has(c.calendarid.toLowerCase())),
+    unparsed,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Queries on the tree
+// ---------------------------------------------------------------------------
+
+/** Does the block have an occurrence on `date` (date-only, in the block's zone)? */
+export function blockAppliesOn(block: RuleBlock, date: string): boolean {
+  if (date < block.start) return false
+  if (block.end !== null && date > block.end) return false
+  return block.weekdays === null || block.weekdays.includes(weekday(date))
+}
+
+export const isRecurrence = (block: RuleBlock): boolean => block.rank === 0 && block.weekdays !== null
+
+/** Blocks of a varied recurrence, keyed by group id; blocks without a group stand alone. */
+export function groupBlocks(blocks: RuleBlock[]): RuleBlock[][] {
+  const groups = new Map<string, RuleBlock[]>()
+  const out: RuleBlock[][] = []
+  for (const b of blocks) {
+    if (!b.groupId) {
+      out.push([b])
+      continue
+    }
+    let g = groups.get(b.groupId)
+    if (!g) {
+      g = []
+      groups.set(b.groupId, g)
+      out.push(g)
+    }
+    g.push(b)
+  }
+  return out
+}
+
+/** Work blocks whose recurrence ends within `days` of `today` (or already ended, when `includeEnded`). */
+export function blocksEndingSoon(tree: CalendarTree, today: string, days: number, includeEnded = true): RuleBlock[] {
+  const horizon = addDays(today, days)
+  return tree.blocks.filter((b) => isRecurrence(b) && b.kind === 'work' && b.end !== null && b.end <= horizon && (includeEnded || b.end >= today))
+}
+
+/** Work recurrences active on or after `today`. */
+export function activeWorkRecurrences(tree: CalendarTree, today: string): RuleBlock[] {
+  return tree.blocks.filter((b) => isRecurrence(b) && b.kind === 'work' && (b.end === null || b.end >= today))
+}
+
+export const hasWorkRules = (tree: CalendarTree): boolean => tree.blocks.some((b) => b.kind === 'work')
+
+/** Blocks whose zone differs from the resource's. */
+export function blocksInOtherZone(tree: CalendarTree, resourceTimeZoneCode: number): RuleBlock[] {
+  return tree.blocks.filter((b) => b.kind !== 'closure' && b.timeZoneCode !== resourceTimeZoneCode)
+}
+
+export function findBlock(tree: CalendarTree | null | undefined, innerCalendarId: string | null | undefined): RuleBlock | null {
+  if (!tree || !innerCalendarId) return null
+  const id = innerCalendarId.toLowerCase()
+  return tree.blocks.find((b) => b.innerCalendarId?.toLowerCase() === id || b.rootRuleId.toLowerCase() === id) ?? null
+}
+
+// ---------------------------------------------------------------------------
+// Descriptions (German)
+// ---------------------------------------------------------------------------
+
+const span = (startMin: number, endMin: number) => `${formatTime(startMin)}–${endMin % 1440 === 0 && endMin > 0 ? '24:00' : formatTime(endMin)}`
+
+/** "08:00–12:00, 12:30–17:00" of the working leaves. */
+export function workSpans(block: RuleBlock): string {
+  const work = block.leaves.filter((l) => l.kind === 'work')
+  return work.length ? work.map((l) => span(l.startMin, l.startMin + l.duration)).join(', ') : span(block.startMin, block.endMin)
+}
+
+export function breakSpans(block: RuleBlock): string[] {
+  return block.leaves.filter((l) => l.kind === 'break').map((l) => span(l.startMin, l.startMin + l.duration))
+}
+
+export const isAllDay = (block: RuleBlock): boolean => block.startMin === 0 && block.endMin > 0 && block.endMin % 1440 === 0
+
+/** One line per block: "Wöchentlich Mo–Fr 08:00–17:00 · Pause 12:00–12:30 · ab 01.01.2026 · ohne Ende". */
+export function describeBlock(block: RuleBlock): string {
+  const parts: string[] = []
+  if (block.kind === 'closure') return `${S.kinds.closure}: ${block.description ?? ''} ${formatDate(block.start)}${block.end && block.end !== block.start ? `–${formatDate(block.end)}` : ''}`.trim()
+  if (block.weekdays) parts.push(`${S.rules.weekly} ${formatWeekdays(block.weekdays)}`)
+  else parts.push(block.end && block.end !== block.start ? `${formatDate(block.start)}–${formatDate(block.end)}` : formatDate(block.start))
+  const kind = block.kind === 'work' ? '' : `${S.kinds[block.kind]}${block.description && block.kind === 'timeoff' ? ` „${block.description}“` : ''}`
+  if (kind) parts.push(kind)
+  parts.push(isAllDay(block) ? S.rules.allDay : workSpans(block))
+  for (const b of breakSpans(block)) parts.push(S.rules.pauseAt(b))
+  const efforts = [...new Set(block.leaves.filter((l) => l.kind === 'work' && l.effort !== null && l.effort !== 1).map((l) => l.effort))]
+  if (efforts.length) parts.push(`${S.rules.capacity} ${efforts.join('/')}`)
+  if (block.weekdays) {
+    parts.push(`${S.rules.from} ${formatDate(block.start)}`)
+    parts.push(block.end ? `${S.rules.until} ${formatDate(block.end)}` : S.rules.openEnd)
+  }
+  if (block.groupId) parts.push(S.rules.varied)
+  return parts.join(' · ')
+}
+
+export function describeZone(block: RuleBlock): string {
+  return timeZoneLabel(block.timeZoneCode)
+}

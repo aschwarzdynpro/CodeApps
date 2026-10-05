@@ -1,0 +1,39 @@
+<!-- Kalenderbaum einer Ressource: Wurzelregeln des Ressourcenkalenders. CALENDAR_ID ersetzen.
+     Falls pac den Join auf calendarrule ablehnt (die Tabelle erlaubt kein RetrieveMultiple),
+     die Browser-URL aus der README nehmen ($expand=calendar_calendar_rules). -->
+<fetch>
+  <entity name="calendar">
+    <attribute name="calendarid" />
+    <attribute name="name" />
+    <attribute name="type" />
+    <filter>
+      <condition attribute="calendarid" operator="eq" value="CALENDAR_ID" />
+    </filter>
+    <link-entity name="calendarrule" from="calendarid" to="calendarid" alias="rule" link-type="outer">
+      <attribute name="calendarruleid" />
+      <attribute name="innercalendarid" />
+      <attribute name="name" />
+      <attribute name="description" />
+      <attribute name="pattern" />
+      <attribute name="starttime" />
+      <attribute name="endtime" />
+      <attribute name="duration" />
+      <attribute name="effort" />
+      <attribute name="timecode" />
+      <attribute name="subcode" />
+      <attribute name="rank" />
+      <attribute name="timezonecode" />
+      <attribute name="effectiveintervalstart" />
+      <attribute name="effectiveintervalend" />
+      <attribute name="extentcode" />
+      <attribute name="isselected" />
+      <attribute name="issimple" />
+      <attribute name="ismodified" />
+      <attribute name="isvaried" />
+      <attribute name="offset" />
+      <attribute name="groupdesignator" />
+      <attribute name="createdon" />
+      <attribute name="modifiedon" />
+    </link-entity>
+  </entity>
+</fetch>

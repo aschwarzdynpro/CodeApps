@@ -1,0 +1,12 @@
+<!-- Arbeitszeitvorlagen mit ihrer Kalender-ID (msdyn_calendarid ist eine Textspalte). Eine davon wie eine Ressource exportieren. -->
+<fetch>
+  <entity name="msdyn_workhourtemplate">
+    <attribute name="msdyn_workhourtemplateid" />
+    <attribute name="msdyn_name" />
+    <attribute name="msdyn_description" />
+    <attribute name="msdyn_calendarid" />
+    <attribute name="msdyn_bookableresourceid" />
+    <attribute name="statecode" />
+    <order attribute="msdyn_name" />
+  </entity>
+</fetch>

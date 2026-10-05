@@ -1,0 +1,7 @@
+<!-- Zählung: Vorlagen (Datei auch für msdyn_timeoffrequest ausführen, Entity-Name tauschen). -->
+<fetch aggregate="true">
+  <entity name="msdyn_workhourtemplate">
+    <attribute name="msdyn_workhourtemplateid" alias="anzahl" aggregate="count" />
+    <attribute name="statecode" alias="status" groupby="true" />
+  </entity>
+</fetch>

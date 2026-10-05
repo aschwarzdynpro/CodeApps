@@ -1,0 +1,34 @@
+<!-- Blattregeln: innere Kalender aus den innercalendarid-Werten des vorigen Exports. IDs ersetzen/ergänzen. -->
+<fetch>
+  <entity name="calendar">
+    <attribute name="calendarid" />
+    <attribute name="name" />
+    <attribute name="description" />
+    <attribute name="type" />
+    <filter>
+      <condition attribute="calendarid" operator="in">
+        <value>INNER_CALENDAR_ID_1</value>
+        <value>INNER_CALENDAR_ID_2</value>
+      </condition>
+    </filter>
+    <link-entity name="calendarrule" from="calendarid" to="calendarid" alias="leaf" link-type="outer">
+      <attribute name="calendarruleid" />
+      <attribute name="starttime" />
+      <attribute name="endtime" />
+      <attribute name="duration" />
+      <attribute name="offset" />
+      <attribute name="effort" />
+      <attribute name="timecode" />
+      <attribute name="subcode" />
+      <attribute name="rank" />
+      <attribute name="timezonecode" />
+      <attribute name="pattern" />
+      <attribute name="isselected" />
+      <attribute name="issimple" />
+      <attribute name="isvaried" />
+      <attribute name="effectiveintervalstart" />
+      <attribute name="effectiveintervalend" />
+      <attribute name="extentcode" />
+    </link-entity>
+  </entity>
+</fetch>

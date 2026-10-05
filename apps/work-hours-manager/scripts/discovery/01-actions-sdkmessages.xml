@@ -1,0 +1,37 @@
+<!-- Metadaten der Work-Hours-Actions als SDK-Messages (klassisch per Plugin registriert):
+     Name, Bindung (sdkmessagefilter.primaryobjecttypecode), Request-/Response-Felder mit Typ. -->
+<fetch>
+  <entity name="sdkmessage">
+    <attribute name="name" />
+    <attribute name="isprivate" />
+    <attribute name="customizationlevel" />
+    <filter type="or">
+      <condition attribute="name" operator="like" value="msdyn_%Calendar%" />
+      <condition attribute="name" operator="like" value="msdyn_BusinessClosure%" />
+      <condition attribute="name" operator="like" value="msdyn_%WorkHour%" />
+      <condition attribute="name" operator="like" value="msdyn_%Template%" />
+    </filter>
+    <link-entity name="sdkmessagefilter" from="sdkmessageid" to="sdkmessageid" alias="bind" link-type="outer">
+      <attribute name="primaryobjecttypecode" />
+    </link-entity>
+    <link-entity name="sdkmessagepair" from="sdkmessageid" to="sdkmessageid" alias="pair" link-type="outer">
+      <attribute name="endpoint" />
+      <link-entity name="sdkmessagerequest" from="sdkmessagepairid" to="sdkmessagepairid" alias="req" link-type="outer">
+        <link-entity name="sdkmessagerequestfield" from="sdkmessagerequestid" to="sdkmessagerequestid" alias="in" link-type="outer">
+          <attribute name="name" />
+          <attribute name="clrparser" />
+          <attribute name="optional" />
+          <attribute name="position" />
+        </link-entity>
+        <link-entity name="sdkmessageresponse" from="sdkmessagerequestid" to="sdkmessagerequestid" alias="resp" link-type="outer">
+          <link-entity name="sdkmessageresponsefield" from="sdkmessageresponseid" to="sdkmessageresponseid" alias="out" link-type="outer">
+            <attribute name="name" />
+            <attribute name="clrformatter" />
+            <attribute name="position" />
+          </link-entity>
+        </link-entity>
+      </link-entity>
+    </link-entity>
+    <order attribute="name" />
+  </entity>
+</fetch>

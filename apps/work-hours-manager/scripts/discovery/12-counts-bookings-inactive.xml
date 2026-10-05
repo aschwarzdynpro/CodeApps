@@ -1,0 +1,16 @@
+<!-- Befund 5.4: Buchungen ab heute auf inaktiven Ressourcen (DATUM ersetzen, z. B. 2026-10-05). -->
+<fetch aggregate="true">
+  <entity name="bookableresourcebooking">
+    <attribute name="bookableresourcebookingid" alias="buchungen" aggregate="count" />
+    <attribute name="resource" alias="ressource" groupby="true" />
+    <filter>
+      <condition attribute="starttime" operator="ge" value="DATUM" />
+      <condition attribute="statecode" operator="eq" value="0" />
+    </filter>
+    <link-entity name="bookableresource" from="bookableresourceid" to="resource" alias="r">
+      <filter>
+        <condition attribute="statecode" operator="eq" value="1" />
+      </filter>
+    </link-entity>
+  </entity>
+</fetch>

@@ -1,0 +1,24 @@
+<!-- Geschäftsschließungen: Regeln des Org-Kalenders (BUSINESS_CLOSURE_CALENDAR_ID aus 07 ersetzen). -->
+<fetch>
+  <entity name="calendar">
+    <attribute name="calendarid" />
+    <attribute name="name" />
+    <filter>
+      <condition attribute="calendarid" operator="eq" value="BUSINESS_CLOSURE_CALENDAR_ID" />
+    </filter>
+    <link-entity name="calendarrule" from="calendarid" to="calendarid" alias="closure" link-type="outer">
+      <attribute name="calendarruleid" />
+      <attribute name="name" />
+      <attribute name="starttime" />
+      <attribute name="duration" />
+      <attribute name="effectiveintervalstart" />
+      <attribute name="effectiveintervalend" />
+      <attribute name="timecode" />
+      <attribute name="subcode" />
+      <attribute name="rank" />
+      <attribute name="timezonecode" />
+      <attribute name="extentcode" />
+      <attribute name="innercalendarid" />
+    </link-entity>
+  </entity>
+</fetch>

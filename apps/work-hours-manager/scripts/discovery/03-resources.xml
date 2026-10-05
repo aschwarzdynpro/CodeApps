@@ -1,0 +1,17 @@
+<!-- Ressourcen mit Kalender-ID — daraus drei für den Baum-Export auswählen
+     (eine mit wöchentlicher Arbeitszeit + Pause, eine „je Wochentag verschieden“,
+     eine mit Abwesenheit oder bearbeitetem Einzeltag). -->
+<fetch>
+  <entity name="bookableresource">
+    <attribute name="bookableresourceid" />
+    <attribute name="name" />
+    <attribute name="resourcetype" />
+    <attribute name="timezone" />
+    <attribute name="calendarid" />
+    <attribute name="statecode" />
+    <attribute name="msdyn_organizationalunit" />
+    <attribute name="msdyn_displayonscheduleboard" />
+    <attribute name="modifiedon" />
+    <order attribute="modifiedon" descending="true" />
+  </entity>
+</fetch>
