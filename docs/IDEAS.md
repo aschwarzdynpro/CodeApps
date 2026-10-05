@@ -113,3 +113,6 @@ Konzepten mit Kickoff-Prompt für je eine eigene Claude-Session geworden:
   Gebietsplanung: PLZ-Gebiete auf einer Karte, Hygiene-Report und
   Umplanung mit Vorschau auf Basis des bestehenden Waldmann-Modells
   (`territory`, `wal_postalcoderange`).
+
+Weitere Kataloge: [`Ideas_v2.md`](Ideas_v2.md) (Admin-Console-Suite, umgesetzt) und
+[`Ideas_v3.md`](Ideas_v3.md) (zehn weitere Code Apps, Oktober 2026).
