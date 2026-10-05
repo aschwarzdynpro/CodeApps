@@ -72,24 +72,56 @@ if (dataSourcesInfo && hasNativeDataverse && !(EXPORT_DS in dataSourcesInfo)) {
  * PublishAllXml 6 min) while the server goes on.
  */
 const ASYNC_DS = 'tsasyncactions'
-const ASYNC_ACTIONS: Record<string, string[]> = { ImportTranslationAsync: ['TranslationFile', 'ImportJobId'], PublishAllXmlAsync: [] }
+const ASYNC_ACTIONS: Record<string, string[]> = {
+  ImportTranslationAsync: ['TranslationFile', 'ImportJobId'],
+  PublishAllXmlAsync: [],
+  // Chunked export (chunkedExport.ts): components into the temporary solutions.
+  AddSolutionComponent: ['ComponentId', 'ComponentType', 'SolutionUniqueName', 'AddRequiredComponents', 'DoNotIncludeSubcomponents', 'IncludedComponentSettingsValues'],
+}
+/**
+ * Further native calls of the chunked export: create a temporary solution
+ * (POST to the collection) and read a column's labels in every language
+ * (`RetrieveLocLabels`, a function — its parameters go as OData aliases).
+ */
+export const OWN_CALLS = {
+  CreateSolution: {
+    path: '/api/data/v9.2/solutions',
+    method: 'POST',
+    parameters: ['uniquename', 'friendlyname', 'version', 'description', 'publisherid@odata.bind'].map((name) => ({ name, in: 'body', required: true, type: 'string' })),
+    responseInfo: { 200: { type: 'object' } },
+  },
+  RetrieveLocLabels: {
+    path: '/api/data/v9.2/RetrieveLocLabels',
+    method: 'GET',
+    parameters: [
+      // Entity reference literal `{'@odata.id':'appactions(<id>)'}`, passed through as is.
+      { name: 'EntityMoniker', in: 'query', required: true, type: 'object' },
+      { name: 'AttributeName', in: 'query', required: true, type: 'string' },
+      { name: 'IncludeUnpublished', in: 'query', required: true, type: 'boolean' },
+    ],
+    responseInfo: { 200: { type: 'object' } },
+  },
+}
 if (dataSourcesInfo && hasNativeDataverse && !(ASYNC_DS in dataSourcesInfo)) {
   dataSourcesInfo[ASYNC_DS] = {
     tableId: '',
     version: '',
     primaryKey: '',
     dataSourceType: 'Dataverse',
-    apis: Object.fromEntries(
-      Object.entries(ASYNC_ACTIONS).map(([name, params]) => [
-        name,
-        {
-          path: `/api/data/v9.2/${name}`,
-          method: 'POST',
-          parameters: params.map((p) => ({ name: p, in: 'body', required: true, type: 'string' })),
-          responseInfo: { 200: { type: 'object' } },
-        },
-      ]),
-    ),
+    apis: {
+      ...Object.fromEntries(
+        Object.entries(ASYNC_ACTIONS).map(([name, params]) => [
+          name,
+          {
+            path: `/api/data/v9.2/${name}`,
+            method: 'POST',
+            parameters: params.map((p) => ({ name: p, in: 'body', required: true, type: 'string' })),
+            responseInfo: { 200: { type: 'object' } },
+          },
+        ]),
+      ),
+      ...OWN_CALLS,
+    },
   }
 }
 
@@ -116,6 +148,15 @@ const ownNative: Record<string, Record<string, Operation>> = {
 
 function generated(service: string): Record<string, Operation> | null {
   return generatedService(service) ?? ownNative[service] ?? null
+}
+
+/** True when the app registered its own native calls (deployed app with native Dataverse APIs). */
+export const hasOwnCalls = (): boolean => !!dataSourcesInfo && ASYNC_DS in dataSourcesInfo
+
+/** One of {@link OWN_CALLS}; throws `DataverseError` like the other calls. */
+export async function ownCall(name: keyof typeof OWN_CALLS, body: Record<string, unknown>): Promise<unknown> {
+  if (!hasOwnCalls()) throw new DataverseError(`${name}: native Aufrufe sind nicht eingebunden.`)
+  return run(() => customApi(ASYNC_DS, name, body), [])
 }
 
 /**
@@ -223,6 +264,18 @@ export async function odata(entitySet: string, select: string, filter?: string, 
   const svc = connector()
   const data = await run(svc.ListRecordsWithOrganization, [ORG_URL, entitySet, undefined, undefined, undefined, undefined, select, filter, undefined, expand])
   return ((data as { value?: Row[] } | null)?.value ?? []) as Row[]
+}
+
+/** Creates a record through the connector (fallback for {@link ownCall} `CreateSolution`). */
+export async function createRecord(entitySet: string, item: Record<string, unknown>): Promise<void> {
+  const svc = connector()
+  await run(svc.CreateRecordWithOrganization, ['return=representation', 'application/json', ORG_URL, entitySet, item])
+}
+
+/** Deletes a record through the connector. */
+export async function deleteRecord(entitySet: string, id: string): Promise<void> {
+  const svc = connector()
+  await run(svc.DeleteRecordWithOrganization, [ORG_URL, entitySet, id])
 }
 
 export type Route = 'native' | 'connector' | 'connector-bound'

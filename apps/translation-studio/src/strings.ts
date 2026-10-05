@@ -229,6 +229,14 @@ export const S = {
       'Dataverse baut die Übersetzungsdatei der ganzen Solution in einem Aufruf. Bei großen Solutions dauert das einige Minuten, einen Zwischenstand liefert der Server nicht.',
     cancel: 'Warten abbrechen',
     canceled: 'Laden abgebrochen. Der Export auf dem Server läuft zu Ende, ändert aber nichts.',
+    parts: {
+      prepare: () => 'Große Solution — der Export wird in Teile aufgeteilt …',
+      add: (done: number, total: number) => `Teile vorbereiten: ${done.toLocaleString('de-DE')} von ${total.toLocaleString('de-DE')} Komponenten`,
+      export: (done: number, total: number) => `In Teilen exportieren: ${done} von ${total} fertig`,
+      merge: () => 'Teile zusammenführen …',
+    },
+    partsHint:
+      'Ein Export in einem Aufruf würde das Zeitlimit von 180 s überschreiten. Die App legt dafür kurz Hilfs-Solutions (tsexport_…) an und löscht sie danach; die Komponenten selbst bleiben unverändert.',
   },
 
   kpi: {

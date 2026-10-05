@@ -3,6 +3,7 @@ import { ProgressBar, Spinner } from '@fluentui/react-components'
 import { CheckmarkCircleFilled, CircleRegular } from '@fluentui/react-icons'
 import { Btn } from './ui'
 import { S } from '../strings'
+import type { ChunkProgress } from '../services/chunkedExport'
 
 export type LoadPhase = 'export' | 'read'
 
@@ -14,9 +15,14 @@ export interface LoadProgressState {
   phaseAt: number
   /** Duration of the last export of this solution in this browser (ms). */
   lastMs: number | null
+  /** A large solution exported in parts: where it stands. */
+  parts?: ChunkProgress
 }
 
 const STEPS: LoadPhase[] = ['export', 'read']
+
+/** Share of the bar per step of a chunked export: [start, length] (measured: adding ~25 %, exporting ~65 %). */
+const CHUNK_SHARE: Record<ChunkProgress['step'], [number, number]> = { prepare: [0, 0.03], add: [0.03, 0.25], export: [0.28, 0.65], merge: [0.93, 0.05] }
 
 function formatDuration(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000))
@@ -43,7 +49,13 @@ export function LoadProgress({ state, onCancel }: { state: LoadProgressState; on
   const elapsed = now - state.phaseAt
   const exporting = state.phase === 'export'
   const longer = exporting && state.lastMs !== null && elapsed > state.lastMs
-  const value = exporting && state.lastMs !== null && !longer ? Math.min(elapsed / state.lastMs, 0.95) : undefined
+  const parts = exporting ? state.parts : undefined
+  const value =
+    parts && parts.total > 0 && parts.step !== 'prepare'
+      ? CHUNK_SHARE[parts.step][0] + (CHUNK_SHARE[parts.step][1] * parts.done) / parts.total
+      : exporting && state.lastMs !== null && !longer
+        ? Math.min(elapsed / state.lastMs, 0.95)
+        : undefined
   const current = STEPS.indexOf(state.phase)
 
   return (
@@ -64,7 +76,11 @@ export function LoadProgress({ state, onCancel }: { state: LoadProgressState; on
         ))}
       </ol>
       <ProgressBar value={value} max={1} thickness="large" />
-      {exporting ? (
+      {parts ? (
+        <p className="small">
+          <strong>{S.progress.parts[parts.step](parts.done, parts.total)}</strong> · <span className="muted">{S.progress.partsHint}</span>
+        </p>
+      ) : exporting ? (
         <p className="muted small">
           {state.lastMs !== null ? `${longer ? S.progress.longer : S.progress.last(formatDuration(state.lastMs))} · ` : ''}
           {S.progress.exportHint}

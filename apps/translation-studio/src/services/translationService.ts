@@ -13,6 +13,7 @@ import type {
   TranslationFile,
   ViewRecord,
 } from '../types/translation'
+import type { ChunkProgress } from './chunkedExport'
 import { powerModeReady } from '../PowerProvider'
 import { dataverseTranslationService } from './dataverseTranslationService'
 import { mockTranslationService } from './mockTranslationService'
@@ -31,7 +32,11 @@ export interface TranslationService {
   /** Base language of the organization (`organization.languagecode`); null when unreadable. */
   baseLanguage(): Promise<Lcid | null>
   /** `ExportTranslation` — the zip with `CrmTranslations.xml`. */
-  exportTranslations(solutionUniqueName: string): Promise<ExportResult>
+  /**
+   * The translation file of a solution. Large solutions go out in parts
+   * (temporary solutions, merged afterwards); `onProgress` reports them.
+   */
+  exportTranslations(solutionUniqueName: string, onProgress?: (p: ChunkProgress) => void): Promise<ExportResult>
   /** Table/name/kind per object id of the file (best effort, for filters and display). */
   resolveComponents(file: TranslationFile, onPartial?: (partial: Map<string, ComponentInfo>) => void): Promise<Map<string, ComponentInfo>>
   /** Forms with their `formxml`, for the designer (missing ids are left out). */

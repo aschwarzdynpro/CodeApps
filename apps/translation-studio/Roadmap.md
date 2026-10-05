@@ -101,9 +101,13 @@ XML, Node):
       (und `importjob`) statt auf den Aufruf zu warten. Fallback auf die
       synchronen Aktionen nur, wenn die Async-Aktion nachweislich fehlt.
       Live durch einen Import noch zu bestätigen.
-- [ ] **Größengrenze** (S). Größe des Exports messen. Ab einer Schwelle,
-      die live zu ermitteln ist, nicht importieren, sondern auf eine
-      kleinere Solution verweisen.
+- [x] **Export großer Solutions** (L, 2026-10-05; ersetzt
+      „Größengrenze“). In Teilen über temporäre Solutions, parallel
+      exportiert und zusammengeführt (README „Export großer Solutions“).
+      Live in der Code App noch zu bestätigen.
+- [ ] **Teilgrößen nach Gewicht** (S). Tabellen nach der Zeilenzahl des
+      letzten Exports auf die Teile verteilen statt nach Anzahl (die zehn
+      größten Tabellen von WaldmannCore brauchten zusammen 72 s).
 - [ ] **E2E-Tests ins Repo** (M). Die Playwright-Abläufe aus der
       Bau-Session (Matrix, CSV-Roundtrip, Import mit Fehlerpfad, Managed,
       Default-Scrollen) als `npm run e2e` gegen den Mock.

@@ -66,6 +66,7 @@ Der Dataverse-Konnektor kann nur POST-Aktionen und Tabellen-Reads
 | --- | --- | --- |
 | Solutions | FetchXML auf `solutions` (`isvisible = 1`, Publisher per Link) | Konnektor `ListRecordsWithOrganization` |
 | Basissprache | `organizations?$select=languagecode` | Konnektor; sonst „Base Language Code“ im Informationsblatt, sonst erste Sprachspalte |
+| Export großer Solutions | Ab 40 Tabellen (oder wenn der einzelne Export in den Timeout läuft) in Teilen: temporäre Solutions `tsexport_<lauf>_<n>` (Publisher der Solution) per `POST solutions`, Komponenten per `AddSolutionComponent` (Tabellen ohne Unterkomponenten, je 20 Tabellen ein Teil; Auswahllisten/Dashboards/Sitemaps/Custom APIs, Prozesse und Apps je ein Teil), je Teil `ExportTranslation` (4 parallel), `appaction`-Beschriftungen per `RetrieveLocLabels`, Zusammenführen (`mergeTranslations.ts`, nur Tabellen der Solution), Löschen der Hilfs-Solutions nacheinander (Löschen = Deinstallation, parallel → 429); Reste älterer Läufe (> 3 h) gehen mit. Details und Messwerte unten | eigene native Aufrufe, Löschen über den Konnektor |
 | Export | `ExportTranslation { SolutionName }` → `ExportTranslationFile` (Base64-Zip) | 1. native Aktion — die App trägt sie selbst in `dataSourcesInfo` ein (Pfad `/api/data/v9.2/solutions/Microsoft.Dynamics.CRM.ExportTranslation`), weil die CLI sie nicht generieren kann, siehe unten; 2. Konnektor „unbound action“ (Dataverse: `Resource not found for the segment`), 3. Konnektor mit Pfad `solutions/…` (läuft bei großen Solutions in den Konnektor-Timeout) — der erste funktionierende Weg wird gemerkt |
 | Parsen | JSZip, eigener SpreadsheetML-Scanner mit Offsets | pure functions, Vitest |
 | Namen auflösen | Tabelle steht in der Datei (`Entity name`). `EntityDefinitions` je 10 Tabellen mit `DisplayName` (Tabellenname im Explorer, wenn die Datei ihn nicht enthält) und `Attributes(MetadataId, LogicalName)`: Attribut-IDs = Spalten, übrige `DisplayName`/`Description`-IDs dieser Tabellen = Auswahlwerte. `name`/`description`-IDs per FetchXML `in` gegen `systemform` (→ Formular, `type`) und `savedquery` (→ Ansicht). Alles parallel (je 4 Anfragen, Blöcke von 10 Tabellen bzw. 50 IDs), jeder Block mit einer Wiederholung; ein fehlgeschlagener Block wird übersprungen, nicht der Rest. Spalten kommen zuerst an (Teilergebnis) | Konnektor, best effort |
@@ -309,6 +310,49 @@ Waldmann D365 DEV im Detail:
   fehlt (CLI-Fehler, siehe Einrichtung Schritt 3).
 - Play: `https://apps.powerapps.com/play/e/33146d71-4fe8-e1d7-af2f-f80fe968fc47/app/0331862d-1088-41b5-9040-52a7dd85d00e?tenantId=e75294b3-231c-459e-89ef-ad823a88d11f`
 
+## Export großer Solutions
+
+Der Power-Apps-Host beendet jeden Aufruf aus der App nach 180 s.
+`ExportTranslation` hat kein asynchrones Gegenstück, und WaldmannCore
+brauchte 168–304 s. Deshalb exportiert die App große Solutions in Teilen
+(`src/services/chunkedExport.ts`). Erprobt in Waldmann DEV COPY am
+2026-10-05:
+
+- **Tabellen nur als Hülle.** `ExportTranslation` exportiert alle
+  Beschriftungen einer Tabelle, egal welche Spalten, Formulare und
+  Ansichten die Solution aufführt (`contact`: 36 Spalten in der Solution,
+  288 im Export). Eine Tabelle ohne Unterkomponenten liefert dieselben
+  Zeilen — ein Aufruf statt Hunderter (1.194 Unterkomponenten dauerten
+  157 s, 73 scheiterten).
+- **Nur Komponenten mit Beschriftungen.** Außer Tabellen tragen
+  Auswahllisten, Dashboards, Sitemaps, Custom APIs, Prozesse
+  (`Workflow Categories`) und Apps Zeilen. Sicherheitsrollen,
+  Verbindungsrollen, Plug-ins usw. tragen keine und ziehen ganze Tabellen
+  mit. App-Aktionen (`appaction`) ziehen ~200 Tabellen mit (Hinzufügen
+  315 s) — ihre Beschriftungen (`buttonlabeltext`, Tooltips,
+  Barrierefreiheitstext) liest die App mit `RetrieveLocLabels`, identisch
+  mit dem Export (47 von 47 Zeilen).
+- **Ergebnis.** WaldmannCore (154 Tabellen) in 11 Teilen: Hinzufügen 64 s,
+  Export der Teile 42–83 s (4 parallel), Daten nach 223 s statt
+  280–304 s; jeder Aufruf weit unter 180 s. Gegen den Gesamtexport: alle
+  33.621 Zeilen mit identischen Texten bis auf eine Custom API, die nur
+  ohne Unterkomponenten hinzugefügt werden kann (macht die App jetzt), und
+  die Namenszeile der Solution (liest die App mit `RetrieveLocLabels`).
+  Zusätzlich ein paar Hundert echte Beschriftungen der Solution-Tabellen
+  (weitere Beziehungen, Meldungen), die der Gesamtexport nicht enthält —
+  harmlos, ein Import schreibt sie unverändert zurück. Tabellen, die
+  Prozesse oder Apps mitziehen, filtert die App heraus.
+- **Aufräumen.** Löschen einer Solution ist eine Deinstallation; parallel
+  lehnt Dataverse ab („Cannot start another [Uninstall]“, 429). Die App
+  löscht nacheinander mit Wiederholung, nach dem Laden im Hintergrund
+  (~5 s je Hilfs-Solution). Bleiben Hilfs-Solutions übrig (Tab
+  geschlossen), löscht der nächste Export Reste, die älter als 3 h sind.
+- **Rechte.** Anlegen und Löschen von Solutions braucht Customizer-Rechte.
+  Fehlen sie, versucht die App den Export in einem Aufruf.
+- **Live in der Code App noch zu bestätigen:** `POST solutions`,
+  `AddSolutionComponent` und `RetrieveLocLabels` als eigene native
+  Aufrufe, Löschen über den Konnektor.
+
 ## Offen
 
 Per Microsoft Learn geprüft (Stand 2026-10-03):
@@ -340,11 +384,13 @@ Offen, bis live geprüft — jeweils mit der Stelle im Code:
   Aktion selbst in `dataSourcesInfo` ein (`dataverseApi.ts`, gilt nur, wenn
   die App native Dataverse-APIs hat). **Ob das SDK den Aufruf so ausführt,
   ist live noch nicht bestätigt.**
-- **Exportdauer gegen Timeout.** Direkt über die Web API gemessen: 4 Tabellen
-  ≈ 48 s, Waldmann Core (154 Tabellen, 159 Formulare) **172 s**. Power Apps
-  nennt 180 s als Grenze — große Solutions liegen knapp darunter. Ob der
-  native Weg in der Code App dieselbe Grenze hat, ist offen. Ein
-  asynchrones Gegenstück zu `ExportTranslation` gibt es nicht.
+- **Exportdauer gegen Timeout — gelöst durch den Export in Teilen.**
+  Der Power-Apps-Host beendet jeden Aufruf nach 180 s (nicht
+  konfigurierbar, das SDK hat kein Timeout). Ein asynchrones Gegenstück zu
+  `ExportTranslation` gibt es nicht. Gemessen am 2026-10-05 direkt über die
+  Web API: WaldmannCore in DEV 195 s (115 Tabellen), nach dem Entfernen von
+  20 leeren Tabellen 168 s (95), in DEV COPY 280–304 s (154). Siehe
+  „Export großer Solutions“.
 - **Antwortform der generierten Services** (`data` vs. `value`,
   `ExportTranslationFile` verschachtelt?). `pick()` sucht defensiv in drei
   Ebenen.

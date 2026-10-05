@@ -1,7 +1,25 @@
 import { ORG_URL } from '../config'
 import type { AppRecord, AsyncOperationState, ChoiceGroup, ComponentInfo, ImportJobState, SetupCheck, SolutionRef, StartedAction, TranslationFile, ViewRecord } from '../types/translation'
-import { base64ToBytes } from '../utils/translationZip'
-import { callAction, DataverseError, fetchXml, hasConnector, metadataGet, nativeActions, odata, pick, routeUnavailable, type ActionSpec, type Row } from './dataverseApi'
+import { base64ToBytes, createTranslationZip, readTranslationZip } from '../utils/translationZip'
+import { exportInParts, type ChunkDeps } from './chunkedExport'
+import { looksLikeTimeout } from './runImport'
+import {
+  callAction,
+  createRecord,
+  DataverseError,
+  deleteRecord,
+  fetchXml,
+  hasConnector,
+  hasOwnCalls,
+  metadataGet,
+  nativeActions,
+  odata,
+  ownCall,
+  pick,
+  routeUnavailable,
+  type ActionSpec,
+  type Row,
+} from './dataverseApi'
 import type { TranslationService } from './translationService'
 import { tableKey } from '../utils/designerTree'
 
@@ -99,6 +117,120 @@ async function startAsyncOrSync(asyncSpec: ActionSpec, syncSpec: ActionSpec): Pr
   return {}
 }
 
+/**
+ * From this many tables on, a solution is exported in parts: the Power Apps
+ * host ends every call after 180 s, and WaldmannCore took 168 s with 95
+ * tables, 195–304 s with 115–154 (2026-10-05).
+ */
+const CHUNK_FROM_TABLES = 40
+
+async function exportDirect(solutionUniqueName: string) {
+  const { data, route } = await callAction({ name: 'ExportTranslation', params: [['SolutionName', solutionUniqueName]], boundTo: 'solutions' })
+  const file = pick(data, 'ExportTranslationFile')
+  if (typeof file !== 'string' || file === '') throw new DataverseError('ExportTranslation lieferte keine Datei (ExportTranslationFile fehlt).')
+  return { zip: base64ToBytes(file), route }
+}
+
+/** Tables (root components) of a solution; -1 when not countable. */
+async function tableCount(solutionUniqueName: string): Promise<number> {
+  try {
+    const rows = await fetchXml(
+      'solutioncomponents',
+      `<fetch aggregate="true"><entity name="solutioncomponent"><attribute name="solutioncomponentid" aggregate="count" alias="n" />` +
+        `<filter><condition attribute="componenttype" operator="eq" value="1" /></filter>` +
+        `<link-entity name="solution" from="solutionid" to="solutionid"><filter><condition attribute="uniquename" operator="eq" value="${esc(solutionUniqueName)}" /></filter></link-entity>` +
+        `</entity></fetch>`,
+    )
+    return num(rows[0]?.n)
+  } catch (err) {
+    console.warn('[translation] tables of the solution not countable', err)
+    return -1
+  }
+}
+
+const TEMP_PREFIX = 'tsexport_'
+
+async function solutionByName(uniqueName: string): Promise<Row | undefined> {
+  const rows = await fetchXml(
+    'solutions',
+    `<fetch top="1"><entity name="solution"><attribute name="solutionid" /><attribute name="publisherid" /><attribute name="friendlyname" />` +
+      `<filter><condition attribute="uniquename" operator="eq" value="${esc(uniqueName)}" /></filter></entity></fetch>`,
+  )
+  return rows[0]
+}
+
+/** Dataverse side of the chunked export (chunkedExport.ts). */
+const chunkDeps: ChunkDeps = {
+  async solution(uniqueName) {
+    const r = await solutionByName(uniqueName)
+    if (!r) throw new DataverseError(`Solution „${uniqueName}“ nicht gefunden.`)
+    return { id: str(r.solutionid), publisherId: str(r._publisherid_value), friendlyName: str(r.friendlyname) }
+  },
+  async rootComponents(solutionId) {
+    const rows = await fetchXml(
+      'solutioncomponents',
+      `<fetch><entity name="solutioncomponent"><attribute name="componenttype" /><attribute name="objectid" />` +
+        `<filter><condition attribute="solutionid" operator="eq" value="${esc(solutionId)}" /><condition attribute="rootsolutioncomponentid" operator="null" /></filter>` +
+        `</entity></fetch>`,
+    )
+    return rows.map((r) => ({ type: num(r.componenttype), id: str(r.objectid) }))
+  },
+  async tables() {
+    const rows = await odata('EntityDefinitions', 'MetadataId,LogicalName')
+    return new Map(rows.map((r) => [str(r.MetadataId).toLowerCase(), str(r.LogicalName)]))
+  },
+  async createSolution(uniqueName, publisherId) {
+    const body = {
+      uniquename: uniqueName,
+      friendlyname: 'Translation Studio – temporärer Export',
+      version: '1.0.0.0',
+      description: 'Hilfs-Solution für den Export großer Solutions in Teilen. Wird nach dem Export gelöscht; die Komponenten bleiben unverändert.',
+      'publisherid@odata.bind': `/publishers(${publisherId})`,
+    }
+    try {
+      await ownCall('CreateSolution', body)
+    } catch (err) {
+      if (err instanceof DataverseError && err.privilege) throw err
+      await createRecord('solutions', body)
+    }
+    const r = await solutionByName(uniqueName)
+    if (!r) throw new DataverseError(`Hilfs-Solution ${uniqueName} wurde nicht angelegt.`)
+    return str(r.solutionid)
+  },
+  async addComponent(uniqueName, c, withoutSubcomponents) {
+    await callAction({
+      name: 'AddSolutionComponent',
+      params: [
+        ['ComponentId', c.id],
+        ['ComponentType', c.type],
+        ['SolutionUniqueName', uniqueName],
+        ['AddRequiredComponents', false],
+        ['DoNotIncludeSubcomponents', withoutSubcomponents],
+        ['IncludedComponentSettingsValues', null],
+      ],
+      sideEffects: true,
+    })
+  },
+  async exportXml(uniqueName) {
+    return readTranslationZip((await exportDirect(uniqueName)).zip)
+  },
+  deleteSolution: (id) => deleteRecord('solutions', id),
+  async staleSolutions() {
+    const rows = await fetchXml(
+      'solutions',
+      `<fetch><entity name="solution"><attribute name="solutionid" />` +
+        `<filter><condition attribute="uniquename" operator="like" value="${TEMP_PREFIX}%" /><condition attribute="createdon" operator="olderthan-x-hours" value="3" /></filter>` +
+        `</entity></fetch>`,
+    )
+    return rows.map((r) => str(r.solutionid))
+  },
+  async labels(entitySet, id, column) {
+    const data = await ownCall('RetrieveLocLabels', { EntityMoniker: `{'@odata.id':'${entitySet}(${id})'}`, AttributeName: column, IncludeUnpublished: true })
+    const label = pick(data, 'Label') as { LocalizedLabels?: Row[] } | undefined
+    return Object.fromEntries((label?.LocalizedLabels ?? []).map((l) => [num(l.LanguageCode), str(l.Label)]))
+  },
+}
+
 /** `asyncoperation.statuscode` → state. */
 function asyncState(statuscode: number): AsyncOperationState['state'] {
   if (statuscode === 30) return 'succeeded'
@@ -145,11 +277,30 @@ export const dataverseTranslationService: TranslationService = {
     }
   },
 
-  async exportTranslations(solutionUniqueName) {
-    const { data, route } = await callAction({ name: 'ExportTranslation', params: [['SolutionName', solutionUniqueName]], boundTo: 'solutions' })
-    const file = pick(data, 'ExportTranslationFile')
-    if (typeof file !== 'string' || file === '') throw new DataverseError('ExportTranslation lieferte keine Datei (ExportTranslationFile fehlt).')
-    return { zip: base64ToBytes(file), route }
+  async exportTranslations(solutionUniqueName, onProgress) {
+    // Never for the default solution (thousands of tables), only with the app's own native calls.
+    const splittable = solutionUniqueName !== 'Default' && hasOwnCalls()
+    const inParts = async () => {
+      const res = await exportInParts(solutionUniqueName, chunkDeps, { onProgress })
+      res.cleanup.catch((err: unknown) => console.warn('[translation] cleanup of temporary solutions', err))
+      return { zip: await createTranslationZip(res.xml), route: `in ${res.parts} Teilen`, parts: res.parts, warnings: res.warnings }
+    }
+    if (splittable && (await tableCount(solutionUniqueName)) >= CHUNK_FROM_TABLES) {
+      try {
+        return await inParts()
+      } catch (err) {
+        // Without the right to create solutions: the single export, which may still fit.
+        if (!(err instanceof DataverseError && err.privilege)) throw err
+        console.warn('[translation] chunked export not allowed, exporting in one call', err)
+      }
+    }
+    try {
+      return await exportDirect(solutionUniqueName)
+    } catch (err) {
+      if (!splittable || !looksLikeTimeout(err instanceof Error ? err.message : String(err))) throw err
+      console.warn('[translation] export timed out, exporting in parts', err)
+      return inParts()
+    }
   },
 
   async resolveComponents(file: TranslationFile, onPartial?: (partial: Map<string, ComponentInfo>) => void) {

@@ -38,6 +38,7 @@ import { CsvImportDialog } from './CsvImportDialog'
 import { ConsistencyDialog } from './ConsistencyDialog'
 import { ConfirmDialog } from './Modal'
 import { LoadProgress, type LoadProgressState } from './LoadProgress'
+import type { ChunkProgress } from '../services/chunkedExport'
 import { Designer } from './designer/Designer'
 import { Btn, Select, type SelectOption } from './ui'
 import { S } from '../strings'
@@ -161,7 +162,10 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
       const svc = await getTranslationService()
       const startedAt = Date.now()
       setProgress({ phase: 'export', name: solution.friendlyName, phaseAt: startedAt, lastMs: loadExportDuration(svc.orgUrl, name) })
-      const [exported, base] = await Promise.all([svc.exportTranslations(name), svc.baseLanguage()])
+      const onParts = (parts: ChunkProgress) => {
+        if (latest()) setProgress((p) => (p ? { ...p, parts } : p))
+      }
+      const [exported, base] = await Promise.all([svc.exportTranslations(name, onParts), svc.baseLanguage()])
       if (!latest()) return
       const readAt = Date.now()
       saveExportDuration(svc.orgUrl, name, readAt - startedAt)
@@ -179,6 +183,8 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
         setText('')
       }
       setLoaded({ solution, file, zip: exported.zip, route: exported.route, at: new Date().toISOString() })
+      for (const w of exported.warnings ?? []) notify(w, 'error')
+      if (exported.parts) console.info(`[translation] ${name} exported in ${exported.parts} parts`)
       setEdits(new Map())
       setAck(loadAcknowledged(svc.orgUrl, name))
       setTargets(file.languages.filter((l) => l !== file.baseLanguage))

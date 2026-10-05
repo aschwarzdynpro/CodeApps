@@ -63,6 +63,7 @@ export const HELP_SECTIONS: HelpSection[] = [
         steps: [
           'Oben eine **Solution** wählen. Unmanaged Solutions lassen sich bearbeiten, managed nur ansehen.',
           '**Übersetzungen laden** exportiert die Übersetzungsdatei der Solution. Das dauert je nach Größe Sekunden bis Minuten.',
+          'Große Solutions (ab 40 Tabellen) exportiert die App **in Teilen**, weil ein einzelner Aufruf nach 180 s abbricht: Sie legt kurz Hilfs-Solutions „tsexport_…“ an, exportiert sie parallel, führt die Dateien zusammen und löscht die Hilfs-Solutions wieder. Die Komponenten selbst bleiben unverändert. Dafür braucht es das Recht, Solutions anzulegen.',
           'Unter „Sprachen“ die Zielsprachen an- oder abwählen. Die Basissprache ist immer dabei und nie editierbar.',
         ],
       },

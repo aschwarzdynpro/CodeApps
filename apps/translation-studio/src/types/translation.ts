@@ -167,4 +167,8 @@ export interface ExportResult {
   zip: Uint8Array
   /** How the action was reached (shown on the setup page). */
   route: string
+  /** Exported in this many parts (large solution, see chunkedExport.ts). */
+  parts?: number
+  /** Notes of a chunked export (labels that couldn't be read). */
+  warnings?: string[]
 }
