@@ -723,3 +723,149 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
+
+/* ---------- editor ---------- */
+.editor {
+  max-width: 860px;
+  width: 92vw;
+}
+
+.editor__sub {
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.editor__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.editor__form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.editor__row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.weekdays {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.segments {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.segment-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.segment-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.field-time {
+  width: 110px;
+  min-width: 110px;
+}
+
+.field-date {
+  max-width: 180px;
+}
+
+.field-zone {
+  max-width: 420px;
+}
+
+.ml-6 {
+  margin-left: 6px;
+}
+
+.inline-form {
+  display: inline;
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preview__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.preview__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.preview__table th,
+.preview__table td {
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.preview__table tr.is-changed td {
+  background: var(--warn-soft);
+}
+
+.preview__before {
+  color: var(--muted);
+}
+
+.preview__after {
+  font-weight: 600;
+}
+
+.preview__requests summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.preview__requests ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.daypop__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.daypop__actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.inspector__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}

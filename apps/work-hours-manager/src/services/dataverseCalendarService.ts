@@ -77,6 +77,32 @@ const parseIds = (data: unknown): string[] => {
   return []
 }
 
+/**
+ * The documentation's examples pass booleans as strings (`"IsEdit":"true"`),
+ * the parameter table says Boolean. We send booleans; when the server
+ * answers with a deserialization error we retry once with strings and keep
+ * the form that worked (README "Offen").
+ */
+let booleanForm: 'boolean' | 'string' = 'boolean'
+const DESERIALIZE = /deserializ|not correctly formatted|expecting state/i
+
+function stringifyBooleans(info: object): object {
+  return JSON.parse(JSON.stringify(info, (_k, v) => (typeof v === 'boolean' ? String(v) : v)))
+}
+
+async function calendarAction(action: string, info: object): Promise<Row | null> {
+  const send = (form: typeof booleanForm) => unboundAction(action, { CalendarEventInfo: JSON.stringify(form === 'string' ? stringifyBooleans(info) : info) })
+  try {
+    return await send(booleanForm)
+  } catch (err) {
+    if (!DESERIALIZE.test(errorText(err))) throw err
+    const other = booleanForm === 'boolean' ? 'string' : 'boolean'
+    const data = await send(other)
+    booleanForm = other
+    return data
+  }
+}
+
 export const dataverseCalendarService: CalendarService = {
   source: 'dataverse',
 
@@ -218,12 +244,12 @@ export const dataverseCalendarService: CalendarService = {
   },
 
   async saveCalendar(info: CalendarEventInfo) {
-    const data = await unboundAction('msdyn_SaveCalendar', { CalendarEventInfo: JSON.stringify(info) })
+    const data = await calendarAction('msdyn_SaveCalendar', info)
     return parseIds(data)
   },
 
   async deleteCalendar(info: DeleteCalendarInfo) {
-    const data = await unboundAction('msdyn_DeleteCalendar', { CalendarEventInfo: JSON.stringify(info) })
+    const data = await calendarAction('msdyn_DeleteCalendar', info)
     return parseIds(data)
   },
 

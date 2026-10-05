@@ -1,7 +1,7 @@
 import { S } from '../../strings'
 import type { DayResolution, Resource } from '../../types/calendar'
 import { WEEKDAY_SHORT, parseDate } from '../../utils/dates'
-import { DayPopover } from './DayPopover'
+import { DayPopover, type DayActions } from './DayPopover'
 import { Legend, SegmentBar } from './SegmentBar'
 
 interface Props {
@@ -12,10 +12,11 @@ interface Props {
   today: string
   fromSlots: boolean
   onShowRule: (innerCalendarId: string) => void
+  actions?: DayActions | null
 }
 
 /** Six-week grid of one resource with a compact bar per day. */
-export function MonthGrid({ resource, days, focusFrom, focusTo, today, fromSlots, onShowRule }: Props) {
+export function MonthGrid({ resource, days, focusFrom, focusTo, today, fromSlots, onShowRule, actions }: Props) {
   if (!resource) return <p className="empty">{S.calendar.pickResource}</p>
   const inMonth = days.filter((d) => d.date >= focusFrom && d.date <= focusTo)
   const total = inMonth.reduce((s, d) => s + d.workMinutes, 0) / 60
@@ -42,6 +43,7 @@ export function MonthGrid({ resource, days, focusFrom, focusTo, today, fromSlots
               day={day}
               fromSlots={fromSlots}
               onShowRule={onShowRule}
+              actions={actions}
               trigger={
                 <button type="button" className={`monthcell${outside ? ' monthcell--outside' : ''}${day.date === today ? ' is-today' : ''}${day.workMinutes === 0 && !outside ? ' monthcell--off' : ''}`} role="cell" aria-label={day.date}>
                   <span className="monthcell__day">{parseDate(day.date).d}</span>

@@ -4,7 +4,7 @@ import { expandTree, toSlots } from '../utils/resolve'
 import { buildTree } from '../utils/rules'
 import type { CalendarService, SetupCheck } from './calendarService'
 import { CLOSURE_CALENDAR_ID, MOCK_ORG_NAME, createMockState } from './mockData'
-import { MockApiError, applyClosureDelete, applyClosureSave, applyDelete, applySave, innerCalendarsOf } from './mockEngine'
+import { MockApiError, applyClosureDelete, applyClosureSave, applyDelete, applySave, innerCalendarsOf } from '../utils/engine'
 
 /** In-memory implementation — state lives until the page reloads. */
 

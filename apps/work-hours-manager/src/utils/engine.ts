@@ -1,11 +1,11 @@
 import type { CalendarEventInfo, DeleteCalendarInfo, RawCalendar, RawCalendarRule, Weekday, WorkHourKind } from '../types/calendar'
-import { addDays, dateOnly, diffDays, timeOfDayMinutes } from '../utils/dates'
-import { CODES_OF_KIND, OPEN_END_YEAR, parsePattern } from '../utils/rules'
+import { addDays, dateOnly, diffDays, timeOfDayMinutes } from './dates'
+import { CODES_OF_KIND, OPEN_END_YEAR, parsePattern } from './rules'
 
 /**
  * Plays the server side of `msdyn_SaveCalendar` / `msdyn_DeleteCalendar`
- * on raw calendars in memory — for the mock service and for tests of the
- * intents layer. It stores exactly the tree shape the parser expects
+ * on raw calendars in memory — for the mock service, for the preview of an
+ * edit before it is saved and for tests of the intents layer. It stores exactly the tree shape the parser expects
  * (root rule → inner calendar → leaves) and refuses what the API refuses
  * (documented limits, see README "Verifiziert"). Where the real storage is
  * unknown it follows the documented rank semantics: a single-day edit inside

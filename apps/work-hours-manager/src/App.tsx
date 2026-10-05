@@ -8,6 +8,11 @@ import { AppNav, type View } from './components/shell/AppNav'
 import { TopToolbar } from './components/shell/TopToolbar'
 import { ResourcesView } from './components/resources/ResourcesView'
 import { RuleInspector } from './components/rules/RuleInspector'
+import { RuleEditorDialog, type EditorRequest } from './components/rules/RuleEditorDialog'
+import type { DayActions } from './components/calendar/DayPopover'
+import { getCalendarService, PrivilegeError } from './services/calendarService'
+import { toRequests, type EditIntent, type EditTarget } from './utils/intents'
+import { findBlock, isRecurrence } from './utils/rules'
 import { DiagnosticsView } from './components/diagnostics/DiagnosticsView'
 import { TemplatesView } from './components/views/TemplatesView'
 import { HolidaysView } from './components/views/HolidaysView'
@@ -55,8 +60,9 @@ export default function App() {
   const [selected, setSelected] = useState<Set<TableRowId>>(new Set())
   const [focus, setFocus] = useState<{ kind: 'resource' | 'template'; id: string; blockId: string | null } | null>(null)
   const [holidayYear, setHolidayYear] = useState(Number(today.slice(0, 4)))
-  const [treeVersion] = useState(0)
-  const [readOnly] = useState(false)
+  const [treeVersion, setTreeVersion] = useState(0)
+  const [readOnly, setReadOnly] = useState(false)
+  const [editor, setEditor] = useState<{ kind: 'resource' | 'template'; id: string; request: EditorRequest; epoch: number } | null>(null)
 
   const visible = visibleRange(range)
   const data = useCalendarData(ready, visible.from, visible.to, settings.viewerTz, today, treeVersion)
@@ -70,7 +76,6 @@ export default function App() {
       </Toast>,
       { intent: kind === 'ok' ? 'success' : 'error', timeout: kind === 'ok' ? 4500 : 9000 },
     )
-  void notify
 
   const yearStart = zonedToUtc(`${holidayYear}-01-01`, '00:00', settings.viewerTz)
   const yearEnd = zonedToUtc(`${holidayYear + 1}-01-01`, '00:00', settings.viewerTz)
@@ -89,6 +94,52 @@ export default function App() {
   const showResourceRule = (resourceId: string, innerCalendarId: string | null) => {
     setView('resources')
     setFocus({ kind: 'resource', id: resourceId, blockId: innerCalendarId })
+  }
+
+  // ---- editing (Phase 3): every write goes through intents → Work Hours actions
+  const targetFor = (kind: 'resource' | 'template', id: string): { name: string; target: EditTarget; tree: typeof inspectorTree } | null => {
+    if (kind === 'resource') {
+      const r = resources.find((x) => x.id === id)
+      if (!r?.calendarId) return null
+      return { name: r.name, target: { entity: 'bookableresource', calendarId: r.calendarId, resourceId: r.type === 'user' ? r.userId : null, timeZoneCode: r.timeZoneCode, useV2: settings.useV2 }, tree: trees[r.calendarId.toLowerCase()] }
+    }
+    const t = data.templates.data?.find((x) => x.id === id)
+    if (!t?.calendarId) return null
+    return { name: t.name, target: { entity: 'msdyn_workhourtemplate', calendarId: t.calendarId, resourceId: null, timeZoneCode: viewerTimeZoneCode(settings.viewerTz), useV2: settings.useV2 }, tree: trees[t.calendarId.toLowerCase()] }
+  }
+  const openEditor = (kind: 'resource' | 'template', id: string, request: EditorRequest) => setEditor({ kind, id, request, epoch: Date.now() })
+  const editorContext = editor ? targetFor(editor.kind, editor.id) : null
+
+  const saveIntent = async (intent: EditIntent) => {
+    const svc = await getCalendarService()
+    const requests = toRequests(intent)
+    try {
+      for (const r of requests) {
+        if (r.action === 'msdyn_SaveCalendar') await svc.saveCalendar(r.info)
+        else await svc.deleteCalendar(r.info)
+      }
+    } catch (err) {
+      if (err instanceof PrivilegeError) setReadOnly(true)
+      notify(err instanceof Error ? err.message : String(err), 'error')
+      throw err
+    }
+    notify(intent.op === 'delete' ? S.editor.deleted : S.editor.saved(requests.length))
+    setTreeVersion((v) => v + 1)
+  }
+
+  const dayActionsFor = (resourceId: string): DayActions | null => {
+    if (readOnly) return null
+    const ctx = targetFor('resource', resourceId)
+    if (!ctx?.tree) return null
+    const tree = ctx.tree
+    return {
+      editDay: (innerCalendarId, date) => {
+        const block = findBlock(tree, innerCalendarId)
+        if (!block) return
+        openEditor('resource', resourceId, isRecurrence(block) ? { op: 'editDay', block, date } : { op: 'edit', block })
+      },
+      create: (kind, date) => openEditor('resource', resourceId, { op: 'create', kind, date }),
+    }
   }
 
   const errors = [
@@ -146,6 +197,7 @@ export default function App() {
                 onShowRule={showResourceRule}
                 tab={tab}
                 onTab={setTab}
+                dayActionsFor={dayActionsFor}
               />
             ) : view === 'templates' ? (
               <TemplatesView templates={data.templates.data} trees={trees} focusedId={focusedTemplate?.id ?? null} onFocus={(id) => setFocus({ kind: 'template', id, blockId: null })} />
@@ -167,7 +219,23 @@ export default function App() {
             resourceTimeZoneCode={focusedResource?.timeZoneCode ?? (focusedTemplate ? viewerTimeZoneCode(settings.viewerTz) : undefined)}
             focusBlockId={focus?.blockId ?? null}
             onClose={() => setFocus(null)}
+            today={today}
+            onEdit={!readOnly && focus && targetFor(focus.kind, focus.id)?.tree ? (request) => openEditor(focus.kind, focus.id, request) : null}
           />
+          {editor && editorContext?.tree ? (
+            <RuleEditorDialog
+              key={editor.epoch}
+              request={editor.request}
+              targetName={editorContext.name}
+              target={editorContext.target}
+              tree={editorContext.tree}
+              closures={data.closures.data ?? []}
+              viewerTz={settings.viewerTz}
+              today={today}
+              onSave={saveIntent}
+              onClose={() => setEditor(null)}
+            />
+          ) : null}
         </div>
       </div>
       <Toaster toasterId={toasterId} position="bottom-end" />

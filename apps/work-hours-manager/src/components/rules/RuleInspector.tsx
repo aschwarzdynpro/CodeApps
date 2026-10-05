@@ -7,6 +7,7 @@ import { formatDate, formatTime } from '../../utils/dates'
 import { describeBlock, groupBlocks, isRecurrence } from '../../utils/rules'
 import { timeZoneLabel } from '../../utils/timezones'
 import { Btn } from '../ui'
+import type { EditorRequest } from './RuleEditorDialog'
 
 interface Props {
   open: boolean
@@ -17,6 +18,9 @@ interface Props {
   /** Block to expand and highlight (inner calendar id or root rule id). */
   focusBlockId: string | null
   onClose: () => void
+  /** Editing; null = read-only (no calendar, no privilege). */
+  onEdit: ((request: EditorRequest) => void) | null
+  today: string
 }
 
 const KIND_COLOR: Record<RuleBlock['kind'], 'brand' | 'warning' | 'danger' | 'subtle' | 'informative' | 'important'> = {
@@ -33,7 +37,7 @@ const blockKey = (b: RuleBlock) => b.innerCalendarId ?? b.rootRuleId
 const leafLabel = (l: LeafRule) => `${S.kinds[l.kind]} ${formatTime(l.startMin)}–${l.startMin + l.duration >= 1440 && (l.startMin + l.duration) % 1440 === 0 ? '24:00' : formatTime((l.startMin + l.duration) % 1440)}${l.duration > 1440 ? ` (+${Math.floor(l.duration / 1440)} Tage)` : ''}`
 
 /** Read-only tree of the calendar: blocks (grouped when varied) → inner calendar → leaf rules, with fields and raw JSON. */
-export function RuleInspector({ open, title, subtitle, tree, resourceTimeZoneCode, focusBlockId, onClose }: Props) {
+export function RuleInspector({ open, title, subtitle, tree, resourceTimeZoneCode, focusBlockId, onClose, onEdit, today }: Props) {
   const [openItems, setOpenItems] = useState<Set<TreeItemValue>>(new Set())
   const [selected, setSelected] = useState<string | null>(null)
   const [raw, setRaw] = useState(false)
@@ -114,6 +118,21 @@ export function RuleInspector({ open, title, subtitle, tree, resourceTimeZoneCod
         </div>
       </DrawerHeader>
       <DrawerBody className="inspector__body">
+        {tree && onEdit ? (
+          <div className="inspector__actions">
+            <Btn small kind="primary" onClick={() => onEdit({ op: 'create', kind: 'work', date: today })}>
+              {S.inspector.actions.newWork}
+            </Btn>
+            <Btn small onClick={() => onEdit({ op: 'create', kind: 'timeoff', date: today })}>
+              {S.inspector.actions.newAbsence}
+            </Btn>
+            <Btn small onClick={() => onEdit({ op: 'create', kind: 'nonwork', date: today })}>
+              {S.inspector.actions.newNonwork}
+            </Btn>
+          </div>
+        ) : tree ? (
+          <p className="muted small">{S.inspector.actions.readOnly}</p>
+        ) : null}
         {!tree ? (
           <p className="muted">{S.inspector.noTree}</p>
         ) : blocks.length === 0 ? (
@@ -151,6 +170,26 @@ export function RuleInspector({ open, title, subtitle, tree, resourceTimeZoneCod
               <h3>{S.inspector.fields}</h3>
               <Switch label={S.inspector.rawJson} checked={raw} onChange={(_, d) => setRaw(d.checked)} />
             </div>
+            {onEdit && selectedBlock.kind !== 'closure' && selectedBlock.innerCalendarId ? (
+              <div className="inspector__actions">
+                <Btn small onClick={() => onEdit({ op: 'edit', block: selectedBlock })}>
+                  {S.inspector.actions.edit}
+                </Btn>
+                {isRecurrence(selectedBlock) ? (
+                  <>
+                    <Btn small onClick={() => onEdit({ op: 'editDay', block: selectedBlock, date: today })}>
+                      {S.inspector.actions.editDay}
+                    </Btn>
+                    <Btn small onClick={() => onEdit({ op: 'end', block: selectedBlock })}>
+                      {S.inspector.actions.end}
+                    </Btn>
+                  </>
+                ) : null}
+                <Btn small kind="danger" onClick={() => onEdit({ op: 'delete', block: selectedBlock })}>
+                  {S.inspector.actions.delete}
+                </Btn>
+              </div>
+            ) : null}
             {raw ? (
               <Textarea readOnly resize="vertical" className="inspector__raw" value={JSON.stringify(selectedBlock.raw, null, 2)} />
             ) : (

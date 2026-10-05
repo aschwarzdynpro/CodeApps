@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { RawCalendar } from '../types/calendar'
-import { buildTree, describeBlock } from '../utils/rules'
-import { applyClosureSave, applyDelete, applySave, createStore, innerCalendarsOf, recurrenceEnd } from './mockEngine'
+import { buildTree, describeBlock } from './rules'
+import { applyClosureSave, applyDelete, applySave, createStore, innerCalendarsOf, recurrenceEnd } from './engine'
 
 function freshStore() {
   let n = 0

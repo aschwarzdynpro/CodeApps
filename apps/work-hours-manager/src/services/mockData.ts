@@ -2,7 +2,7 @@ import type { RawCalendar, Resource, TimeOffRequest, WorkHourTemplate, Weekday }
 import { fixtureId, makeBlock, makeCalendar, type LeafSpec } from '../fixtures/calendars'
 import { addDays, startOfIsoWeek, todayIn, zonedToUtc } from '../utils/dates'
 import { closureSpan, generateHolidays } from '../utils/holidays'
-import { applyClosureSave, createStore, type MockCalendarStore } from './mockEngine'
+import { applyClosureSave, createStore, type MockCalendarStore } from '../utils/engine'
 
 /**
  * Fictional sample data for `npm run dev` without a Power Apps host. Names,

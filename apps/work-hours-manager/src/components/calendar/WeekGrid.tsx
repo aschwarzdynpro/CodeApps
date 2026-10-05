@@ -1,7 +1,7 @@
 import { S } from '../../strings'
 import type { DayResolution, Resource } from '../../types/calendar'
 import { WEEKDAY_SHORT, eachDay, formatDayMonth, weekday } from '../../utils/dates'
-import { DayPopover } from './DayPopover'
+import { DayPopover, type DayActions } from './DayPopover'
 import { Legend, SegmentBar } from './SegmentBar'
 
 export interface WeekRow {
@@ -19,10 +19,11 @@ interface Props {
   focusedId: string | null
   onFocus: (id: string) => void
   onShowRule: (resourceId: string, innerCalendarId: string) => void
+  actionsFor?: (resourceId: string) => DayActions | null
 }
 
 /** Resource × day grid with a 24-hour bar per cell. */
-export function WeekGrid({ from, to, rows, today, focusedId, onFocus, onShowRule }: Props) {
+export function WeekGrid({ from, to, rows, today, focusedId, onFocus, onShowRule, actionsFor }: Props) {
   const dates = eachDay(from, to)
   if (rows.length === 0) return <p className="empty">{S.calendar.noResources}</p>
   return (
@@ -50,6 +51,7 @@ export function WeekGrid({ from, to, rows, today, focusedId, onFocus, onShowRule
                   day={day}
                   fromSlots={row.fromSlots}
                   onShowRule={(inner) => onShowRule(row.resource.id, inner)}
+                  actions={actionsFor?.(row.resource.id) ?? null}
                   trigger={
                     <button type="button" className={`daycell${day.workMinutes === 0 ? ' daycell--off' : ''}`} aria-label={`${formatDayMonth(day.date)} ${row.resource.name}`}>
                       <SegmentBar day={day} />

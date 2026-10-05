@@ -8,6 +8,7 @@ import { EMPTY_FILTER, filterResources, type ResourceFilter } from '../../utils/
 import type { VisibleRange } from '../../utils/range'
 import { MonthGrid } from '../calendar/MonthGrid'
 import { WeekGrid, type WeekRow } from '../calendar/WeekGrid'
+import type { DayActions } from '../calendar/DayPopover'
 import { ResourceFilters } from './ResourceFilters'
 import { ResourceGrid, type ResourceRow } from './ResourceGrid'
 
@@ -30,6 +31,7 @@ interface Props {
   onShowRule: (resourceId: string, innerCalendarId: string) => void
   tab: 'list' | 'calendar'
   onTab: (tab: 'list' | 'calendar') => void
+  dayActionsFor: (resourceId: string) => DayActions | null
 }
 
 /** Resource list + calendar (week: all filtered resources; month: the focused one). */
@@ -87,11 +89,12 @@ export function ResourcesView(p: Props) {
             focusedId={p.focusedId}
             onFocus={p.onFocus}
             onShowRule={p.onShowRule}
+            actionsFor={p.dayActionsFor}
           />
         ) : (
           (() => {
             const res = focused ? resolveResource(focused, p, p.range.from, p.range.to) : null
-            return <MonthGrid resource={focused} days={res?.days ?? []} focusFrom={p.range.focusFrom} focusTo={p.range.focusTo} today={p.today} fromSlots={res?.fromSlots ?? false} onShowRule={(inner) => focused && p.onShowRule(focused.id, inner)} />
+            return <MonthGrid resource={focused} days={res?.days ?? []} focusFrom={p.range.focusFrom} focusTo={p.range.focusTo} today={p.today} fromSlots={res?.fromSlots ?? false} onShowRule={(inner) => focused && p.onShowRule(focused.id, inner)} actions={focused ? p.dayActionsFor(focused.id) : null} />
           })()
         )}
       </div>

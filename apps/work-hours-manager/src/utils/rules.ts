@@ -153,7 +153,7 @@ function toBlock(root: RawCalendarRule, inner: RawCalendar | null): RuleBlock | 
   const start = dateOnly(root.effectiveintervalstart) ?? dateOnly(root.starttime)
   if (!start) return null
   const pattern = parsePattern(root.pattern)
-  const weekdays = pattern && pattern.freq === 'WEEKLY' && pattern.weekdays && pattern.weekdays.length ? pattern.weekdays : null
+  const weekdays = pattern && pattern.freq === 'WEEKLY' && pattern.weekdays && pattern.weekdays.length ? [...pattern.weekdays].sort((a, b) => a - b) : null
   const rank = root.rank ?? (weekdays ? 0 : 1)
   const leaves = inner ? inner.calendar_calendar_rules.map(toLeaf).sort((a, b) => a.startMin - b.startMin) : root._innercalendarid_value ? [] : [toLeaf(root)]
   const rootStartMin = timeOfDayMinutes(root.starttime) ?? 0

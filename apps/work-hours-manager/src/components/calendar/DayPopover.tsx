@@ -16,16 +16,24 @@ const ORIGIN_COLOR: Record<DaySegment['origin']['kind'], 'brand' | 'informative'
   slot: 'informative',
 }
 
+export interface DayActions {
+  /** Opens the editor for this day: an occurrence block directly, a recurrence as "edit day". */
+  editDay: (innerCalendarId: string, date: string) => void
+  create: (kind: 'work' | 'timeoff', date: string) => void
+}
+
 interface Props {
   day: DayResolution
   trigger: ReactElement
   /** Whether working time came from `msdyn_LoadCalendars` (true) or from the rules. */
   fromSlots: boolean
   onShowRule?: (innerCalendarId: string) => void
+  actions?: DayActions | null
 }
 
 /** Resolution of one day: every segment with its time span and origin. */
-export function DayPopover({ day, trigger, fromSlots, onShowRule }: Props) {
+export function DayPopover({ day, trigger, fromSlots, onShowRule, actions }: Props) {
+  const workRule = day.segments.find((s) => s.kind === 'work' && s.origin.innerCalendarId && (s.origin.kind === 'recurrence' || s.origin.kind === 'occurrence'))?.origin.innerCalendarId ?? null
   return (
     <Popover withArrow positioning="above-start" size="small">
       <PopoverTrigger disableButtonEnhancement>{trigger}</PopoverTrigger>
@@ -57,7 +65,25 @@ export function DayPopover({ day, trigger, fromSlots, onShowRule }: Props) {
             </li>
           ))}
         </ul>
-        <div className="muted small">{fromSlots ? S.calendar.fromSlots : S.calendar.derived}</div>
+        <div className="daypop__foot">
+          <span className="muted small">{fromSlots ? S.calendar.fromSlots : S.calendar.derived}</span>
+          {actions ? (
+            <span className="daypop__actions">
+              {workRule ? (
+                <Btn small onClick={() => actions.editDay(workRule, day.date)}>
+                  {S.calendar.editDay}
+                </Btn>
+              ) : (
+                <Btn small onClick={() => actions.create('work', day.date)}>
+                  {S.calendar.addWork}
+                </Btn>
+              )}
+              <Btn small onClick={() => actions.create('timeoff', day.date)}>
+                {S.calendar.addAbsence}
+              </Btn>
+            </span>
+          ) : null}
+        </div>
       </PopoverSurface>
     </Popover>
   )
