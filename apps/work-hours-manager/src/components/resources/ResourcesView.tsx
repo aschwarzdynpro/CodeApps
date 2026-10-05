@@ -11,6 +11,7 @@ import { WeekGrid, type WeekRow } from '../calendar/WeekGrid'
 import type { DayActions } from '../calendar/DayPopover'
 import { ResourceFilters } from './ResourceFilters'
 import { ResourceGrid, type ResourceRow } from './ResourceGrid'
+import { Btn } from '../ui'
 
 interface Props {
   resources: Resource[]
@@ -32,6 +33,7 @@ interface Props {
   tab: 'list' | 'calendar'
   onTab: (tab: 'list' | 'calendar') => void
   dayActionsFor: (resourceId: string) => DayActions | null
+  onRun: (() => void) | null
 }
 
 /** Resource list + calendar (week: all filtered resources; month: the focused one). */
@@ -65,6 +67,11 @@ export function ResourcesView(p: Props) {
             <button type="button" className="linklike" onClick={() => p.onSelect(new Set())}>
               {S.resources.clearSelection}
             </button>
+            {p.onRun ? (
+              <Btn small kind="primary" className="ml-6" onClick={p.onRun}>
+                {S.runs.start}
+              </Btn>
+            ) : null}
           </span>
         ) : null}
       </div>

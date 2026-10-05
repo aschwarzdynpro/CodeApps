@@ -1,4 +1,5 @@
 import { Badge } from '@fluentui/react-components'
+import { Btn } from '../ui'
 import { S } from '../../strings'
 import type { CalendarTree, WorkHourTemplate } from '../../types/calendar'
 import { describeBlock } from '../../utils/rules'
@@ -8,10 +9,11 @@ interface Props {
   trees: Record<string, CalendarTree> | undefined
   focusedId: string | null
   onFocus: (templateId: string) => void
+  onApply: ((templateId: string) => void) | null
 }
 
 /** Work hour templates with the rules of their calendars; the inspector shows the selected one. */
-export function TemplatesView({ templates, trees, focusedId, onFocus }: Props) {
+export function TemplatesView({ templates, trees, focusedId, onFocus, onApply }: Props) {
   return (
     <div className="page">
       <h2>{S.templates.title}</h2>
@@ -25,7 +27,7 @@ export function TemplatesView({ templates, trees, focusedId, onFocus }: Props) {
           {templates.map((t) => {
             const tree = t.calendarId ? trees?.[t.calendarId.toLowerCase()] : undefined
             return (
-              <li key={t.id}>
+              <li key={t.id} className="template-cell">
                 <button type="button" className={`template-item${focusedId === t.id ? ' is-focused' : ''}`} onClick={() => onFocus(t.id)}>
                   <div className="template-item__head">
                     <strong>{t.name}</strong>
@@ -42,6 +44,11 @@ export function TemplatesView({ templates, trees, focusedId, onFocus }: Props) {
                     </ul>
                   ) : null}
                 </button>
+                {onApply && t.calendarId && tree ? (
+                  <Btn small className="template-apply" onClick={() => onApply(t.id)}>
+                    {S.templates.apply}
+                  </Btn>
+                ) : null}
               </li>
             )
           })}

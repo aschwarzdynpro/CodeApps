@@ -869,3 +869,146 @@
   gap: 6px;
   flex-wrap: wrap;
 }
+
+/* ---------- run wizard & history ---------- */
+.wizard {
+  width: min(960px, 100vw);
+}
+
+.wizard__steps {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  gap: 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.wizard__step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wizard__step.is-active {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.wizard__num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
+.wizard__step.is-active .wizard__num {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+}
+
+.wizard__step.is-done .wizard__num {
+  background: var(--ok-soft);
+  color: var(--ok);
+  border-color: var(--ok-soft);
+}
+
+.wizard__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wizard__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 560px;
+}
+
+.wizard__targets {
+  margin: 0;
+  padding-left: 18px;
+  columns: 2;
+  font-size: 13px;
+}
+
+.wizard__footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.plan-table td {
+  vertical-align: top;
+}
+
+.bold {
+  font-weight: 600;
+}
+
+.run-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.run-result {
+  display: grid;
+  grid-template-columns: 90px 200px 1fr;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.run-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.run-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.run-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.run-card__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.template-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.template-apply {
+  align-self: flex-start;
+}

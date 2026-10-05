@@ -17,6 +17,10 @@ import { DiagnosticsView } from './components/diagnostics/DiagnosticsView'
 import { TemplatesView } from './components/views/TemplatesView'
 import { HolidaysView } from './components/views/HolidaysView'
 import { RunsView } from './components/views/RunsView'
+import { RunWizardDrawer, type WizardMode } from './components/runs/RunWizardDrawer'
+import { listRuns } from './utils/runHistory'
+import type { RunRecord } from './types/calendar'
+import type { RunTargetInput } from './utils/plan'
 import { SetupView } from './components/views/SetupView'
 import { useLoad } from './hooks/useLoad'
 import { S } from './strings'
@@ -63,6 +67,8 @@ export default function App() {
   const [treeVersion, setTreeVersion] = useState(0)
   const [readOnly, setReadOnly] = useState(false)
   const [editor, setEditor] = useState<{ kind: 'resource' | 'template'; id: string; request: EditorRequest; epoch: number } | null>(null)
+  const [runs, setRuns] = useState<RunRecord[]>(listRuns)
+  const [wizard, setWizard] = useState<{ mode: WizardMode; epoch: number } | null>(null)
 
   const visible = visibleRange(range)
   const data = useCalendarData(ready, visible.from, visible.to, settings.viewerTz, today, treeVersion)
@@ -127,6 +133,23 @@ export default function App() {
     setTreeVersion((v) => v + 1)
   }
 
+  const runTargets: RunTargetInput[] = [...selected].map((id) => resources.find((r) => r.id === String(id))).filter((r): r is NonNullable<typeof r> => !!r).map((r) => ({ resource: r, tree: r.calendarId ? (trees[r.calendarId.toLowerCase()] ?? null) : null }))
+  const openWizard = (mode: WizardMode) => {
+    if (mode.kind === 'new' && runTargets.length === 0) {
+      notify(S.runs.noTargets, 'error')
+      setView('resources')
+      return
+    }
+    setWizard({ mode, epoch: Date.now() })
+  }
+  const onRunFinished = (record: RunRecord) => {
+    setRuns(listRuns())
+    setTreeVersion((v) => v + 1)
+    const done = record.steps.filter((s) => s.status === 'done').length
+    const failed = record.steps.find((s) => s.status === 'failed')
+    notify(failed ? S.runs.resultFailed(failed.resourceName) : S.runs.resultOk(done), failed ? 'error' : 'ok')
+  }
+
   const dayActionsFor = (resourceId: string): DayActions | null => {
     if (readOnly) return null
     const ctx = targetFor('resource', resourceId)
@@ -151,7 +174,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <AppNav view={view} onChange={setView} badges={{ diagnostics: findings?.length || undefined }} />
+      <AppNav view={view} onChange={setView} badges={{ diagnostics: findings?.length || undefined, runs: runs.length || undefined }} />
       <div className="app__main">
         <TopToolbar
           range={range}
@@ -198,15 +221,16 @@ export default function App() {
                 tab={tab}
                 onTab={setTab}
                 dayActionsFor={dayActionsFor}
+                onRun={readOnly ? null : () => openWizard({ kind: 'new' })}
               />
             ) : view === 'templates' ? (
-              <TemplatesView templates={data.templates.data} trees={trees} focusedId={focusedTemplate?.id ?? null} onFocus={(id) => setFocus({ kind: 'template', id, blockId: null })} />
+              <TemplatesView templates={data.templates.data} trees={trees} focusedId={focusedTemplate?.id ?? null} onFocus={(id) => setFocus({ kind: 'template', id, blockId: null })} onApply={readOnly ? null : (templateId) => openWizard({ kind: 'new', templateId })} />
             ) : view === 'holidays' ? (
               <HolidaysView year={holidayYear} onYear={setHolidayYear} closures={yearClosures.data} error={yearClosures.error} viewerTz={settings.viewerTz} />
             ) : view === 'diagnostics' ? (
               <DiagnosticsView findings={findings} fromSlots={slotsData !== null} onShowResource={showResourceRule} />
             ) : view === 'runs' ? (
-              <RunsView />
+              <RunsView runs={runs} readOnly={readOnly} onUndo={(record) => openWizard({ kind: 'undo', record })} />
             ) : (
               <SetupView />
             )}
@@ -222,6 +246,21 @@ export default function App() {
             today={today}
             onEdit={!readOnly && focus && targetFor(focus.kind, focus.id)?.tree ? (request) => openEditor(focus.kind, focus.id, request) : null}
           />
+          {wizard ? (
+            <RunWizardDrawer
+              key={wizard.epoch}
+              mode={wizard.mode}
+              targets={runTargets}
+              resources={resources}
+              templates={data.templates.data ?? []}
+              trees={trees}
+              today={today}
+              useV2={settings.useV2}
+              onFinished={onRunFinished}
+              onPrivilegeError={() => setReadOnly(true)}
+              onClose={() => setWizard(null)}
+            />
+          ) : null}
           {editor && editorContext?.tree ? (
             <RuleEditorDialog
               key={editor.epoch}

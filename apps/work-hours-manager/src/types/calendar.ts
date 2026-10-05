@@ -328,26 +328,41 @@ export interface LoadCalendarsInput {
 
 export type RunKind = 'applyTemplate' | 'timeOff' | 'undo'
 
+/** Raw calendars of one entity before a run — enough to rebuild the tree and to compute the undo. */
+export interface TreeSnapshot {
+  outer: RawCalendar
+  inner: RawCalendar[]
+}
+
 export interface RunStepResult {
   resourceId: string
   resourceName: string
-  status: 'done' | 'skipped' | 'failed' | 'pending'
+  calendarId: string | null
+  status: 'done' | 'skipped' | 'failed' | 'pending' | 'aborted'
   message: string
-  /** Inner calendar ids the server created (for undo). */
+  /** Inner calendar ids the server created in this step (for undo). */
   createdInnerCalendarIds: string[]
+  /** Inner calendar ids the step deleted (undo re-creates them from the snapshot). */
+  deletedInnerCalendarIds: string[]
+  /** Inner calendar ids whose recurrence end the step changed (undo restores the snapshot's end). */
+  endedInnerCalendarIds: string[]
 }
 
 export interface RunRecord {
   id: string
   kind: RunKind
   label: string
+  /** Short description of the parameters (template, cutoff, absence …). */
+  summary: string
   startedAt: string
   finishedAt: string | null
-  /** Snapshot of the affected trees before the run — the undo package. */
-  snapshot: Record<string, CalendarTree>
+  /** Snapshot of the affected trees before the run, keyed by lower-cased calendar id — the undo package. */
+  snapshot: Record<string, TreeSnapshot>
   steps: RunStepResult[]
   /** Run this one reverted (undo runs). */
   undoOf: string | null
+  /** Set when an undo run reverted this one. */
+  undoneBy: string | null
 }
 
 export type Notify = (text: string, kind?: 'ok' | 'error') => void
