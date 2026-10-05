@@ -241,6 +241,8 @@ sobald Actions in Code Apps GA sind. Read-only in v1.
 
 ## 7. Work Hours & Calendar Manager
 
+> Konzept mit Feature Map und Vorgehen: [`concepts/work-hours-manager.md`](concepts/work-hours-manager.md).
+
 **Problem:** Arbeitszeiten, Geschäftsschließungen und Feiertagskalender
 leben in `calendar`/`calendarrule`, dem unverständlichsten Datenmodell der
 Plattform. Fehlende Arbeitszeiten sind laut Microsoft-Troubleshooting die

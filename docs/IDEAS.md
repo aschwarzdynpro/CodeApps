@@ -109,6 +109,10 @@ Konzepten mit Kickoff-Prompt für je eine eigene Claude-Session geworden:
   Übersetzungs-Studio: Lücken in Dataverse-Beschriftungen je Sprache
   sehen, inline pflegen, per `ExportTranslation`/`ImportTranslation`
   zurückschreiben (Waldmann, drei Sprachen).
+- [`concepts/work-hours-manager.md`](concepts/work-hours-manager.md) —
+  Arbeitszeiten & Kalender: effektive Kalender je Ressource mit Herkunft,
+  Editor und Massenläufe über `msdyn_SaveCalendar`, Feiertage aus
+  Regelwerk, Diagnose (Idee 7 aus `Ideas_v3.md`, Schulz UAT).
 - [`concepts/territory-planner.md`](concepts/territory-planner.md) —
   Gebietsplanung: PLZ-Gebiete auf einer Karte, Hygiene-Report und
   Umplanung mit Vorschau auf Basis des bestehenden Waldmann-Modells
