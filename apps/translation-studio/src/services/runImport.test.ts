@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import fixture from '../fixtures/CrmTranslations.sample.xml?raw'
-import { runImport, type RunProgress } from './runImport'
+import { publishAndWait, runImport, type RunProgress } from './runImport'
 import { DataverseError } from './dataverseApi'
 import type { TranslationService } from './translationService'
 import type { ImportJobState } from '../types/translation'
@@ -21,7 +21,8 @@ function stub(over: Partial<TranslationService> = {}, jobs: (ImportJobState | nu
       const j = jobs[Math.min(poll++, jobs.length - 1)] ?? null
       return j ? { ...j, id, data: withLog ? (j.data ?? '<x/>') : null } : null
     }),
-    publishAll: vi.fn(async () => {}),
+    publishAll: vi.fn(async () => ({})),
+    getAsyncOperation: vi.fn(async () => null),
     ...over,
   } as unknown as TranslationService
   return svc
@@ -80,8 +81,13 @@ describe('runImport', () => {
   })
 
   it('keeps the import when publishing fails, and skips publishing on request', async () => {
-    const svc = stub({ publishAll: vi.fn(async () => Promise.reject(new Error('timeout'))) }, [job(100, true)])
-    expect(await runImport((await opts(svc)).o)).toMatchObject({ status: 'succeeded', published: false, publishError: 'timeout' })
+    const svc = stub({ publishAll: vi.fn(async () => Promise.reject(new Error('Bad gateway'))) }, [job(100, true)])
+    expect(await runImport((await opts(svc)).o)).toMatchObject({ status: 'succeeded', published: false, publishError: 'Bad gateway' })
+    // No answer in time: unknown, not failed — publishing goes on in Dataverse.
+    const dropped = stub({ publishAll: vi.fn(async () => Promise.reject(new Error('The request was not sent or there was no response from the server.'))) }, [job(100, true)])
+    const { o, seen } = await opts(dropped)
+    expect(await runImport(o)).toMatchObject({ status: 'succeeded', published: null })
+    expect(seen.at(-1)?.steps.publish).toBe('unknown')
     const quiet = stub({}, [job(100, true)])
     expect(await runImport((await opts(quiet, false)).o)).toMatchObject({ status: 'succeeded', published: false })
     expect(quiet.publishAll).not.toHaveBeenCalled()
@@ -107,6 +113,31 @@ describe('runImport', () => {
     expect(seen.at(-1)?.steps).toMatchObject({ upload: 'done', job: 'done', publish: 'done' })
   })
 
+  it('waits for the system job of an asynchronous import, also while it is queued', async () => {
+    const ops = [{ state: 'waiting' }, { state: 'running' }, { state: 'running' }]
+    let n = 0
+    const svc = stub(
+      {
+        importTranslations: vi.fn(async () => ({ asyncOperationId: 'op-1' })),
+        getAsyncOperation: vi.fn(async (id: string) => ({ id, message: null, ...(ops[Math.min(n++, ops.length - 1)] as { state: 'waiting' }) })),
+      },
+      [null, null, null, job(50), job(100, true)],
+    )
+    // missingJobMs is 0: without the system job the run would give up at the first empty poll.
+    expect(await runImport((await opts(svc, false)).o)).toMatchObject({ status: 'succeeded' })
+  })
+
+  it('reports a failed import system job with its message', async () => {
+    const svc = stub(
+      {
+        importTranslations: vi.fn(async () => ({ asyncOperationId: 'op-1' })),
+        getAsyncOperation: vi.fn(async (id: string) => ({ id, state: 'failed' as const, message: 'Datei ungültig (Systemauftrag)' })),
+      },
+      [null],
+    )
+    expect(await runImport((await opts(svc)).o)).toMatchObject({ status: 'error', error: 'Datei ungültig (Systemauftrag)' })
+  })
+
   it('reports the call error when no job turns up after a failed call', async () => {
     const svc = stub({ importTranslations: vi.fn(async () => Promise.reject(new Error('Bad request'))) }, [null])
     const out = await runImport((await opts(svc)).o)
@@ -118,5 +149,22 @@ describe('runImport', () => {
   it('gives up when the call ended and no job exists', async () => {
     const out = await runImport((await opts(stub({}, [null]))).o)
     expect(out.error).toMatch(/nicht auffindbar/)
+  })
+})
+
+describe('publishAndWait', () => {
+  const quick = { sleep: async () => {}, isHidden: () => false }
+  it('waits for the system job of PublishAllXmlAsync', async () => {
+    const states = ['waiting', 'running', 'succeeded'] as const
+    let n = 0
+    const svc = stub({ publishAll: vi.fn(async () => ({ asyncOperationId: 'op-2' })), getAsyncOperation: vi.fn(async (id: string) => ({ id, state: states[n++], message: null })) })
+    expect(await publishAndWait({ svc, ...quick })).toEqual({ published: true })
+    expect(n).toBe(3)
+  })
+
+  it('reports a failed publish job, and the synchronous answer when there is no job', async () => {
+    const failed = stub({ publishAll: vi.fn(async () => ({ asyncOperationId: 'op-3' })), getAsyncOperation: vi.fn(async (id: string) => ({ id, state: 'failed' as const, message: 'Formular kaputt' })) })
+    expect(await publishAndWait({ svc: failed, ...quick })).toEqual({ published: false, error: 'Formular kaputt' })
+    expect(await publishAndWait({ svc: stub(), ...quick })).toEqual({ published: true })
   })
 })

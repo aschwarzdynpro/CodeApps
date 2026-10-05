@@ -73,9 +73,9 @@ Der Dataverse-Konnektor kann nur POST-Aktionen und Tabellen-Reads
 | Ansichten (Designer) | FetchXML auf `savedqueries` (`layoutxml`, `fetchxml`, `querytype`); Spalten verknüpfter Tabellen über die Aliase der `link-entity` | Konnektor |
 | Apps (Designer) | `AppModule`-/`SiteMap`-Zeilen der Datei → FetchXML auf `appmodules` (`uniquename`) und `sitemaps` (`sitemapxml`). App ↔ Sitemap über `appmodulecomponent` (`componenttype` 62, `objectid` = `sitemapid`, `appmoduleidunique`) — die Namen weichen oft ab (Sales Hub: App `msdynce_saleshub`, Sitemap `SalesHubSitemap`); sonst über `sitemapnameunique` = `uniquename` ohne Groß-/Kleinschreibung. Sitemaps ohne App als eigene Einträge, Abfragen in Blöcken von 50 IDs | Konnektor |
 | Auswahlwerte je Spalte (Designer) | `EntityDefinitions(LogicalName=…)/Attributes/Microsoft.Dynamics.CRM.{Picklist,MultiSelectPicklist,State,Status,Boolean}AttributeMetadata` mit `OptionSet` — als native GET-„APIs“ von der App selbst in `dataSourcesInfo` registriert (wie der Export); Zuordnung über die `MetadataId` der Option, sonst eindeutigen Basistext. Scheitert es, stehen die Werte ungruppiert | native Abfrage, best effort |
-| Import | `ImportTranslation { TranslationFile, ImportJobId }`; Zip = Export-Zip mit ersetzter `CrmTranslations.xml` | native Aktion, sonst Konnektor |
-| Fortschritt | FetchXML auf `importjobs` (`progress`, `startedon`, `completedon`, am Ende `data`) alle 2 s; Aufruf und Polling laufen parallel | Konnektor |
-| Publish | `PublishAllXml` | native Aktion, sonst Konnektor |
+| Import | `ImportTranslationAsync { TranslationFile, ImportJobId }` → `AsyncOperationId` (von der App selbst in `dataSourcesInfo` registriert wie der Export); nur wenn die Aktion nachweislich nicht erreichbar ist, das synchrone `ImportTranslation`. Zip = Export-Zip mit ersetzter `CrmTranslations.xml` | native Aktion, sonst Konnektor |
+| Fortschritt | FetchXML auf `importjobs` (`progress`, `startedon`, `completedon`, am Ende `data`) alle 2 s; solange noch kein Job da ist, der Systemauftrag (`asyncoperations`, `statuscode`) — er kann erst in der Warteschlange stehen. Urteil aus `data` (`<importtranslations><status>`), Fehler mit Code, Arbeitsblatt und Zeile | Konnektor |
+| Publish | `PublishAllXmlAsync` → Systemauftrag alle 3 s bis fertig/fehlgeschlagen (Waldmann: 6 min); sonst `PublishAllXml`. Bleibt die Antwort aus (Timeout, Verbindung weg), heißt es „unbekannt“, nicht „fehlgeschlagen“ | native Aktion, sonst Konnektor |
 
 **Wegwechsel nur ohne Risiko:** Beim Export probiert die App bei jedem
 Fehler den nächsten Weg. Bei Import und Publish nur, wenn der vorige Weg
@@ -365,7 +365,7 @@ Offen, bis live geprüft — jeweils mit der Stelle im Code:
     only“)?
   - Welches Format hat `data` bei Übersetzungen? `parseImportLog` liest
     `result="failure|warning"` wie bei Solution-Importen.
-- **Synchron oder asynchron?** Geklärt am 2026-10-04 in DEV COPY:
+- **Synchron oder asynchron?** Geklärt am 2026-10-04/05 in DEV COPY:
   `ImportTranslation` ist synchron. Mit WaldmannCore lief der Importjob
   5 Minuten (21:51–21:56), der Aufruf brach vorher mit dem
   180-s-Timeout ab, der Import lief in Dataverse weiter und war
@@ -373,8 +373,16 @@ Offen, bis live geprüft — jeweils mit der Stelle im Code:
   Ein Fehler des Aufrufs bei erfolgreichem Job ist nur ein Hinweis im
   Ergebnis, kein Fehler. Bleibt nach Ende des Aufrufs 60 s lang kein Job
   sichtbar, gilt der Import als nicht gestartet. Ein Timeout beim
-  Veröffentlichen heißt „läuft vermutlich weiter“. Sauberer wäre
-  `ImportTranslationAsync` (Roadmap).
+  Veröffentlichen heißt „läuft vermutlich weiter“. `PublishAllXml` lief
+  danach ebenfalls über den Timeout hinaus (Publish-Plugins der Apps bis
+  22:07, Solution-Historie zuletzt 6 min). Seit 2026-10-05 nimmt die App
+  `ImportTranslationAsync` und `PublishAllXmlAsync` — beide stehen in
+  `$metadata` und liefern `AsyncOperationId`. Live noch nicht durch einen
+  Import bestätigt.
+- **`importjob.data` bei Übersetzungen** (live gelesen):
+  `<importtranslations><status>Succeeded</status><errordetails><errorcode>0</errorcode><worksheet>Localized Labels</worksheet><rownumber>33622</rownumber></errordetails></importtranslations>`.
+  Kein `result="failure"` wie bei Solution-Importen; die Zeile ist die
+  zuletzt verarbeitete. Den Publish zeichnet `importjob` nicht auf.
 - **Blattstruktur und Typwerte:** geklärt am echten Export, siehe „Format“.
 - **Namensauflösung.** `EntityDefinitions` mit `$filter` über zehn
   `LogicalName` und `$expand=Attributes` ist aus solution-forge bekannt,

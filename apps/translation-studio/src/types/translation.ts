@@ -132,6 +132,19 @@ export interface SolutionRef {
   publisher: string
 }
 
+/** A system job (`asyncoperation`), e.g. of `PublishAllXmlAsync`. */
+export interface AsyncOperationState {
+  id: string
+  state: 'waiting' | 'running' | 'succeeded' | 'failed' | 'canceled'
+  /** `friendlymessage`/`message` of a failed job. */
+  message: string | null
+}
+
+/** What an action with side effects started: the system job when it ran asynchronously. */
+export interface StartedAction {
+  asyncOperationId?: string
+}
+
 export interface ImportJobState {
   id: string
   /** 0–100. */

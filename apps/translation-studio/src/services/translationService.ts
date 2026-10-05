@@ -1,5 +1,6 @@
 import type {
   AppRecord,
+  AsyncOperationState,
   ChoiceGroup,
   ComponentInfo,
   ExportResult,
@@ -8,6 +9,7 @@ import type {
   Lcid,
   SetupCheck,
   SolutionRef,
+  StartedAction,
   TranslationFile,
   ViewRecord,
 } from '../types/translation'
@@ -41,16 +43,19 @@ export interface TranslationService {
   /** Options per choice column of a table (to group choice values under their column); best effort. */
   getChoiceGroups(table: string, baseLanguage: Lcid): Promise<ChoiceGroup[]>
   /**
-   * `ImportTranslation` with a new import job id. Resolves when the call
-   * returns (the import may still run); progress via {@link getImportJob}.
+   * `ImportTranslationAsync` (else `ImportTranslation`) with a new import job
+   * id. Resolves when the call returns — with the system job when it ran
+   * asynchronously; progress via {@link getImportJob}.
    */
-  importTranslations(zipBase64: string, importJobId: string): Promise<void>
+  importTranslations(zipBase64: string, importJobId: string): Promise<StartedAction>
   /** The `importjob` row; null while it doesn't exist yet. */
   getImportJob(id: string, withLog: boolean): Promise<ImportJobState | null>
   /** Import jobs not completed yet, started within the last hours (one import at a time). */
   runningImports(): Promise<ImportJobState[]>
-  /** `PublishAllXml`. */
-  publishAll(): Promise<void>
+  /** `PublishAllXmlAsync` (else `PublishAllXml`); with the system job to wait for when asynchronous. */
+  publishAll(): Promise<StartedAction>
+  /** A system job; null while it isn't readable (yet). */
+  getAsyncOperation(id: string): Promise<AsyncOperationState | null>
   /** Environment checks for the setup page (without the export probe). */
   checkSetup(): Promise<SetupCheck[]>
 }

@@ -65,17 +65,54 @@ if (dataSourcesInfo && hasNativeDataverse && !(EXPORT_DS in dataSourcesInfo)) {
   }
 }
 
-const ownNative: Record<string, Record<string, Operation>> =
-  dataSourcesInfo && EXPORT_DS in dataSourcesInfo && !generatedService('ExportTranslationService')
-    ? {
-        ExportTranslationService: {
-          ExportTranslation: (SolutionName: unknown) =>
-            getClient(dataSourcesInfo as never).executeAsync({
-              dataverseRequest: { action: 'customapi', parameters: { operationName: 'ExportTranslation', tableName: EXPORT_DS, body: { SolutionName } } },
-            }) as Promise<OperationResult>,
+/**
+ * The asynchronous variants of import and publish (unbound, both answer with
+ * `AsyncOperationId`), registered the same way. The synchronous actions run
+ * into the 180 s timeout on large solutions (WaldmannCore: import 5 min,
+ * PublishAllXml 6 min) while the server goes on.
+ */
+const ASYNC_DS = 'tsasyncactions'
+const ASYNC_ACTIONS: Record<string, string[]> = { ImportTranslationAsync: ['TranslationFile', 'ImportJobId'], PublishAllXmlAsync: [] }
+if (dataSourcesInfo && hasNativeDataverse && !(ASYNC_DS in dataSourcesInfo)) {
+  dataSourcesInfo[ASYNC_DS] = {
+    tableId: '',
+    version: '',
+    primaryKey: '',
+    dataSourceType: 'Dataverse',
+    apis: Object.fromEntries(
+      Object.entries(ASYNC_ACTIONS).map(([name, params]) => [
+        name,
+        {
+          path: `/api/data/v9.2/${name}`,
+          method: 'POST',
+          parameters: params.map((p) => ({ name: p, in: 'body', required: true, type: 'string' })),
+          responseInfo: { 200: { type: 'object' } },
         },
-      }
-    : {}
+      ]),
+    ),
+  }
+}
+
+const customApi = (tableName: string, operationName: string, body: Record<string, unknown>) =>
+  getClient(dataSourcesInfo as never).executeAsync({
+    dataverseRequest: { action: 'customapi', parameters: { operationName, tableName, body } },
+  }) as Promise<OperationResult>
+
+const ownNative: Record<string, Record<string, Operation>> = {
+  ...(dataSourcesInfo && EXPORT_DS in dataSourcesInfo && !generatedService('ExportTranslationService')
+    ? { ExportTranslationService: { ExportTranslation: (SolutionName: unknown) => customApi(EXPORT_DS, 'ExportTranslation', { SolutionName }) } }
+    : {}),
+  ...(dataSourcesInfo && ASYNC_DS in dataSourcesInfo
+    ? Object.fromEntries(
+        Object.entries(ASYNC_ACTIONS)
+          .filter(([name]) => !generatedService(`${name}Service`))
+          .map(([name, params]) => [
+            `${name}Service`,
+            { [name]: (...args: unknown[]) => customApi(ASYNC_DS, name, Object.fromEntries(params.map((p, i) => [p, args[i]]))) },
+          ]),
+      )
+    : {}),
+}
 
 function generated(service: string): Record<string, Operation> | null {
   return generatedService(service) ?? ownNative[service] ?? null

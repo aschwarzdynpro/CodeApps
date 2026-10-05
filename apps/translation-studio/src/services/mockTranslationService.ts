@@ -23,6 +23,8 @@ interface MockJob {
   applied: boolean
 }
 const jobs = new Map<string, MockJob>()
+const PUBLISH_MS = 2500
+const publishes = new Map<string, number>()
 
 const delay = <T,>(value: T, ms = 150): Promise<T> => new Promise((resolve) => setTimeout(() => resolve(value), ms))
 
@@ -100,7 +102,7 @@ export const mockTranslationService: TranslationService = {
         for (const u of updates) u.label.texts = { ...u.label.texts, [u.lcid]: u.text }
       },
     })
-    return delay(undefined, 800)
+    return delay({}, 800)
   },
 
   async getImportJob(id, withLog) {
@@ -112,7 +114,18 @@ export const mockTranslationService: TranslationService = {
     return delay([...jobs.values()].filter((j) => Date.now() - j.started < JOB_MS).map((j) => jobState(j, false)))
   },
 
-  publishAll: () => delay(undefined, 1500),
+  // Publishing as a system job of a few seconds, like PublishAllXmlAsync.
+  async publishAll() {
+    const id = crypto.randomUUID()
+    publishes.set(id, Date.now())
+    return delay({ asyncOperationId: id }, 300)
+  },
+
+  async getAsyncOperation(id) {
+    const started = publishes.get(id)
+    if (started === undefined) return delay(null, 80)
+    return delay({ id, state: Date.now() - started >= PUBLISH_MS ? 'succeeded' : 'running', message: null }, 80)
+  },
 
   async checkSetup(): Promise<SetupCheck[]> {
     return delay([

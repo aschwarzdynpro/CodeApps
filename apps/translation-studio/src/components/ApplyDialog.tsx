@@ -3,7 +3,7 @@ import { Checkbox, ProgressBar } from '@fluentui/react-components'
 import { CheckmarkCircleRegular, ErrorCircleRegular } from '@fluentui/react-icons'
 import type { CellChange, ComponentInfo, SolutionRef, TranslationFile } from '../types/translation'
 import { getTranslationService } from '../services/translationService'
-import { runImport, type RunOutcome, type RunProgress, type StepId } from '../services/runImport'
+import { publishAndWait, runImport, type RunOutcome, type RunProgress, type StepId } from '../services/runImport'
 import { languageName } from '../utils/languages'
 import { saveRun } from '../utils/storage'
 import { downloadText, stamp } from '../utils/download'
@@ -12,8 +12,6 @@ import { Btn } from './ui'
 import { S } from '../strings'
 
 const PREVIEW_LIMIT = 300
-/** The answer timed out — the server usually goes on (PublishAllXml on a large environment). */
-const TIMED_OUT = /timed? ?out|timeout|zeitüberschreitung/i
 const STEPS: StepId[] = ['check', 'build', 'upload', 'job', 'publish']
 
 interface Props {
@@ -83,10 +81,10 @@ export function ApplyDialog({ solution, file, exportZip, changes, components, on
   const publishNow = async () => {
     setPublishing('running')
     try {
-      await (await getTranslationService()).publishAll()
-      setOutcome((o) => (o ? { ...o, published: true, publishError: undefined } : o))
+      const pub = await publishAndWait({ svc: await getTranslationService(), signal: signal.current })
+      setOutcome((o) => (o ? { ...o, published: pub.published, publishError: pub.error } : o))
     } catch (err) {
-      setOutcome((o) => (o ? { ...o, publishError: err instanceof Error ? err.message : String(err) } : o))
+      setOutcome((o) => (o ? { ...o, published: false, publishError: err instanceof Error ? err.message : String(err) } : o))
     } finally {
       setPublishing(null)
     }
@@ -175,7 +173,7 @@ export function ApplyDialog({ solution, file, exportZip, changes, components, on
               return (
                 <li key={id} className={`step step--${st}`}>
                   <span className="step__icon" aria-hidden>
-                    {st === 'done' ? '✓' : st === 'failed' ? '✕' : st === 'running' ? '…' : st === 'skipped' ? '–' : '○'}
+                    {st === 'done' ? '✓' : st === 'failed' ? '✕' : st === 'running' ? '…' : st === 'skipped' ? '–' : st === 'unknown' ? '?' : '○'}
                   </span>
                   <span className="step__label">{S.apply.steps[id]}</span>
                   {id === 'job' && st !== 'pending' ? (
@@ -217,9 +215,10 @@ function Result({ outcome, solution }: { outcome: RunOutcome; solution: string }
       </div>
       {outcome.callWarning ? <p className="muted small">{S.apply.callWarning(outcome.callWarning)}</p> : null}
       {outcome.privilege ? <div className="notice notice--warn">{S.apply.privilege}</div> : null}
-      {outcome.publishError ? (
+      {ok && outcome.published === null ? <div className="notice notice--warn">{S.apply.publishTimeout}</div> : null}
+      {outcome.published === false && outcome.publishError ? (
         <div className="notice notice--warn">
-          {TIMED_OUT.test(outcome.publishError) ? S.apply.publishTimeout : `${S.apply.publishFailed} ${outcome.publishError}`}
+          {S.apply.publishFailed} {outcome.publishError}
         </div>
       ) : null}
       {outcome.job ? (

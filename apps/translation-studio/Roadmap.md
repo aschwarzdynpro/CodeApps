@@ -96,10 +96,11 @@ XML, Node):
 
       Danach den ersten echten Export (anonymisiert, nur Metadaten) gegen
       `src/fixtures/CrmTranslations.sample.xml` abgleichen.
-- [ ] ⭐ **`ImportTranslationAsync` / `PublishAllXmlAsync`** (M). Beide
-      liefern eine `AsyncOperationId`. Statt auf einen langen Aufruf zu
-      warten, `asyncoperation` (und `importjob`) pollen. Sicher gegen den
-      Power-Apps-Timeout von 180 s.
+- [x] ⭐ **`ImportTranslationAsync` / `PublishAllXmlAsync`** (M, 2026-10-05).
+      Beide liefern eine `AsyncOperationId`; die App pollt `asyncoperation`
+      (und `importjob`) statt auf den Aufruf zu warten. Fallback auf die
+      synchronen Aktionen nur, wenn die Async-Aktion nachweislich fehlt.
+      Live durch einen Import noch zu bestätigen.
 - [ ] **Größengrenze** (S). Größe des Exports messen. Ab einer Schwelle,
       die live zu ermitteln ist, nicht importieren, sondern auf eine
       kleinere Solution verweisen.
@@ -271,6 +272,13 @@ XML, Node):
     obwohl der Job durchlief. Jetzt entscheidet der Job: Aufruffehler bei
     erfolgreichem Job sind ein Hinweis, ein Timeout beim Veröffentlichen
     heißt „läuft vermutlich weiter“ (Vitest).
+  - **Asynchron und lesbares Protokoll (2026-10-05):** Import und
+    Veröffentlichen über `ImportTranslationAsync`/`PublishAllXmlAsync`
+    mit Systemauftrag (s. o.). `importjob.data` von Übersetzungen hat ein
+    eigenes Format (`<importtranslations><status>`), jetzt gelesen: Urteil
+    aus dem Log, Fehler mit Code (hex), Arbeitsblatt und Zeile. Verlauf und
+    Ergebnis zeigen beim Veröffentlichen ohne Antwort „unbekannt“ statt
+    „nein“. Einrichtung prüft die Async-Aktionen und `asyncoperation`.
   - **Formulare und Ansichten getrennt (2026-10-04):** Der
     Tabellen-Steckbrief hat je eine Karte „Formulare“ und „Ansichten“
     (eigene Summe, eigene Sprungmarke). Jeder Eintrag zeigt seinen Typ

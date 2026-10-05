@@ -325,9 +325,9 @@ export const S = {
     steps: {
       check: 'Prüfen, ob schon ein Import läuft',
       build: 'Datei bauen (Export + Änderungen)',
-      upload: 'Import starten (ImportTranslation)',
+      upload: 'Import starten',
       job: 'Importjob',
-      publish: 'Veröffentlichen (PublishAllXml)',
+      publish: 'Veröffentlichen (Systemauftrag)',
     },
     jobProgress: (pct: number) => `${Math.round(pct)} %`,
     jobWaiting: 'warte auf den Importjob …',
@@ -338,7 +338,7 @@ export const S = {
     donePublished: 'Import abgeschlossen und veröffentlicht.',
     failed: 'Import fehlgeschlagen.',
     publishFailed: 'Import abgeschlossen, Veröffentlichen fehlgeschlagen:',
-    publishTimeout: 'Import abgeschlossen. Das Veröffentlichen hat nicht rechtzeitig geantwortet und läuft in Dataverse vermutlich weiter — in ein paar Minuten in der App prüfen, sonst „Jetzt veröffentlichen“.',
+    publishTimeout: 'Import abgeschlossen. Ob das Veröffentlichen fertig ist, ist unbekannt: es hat nicht rechtzeitig geantwortet und läuft in Dataverse vermutlich weiter — in ein paar Minuten in der App prüfen, sonst „Jetzt veröffentlichen“.',
     callWarning: (msg: string) => `Der Import-Aufruf hat mit einem Fehler geantwortet („${msg}“) — typisch für die Zeitüberschreitung bei großen Solutions. Der Importjob ist trotzdem durchgelaufen; maßgeblich ist der Job.`,
     publishNow: 'Jetzt veröffentlichen',
     publishConfirm: 'Alle Anpassungen der Umgebung veröffentlichen (PublishAllXml)? Das betrifft auch Änderungen anderer Personen.',
@@ -386,6 +386,7 @@ export const S = {
     headPublish: 'Veröffentlicht',
     yes: 'ja',
     no: 'nein',
+    unknown: 'unbekannt',
     status: { succeeded: 'erfolgreich', failed: 'fehlgeschlagen', running: 'lief noch', error: 'Fehler' },
   },
 

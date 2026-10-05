@@ -53,7 +53,7 @@ export function HistoryView({ epoch }: { epoch: number }) {
                       {r.message ? <div className="muted small">{r.message}</div> : null}
                       {r.importJobId ? <div className="muted small mono">{r.importJobId}</div> : null}
                     </td>
-                    <td>{r.published ? S.history.yes : S.history.no}</td>
+                    <td>{r.published === null ? S.history.unknown : r.published ? S.history.yes : S.history.no}</td>
                   </tr>
                 ))}
               </tbody>

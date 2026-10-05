@@ -13,7 +13,8 @@ export interface RunRecord {
   counts: Record<number, number>
   importJobId: string | null
   status: 'succeeded' | 'failed' | 'running' | 'error'
-  published: boolean
+  /** null: unknown (publishing didn't answer in time). */
+  published: boolean | null
   /** Short outcome: error text or "n Meldungen". */
   message: string
 }

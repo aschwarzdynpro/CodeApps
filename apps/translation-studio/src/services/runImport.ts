@@ -1,4 +1,4 @@
-import type { ImportJobState, TranslationFile } from '../types/translation'
+import type { AsyncOperationState, ImportJobState, TranslationFile } from '../types/translation'
 import { importStatus, parseImportLog, type LogEntry } from '../utils/importLog'
 import { changesOf, serializeTranslationFile } from '../utils/translationFile'
 import { buildImportZip } from '../utils/translationZip'
@@ -10,13 +10,16 @@ import type { TranslationService } from './translationService'
  * edits), start `ImportTranslation` with a fresh job id, poll the job until
  * it completes (paused while the app is hidden), then publish if wanted.
  *
- * The import call and the polling run side by side: whether the call returns
- * at once or only when the import is done (or times out on the way) is not
- * documented — the job row decides.
+ * The import call and the polling run side by side. `ImportTranslationAsync`
+ * answers at once with a system job; the synchronous fallback returns only
+ * when the import is done and times out on large solutions while the import
+ * goes on — either way the job row decides. Publishing waits for its system
+ * job (`PublishAllXmlAsync`) the same way.
  */
 
 export type StepId = 'check' | 'build' | 'upload' | 'job' | 'publish'
-export type StepStatus = 'pending' | 'running' | 'done' | 'failed' | 'skipped'
+/** `unknown`: no answer in time, the server probably goes on (publishing). */
+export type StepStatus = 'pending' | 'running' | 'done' | 'failed' | 'skipped' | 'unknown'
 
 export interface RunProgress {
   steps: Record<StepId, StepStatus>
@@ -32,7 +35,8 @@ export interface RunOutcome {
   error?: string
   /** The error was a missing privilege → the UI switches to read-only. */
   privilege?: boolean
-  published: boolean
+  /** null: unknown — publishing didn't answer in time and probably goes on in Dataverse. */
+  published: boolean | null
   publishError?: string
   /**
    * The import call reported an error, but the job ran through (typically the
@@ -69,6 +73,59 @@ const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(r
 const defaultHidden = () => typeof document !== 'undefined' && document.hidden
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
+
+/** The answer didn't come back in time or the connection dropped — the server usually goes on. */
+export const looksLikeTimeout = (text: string) => /timed? ?out|timeout|zeitüberschreitung|no response|was not sent|failed to fetch|network ?error/i.test(text)
+
+export interface PublishResult {
+  /** null: unknown (no answer in time, probably still running). */
+  published: boolean | null
+  error?: string
+}
+
+export interface PublishOptions {
+  svc: TranslationService
+  signal?: { cancelled: boolean }
+  pollMs?: number
+  maxWaitMs?: number
+  sleep?: (ms: number) => Promise<void>
+  isHidden?: () => boolean
+}
+
+/**
+ * Publish all customizations and wait for the result: the system job of
+ * `PublishAllXmlAsync`, or the answer of the synchronous fallback. On a large
+ * environment publishing takes minutes (Waldmann: 6 min).
+ */
+export async function publishAndWait(o: PublishOptions): Promise<PublishResult> {
+  const sleep = o.sleep ?? defaultSleep
+  const isHidden = o.isHidden ?? defaultHidden
+  const pollMs = o.pollMs ?? 3000
+  const maxWaitMs = o.maxWaitMs ?? 30 * 60_000
+  let asyncOperationId: string | undefined
+  try {
+    asyncOperationId = (await o.svc.publishAll())?.asyncOperationId
+  } catch (err) {
+    const text = message(err)
+    return { published: looksLikeTimeout(text) ? null : false, error: text }
+  }
+  if (!asyncOperationId) return { published: true }
+  const started = Date.now()
+  for (;;) {
+    if (o.signal?.cancelled) return { published: null }
+    let op: AsyncOperationState | null = null
+    try {
+      op = await o.svc.getAsyncOperation(asyncOperationId)
+    } catch (err) {
+      console.warn('[translation] publish job not readable', err)
+    }
+    if (op?.state === 'succeeded') return { published: true }
+    if (op?.state === 'failed' || op?.state === 'canceled') return { published: false, error: op.message ?? `Systemauftrag ${op.state === 'canceled' ? 'abgebrochen' : 'fehlgeschlagen'}` }
+    if (Date.now() - started > maxWaitMs) return { published: null, error: 'Das Veröffentlichen läuft ungewöhnlich lange — Systemaufträge im Maker-Portal prüfen.' }
+    await sleep(pollMs)
+    while (isHidden() && !o.signal?.cancelled) await sleep(500)
+  }
+}
 
 export async function runImport(o: RunOptions): Promise<RunOutcome> {
   const sleep = o.sleep ?? defaultSleep
@@ -130,10 +187,12 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
   let callDone = false
   let callError: unknown = null
   let callDoneAt = 0
+  let asyncOperationId: string | undefined
   void o.svc.importTranslations(zipBase64, jobId).then(
-    () => {
+    (started) => {
       callDone = true
       callDoneAt = Date.now()
+      asyncOperationId = started?.asyncOperationId
     },
     (err: unknown) => {
       callDone = true
@@ -145,6 +204,7 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
   const started = Date.now()
   let job: ImportJobState | null = null
   let pollsAfterError = 0
+  let asyncDoneAt = 0
   step('job', 'running')
   for (;;) {
     if (o.signal?.cancelled) return { status: 'error', jobId, job, log: [], error: 'abgebrochen', published: false }
@@ -169,7 +229,20 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
         step('job', 'failed')
         return fail('upload', callError, jobId, null)
       }
-    } else if (callDone && Date.now() - callDoneAt >= missingJobMs) {
+    } else if (callDone && asyncOperationId && !asyncDoneAt) {
+      // Asynchronous import: the job row appears once the system job runs — it may wait in the queue first.
+      let op: AsyncOperationState | null = null
+      try {
+        op = await o.svc.getAsyncOperation(asyncOperationId)
+      } catch (err) {
+        console.warn('[translation] import system job not readable', err)
+      }
+      if (op?.state === 'failed' || op?.state === 'canceled') {
+        step('job', 'failed')
+        return fail('upload', new Error(op.message ?? 'Der Systemauftrag des Imports ist fehlgeschlagen.'), jobId, null)
+      }
+      if (op?.state === 'succeeded') asyncDoneAt = Date.now()
+    } else if (callDone && Date.now() - (asyncDoneAt || callDoneAt) >= missingJobMs) {
       // The call succeeded and no job turned up: the import never started.
       step('job', 'failed')
       return fail('upload', new Error('Der Importjob ist nicht auffindbar — Import vermutlich nicht gestartet.'), jobId, null)
@@ -207,12 +280,7 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
   // 5. Publish.
   if (!o.publish) return { status: 'succeeded', jobId, job, log, published: false, callWarning }
   step('publish', 'running')
-  try {
-    await o.svc.publishAll()
-    step('publish', 'done')
-    return { status: 'succeeded', jobId, job, log, published: true, callWarning }
-  } catch (err) {
-    step('publish', 'failed')
-    return { status: 'succeeded', jobId, job, log, published: false, publishError: message(err), callWarning }
-  }
+  const pub = await publishAndWait({ svc: o.svc, signal: o.signal, sleep, isHidden, pollMs: o.pollMs, maxWaitMs })
+  step('publish', pub.published === true ? 'done' : pub.published === null ? 'unknown' : 'failed')
+  return { status: 'succeeded', jobId, job, log, published: pub.published, publishError: pub.error, callWarning }
 }

@@ -262,8 +262,8 @@ export const HELP_SECTIONS: HelpSection[] = [
         steps: [
           '**Anwenden** zeigt die Vorschau: nur die geänderten Zellen, Anzahl je Sprache, vorher/nachher.',
           '**Importieren** prüft, ob schon ein Import läuft, baut die Datei (der Export plus deine Änderungen — keine Zeile entfernt, nichts umsortiert) und startet den Import.',
-          'Der Fortschritt des Importjobs wird alle zwei Sekunden gelesen; im Hintergrund pausiert die Abfrage. Solange der Import läuft, ist das Bearbeiten gesperrt.',
-          'Danach wird veröffentlicht (**PublishAllXml**), wenn der Haken gesetzt ist. Ohne Veröffentlichen sind die Texte importiert, aber erst nach dem nächsten Publish sichtbar — „Jetzt veröffentlichen“ holt das nach.',
+          'Der Import läuft als Systemauftrag (**ImportTranslationAsync**). Der Fortschritt des Importjobs wird alle zwei Sekunden gelesen; im Hintergrund pausiert die Abfrage. Solange der Import läuft, ist das Bearbeiten gesperrt. Große Solutions brauchen mehrere Minuten (WaldmannCore: 5).',
+          'Danach wird veröffentlicht (**PublishAllXmlAsync**), wenn der Haken gesetzt ist; die App wartet auf den Systemauftrag (in großen Umgebungen ebenfalls Minuten). Ohne Veröffentlichen sind die Texte importiert, aber erst nach dem nächsten Publish sichtbar — „Jetzt veröffentlichen“ holt das nach. Kommt keine Antwort, steht dort „unbekannt“: Dataverse veröffentlicht dann meist trotzdem fertig.',
           'Das Ergebnis zeigt die Meldungen des Importjobs; das Protokoll lässt sich herunterladen. „Schließen und neu laden“ exportiert neu, die Matrix zeigt dann den Stand aus Dataverse.',
         ],
       },

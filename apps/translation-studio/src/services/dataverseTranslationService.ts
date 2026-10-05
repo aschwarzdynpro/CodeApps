@@ -1,7 +1,7 @@
 import { ORG_URL } from '../config'
-import type { AppRecord, ChoiceGroup, ComponentInfo, ImportJobState, SetupCheck, SolutionRef, TranslationFile, ViewRecord } from '../types/translation'
+import type { AppRecord, AsyncOperationState, ChoiceGroup, ComponentInfo, ImportJobState, SetupCheck, SolutionRef, StartedAction, TranslationFile, ViewRecord } from '../types/translation'
 import { base64ToBytes } from '../utils/translationZip'
-import { callAction, DataverseError, fetchXml, hasConnector, metadataGet, nativeActions, odata, pick, type Row } from './dataverseApi'
+import { callAction, DataverseError, fetchXml, hasConnector, metadataGet, nativeActions, odata, pick, routeUnavailable, type ActionSpec, type Row } from './dataverseApi'
 import type { TranslationService } from './translationService'
 import { tableKey } from '../utils/designerTree'
 
@@ -78,6 +78,34 @@ function toJob(r: Row): ImportJobState {
 }
 
 export const ACTIONS = ['ExportTranslation', 'ImportTranslation', 'PublishAllXml']
+/** Registered by the app itself (`dataverseApi`); the connector is their fallback. */
+const ASYNC_ACTIONS = ['ImportTranslationAsync', 'PublishAllXmlAsync']
+
+/**
+ * The asynchronous variant first (answers at once with its system job), the
+ * synchronous one only when the async action provably isn't reachable — never
+ * after an error of the call itself, which may have started the work.
+ */
+async function startAsyncOrSync(asyncSpec: ActionSpec, syncSpec: ActionSpec): Promise<StartedAction> {
+  try {
+    const { data } = await callAction(asyncSpec)
+    const id = str(pick(data, 'AsyncOperationId'))
+    return guid(id) ? { asyncOperationId: id } : {}
+  } catch (err) {
+    if (!(err instanceof DataverseError) || err.privilege || !routeUnavailable(err.message)) throw err
+    console.warn(`[translation] ${asyncSpec.name} not reachable, falling back to ${syncSpec.name}`, err.message)
+  }
+  await callAction(syncSpec)
+  return {}
+}
+
+/** `asyncoperation.statuscode` → state. */
+function asyncState(statuscode: number): AsyncOperationState['state'] {
+  if (statuscode === 30) return 'succeeded'
+  if (statuscode === 31) return 'failed'
+  if (statuscode === 32) return 'canceled'
+  return statuscode >= 20 ? 'running' : 'waiting'
+}
 
 export const dataverseTranslationService: TranslationService = {
   source: 'dataverse',
@@ -298,8 +326,12 @@ export const dataverseTranslationService: TranslationService = {
     return groups
   },
 
-  async importTranslations(zipBase64, importJobId) {
-    await callAction({ name: 'ImportTranslation', params: [['TranslationFile', zipBase64], ['ImportJobId', importJobId]], sideEffects: true })
+  importTranslations(zipBase64, importJobId) {
+    const params: [string, unknown][] = [
+      ['TranslationFile', zipBase64],
+      ['ImportJobId', importJobId],
+    ]
+    return startAsyncOrSync({ name: 'ImportTranslationAsync', params, sideEffects: true }, { name: 'ImportTranslation', params, sideEffects: true })
   },
 
   async getImportJob(id, withLog) {
@@ -324,8 +356,21 @@ export const dataverseTranslationService: TranslationService = {
     return rows.map(toJob)
   },
 
-  async publishAll() {
-    await callAction({ name: 'PublishAllXml', params: [], sideEffects: true })
+  publishAll() {
+    return startAsyncOrSync({ name: 'PublishAllXmlAsync', params: [], sideEffects: true }, { name: 'PublishAllXml', params: [], sideEffects: true })
+  },
+
+  async getAsyncOperation(id) {
+    const rows = await fetchXml(
+      'asyncoperations',
+      `<fetch top="1"><entity name="asyncoperation"><attribute name="asyncoperationid" /><attribute name="statuscode" />` +
+        `<attribute name="message" /><attribute name="friendlymessage" />` +
+        `<filter><condition attribute="asyncoperationid" operator="eq" value="${esc(id)}" /></filter></entity></fetch>`,
+    )
+    const r = rows[0]
+    if (!r) return null
+    const state = asyncState(num(r.statuscode))
+    return { id: str(r.asyncoperationid), state, message: state === 'failed' || state === 'canceled' ? str(r.friendlymessage) || str(r.message) || null : null }
   },
 
   async checkSetup() {
@@ -353,6 +398,15 @@ export const dataverseTranslationService: TranslationService = {
           ? ACTIONS.join(', ')
           : `Fehlt: ${missing.join(', ')} — ohne sie versucht die App den Konnektor („Perform an unbound action“). ExportTranslation ist an „solutions“ gebunden und braucht vermutlich den nativen Weg.`,
     })
+    const asyncNative = nativeActions(ASYNC_ACTIONS)
+    checks.push({
+      id: 'async',
+      label: 'Asynchroner Import und Veröffentlichen',
+      ok: ASYNC_ACTIONS.every((a) => asyncNative[a]) ? true : null,
+      detail: ASYNC_ACTIONS.every((a) => asyncNative[a])
+        ? `${ASYNC_ACTIONS.join(', ')} — ohne 180-s-Timeout, die App wartet auf den Systemauftrag`
+        : 'Nicht nativ eingebunden — die App versucht den Konnektor, sonst die synchronen Aktionen (Timeout nach 180 s bei großen Solutions).',
+    })
     const probe = async (id: string, label: string, fn: () => Promise<string>) => {
       try {
         checks.push({ id, label, ok: true, detail: await fn() })
@@ -373,6 +427,10 @@ export const dataverseTranslationService: TranslationService = {
       await probe('importjob', 'Importjobs lesbar', async () => {
         await fetchXml('importjobs', '<fetch top="1"><entity name="importjob"><attribute name="importjobid" /></entity></fetch>')
         return 'importjob (Fortschritt des Imports)'
+      })
+      await probe('asyncoperation', 'Systemaufträge lesbar', async () => {
+        await fetchXml('asyncoperations', '<fetch top="1"><entity name="asyncoperation"><attribute name="asyncoperationid" /></entity></fetch>')
+        return 'asyncoperation (Stand von Import und Veröffentlichen)'
       })
     }
     return checks
