@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FIXTURE_CALENDARS, makeBlock, makeCalendar, treeOf } from '../fixtures/calendars'
+import { FIXTURE_CALENDARS, OPEN_END, makeBlock, makeCalendar, treeOf } from '../fixtures/calendars'
 import type { CalendarService } from '../services/calendarService'
 import { runPlan } from '../services/runCalendarPlan'
 import type { CalendarEventInfo, CalendarTree, DeleteCalendarInfo, Resource, RunRecord } from '../types/calendar'
@@ -164,7 +164,7 @@ describe('runPlan + buildUndoPlan', () => {
   })
 
   it('leaves the fixtures untouched', () => {
-    expect(FIXTURE_CALENDARS.weekly.calendar.calendar_calendar_rules[0].effectiveintervalend).toBe('9999-12-30T23:59:59Z')
+    expect(FIXTURE_CALENDARS.weekly.calendar.calendar_calendar_rules[0].effectiveintervalend).toBe(OPEN_END)
   })
 
   it('undo of a run with nothing done is a skipped plan', () => {

@@ -53,7 +53,7 @@ describe('expandTree', () => {
     expect(expandTree(treeOf('weekly'), '2026-05-14', '2026-05-14', { closures: closures2026, observeClosures: false }).work).toHaveLength(2)
   })
 
-  it('lets the most recently modified rank-0 rule win where rules intersect (V2)', () => {
+  it('lets the most recently modified recurrence win where rules intersect (V2)', () => {
     const cal = makeCalendar('c', null, [
       makeBlock({ seq: 1, calendarId: 'c', start: '2026-01-05', weekdays: [1, 2, 3, 4, 5], leaves: [{ kind: 'work', start: '08:00', end: '17:00' }], modifiedOn: '2026-01-01T00:00:00Z' }),
       makeBlock({ seq: 2, calendarId: 'c', start: '2026-01-05', weekdays: [2], leaves: [{ kind: 'work', start: '06:00', end: '10:00' }], modifiedOn: '2026-02-01T00:00:00Z' }),

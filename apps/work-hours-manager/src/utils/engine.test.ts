@@ -127,7 +127,7 @@ describe('applySave / applyDelete', () => {
     const t = tree()
     const off = t.blocks.find((b) => b.kind === 'timeoff')!
     expect([off.start, off.end, off.description]).toEqual(['2026-10-12', '2026-10-14', 'Urlaub'])
-    const exception = t.blocks.find((b) => b.rank === 1 && b.kind === 'work')!
+    const exception = t.blocks.find((b) => b.weekdays === null && b.kind === 'work')!
     expect([exception.start, exception.startMin, exception.endMin]).toEqual(['2026-10-20', 13 * 60, 19 * 60])
   })
 

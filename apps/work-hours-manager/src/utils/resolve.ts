@@ -10,10 +10,12 @@ import { ianaOf } from './timezones'
  * Truth for working time are the slots of `msdyn_LoadCalendars`; the rules
  * only explain them. Without slots (mock, preview of an edit before saving,
  * `msdyn_LoadCalendars` not reachable) `expandTree` plays the server:
- * leaf intervals of every block, then the documented precedence —
- * rank 1 (single day, time off) beats rank 0 (weekly) for the whole day,
- * intersecting rank-0 rules: the most recently modified wins (V2), time off
- * carves working time, business closures carve it when observed.
+ * leaf intervals of every block, then the precedence verified live with
+ * `msdyn_LoadCalendars` (Schulz UAT): a single day (server rank 0) beats a
+ * holiday of the resource's holiday list (rank 1), which beats the weekly
+ * recurrence (rank 2) for the whole day; intersecting recurrences: the most
+ * recently modified wins (V2); time off carves working time, business
+ * closures carve it when observed.
  */
 
 export interface Interval {
@@ -79,12 +81,36 @@ function subtractAll<T extends Interval>(items: T[], cuts: Interval[]): T[] {
   return cur
 }
 
+/** One day of a holiday list (whole local day). */
+export interface HolidayInterval extends Interval {
+  block: RuleBlock
+  localDate: string
+}
+
 export interface Expansion {
   /** Effective working time. */
   work: BlockInterval[]
   breaks: BlockInterval[]
   timeOff: BlockInterval[]
   nonwork: BlockInterval[]
+  /** Holidays of the resource's holiday lists that take the day (not overridden by a single day). */
+  holidays: HolidayInterval[]
+}
+
+/** Holiday days of the tree's holiday lists in [from, to], as whole local days. */
+function holidayDays(tree: CalendarTree, from: string, to: string): HolidayInterval[] {
+  const out: HolidayInterval[] = []
+  for (const block of tree.blocks) {
+    if (!block.holidays) continue
+    const iana = ianaOf(block.timeZoneCode)
+    for (const h of block.holidays) {
+      const lo = h.start > from ? h.start : from
+      const hi = h.end < to ? h.end : to
+      if (lo > hi || h.start < block.start || (block.end !== null && h.start > block.end)) continue
+      for (const date of eachDay(lo, hi)) out.push({ block, localDate: date, start: localToMs(date, 0, iana), end: localToMs(date, 1440, iana) })
+    }
+  }
+  return out
 }
 
 export interface ExpandOptions {
@@ -104,18 +130,22 @@ export function expandTree(tree: CalendarTree, from: string, to: string, opts: E
   const breaks = byKind('break')
   let work = byKind('work')
 
-  // Rank 1 occurrences (working or non-working single days) own their whole local day.
-  const owned = all
-    .filter((i) => i.block.rank !== 0 && (i.leaf.kind === 'work' || i.leaf.kind === 'nonwork'))
-    .map((i) => {
+  // Single days (working or non-working) own their whole local day — over the recurrence and over a holiday.
+  const singleDays = all.filter((i) => !isRecurrence(i.block) && (i.leaf.kind === 'work' || i.leaf.kind === 'nonwork'))
+  const ownedDates = new Set(singleDays.map((i) => i.localDate))
+  const holidays = holidayDays(tree, from, to).filter((h) => !ownedDates.has(h.localDate))
+  const owned = [
+    ...singleDays.map((i) => {
       const iana = ianaOf(i.block.timeZoneCode)
       return { start: localToMs(i.localDate, 0, iana), end: localToMs(i.localDate, 1440, iana) }
-    })
-  const recurring = work.filter((i) => i.block.rank === 0)
-  const occurrences = work.filter((i) => i.block.rank !== 0)
+    }),
+    ...holidays,
+  ]
+  const recurring = work.filter((i) => isRecurrence(i.block))
+  const occurrences = work.filter((i) => !isRecurrence(i.block))
   let kept = subtractAll(recurring, owned)
 
-  // Intersecting rank-0 rules of different blocks: the most recently modified wins.
+  // Intersecting recurrences of different blocks: the most recently modified wins.
   const stamp = (i: BlockInterval) => Date.parse(i.block.modifiedOn ?? i.block.createdOn ?? '') || 0
   const resolved: BlockInterval[] = []
   for (const i of kept.sort((a, b) => stamp(b) - stamp(a) || a.start - b.start)) {
@@ -135,7 +165,7 @@ export function expandTree(tree: CalendarTree, from: string, to: string, opts: E
     )
   }
   work.sort((a, b) => a.start - b.start)
-  return { work, breaks, timeOff, nonwork }
+  return { work, breaks, timeOff, nonwork, holidays }
 }
 
 /** Expansion → slots in the shape of `msdyn_LoadCalendars` (merging adjacent pieces of one block). */
@@ -219,6 +249,11 @@ export function resolveDay(input: ResolveInput): DayResolution {
     layer(expansion.breaks, 'break', 'break')
     layer(expansion.timeOff, 'timeoff', 'timeoff')
     layer(expansion.nonwork, 'nonwork', 'nonwork')
+    for (const h of expansion.holidays) {
+      if (!overlaps(h, window)) continue
+      blockIds.add(h.block.innerCalendarId ?? h.block.rootRuleId)
+      segments.push({ startMin: toMin(Math.max(h.start, window.start)), endMin: toMin(Math.min(h.end, window.end)), kind: 'closure', effort: null, origin: { kind: 'closure', innerCalendarId: h.block.innerCalendarId ?? h.block.rootRuleId, label: describeBlock(h.block) } })
+    }
   }
   for (const c of closures) {
     const iv = { start: Date.parse(c.start), end: Date.parse(c.end) }

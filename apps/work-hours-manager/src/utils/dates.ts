@@ -138,6 +138,17 @@ export function utcToZoned(iso: string, tz: string): { date: string; time: strin
 
 export const addMinutesIso = (iso: string, minutes: number): string => new Date(Date.parse(iso) + minutes * 60_000).toISOString()
 
+/**
+ * Date from a server JSON string: ISO 8601 or the WCF form `/Date(1791176400000)/`
+ * (optionally with `+0100`), which `msdyn_LoadCalendars` returns. Null when unparseable.
+ */
+export function parseServerDate(value: unknown): string | null {
+  if (typeof value !== 'string' || value === '') return null
+  const wcf = /^\/Date\((-?\d+)(?:[+-]\d{4})?\)\/$/.exec(value)
+  const ms = wcf ? Number(wcf[1]) : Date.parse(value)
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null
+}
+
 export function localTimeZone(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Berlin'

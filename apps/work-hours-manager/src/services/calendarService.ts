@@ -3,6 +3,8 @@ import { powerModeReady } from '../PowerProvider'
 import { dataverseCalendarService } from './dataverseCalendarService'
 import { mockCalendarService } from './mockCalendarService'
 
+export type TreeDepth = 'roots' | 'full'
+
 export interface SetupCheck {
   label: string
   ok: boolean
@@ -24,8 +26,13 @@ export interface CalendarService {
 
   listResources(): Promise<Resource[]>
   listTemplates(): Promise<WorkHourTemplate[]>
-  /** Rule trees of several calendars (resource calendars, template calendars), keyed by lower-cased calendar id. */
-  getTrees(calendarIds: string[]): Promise<Record<string, CalendarTree>>
+  /**
+   * Rule trees of several calendars (resource calendars, template calendars),
+   * keyed by lower-cased calendar id. `roots` reads only the root rules (one
+   * request per calendar, for the list); `full` adds the inner calendars
+   * (inspector, editor, runs). Calendars that don't exist are left out.
+   */
+  getTrees(calendarIds: string[], depth?: TreeDepth): Promise<Record<string, CalendarTree>>
   /**
    * Effective working time per calendar (`msdyn_LoadCalendars`), keyed by
    * lower-cased calendar id. Throws when the action isn't reachable — the UI

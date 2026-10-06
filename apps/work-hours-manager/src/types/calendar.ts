@@ -139,13 +139,22 @@ export interface RuleBlock {
   rootRuleId: string
   /** null for root-only leaf rules (business closures live like this). */
   innerCalendarId: string | null
-  /** 0 = weekly recurrence, 1 = single-day occurrence / time off. */
+  /**
+   * Server rank of the root rule — shown, never used for logic. Live (Schulz
+   * UAT): 0 = single day, 1 = holiday list, 2 = weekly; lower wins. Whether a
+   * block recurs comes from its pattern (`weekdays`), see `isRecurrence`.
+   */
   rank: number
   pattern: string | null
   /** Weekdays of a weekly recurrence; null for occurrences. */
   weekdays: Weekday[] | null
-  /** Part of a varied recurrence (shared `groupdesignator`). */
+  /** Part of a varied recurrence (shared `groupdesignator` and `isvaried`); the fixed weekly designator is not a group. */
   groupId: string | null
+  /**
+   * Holiday list (`FREQ=YEARLY`, extentcode 2): one entry per holiday with its
+   * local first and last day. Empty while the inner calendar isn't loaded.
+   */
+  holidays?: { start: string; end: string }[]
   /** First and last day (date-only, inclusive); `end` null = open-ended. */
   start: string
   end: string | null
@@ -166,6 +175,11 @@ export interface RuleBlock {
 export interface CalendarTree {
   calendarId: string
   name: string | null
+  /**
+   * False when only the root rules were read (list view): blocks have no
+   * leaves yet. Editing, runs and the inspector need the full tree.
+   */
+  innerLoaded: boolean
   blocks: RuleBlock[]
   /** Inner calendars that no root rule points at any more (finding 5.5). */
   orphanInnerCalendars: RawCalendar[]

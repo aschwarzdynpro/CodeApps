@@ -5,7 +5,9 @@ import { useLoad, type LoadResult } from './useLoad'
 /**
  * All reads of the app in one hook. Each piece is keyed on exactly its
  * inputs, so switching the week reloads slots, closures and time off but
- * not the resources and trees. Trees cover resource and template calendars.
+ * not the resources and trees. Trees cover resource and template calendars
+ * and hold only the root rules (one request per calendar) — the full trees
+ * come from `useFullTrees` for what is opened.
  */
 
 export interface CalendarData {
@@ -17,7 +19,7 @@ export interface CalendarData {
   closures: LoadResult<Closure[]>
   timeOff: LoadResult<TimeOffRequest[]>
   bookings: LoadResult<Record<string, number>>
-  /** Resources + trees loaded. */
+  /** Resources loaded (the list renders; trees and slots follow). */
   ready: boolean
   reloadTrees: () => void
   reloadRange: () => void
@@ -34,7 +36,7 @@ export function useCalendarData(active: boolean, from: string, to: string, viewe
   const templateCalendarIds = (templates.data ?? []).map((t) => t.calendarId).filter((c): c is string => !!c)
   const allCalendarIds = [...resourceCalendarIds, ...templateCalendarIds]
   const treesKey = resources.data && templates.data ? `trees:${sig(allCalendarIds)}:${treeVersion}` : null
-  const trees = useLoad(treesKey, (svc) => svc.getTrees(allCalendarIds))
+  const trees = useLoad(treesKey, (svc) => svc.getTrees(allCalendarIds, 'roots'))
 
   const fromIso = zonedToUtc(from, '00:00', viewerTz)
   const toIso = zonedToUtc(addDays(to, 1), '00:00', viewerTz)
@@ -54,7 +56,7 @@ export function useCalendarData(active: boolean, from: string, to: string, viewe
     closures,
     timeOff,
     bookings,
-    ready: !!resources.data && !!trees.data,
+    ready: !!resources.data,
     reloadTrees: trees.reload,
     reloadRange: () => {
       slots.reload()

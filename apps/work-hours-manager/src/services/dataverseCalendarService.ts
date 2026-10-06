@@ -1,9 +1,10 @@
-import { ORG_URL } from '../config'
+import { LIMITS, ORG_URL } from '../config'
 import type { CalendarEventInfo, CalendarTree, Closure, DeleteCalendarInfo, RawCalendar, Ref, Resource, Slot, TimeOffRequest, WorkHourTemplate } from '../types/calendar'
 import { RESOURCE_TYPE_BY_CODE } from '../types/calendar'
+import { parseServerDate } from '../utils/dates'
 import { buildTree, normalizeCalendar } from '../utils/rules'
 import type { CalendarService, SetupCheck } from './calendarService'
-import { FV, chunks, errorText, fetchXml, hasConnector, num, odata, orFilter, pick, str, unboundAction, type Row } from './dataverseApi'
+import { FV, chunks, errorText, fetchXml, getRow, hasConnector, mapPool, num, odata, orFilter, pick, str, unboundAction, type Row } from './dataverseApi'
 
 /**
  * Dataverse implementation — every read and write through the Dataverse
@@ -12,8 +13,9 @@ import { FV, chunks, errorText, fetchXml, hasConnector, num, odata, orFilter, pi
  * audit shows who changed what.
  *
  * Reads: `bookableresource` (+ category assignments, territories),
- * `msdyn_workhourtemplate`, `calendars?$expand=calendar_calendar_rules`
- * (entity calendars, then their inner calendars in one batch),
+ * `msdyn_workhourtemplate`, `calendars(<id>)?$expand=calendar_calendar_rules`
+ * one calendar per request (a collection query returns the rules empty —
+ * verified live), root rules first, inner calendars only on demand,
  * `msdyn_LoadCalendars`, the organization's closure calendar,
  * `msdyn_timeoffrequest`, booking counts per resource.
  *
@@ -31,13 +33,11 @@ const refOf = (row: Row, key: string): Ref | null => {
   return id ? { id, name: str(row[`${key}${FV}`]) ?? id } : null
 }
 
+/** Calendars with their rules, one request each (missing calendars are skipped). */
 async function readCalendars(ids: string[]): Promise<RawCalendar[]> {
-  const out: RawCalendar[] = []
-  for (const part of chunks(ids, 20)) {
-    const rows = await odata('calendars', { select: 'calendarid,name,description,type', filter: orFilter('calendarid', part), expand: RULES_EXPAND })
-    out.push(...rows.map(normalizeCalendar))
-  }
-  return out
+  const unique = [...new Set(ids.map((id) => id.toLowerCase()))]
+  const rows = await mapPool(unique, LIMITS.calendarReadConcurrency, (id) => getRow('calendars', id, { select: 'calendarid,name,description,type', expand: RULES_EXPAND }))
+  return rows.filter((r): r is Row => r !== null).map(normalizeCalendar)
 }
 
 let closureCalendarId: Promise<string | null> | null = null
@@ -161,8 +161,9 @@ export const dataverseCalendarService: CalendarService = {
     )
   },
 
-  async getTrees(calendarIds) {
+  async getTrees(calendarIds, depth = 'full') {
     const outer = await readCalendars(calendarIds)
+    if (depth === 'roots') return Object.fromEntries(outer.map((cal) => [cal.calendarid.toLowerCase(), buildTree(cal, [], false)]))
     const innerIds = [...new Set(outer.flatMap((c) => c.calendar_calendar_rules.map((r) => r._innercalendarid_value).filter((x): x is string => !!x)))]
     const inner = innerIds.length ? await readCalendars(innerIds) : []
     const innerById = new Map(inner.map((c) => [c.calendarid.toLowerCase(), c]))
@@ -180,17 +181,14 @@ export const dataverseCalendarService: CalendarService = {
     for (const part of chunks(calendarIds, 50)) {
       const data = await unboundAction('msdyn_LoadCalendars', { LoadCalendarsInput: JSON.stringify({ StartDate: from, EndDate: to, CalendarIds: part }) })
       const raw = pick(data, 'CalendarEvents')
-      const events = (typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw) as Record<string, { CalendarId?: string; InnerCalendarId?: string; Start?: string; End?: string; Effort?: number }[]> | null
+      const events = (typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw) as Record<string, { CalendarId?: string; InnerCalendarId?: string; Start?: string; End?: string; Effort?: number; TimeCode?: number }[]> | null
       for (const [calendarId, slots] of Object.entries(events ?? {})) {
-        out[calendarId.toLowerCase()] = (slots ?? [])
-          .filter((s) => s.Start && s.End)
-          .map((s) => ({
-            calendarId,
-            innerCalendarId: s.InnerCalendarId ?? null,
-            start: new Date(s.Start!).toISOString(),
-            end: new Date(s.End!).toISOString(),
-            effort: typeof s.Effort === 'number' ? s.Effort : 1,
-          }))
+        // Start/End arrive as WCF dates (`/Date(1791176400000)/`), not ISO; holidays come along as TimeCode 2 — only TimeCode 0 is working time.
+        out[calendarId.toLowerCase()] = (slots ?? []).filter((s) => s.TimeCode === undefined || s.TimeCode === 0).flatMap((s) => {
+          const start = parseServerDate(s.Start)
+          const end = parseServerDate(s.End)
+          return start && end ? [{ calendarId, innerCalendarId: s.InnerCalendarId ?? null, start, end, effort: typeof s.Effort === 'number' ? s.Effort : 1 }] : []
+        })
       }
       for (const id of part) out[id.toLowerCase()] ??= []
     }

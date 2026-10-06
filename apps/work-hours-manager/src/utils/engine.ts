@@ -1,15 +1,16 @@
 import type { CalendarEventInfo, DeleteCalendarInfo, RawCalendar, RawCalendarRule, Weekday, WorkHourKind } from '../types/calendar'
 import { addDays, dateOnly, diffDays, timeOfDayMinutes } from './dates'
-import { CODES_OF_KIND, OPEN_END_YEAR, parsePattern } from './rules'
+import { CODES_OF_KIND, OPEN_END_YEAR, WEEKLY_GROUP_DESIGNATOR, lastDayOf, parsePattern } from './rules'
 
 /**
  * Plays the server side of `msdyn_SaveCalendar` / `msdyn_DeleteCalendar`
  * on raw calendars in memory — for the mock service, for the preview of an
  * edit before it is saved and for tests of the intents layer. It stores exactly the tree shape the parser expects
  * (root rule → inner calendar → leaves) and refuses what the API refuses
- * (documented limits, see README "Verifiziert"). Where the real storage is
- * unknown it follows the documented rank semantics: a single-day edit inside
- * a recurrence becomes a rank-1 block of its own.
+ * (documented limits, see README "Verifiziert"). Storage follows what Schulz
+ * UAT holds: weekly rules rank 2 with the fixed designator, single days rank 0
+ * (a single-day edit inside a recurrence becomes a block of its own that owns
+ * the day), interval ends as the exclusive next midnight.
  */
 
 export interface MockCalendarStore {
@@ -125,17 +126,17 @@ function writeBlock(store: MockCalendarStore, w: BlockWrite): string {
     effort: null,
     timecode: codes.timeCode,
     subcode: codes.subCode,
-    rank: recurring ? 0 : 1,
+    rank: recurring ? 2 : 0,
     timezonecode: w.tz,
     effectiveintervalstart: `${w.date}T00:00:00Z`,
-    effectiveintervalend: recurring ? (w.end ? `${w.end}T00:00:00Z` : '9999-12-30T23:59:59Z') : `${w.date}T00:00:00Z`,
+    effectiveintervalend: recurring ? (w.end ? `${addDays(w.end, 1)}T00:00:00Z` : '9999-12-30T00:00:00Z') : `${addDays(w.date, 1)}T00:00:00Z`,
     extentcode: 1,
     isselected: null,
     issimple: null,
     ismodified: w.existing ? true : null,
     isvaried: w.groupId !== null,
     offset: null,
-    groupdesignator: w.groupId,
+    groupdesignator: w.groupId ?? (recurring ? WEEKLY_GROUP_DESIGNATOR : null),
     createdon: w.existing?.root.createdon ?? now,
     modifiedon: now,
   }
@@ -224,7 +225,7 @@ export function applySave(store: MockCalendarStore, info: CalendarEventInfo): st
         const oldStart = dateOnly(existing.root.effectiveintervalstart) ?? date
         const cut = addDays(date, -1)
         if (cut < oldStart) removeBlock(store, calendar, existing.root)
-        else existing.root.effectiveintervalend = `${cut}T00:00:00Z`
+        else existing.root.effectiveintervalend = `${date}T00:00:00Z`
         out.push(writeBlock(store, { ...common, date, weekdays: weekdays ?? existingWeekdays, end, leaves }))
         continue
       }
@@ -236,7 +237,7 @@ export function applySave(store: MockCalendarStore, info: CalendarEventInfo): st
           weekdays: weekdays ?? existingWeekdays,
           end: info.RecurrenceEndDate !== undefined ? end : existingWeekdays ? openOrDate(existing.root.effectiveintervalend) : null,
           leaves,
-          groupId: existing.root.groupdesignator ?? groupId,
+          groupId: variedGroup(existing.root) ?? groupId,
           pattern: rr.RecurrencePattern ?? existing.root.pattern,
           description: info.InnerCalendarDescription ?? existing.inner.description,
         }),
@@ -257,15 +258,15 @@ export function applySave(store: MockCalendarStore, info: CalendarEventInfo): st
   return out
 }
 
-const openOrDate = (iso: string | null): string | null => {
-  const d = dateOnly(iso)
-  return !d || Number(d.slice(0, 4)) >= OPEN_END_YEAR ? null : d
-}
+const openOrDate = (iso: string | null): string | null => lastDayOf(iso)
+
+/** Group of a varied recurrence; the fixed weekly designator is none. */
+const variedGroup = (root: RawCalendarRule): string | null => (root.isvaried && root.groupdesignator && root.groupdesignator.toUpperCase() !== WEEKLY_GROUP_DESIGNATOR ? root.groupdesignator : null)
 
 function findGroup(store: MockCalendarStore, calendar: RawCalendar, parts: CalendarEventInfo['RulesAndRecurrences']): string {
   for (const p of parts) {
     if (!p.InnerCalendarId) continue
-    const g = findExisting(store, calendar, p.InnerCalendarId).root.groupdesignator
+    const g = variedGroup(findExisting(store, calendar, p.InnerCalendarId).root)
     if (g) return g
   }
   return store.newId()
@@ -276,7 +277,8 @@ export function applyDelete(store: MockCalendarStore, info: DeleteCalendarInfo):
   if (!info.EntityLogicalName) throw new MockApiError('EntityLogicalName is required.')
   const calendar = calendarOf(store, info.CalendarId)
   const { root } = findExisting(store, calendar, info.InnerCalendarId)
-  const victims = info.IsVaried && root.groupdesignator ? calendar.calendar_calendar_rules.filter((r) => r.groupdesignator === root.groupdesignator) : [root]
+  const group = info.IsVaried ? variedGroup(root) : null
+  const victims = group ? calendar.calendar_calendar_rules.filter((r) => r.groupdesignator === group) : [root]
   for (const v of victims) removeBlock(store, calendar, v)
   return victims.map((v) => v._innercalendarid_value!).filter(Boolean)
 }

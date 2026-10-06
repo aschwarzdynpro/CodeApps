@@ -27,6 +27,8 @@ export const LIMITS = {
   diagnosticsWindowDays: 60,
   /** Calendar rows above which the week view windows its rows. */
   virtualizeFrom: 100,
+  /** Calendars read in parallel — one request each, `$expand` of the rules only works per row. */
+  calendarReadConcurrency: 8,
 } as const
 
 /** Time zone the app falls back to when a code is unknown (Berlin). */

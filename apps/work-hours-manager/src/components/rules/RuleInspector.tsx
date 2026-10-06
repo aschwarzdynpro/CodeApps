@@ -14,6 +14,9 @@ interface Props {
   title: string
   subtitle?: string
   tree: CalendarTree | null | undefined
+  /** The full tree is being read (the list only has root rules). */
+  loading?: boolean
+  error?: string | null
   resourceTimeZoneCode?: number
   /** Block to expand and highlight (inner calendar id or root rule id). */
   focusBlockId: string | null
@@ -37,7 +40,7 @@ const blockKey = (b: RuleBlock) => b.innerCalendarId ?? b.rootRuleId
 const leafLabel = (l: LeafRule) => `${S.kinds[l.kind]} ${formatTime(l.startMin)}–${l.startMin + l.duration >= 1440 && (l.startMin + l.duration) % 1440 === 0 ? '24:00' : formatTime((l.startMin + l.duration) % 1440)}${l.duration > 1440 ? ` (+${Math.floor(l.duration / 1440)} Tage)` : ''}`
 
 /** Read-only tree of the calendar: blocks (grouped when varied) → inner calendar → leaf rules, with fields and raw JSON. */
-export function RuleInspector({ open, title, subtitle, tree, resourceTimeZoneCode, focusBlockId, onClose, onEdit, today }: Props) {
+export function RuleInspector({ open, title, subtitle, tree, loading, error, resourceTimeZoneCode, focusBlockId, onClose, onEdit, today }: Props) {
   const [openItems, setOpenItems] = useState<Set<TreeItemValue>>(new Set())
   const [selected, setSelected] = useState<string | null>(null)
   const [raw, setRaw] = useState(false)
@@ -67,9 +70,9 @@ export function RuleInspector({ open, title, subtitle, tree, resourceTimeZoneCod
           aside={
             <span className="tree-aside">
               <Badge size="small" appearance="tint" color={KIND_COLOR[b.kind]}>
-                {S.kinds[b.kind]}
+                {b.holidays ? S.inspector.holidays : S.kinds[b.kind]}
               </Badge>
-              <Badge size="small" appearance="outline" title={b.rank === 0 ? S.rules.rank0 : S.rules.rank1}>
+              <Badge size="small" appearance="outline" title={S.rules.rankInfo}>
                 {S.inspector.rank} {b.rank}
               </Badge>
               {mismatch ? (
@@ -85,9 +88,17 @@ export function RuleInspector({ open, title, subtitle, tree, resourceTimeZoneCod
         <Tree>
           <TreeItem itemType="branch" value={`${key}/inner`}>
             <TreeItemLayout iconBefore={<BranchRegular />}>
-              {b.innerCalendarId ? `${S.inspector.innerCalendar} ${b.innerCalendarId}` : S.rules.root} · {S.inspector.leaves(b.leaves.length)}
+              {b.innerCalendarId ? `${S.inspector.innerCalendar} ${b.innerCalendarId}` : S.rules.root} · {S.inspector.leaves(b.holidays ? b.raw.inner?.calendar_calendar_rules.length ?? 0 : b.leaves.length)}
             </TreeItemLayout>
             <Tree>
+              {b.holidays?.map((h) => (
+                <TreeItem key={`${key}/${h.start}`} itemType="leaf" value={`${key}/${h.start}`}>
+                  <TreeItemLayout iconBefore={<DocumentOnePageRegular />}>
+                    {S.inspector.holiday} {formatDate(h.start)}
+                    {h.end !== h.start ? `–${formatDate(h.end)}` : ''}
+                  </TreeItemLayout>
+                </TreeItem>
+              ))}
               {b.leaves.map((l) => (
                 <TreeItem key={l.id} itemType="leaf" value={l.id}>
                   <TreeItemLayout iconBefore={<DocumentOnePageRegular />} aside={<span className="muted small">{S.inspector.codes(l.timeCode, l.subCode)}{l.effort !== null && l.effort !== 1 ? ` · ${S.inspector.effort} ${l.effort}` : ''}</span>}>
@@ -134,7 +145,7 @@ export function RuleInspector({ open, title, subtitle, tree, resourceTimeZoneCod
           <p className="muted small">{S.inspector.actions.readOnly}</p>
         ) : null}
         {!tree ? (
-          <p className="muted">{S.inspector.noTree}</p>
+          <p className={error ? 'text-warn' : 'muted'}>{error ? S.inspector.treeError(error) : loading ? S.inspector.loadingTree : S.inspector.noTree}</p>
         ) : blocks.length === 0 ? (
           <p className="muted">{S.inspector.noBlocks}</p>
         ) : (
@@ -203,7 +214,7 @@ export function RuleInspector({ open, title, subtitle, tree, resourceTimeZoneCod
                 <TableBody>
                   <FieldRow label={S.inspector.rootRule} value={selectedBlock.rootRuleId} />
                   <FieldRow label={S.inspector.innerCalendar} value={selectedBlock.innerCalendarId ?? '—'} />
-                  <FieldRow label={<InfoLabel info={selectedBlock.rank === 0 ? S.rules.rank0 : S.rules.rank1}>{S.inspector.rank}</InfoLabel>} value={String(selectedBlock.rank)} />
+                  <FieldRow label={<InfoLabel info={S.rules.rankInfo}>{S.inspector.rank}</InfoLabel>} value={String(selectedBlock.rank)} />
                   <FieldRow label={S.inspector.pattern} value={selectedBlock.pattern ?? (isRecurrence(selectedBlock) ? '' : S.rules.once)} />
                   <FieldRow label={S.inspector.interval} value={`${formatDate(selectedBlock.start)} – ${selectedBlock.end ? formatDate(selectedBlock.end) : S.rules.openEnd}`} />
                   <FieldRow label={S.inspector.zone} value={`${selectedBlock.timeZoneCode} · ${timeZoneLabel(selectedBlock.timeZoneCode)}`} />

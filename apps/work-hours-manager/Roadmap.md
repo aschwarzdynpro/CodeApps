@@ -26,11 +26,14 @@ Befund aus der Zielumgebung.
 
 ## Absicherung & Betrieb
 
-- [ ] ⭐ ⚠ **Annahmen aus „Offen“ schließen** (S) — UTC-naive Zeitfelder,
-      timecode/subcode, `groupdesignator`, Speicherort eines bearbeiteten
-      Einzeltags, `UseV2`/`IsEdit`-Serialisierung, Delete-Parameterform,
-      Schließungen löschen. Jede Antwort als Fixture (anonymisiert) nach
-      `src/fixtures/` und als Test.
+- [ ] ⭐ ⚠ **Annahmen aus „Offen“ schließen** (S) — Lesen ist live belegt
+      (2026-10-06: Ränge, exklusive Enden, feste Wochen-ID, Feiertagslisten,
+      WCF-Datumswerte, Einzelabruf je Kalender; Fixture `live`). Offen:
+      Speicherort eines bearbeiteten Einzeltags, Pausen/Abwesenheit/
+      Nicht-Arbeit im Baum, `UseV2`/`IsEdit`-Serialisierung,
+      Delete-Parameterform, Schließungen löschen.
+- [ ] **Ladezeit der Liste** (S) — 850 Kalender × 1 Abruf über den Konnektor;
+      messen, ggf. nur sichtbare Zeilen laden oder Wurzelregeln cachen.
 - [ ] ⭐ **Live-Verifikation** (M) — Akzeptanzliste des Konzepts in UAT
       durchspielen; Formular der Ressource und Board müssen dasselbe zeigen.
 - [ ] **Rechte-Check auf der Einrichtungsseite** (S) — Lesen/Schreiben auf

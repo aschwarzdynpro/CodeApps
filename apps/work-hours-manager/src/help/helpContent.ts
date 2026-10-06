@@ -72,7 +72,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       { h: 'Das Popover' },
       {
-        p: 'Ein Klick auf eine Zelle zeigt jedes Segment mit Zeitspanne, Art und **Herkunft**: Wiederholung (Rang 0), Einzeltag (Rang 1), Pause, Abwesenheit mit Grund, Nicht-Arbeit, Schließung. „Regel“ springt in den Inspektor. Unten steht, ob die Arbeitszeit aus `msdyn_LoadCalendars` oder aus den Regeln stammt.',
+        p: 'Ein Klick auf eine Zelle zeigt jedes Segment mit Zeitspanne, Art und **Herkunft**: Wiederholung, Einzeltag, Pause, Abwesenheit mit Grund, Nicht-Arbeit, Feiertag der Ressource, Schließung. „Regel“ springt in den Inspektor. Unten steht, ob die Arbeitszeit aus `msdyn_LoadCalendars` oder aus den Regeln stammt.',
       },
       {
         table: {
@@ -82,7 +82,7 @@ export const HELP_SECTIONS: HelpSection[] = [
             ['**Regel ausgelaufen**', 'Die passende Wiederholung hat ein Enddatum vor diesem Tag und keine Nachfolgerin.'],
             ['**Regel beginnt später**', 'Alle Wiederholungen starten erst nach diesem Tag.'],
             ['**Keine Arbeitszeitregel**', 'Der Kalender hat keine Arbeitszeit-Regel.'],
-            ['**Abwesenheit / Nicht-Arbeit / Geschäftsschließung**', 'Eine Rang-1-Regel oder die Organisation nimmt den Tag.'],
+            ['**Abwesenheit / Nicht-Arbeit / Geschäftsschließung**', 'Ein Einzeltag, ein Feiertag aus der Feiertagsliste der Ressource oder die Organisation nimmt den Tag.'],
           ],
         },
       },
@@ -100,7 +100,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         list: [
-          '**Rang 0** ist eine wöchentliche Wiederholung, **Rang 1** ein Einzeltag oder eine Abwesenheit — Rang 1 schlägt Rang 0 für den ganzen Tag.',
+          'Gespeichert sind drei Formen: **wöchentliche Wiederholung** (Rang 2), **Feiertagsliste** der Ressource (Rang 1) und **Einzeltag** (Rang 0). Der kleinere Rang gewinnt für den ganzen Tag: ein Einzeltag schlägt den Feiertag, der Feiertag die Woche. Ob eine Regel wiederkehrt, liest die App am Muster, nicht am Rang. Die Liste lädt nur die Wurzelregeln; Zeiten und innere Kalender kommen beim Öffnen im Inspektor.',
           '„Je Wochentag verschieden“ sind mehrere Wurzelregeln mit gemeinsamem `groupdesignator`; der Inspektor zeigt sie als Gruppe.',
           'Ein Klick auf einen Block zeigt seine **Felder** (IDs, Muster, Gültigkeit, Zeitzone, `extentcode`) und auf Wunsch das **Roh-JSON** der Zeilen.',
           'Weicht die Zeitzone einer Regel von der Ressource ab, trägt der Block ein gelbes Abzeichen (Befund „Zeitzone Regel ≠ Ressource“).',
@@ -126,7 +126,7 @@ export const HELP_SECTIONS: HelpSection[] = [
             ['**Arbeitszeit anlegen**', 'Einmal, wöchentlich (Wochentage, optional Ende) oder je Wochentag verschieden; Zeiten als Arbeit/Pause, Kapazität, Zeitzone der Regel, Geschäftsschließungen beachten.'],
             ['**Abwesenheit / Nicht-Arbeit anlegen**', 'Ganztägig über n Tage oder mit Uhrzeit; Abwesenheit mit Grund. Keine Wiederholung (API-Grenze).'],
             ['**Bearbeiten**', 'Die ganze Wiederholung oder „dieser und folgende ab Datum“ — dann endet die alte am Vortag und eine neue beginnt.'],
-            ['**Einzeltag …**', 'Ein Tag einer Wiederholung bekommt eigene Zeiten (Rang 1), die Wiederholung bleibt.'],
+            ['**Einzeltag …**', 'Ein Tag einer Wiederholung bekommt eigene Zeiten (Einzeltag, schlägt die Wiederholung), die Wiederholung bleibt.'],
             ['**Beenden**', 'Setzt das Enddatum der Wiederholung.'],
             ['**Löschen**', 'Entfernt die ganze Wiederholung mit allen Blattregeln; „je Wochentag verschieden“ komplett.'],
           ],
@@ -222,7 +222,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       { h: 'UseV2' },
       {
-        p: 'Mit **UseV2** erlaubt die API mehrere Wiederholungen nebeneinander: schneiden sich zwei Rang-0-Regeln, gewinnt im Schnitt die zuletzt geänderte, außerhalb bleiben beide; ohne V2 verdrängt die neuere die ältere ganz. Rang 1 (Einzeltag, Abwesenheit) schlägt in beiden Varianten Rang 0 für den ganzen Tag. Der Schalter steht in der Toolbar und gilt für jedes Speichern.',
+        p: 'Mit **UseV2** erlaubt die API mehrere Wiederholungen nebeneinander: schneiden sich zwei Wiederholungen, gewinnt im Schnitt die zuletzt geänderte, außerhalb bleiben beide; ohne V2 verdrängt die neuere die ältere ganz. Einzeltage und Feiertage schlagen in beiden Varianten die Wiederholung für den ganzen Tag. Der Schalter steht in der Toolbar und gilt für jedes Speichern.',
       },
     ],
   },
@@ -253,7 +253,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       { h: 'Die Ressource fehlt auf dem Schedule Board.' },
       { p: 'Diagnose öffnen: „Ohne Arbeitszeit im Zeitraum“ oder „Regel endet bald / ist ausgelaufen“. Meist fehlt schlicht die Arbeitszeit, nicht ein Recht oder Filter.' },
       { h: 'Kann ich einen Tag aus der Wiederholung löschen?' },
-      { p: 'Nein, die API kann das nicht. Stattdessen einen Nicht-Arbeit-Tag oder eine Abwesenheit anlegen — Rang 1 schlägt die Wiederholung an diesem Tag.' },
+      { p: 'Nein, die API kann das nicht. Stattdessen einen Nicht-Arbeit-Tag oder eine Abwesenheit anlegen — er schlägt die Wiederholung an diesem Tag.' },
       { h: 'Was ist der Unterschied zwischen Abwesenheit und Nicht-Arbeit?' },
       { p: 'Beides nimmt die Zeit aus der Arbeitszeit. Abwesenheit hat einen Grund und steht für Urlaub oder Krankheit; Nicht-Arbeit ist neutral (Schulung, Werkstatt).' },
       { h: 'Die Stunden stimmen nicht mit dem Board überein.' },

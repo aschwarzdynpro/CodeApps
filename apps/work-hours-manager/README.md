@@ -64,9 +64,9 @@ Toolbar: Woche/Monat, Zeitraum, Anzeige-Zeitzone (umschaltbar, Sommerzeit
 
 | Feature | Lesen | Schreiben |
 | --- | --- | --- |
-| Liste | `bookableresources` (Name, Typ, `timezone`, `_calendarid_value`, Org-Einheit, Status, `_userid_value`), `bookableresourcecategoryassns`, `msdyn_resourceterritories` — Konnektor `ListRecordsWithOrganization` mit Annotationen | — |
-| Kalender | `msdyn_LoadCalendars` (`LoadCalendarsInput`) je 50 Kalender für den sichtbaren Zeitraum; Org-Kalender per `organizations.businessclosurecalendarid` + `calendars?$expand=calendar_calendar_rules`; `msdyn_timeoffrequests` im Zeitraum | — |
-| Inspektor | `calendars?$filter=calendarid eq …&$expand=calendar_calendar_rules` (je 20), dann die inneren Kalender gebündelt | — |
+| Liste | `bookableresources` (Name, Typ, `timezone`, `_calendarid_value`, Org-Einheit, Status, `_userid_value`), `bookableresourcecategoryassns`, `msdyn_resourceterritories` — Konnektor `ListRecordsWithOrganization` mit Annotationen; danach im Hintergrund die **Wurzelregeln** je Kalender (`GetItemWithOrganization` `calendars(<id>)?$expand=calendar_calendar_rules`, 8 parallel) für Regelzahl und Befunde; Stunden aus den Slots | — |
+| Kalender | `msdyn_LoadCalendars` (`LoadCalendarsInput`) je 50 Kalender für den sichtbaren Zeitraum (nur `TimeCode 0` zählt als Arbeitszeit); Org-Kalender per `organizations.businessclosurecalendarid` + Einzelabruf; `msdyn_timeoffrequests` im Zeitraum | — |
+| Inspektor | voller Baum erst beim Öffnen: Kalender und seine inneren Kalender, je ein Einzelabruf (Sammelabfragen liefern die Regeln leer). Ebenso für Editor, Lauf-Ziele und Vorlagen | — |
 | Editor | Baum aus dem Inspektor | `msdyn_SaveCalendar` (`CalendarEventInfo` als JSON-String: IsEdit/InnerCalendarId, IsVaried/Action, RecurrenceSplit, RecurrenceEndDate, ObserveClosure, TimeZoneCode, ResourceId, UseV2), `msdyn_DeleteCalendar` — `PerformUnboundActionWithOrganization` |
 | Vorlage anwenden | Baum der Vorlage (`msdyn_workhourtemplates.msdyn_calendarid`) | je Ressource: optional `RecurrenceEndDate` auf bestehende Wiederholungen (IsEdit) bzw. Delete späterer, dann Save der Vorlagenregeln ab Stichtag |
 | Rückgängig | Snapshot (lokal, JSON) + aktueller Baum | Delete der neu entstandenen `InnerCalendarIds`, Save mit altem `RecurrenceEndDate` (offen = `9999-12-30`), Save gelöschter Regeln neu |
@@ -181,7 +181,7 @@ Was aus den Ergebnissen entschieden wird, steht unter „Offen“.
 | `WorkHourType` | 0 Working, 1 Break, 2 Nonworking, 3 Time Off | ebd. |
 | Muster | nur `FREQ=WEEKLY;INTERVAL=1;BYDAY=…` (BYDAY kürzbar, keine Leerzeichen); die FAQ nennt einmal `FREQ=DAILY` — wir folgen Tabelle und allen Beispielen (`WEEKLY`) | ebd. |
 | Grenzen | Ereignis innerhalb eines Tages (Nachtschicht = zwei Aufrufe); Ganztag max. 5 Jahre, keine Ganztags-Wiederholung; keine Wiederholung für Nicht-Arbeit/Abwesenheit; Pausen nur zwischen Arbeitszeiten, nie allein löschbar; kein Löschen einer Einzelinstanz aus einer Wiederholung; `RecurrenceEndDate` mit Zeit ≤ 08:00:00 ⇒ Vortag | ebd. |
-| Ränge | Rang 1 = Einzeltag (Arbeit/Nicht-Arbeit) und Abwesenheit, schlägt Rang 0 = wöchentliche Wiederholung; V2: schneidende Rang-0-Regeln — die zuletzt geänderte gewinnt nur im Schnitt, V1: ganz | ebd. („What happens if there are overlapping rules?“) |
+| Ränge | Doku: Rang 1 = Einzeltag (Arbeit/Nicht-Arbeit) und Abwesenheit, schlägt Rang 0 = wöchentliche Wiederholung; V2: schneidende Wiederholungen — die zuletzt geänderte gewinnt nur im Schnitt, V1: ganz. **Gespeichert wird es anders** (siehe „Verifiziert (live)“): die App entscheidet über das Muster, nicht über den Rang | ebd. („What happens if there are overlapping rules?“) |
 | `msdyn_DeleteCalendar` | `EntityLogicalName`, `InnerCalendarId`, `CalendarId`, `IsVaried`, `UseV2`; Beispiel verpackt sie ebenfalls im String `CalendarEventInfo`; löscht alle inneren Regeln der Wiederholung | ebd. |
 | `msdyn_LoadCalendars` | `LoadCalendarsInput` = `{StartDate, EndDate, CalendarIds[]}` → `CalendarEvents` = `{ "<calendarId>": [{CalendarId, InnerCalendarId, Start, End, Effort}] }` | ebd. |
 | Zeitzonencodes | Tabelle der API-Doku (110 Berlin, 105 Paris, 95 Prag, 85 London, 92 UTC …) → `src/utils/timezones.ts`; `bookableresource.timezone` nutzt denselben Code-Raum | ebd., [bookableresource](https://learn.microsoft.com/en-us/dynamics365/developer/reference/entities/bookableresource) |
@@ -194,8 +194,23 @@ Was aus den Ergebnissen entschieden wird, steht unter „Offen“.
 
 ## Verifiziert (live, Schulz UAT)
 
-Noch nichts. Diese Tabelle füllt der Live-Test nach der Akzeptanzliste des
-Konzepts; bis dahin gilt alles Schreibende als unverifiziert.
+**Lesen (2026-10-06)** — Stichprobe 120 aktive Ressourcenkalender, 244 innere
+Kalender, Web API und `msdyn_LoadCalendars` direkt; anonymisiert als Fixture
+`live` (`src/fixtures/calendars.ts`) und Test (`src/utils/live.test.ts`).
+
+| Thema | Befund |
+| --- | --- |
+| Regeln lesen | `calendars?$filter=…&$expand=calendar_calendar_rules` liefert die Regeln **leer** (nur `@odata.nextLink`); `calendars(<id>)?$expand=…` liefert sie. Verschachteltes `$expand` auf die inneren Kalender lehnt Dataverse ab („Only many-to-one relationships are supported for nested expansion“) ⇒ ein Abruf je Kalender. `calendarrule` per FetchXML: „RetrieveMultiple … does not support entities of type 'calendarrule'“ |
+| Mengen | 850 aktive Ressourcen, ~2,4 Wurzelregeln und ~2 innere Kalender je Ressource; insgesamt > 50.000 Kalender (Aggregat-Limit). Web API direkt: 120 Kalender in 3 s, 244 innere in 4,5 s bei 8 parallel |
+| Formen | nur fünf: `WEEKLY` + BYDAY Rang 2 (offen oder beendet), `DAILY;COUNT=1` Rang 0 extentcode 1 (Einzeltag), `YEARLY` Rang 1 extentcode 2 (Feiertagsliste, offen oder beendet). Innere Blätter der Wochen-/Tagesregeln: `offset` + `duration`, ohne `starttime`, TimeCode 0/SubCode 1 (Arbeit), vereinzelt 3/10 (Kapazitätsfilter) |
+| Vorrang | per `msdyn_LoadCalendars` belegt: **Einzeltag (0) schlägt Feiertag (1) schlägt Woche (2)** — der kleinere Rang gewinnt. Arbeitstag am Feiertag 31.10. ⇒ Slot 07–15; ohne Einzeltag ⇒ nur Feiertags-Slot |
+| Intervallende | `effectiveintervalend` ist die **exklusive** nächste Mitternacht (Regel endet `2025-09-10T00:00:00Z`, Nachfolgerin beginnt am 10.09.); offen = `9999-12-30T00:00:00Z`; `effectiveintervalstart` leer, Start = `starttime` (`T00:00:00Z`) |
+| `groupdesignator` | alle 168 Wochenregeln tragen dieselbe feste ID `FC5769FC-4DE9-445D-8F4E-6E9869E60857`, `isvaried` false — **keine** „je Wochentag verschieden“-Gruppe. Gruppe nur bei `isvaried` true |
+| Feiertagslisten | inneres Blatt je Feiertag: `FREQ=DAILY;INTERVAL=1;COUNT=1`, TimeCode 2/SubCode 5, `starttime` als echter UTC-Zeitpunkt der lokalen Mitternacht — aber aus verschiedenen Offsets geschrieben (21:00Z–23:00Z) ⇒ die App rundet auf die nächste lokale Mitternacht |
+| `msdyn_LoadCalendars` | `CalendarEvents` ist ein JSON-String; `Start`/`End` im WCF-Format `/Date(1791176400000)/`; Slots enthalten auch Nicht-Arbeit (`TimeCode` 2, `SubCode` 5 Feiertag) |
+
+**Schreiben** — Live-Test nach der Akzeptanzliste des Konzepts, noch offen;
+bis dahin gilt alles Schreibende als unverifiziert.
 
 | Fall | Erwartung | Ergebnis |
 | --- | --- | --- |
@@ -248,9 +263,12 @@ App zeigt den Hinweis „Keine Ressourcen sichtbar …“, Diagnose ohne Befunde
 
 ## Deployment-Stand
 
-Nicht deployt. Ziel Schulz UAT (`operations-d365-schulz-uat-1-1.crm4`,
-Env-ID `2eaa34de-dcf1-e949-86d9-82d9fd748045`), danach ASC-Playground als
-Gegenprobe. Push nur nach Rücksprache. Weiterer Ausbau: [`Roadmap.md`](Roadmap.md).
+| Umgebung | Env-ID | App-ID | Stand |
+| --- | --- | --- | --- |
+| Schulz UAT (`operations-d365-schulz-uat-1-1.crm4`) | `2eaa34de-dcf1-e949-86d9-82d9fd748045` | `31f2b956-b6d4-439f-ae01-d3186ae9208e` | gepusht 2026-10-06 (`pac code push`, zweimal: Erstfassung, dann Lesepfad nach Live-Befunden), Connector an Benutzer-Connection `4a9f0463…` (EX-Andy.Schwarz). Lesen live geprüft: Liste ~20 s, Stunden aus `msdyn_LoadCalendars`, Wurzelregeln von 854 Kalendern ~60 s, Inspektor mit vollem Baum; 31 Befunde (alle Zeitzone). Schreiben noch nicht getestet |
+
+Danach ASC-Playground als Gegenprobe. Push nur nach Rücksprache. Weiterer
+Ausbau: [`Roadmap.md`](Roadmap.md).
 
 ## Offen
 
@@ -272,16 +290,18 @@ Gegenprobe. Push nur nach Rücksprache. Weiterer Ausbau: [`Roadmap.md`](Roadmap.
 **Annahmen, die remote nicht verifizierbar sind** (Fixtures und Mock folgen
 ihnen; der Phase-0-Export bestätigt oder korrigiert sie in `rules.ts`):
 
-- Zeitfelder der Regeln (`starttime`, `effectiveintervalstart/end`) sind
-  „UTC-naiv“: der Zeitanteil ist die Ortszeit der `timezonecode` — dieselbe
-  Konvention wie `StartTime`/`EndTime` der API. `effectiveintervalend` gilt
-  als letzter Tag (inklusiv); `9999-…` = offenes Ende.
+- Zeitfelder der Wurzelregeln sind Datumswerte (`T00:00:00Z`, live belegt);
+  `effectiveintervalend` ist exklusiv (live belegt, `lastDayOf`). Offen: Ob
+  Pausen, Abwesenheiten und Nicht-Arbeit (in der Stichprobe nicht vorhanden)
+  dieselbe Form haben.
 - Blattregeln tragen ihren Typ in `timecode`/`subcode` nach den SDK-Enums:
-  Arbeit 0/1, Pause 2/4, Schließung 2/5, Abwesenheit 2/6, Nicht-Arbeit 2/0
-  (`classifyRule`). `offset` = Minuten ab Mitternacht; bei nicht
-  wiederkehrenden Blättern evtl. Minuten ab Intervallbeginn.
+  Arbeit 0/1 und Feiertag 2/5 live belegt; Pause 2/4, Abwesenheit 2/6,
+  Nicht-Arbeit 2/0 nach Doku (`classifyRule`). `offset` = Minuten ab
+  Mitternacht (live belegt für Arbeit).
 - Die Teile einer „je Wochentag verschieden“-Wiederholung teilen einen
-  `groupdesignator`; `IsVaried`-Delete entfernt alle Teile.
+  `groupdesignator` **mit `isvaried` true** (in der Stichprobe nicht
+  vorhanden); `IsVaried`-Delete entfernt alle Teile. Die feste Wochen-ID ist
+  keine Gruppe (live belegt).
 - Ein **bearbeiteter Einzeltag innerhalb einer Wiederholung** (Doku: Aufruf
   ohne `IsEdit`, mit `InnerCalendarId` der Wiederholung; die Antwort nennt
   dieselbe ID) — wo liegt er im Baum? Mock und Vorschau modellieren ihn als
@@ -319,7 +339,8 @@ ihnen; der Phase-0-Export bestätigt oder korrigiert sie in `rules.ts`):
   Ressource** (`TimeZoneCode` = `bookableresource.timezone`), nicht in der
   Zeitzone der Vorlagenregeln.
 - `msdyn_LoadCalendars` über den Konnektor liefert `CalendarEvents` als
-  String (so die Serienplanung) — die App akzeptiert String und Objekt.
+  String mit WCF-Datumswerten (live belegt) — die App akzeptiert String und
+  Objekt, ISO und `/Date(…)/`.
 - Schließungen werden ganztägig in der **Anzeige-Zeitzone** angelegt; die
   Organisation könnte eine andere Zeitzone erwarten.
 - Verlauf und Snapshot liegen nur im Browser (`localStorage`, letzte 20);

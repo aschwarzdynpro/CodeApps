@@ -4,6 +4,7 @@ import './App.css'
 import { usePower } from './PowerProvider'
 import { DEFAULT_USE_V2 } from './config'
 import { useCalendarData } from './hooks/calendarData'
+import { useFullTrees } from './hooks/useFullTrees'
 import { AppNav, type View } from './components/shell/AppNav'
 import { TopToolbar } from './components/shell/TopToolbar'
 import { ResourcesView } from './components/resources/ResourcesView'
@@ -21,7 +22,7 @@ import { RunWizardDrawer, type WizardMode } from './components/runs/RunWizardDra
 import { listRuns } from './utils/runHistory'
 import { HelpPanel } from './help/HelpPanel'
 import { HELP_FOR } from './help/helpContent'
-import type { RunRecord } from './types/calendar'
+import type { CalendarTree, RunRecord } from './types/calendar'
 import type { RunTargetInput } from './utils/plan'
 import { SetupView } from './components/views/SetupView'
 import { useLoad } from './hooks/useLoad'
@@ -91,14 +92,26 @@ export default function App() {
   const yearClosures = useLoad(ready && view === 'holidays' ? `closures-year:${yearStart}|${yearEnd}|${treeVersion}` : null, (svc) => svc.loadClosures(yearStart, yearEnd))
 
   const resources = data.resources.data ?? []
-  const trees = data.trees.data ?? {}
   const slotsData = data.slots.error ? null : (data.slots.data ?? null)
-  const findings = data.ready ? diagnose({ resources, trees, today, slots: slotsData, bookingsAfterToday: data.bookings.data ?? {} }) : null
-  const findingsMap = findingsByResource(findings ?? [])
 
   const focusedResource = focus?.kind === 'resource' ? (resources.find((r) => r.id === focus.id) ?? null) : null
   const focusedTemplate = focus?.kind === 'template' ? (data.templates.data?.find((t) => t.id === focus.id) ?? null) : null
-  const inspectorTree = focusedResource?.calendarId ? trees[focusedResource.calendarId.toLowerCase()] : focusedTemplate?.calendarId ? trees[focusedTemplate.calendarId.toLowerCase()] : null
+  const focusCalendarId = focusedResource?.calendarId ?? focusedTemplate?.calendarId ?? null
+
+  // The list works on root rules; whatever is opened (inspector, editor, run targets, templates) gets its full tree.
+  const calendarOfResource = (id: string) => resources.find((r) => r.id === id)?.calendarId ?? null
+  const calendarOfEditor = editor ? (editor.kind === 'resource' ? calendarOfResource(editor.id) : (data.templates.data?.find((t) => t.id === editor.id)?.calendarId ?? null)) : null
+  const wizardCalendars = !wizard ? [] : wizard.mode.kind === 'undo' ? wizard.mode.record.steps.map((s) => s.calendarId) : [...selected].map((id) => calendarOfResource(String(id)))
+  const templateCalendars = (data.templates.data ?? []).map((t) => t.calendarId)
+  const fullIds = [focusCalendarId, calendarOfEditor, ...wizardCalendars, ...templateCalendars].filter((c): c is string => !!c)
+  const full = useFullTrees(fullIds, treeVersion)
+  const trees: Record<string, CalendarTree> = { ...(data.trees.data ?? {}), ...full.trees }
+  const fullTreeOf = (calendarId: string | null | undefined): CalendarTree | null => (calendarId ? (full.trees[calendarId.toLowerCase()] ?? null) : null)
+
+  const findings = data.ready && data.trees.data ? diagnose({ resources, trees, today, slots: slotsData, bookingsAfterToday: data.bookings.data ?? {} }) : null
+  const findingsMap = findingsByResource(findings ?? [])
+  const inspectorTree = fullTreeOf(focusCalendarId)
+  const inspectorError = focusCalendarId ? (full.errors[focusCalendarId.toLowerCase()] ?? null) : null
 
   const showResourceRule = (resourceId: string, innerCalendarId: string | null) => {
     setView('resources')
@@ -110,14 +123,16 @@ export default function App() {
     if (kind === 'resource') {
       const r = resources.find((x) => x.id === id)
       if (!r?.calendarId) return null
-      return { name: r.name, target: { entity: 'bookableresource', calendarId: r.calendarId, resourceId: r.type === 'user' ? r.userId : null, timeZoneCode: r.timeZoneCode, useV2: settings.useV2 }, tree: trees[r.calendarId.toLowerCase()] }
+      return { name: r.name, target: { entity: 'bookableresource', calendarId: r.calendarId, resourceId: r.type === 'user' ? r.userId : null, timeZoneCode: r.timeZoneCode, useV2: settings.useV2 }, tree: fullTreeOf(r.calendarId) }
     }
     const t = data.templates.data?.find((x) => x.id === id)
     if (!t?.calendarId) return null
-    return { name: t.name, target: { entity: 'msdyn_workhourtemplate', calendarId: t.calendarId, resourceId: null, timeZoneCode: viewerTimeZoneCode(settings.viewerTz), useV2: settings.useV2 }, tree: trees[t.calendarId.toLowerCase()] }
+    return { name: t.name, target: { entity: 'msdyn_workhourtemplate', calendarId: t.calendarId, resourceId: null, timeZoneCode: viewerTimeZoneCode(settings.viewerTz), useV2: settings.useV2 }, tree: fullTreeOf(t.calendarId) }
   }
   const openEditor = (kind: 'resource' | 'template', id: string, request: EditorRequest) => setEditor({ kind, id, request, epoch: Date.now() })
   const editorContext = editor ? targetFor(editor.kind, editor.id) : null
+  // A request from the list or calendar carries a root-only block; the editor works on the same block of the full tree.
+  const editorRequest: EditorRequest | null = !editor || !editorContext?.tree ? null : editor.request.op === 'create' ? editor.request : refreshRequest(editor.request, editorContext.tree)
 
   const saveIntent = async (intent: EditIntent) => {
     const svc = await getCalendarService()
@@ -136,7 +151,7 @@ export default function App() {
     setTreeVersion((v) => v + 1)
   }
 
-  const runTargets: RunTargetInput[] = [...selected].map((id) => resources.find((r) => r.id === String(id))).filter((r): r is NonNullable<typeof r> => !!r).map((r) => ({ resource: r, tree: r.calendarId ? (trees[r.calendarId.toLowerCase()] ?? null) : null }))
+  const runTargets: RunTargetInput[] = [...selected].map((id) => resources.find((r) => r.id === String(id))).filter((r): r is NonNullable<typeof r> => !!r).map((r) => ({ resource: r, tree: fullTreeOf(r.calendarId) }))
   const openWizard = (mode: WizardMode) => {
     if (mode.kind === 'new' && runTargets.length === 0) {
       notify(S.runs.noTargets, 'error')
@@ -155,9 +170,9 @@ export default function App() {
 
   const dayActionsFor = (resourceId: string): DayActions | null => {
     if (readOnly) return null
-    const ctx = targetFor('resource', resourceId)
-    if (!ctx?.tree) return null
-    const tree = ctx.tree
+    const calendarId = calendarOfResource(resourceId)
+    const tree = calendarId ? trees[calendarId.toLowerCase()] : undefined
+    if (!tree) return null
     return {
       editDay: (innerCalendarId, date) => {
         const block = findBlock(tree, innerCalendarId)
@@ -199,9 +214,10 @@ export default function App() {
           </div>
         ))}
         {data.slots.error ? <div className="notice notice--warn">{S.app.slotsUnavailable(data.slots.error)}</div> : null}
+        {data.ready && data.trees.loading && !data.trees.data ? <div className="notice">{S.app.treesLoading(resources.filter((r) => r.calendarId).length)}</div> : null}
         <div className="app__content">
           <main className="app__view">
-            {!ready || (!data.ready && !data.resources.error && !data.trees.error) ? (
+            {!ready || (!data.ready && !data.resources.error) ? (
               <p className="loading">{S.app.loading}</p>
             ) : view === 'resources' ? (
               <ResourcesView
@@ -254,11 +270,13 @@ export default function App() {
             title={focusedResource?.name ?? focusedTemplate?.name ?? ''}
             subtitle={focusedResource ? `${S.resourceTypes[focusedResource.type]} · ${timeZoneLabel(focusedResource.timeZoneCode)}${focusedResource.orgUnit ? ` · ${focusedResource.orgUnit.name}` : ''}` : undefined}
             tree={inspectorTree}
+            loading={!!focusCalendarId && !inspectorTree && !inspectorError}
+            error={inspectorError}
             resourceTimeZoneCode={focusedResource?.timeZoneCode ?? (focusedTemplate ? viewerTimeZoneCode(settings.viewerTz) : undefined)}
             focusBlockId={focus?.blockId ?? null}
             onClose={() => setFocus(null)}
             today={today}
-            onEdit={!readOnly && focus && targetFor(focus.kind, focus.id)?.tree ? (request) => openEditor(focus.kind, focus.id, request) : null}
+            onEdit={!readOnly && focus && inspectorTree ? (request) => openEditor(focus.kind, focus.id, request) : null}
           />
           {wizard ? (
             <RunWizardDrawer
@@ -268,6 +286,7 @@ export default function App() {
               resources={resources}
               templates={data.templates.data ?? []}
               trees={trees}
+              treesLoading={full.loading}
               today={today}
               useV2={settings.useV2}
               onFinished={onRunFinished}
@@ -275,10 +294,10 @@ export default function App() {
               onClose={() => setWizard(null)}
             />
           ) : null}
-          {editor && editorContext?.tree ? (
+          {editor && editorContext?.tree && editorRequest ? (
             <RuleEditorDialog
               key={editor.epoch}
-              request={editor.request}
+              request={editorRequest}
               targetName={editorContext.name}
               target={editorContext.target}
               tree={editorContext.tree}
@@ -295,4 +314,10 @@ export default function App() {
       <Toaster toasterId={toasterId} position="bottom-end" />
     </div>
   )
+}
+
+/** The same request on the full tree's block (matched by root rule id); unchanged when the block is gone. */
+function refreshRequest(request: Exclude<EditorRequest, { op: 'create' }>, tree: CalendarTree): EditorRequest {
+  const block = tree.blocks.find((b) => b.rootRuleId === request.block.rootRuleId) ?? request.block
+  return { ...request, block }
 }

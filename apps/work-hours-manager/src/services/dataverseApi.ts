@@ -98,13 +98,45 @@ export interface ODataQuery {
 }
 
 /**
- * `ListRecordsWithOrganization(organization, entityName, prefer, $top?, $skip?, $search?, $select, $filter, $orderby, $expand, fetchXml)`
- * — positional parameters of the connector (series-planner / translation-studio).
+ * `ListRecordsWithOrganization(organization, entityName, prefer, accept, metadataFull, mipLabel, $select, $filter, $orderby, $expand, fetchXml, $top)`
+ * — positional parameters of the generated connector client.
+ *
+ * Collection-valued `$expand` comes back empty for some tables (live:
+ * `calendars?$filter=…&$expand=calendar_calendar_rules` returns `[]` plus a
+ * nextLink) — read those rows one by one with `getRow`.
  */
 export async function odata(entitySet: string, q: ODataQuery): Promise<Row[]> {
   const svc = connector()
-  const data = await run(svc.ListRecordsWithOrganization, `${entitySet} lesen`, [ORG_URL, entitySet, q.annotations ? ANNOTATIONS : undefined, q.top, undefined, undefined, q.select, q.filter, q.orderBy, q.expand])
+  const data = await run(svc.ListRecordsWithOrganization, `${entitySet} lesen`, [ORG_URL, entitySet, q.annotations ? ANNOTATIONS : undefined, undefined, undefined, undefined, q.select, q.filter, q.orderBy, q.expand, undefined, q.top])
   return rowsOf(data)
+}
+
+/**
+ * One row with `$expand` — `GetItemWithOrganization(prefer, accept, organization, entityName, recordId, metadataFull, mipLabel, $select, $expand)`.
+ * Null when the row doesn't exist (any other error throws).
+ */
+export async function getRow(entitySet: string, id: string, q: Omit<ODataQuery, 'filter' | 'orderBy' | 'top'>): Promise<Row | null> {
+  const svc = connector()
+  try {
+    return (await run(svc.GetItemWithOrganization, `${entitySet}(${id}) lesen`, [q.annotations ? ANNOTATIONS : 'return=representation', 'application/json', ORG_URL, entitySet, id, undefined, undefined, q.select, q.expand])) as Row | null
+  } catch (err) {
+    if (/does not exist|not found|404|0x80040217/i.test(errorText(err))) return null
+    throw err
+  }
+}
+
+/** `fn` over `items` with at most `limit` calls in flight; results in input order. */
+export async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length)
+  let next = 0
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++
+      out[i] = await fn(items[i])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return out
 }
 
 /** FetchXML read (11th parameter), e.g. for aggregates. */

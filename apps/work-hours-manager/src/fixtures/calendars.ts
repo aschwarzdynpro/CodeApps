@@ -1,14 +1,17 @@
 import type { RawCalendar, RawCalendarRule, Weekday, WorkHourKind } from '../types/calendar'
-import { parseTime } from '../utils/dates'
-import { CODES_OF_KIND, buildTree, formatPattern } from '../utils/rules'
+import { addDays, parseTime } from '../utils/dates'
+import { CODES_OF_KIND, WEEKLY_GROUP_DESIGNATOR, buildTree, formatPattern } from '../utils/rules'
 
 /**
- * Synthetic calendar trees that follow the documented model exactly (root
- * rule → inner calendar → leaf rules). They stand in for the anonymized
- * exports of Phase 0 (README "Offen") and feed the tests and the mock.
+ * Synthetic calendar trees (root rule → inner calendar → leaf rules) in the
+ * storage shape read live from Schulz UAT (README "Verifiziert"): weekly
+ * rules rank 2 with the fixed designator, single days rank 0, holiday lists
+ * as a yearly root (rank 1, extentcode 2) whose inner calendar holds one
+ * dated rule per holiday, exclusive interval ends. They feed the tests and
+ * the mock; no customer data.
  *
- * Builder: `makeBlock` writes one root rule plus its inner calendar the way
- * we expect `msdyn_SaveCalendar` to store it; `rawRule` fills every column.
+ * Builder: `makeBlock` writes one root rule plus its inner calendar,
+ * `makeHolidayList` a holiday list; `rawRule` fills every column.
  */
 
 export const fixtureId = (group: number, n: number): string => `${String(group).padStart(8, '0')}-0000-4000-8000-${String(n).padStart(12, '0')}`
@@ -69,7 +72,8 @@ export interface BlockSpec {
   modifiedOn?: string
 }
 
-export const OPEN_END = '9999-12-30T23:59:59Z'
+/** Open end as the server stores it (live: `9999-12-30T00:00:00Z`). */
+export const OPEN_END = '9999-12-30T00:00:00Z'
 
 const minutes = (spec: LeafSpec) => {
   const s = parseTime(spec.start)
@@ -101,13 +105,14 @@ export function makeBlock(spec: BlockSpec): { root: RawCalendarRule; inner: RawC
     effort: null,
     timecode: codes.timeCode,
     subcode: codes.subCode,
-    rank: recurring ? 0 : 1,
+    // Live shape (Schulz UAT): weekly rank 2 with the fixed designator, single day rank 0; the interval end is the exclusive next midnight.
+    rank: recurring ? 2 : 0,
     timezonecode: tz,
     effectiveintervalstart: `${spec.start}T00:00:00Z`,
-    effectiveintervalend: recurring ? (spec.end ? `${spec.end}T00:00:00Z` : OPEN_END) : `${spec.start}T00:00:00Z`,
+    effectiveintervalend: recurring ? (spec.end ? `${addDays(spec.end, 1)}T00:00:00Z` : OPEN_END) : `${addDays(spec.start, 1)}T00:00:00Z`,
     extentcode: 1,
     isvaried: !!spec.groupId,
-    groupdesignator: spec.groupId ?? null,
+    groupdesignator: spec.groupId ?? (recurring ? WEEKLY_GROUP_DESIGNATOR : null),
     createdon: created,
     modifiedon: modified,
   })
@@ -136,6 +141,50 @@ export function makeBlock(spec: BlockSpec): { root: RawCalendarRule; inner: RawC
         modifiedon: modified,
       })
     }),
+  }
+  return { root, inner }
+}
+
+/**
+ * A holiday list as stored live: yearly root (rank 1, extentcode 2) → inner
+ * calendar with one `FREQ=DAILY;INTERVAL=1;COUNT=1` rule per holiday
+ * (TimeCode 2, SubCode 5). `utcStart` is the stored instant — live data
+ * carries local midnight written from several offsets (21:00Z–23:00Z).
+ */
+export function makeHolidayList(seq: number, calendarId: string, holidays: { utcStart: string; days?: number }[], opts: { start?: string; end?: string; tz?: number } = {}): { root: RawCalendarRule; inner: RawCalendar } {
+  const innerId = fixtureId(95, seq)
+  const root = rawRule({
+    calendarruleid: fixtureId(96, seq),
+    _calendarid_value: calendarId,
+    _innercalendarid_value: innerId,
+    pattern: 'FREQ=YEARLY;INTERVAL=1',
+    starttime: `${opts.start ?? '2000-01-01'}T00:00:00Z`,
+    duration: 525600,
+    rank: 1,
+    timezonecode: opts.tz ?? 110,
+    effectiveintervalend: opts.end ? `${addDays(opts.end, 1)}T00:00:00Z` : OPEN_END,
+    extentcode: 2,
+    groupdesignator: fixtureId(97, seq),
+    createdon: '2025-03-01T08:00:00Z',
+    modifiedon: '2025-03-01T08:00:00Z',
+  })
+  const inner: RawCalendar = {
+    calendarid: innerId,
+    name: null,
+    description: null,
+    type: 0,
+    calendar_calendar_rules: holidays.map((h, i) =>
+      rawRule({
+        calendarruleid: fixtureId(98, seq * 100 + i),
+        _calendarid_value: innerId,
+        pattern: 'FREQ=DAILY;INTERVAL=1;COUNT=1',
+        starttime: h.utcStart,
+        duration: (h.days ?? 1) * 1440,
+        timecode: 2,
+        subcode: 5,
+        rank: 0,
+      }),
+    ),
   }
   return { root, inner }
 }
@@ -212,6 +261,25 @@ export const FIXTURE_CALENDARS = {
   })(),
   /** Weekly in Paris time (105) — the resource itself is in Berlin (finding 5.3). */
   otherZone: makeCalendar(CAL(7), 'Kalender Zeitzone', [weekdayBlock(11, CAL(7), { tz: 105 })]),
+  /**
+   * Shape of a real resource calendar in Schulz UAT (anonymized): the weekly
+   * rule was split twice (one week Mo–Sa, a Saturday week), a holiday list
+   * with offsets from 21:00Z to 23:00Z, and a single working day on the
+   * 31.10.2025 holiday that wins over it.
+   */
+  live: makeCalendar(CAL(8), null, [
+    makeBlock({ seq: 20, calendarId: CAL(8), start: '2000-01-01', end: '2025-09-02', weekdays: [1, 2, 3, 4, 5], leaves: [{ kind: 'work', start: '07:00', end: '15:00' }], modifiedOn: '2025-08-27T09:00:00Z' }),
+    makeBlock({ seq: 21, calendarId: CAL(8), start: '2025-09-03', end: '2025-09-09', weekdays: [1, 2, 3, 4, 5, 6], leaves: [{ kind: 'work', start: '07:00', end: '15:00' }], modifiedOn: '2025-08-27T09:00:00Z' }),
+    makeBlock({ seq: 22, calendarId: CAL(8), start: '2025-09-10', weekdays: [1, 2, 3, 4, 5], leaves: [{ kind: 'work', start: '07:00', end: '15:00' }], modifiedOn: '2025-08-27T09:00:00Z' }),
+    makeBlock({ seq: 23, calendarId: CAL(8), start: '2025-09-10', end: '2025-09-10', weekdays: [6], leaves: [{ kind: 'work', start: '07:00', end: '15:00' }], modifiedOn: '2025-08-27T09:00:00Z' }),
+    makeHolidayList(1, CAL(8), [
+      { utcStart: '2025-04-17T22:00:00Z', days: 3.96 },
+      { utcStart: '2025-05-28T21:00:00Z' },
+      { utcStart: '2025-10-30T23:00:00Z' },
+      { utcStart: '2025-12-24T22:00:00Z' },
+    ]),
+    makeBlock({ seq: 24, calendarId: CAL(8), start: '2025-10-31', leaves: [{ kind: 'work', start: '07:00', end: '15:00' }] }),
+  ]),
   /** Organization closure calendar with the 2026 nationwide holidays (root-only rules). */
   closures: {
     calendar: {

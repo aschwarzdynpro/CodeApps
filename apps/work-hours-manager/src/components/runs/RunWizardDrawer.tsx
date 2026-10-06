@@ -23,6 +23,8 @@ interface Props {
   resources: Resource[]
   templates: WorkHourTemplate[]
   trees: Record<string, CalendarTree>
+  /** Full trees of targets/templates still loading — the preview waits. */
+  treesLoading: boolean
   today: string
   useV2: boolean
   onFinished: (record: RunRecord) => void
@@ -43,7 +45,7 @@ const STATUS_COLOR: Record<RunStepResult['status'] | 'change', 'success' | 'dang
 }
 
 /** Three steps (selection → action → preview), then execution with progress; undo runs start at the preview. */
-export function RunWizardDrawer({ mode, targets, resources, templates, trees, today, useV2, onFinished, onPrivilegeError, onClose }: Props) {
+export function RunWizardDrawer({ mode, targets, resources, templates, trees, treesLoading, today, useV2, onFinished, onPrivilegeError, onClose }: Props) {
   const [step, setStep] = useState<Step>(mode.kind === 'undo' ? 'preview' : 'targets')
   const [actionKind, setActionKind] = useState<RunParams['kind']>('applyTemplate')
   const [templateId, setTemplateId] = useState<string>(mode.kind === 'new' && mode.templateId ? mode.templateId : (templates[0]?.id ?? ''))
@@ -58,6 +60,8 @@ export function RunWizardDrawer({ mode, targets, resources, templates, trees, to
 
   const plan: RunPlan | null = (() => {
     if (step !== 'preview' && step !== 'run') return null
+    // The preview needs the full trees of the targets; a running/finished run keeps its plan.
+    if (step === 'preview' && treesLoading) return null
     if (mode.kind === 'undo') return buildUndoPlan(mode.record, trees, resources, useV2, today)
     if (actionKind === 'applyTemplate') return template && templateTree ? buildPlan({ kind: 'applyTemplate', template, templateTree, cutoff, endExisting, useV2 }, targets) : null
     return buildPlan({ kind: 'timeOff', absence, useV2 }, targets)
@@ -186,6 +190,7 @@ export function RunWizardDrawer({ mode, targets, resources, templates, trees, to
           </div>
         ) : null}
 
+        {step === 'preview' && treesLoading ? <p className="loading">{S.inspector.loadingTree}</p> : null}
         {step === 'preview' && plan ? (
           <>
             <p>

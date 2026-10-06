@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, dateOnly, eachDay, endOfMonth, formatWeekdays, isoWeek, minutesInto, startOfIsoWeek, timeOfDayMinutes, utcToZoned, weekday, zonedToUtc } from './dates'
+import { addDays, dateOnly, eachDay, endOfMonth, formatWeekdays, isoWeek, minutesInto, parseServerDate, startOfIsoWeek, timeOfDayMinutes, utcToZoned, weekday, zonedToUtc } from './dates'
 
 describe('dates', () => {
+  it('parses WCF dates from msdyn_LoadCalendars and ISO strings', () => {
+    expect(parseServerDate('/Date(1791176400000)/')).toBe('2026-10-05T05:00:00.000Z')
+    expect(parseServerDate('/Date(1791176400000+0100)/')).toBe('2026-10-05T05:00:00.000Z')
+    expect(parseServerDate('2026-10-05T05:00:00Z')).toBe('2026-10-05T05:00:00.000Z')
+    expect(parseServerDate('kaputt')).toBeNull()
+    expect(parseServerDate(undefined)).toBeNull()
+  })
+
   it('does weekday and week math on UTC day numbers', () => {
     expect(weekday('2026-10-05')).toBe(1)
     expect(startOfIsoWeek('2026-10-08')).toBe('2026-10-05')

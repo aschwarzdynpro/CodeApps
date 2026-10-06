@@ -2,7 +2,7 @@ import type { CalendarEventInfo, CalendarTree, Closure, DeleteCalendarInfo, Reso
 import { addDays } from '../utils/dates'
 import { expandTree, toSlots } from '../utils/resolve'
 import { buildTree } from '../utils/rules'
-import type { CalendarService, SetupCheck } from './calendarService'
+import type { CalendarService, SetupCheck, TreeDepth } from './calendarService'
 import { CLOSURE_CALENDAR_ID, MOCK_ORG_NAME, createMockState } from './mockData'
 import { MockApiError, applyClosureDelete, applyClosureSave, applyDelete, applySave, innerCalendarsOf } from '../utils/engine'
 
@@ -13,9 +13,11 @@ const state = createMockState()
 const delay = <T,>(value: T, ms = 120): Promise<T> => new Promise((resolve) => setTimeout(() => resolve(value), ms))
 const clone = <T,>(v: T): T => structuredClone(v)
 
-function treeOf(calendarId: string): CalendarTree | null {
+/** Same depth semantics as Dataverse: `roots` leaves the inner calendars out. */
+function treeOf(calendarId: string, depth: TreeDepth = 'full'): CalendarTree | null {
   const cal = state.store.calendars.get(calendarId.toLowerCase())
-  return cal ? buildTree(cal, innerCalendarsOf(state.store, cal)) : null
+  if (!cal) return null
+  return depth === 'roots' ? buildTree(clone(cal), [], false) : buildTree(cal, innerCalendarsOf(state.store, cal))
 }
 
 function closuresBetween(from: string, to: string): Closure[] {
@@ -41,10 +43,10 @@ export const mockCalendarService: CalendarService = {
   listResources: () => delay(clone(state.resources)),
   listTemplates: () => delay(clone(state.templates)),
 
-  async getTrees(calendarIds) {
+  async getTrees(calendarIds, depth = 'full') {
     const out: Record<string, CalendarTree> = {}
     for (const id of calendarIds) {
-      const t = treeOf(id)
+      const t = treeOf(id, depth)
       if (t) out[id.toLowerCase()] = t
     }
     return delay(out)

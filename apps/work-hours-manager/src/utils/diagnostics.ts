@@ -58,9 +58,10 @@ export function diagnose(input: DiagnoseInput): Finding[] {
     if (!hasWorkRules(tree)) out.push({ ...base, kind: 'noCalendar', severity: 'warning', detail: S.findingDetails.noRules })
     if (tree.orphanInnerCalendars.length) out.push({ ...base, kind: 'orphanInnerCalendar', severity: 'info', detail: S.findingDetails.orphan(tree.orphanInnerCalendars.length) })
 
-    // 5.1 — no working time in the window.
-    if (hasWorkRules(tree)) {
-      const minutes = workMinutesInWindow(tree, input.slots?.[r.calendarId.toLowerCase()] ?? null, from, to, r.timeZoneCode)
+    // 5.1 — no working time in the window (from slots; from the rules only when their leaves are loaded).
+    const slots = input.slots?.[r.calendarId.toLowerCase()] ?? null
+    if (hasWorkRules(tree) && (slots || tree.innerLoaded)) {
+      const minutes = workMinutesInWindow(tree, slots, from, to, r.timeZoneCode)
       if (minutes === 0) out.push({ ...base, kind: 'noWorkingTime', severity: 'error', detail: S.findingDetails.noWorkingTime(formatDate(from), formatDate(to)) })
     }
 

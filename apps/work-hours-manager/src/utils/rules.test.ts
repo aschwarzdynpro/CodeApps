@@ -38,7 +38,7 @@ describe('buildTree', () => {
     const b = tree.blocks[0]
     expect(b.innerCalendarId).toBe(FIXTURE_CALENDARS.weekly.inner[0].calendarid)
     expect(b.weekdays).toEqual([1, 2, 3, 4, 5])
-    expect(b.rank).toBe(0)
+    expect(b.rank).toBe(2)
     expect(b.leaves.map((l) => l.kind)).toEqual(['work', 'break', 'work'])
     expect(b.startMin).toBe(8 * 60)
     expect(b.endMin).toBe(17 * 60)
@@ -73,10 +73,11 @@ describe('buildTree', () => {
     expect(describeBlock(groups[0][1])).toContain('je Wochentag verschieden')
   })
 
-  it('reads time off as a rank-1 block spanning its days with the reason', () => {
+  it('reads time off as a single-day block (rank 0) spanning its days with the reason', () => {
     const t = treeOf('timeoff')
     const off = t.blocks.find((b) => b.kind === 'timeoff')!
-    expect(off.rank).toBe(1)
+    expect(off.rank).toBe(0)
+    expect(off.weekdays).toBeNull()
     expect(off.start).toBe('2026-10-12')
     expect(off.end).toBe('2026-10-14')
     expect(off.description).toBe('Urlaub')
@@ -85,7 +86,7 @@ describe('buildTree', () => {
 
   it('splits a night shift into two occurrences and keeps their order', () => {
     const t = treeOf('night')
-    const occ = t.blocks.filter((b) => b.rank === 1)
+    const occ = t.blocks.filter((b) => b.weekdays === null)
     expect(occ).toHaveLength(2)
     expect([occ[0].startMin, occ[0].endMin]).toEqual([22 * 60, 24 * 60])
     expect([occ[1].startMin, occ[1].endMin]).toEqual([0, 6 * 60])
