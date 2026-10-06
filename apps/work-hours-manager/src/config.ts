@@ -27,7 +27,8 @@ export const LIMITS = {
   /** Finding 5.2: rules ending within this many days. */
   ruleEndingDays: 90,
   /** Finding 5.1: default look-ahead window in days. */
-  diagnosticsWindowDays: 60,
+  // Own msdyn_LoadCalendars load for all resources (one call per 50) — 28 days keeps the payload small.
+  diagnosticsWindowDays: 28,
   /** Calendar rows above which the week view windows its rows. */
   virtualizeFrom: 100,
   /** Calendars read in parallel — one request each, `$expand` of the rules only works per row. */

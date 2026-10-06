@@ -198,7 +198,7 @@ export const HELP_SECTIONS: HelpSection[] = [
           rows: [
             ['**Ohne Arbeitszeit im Zeitraum**', 'Keine Arbeitszeit in den nächsten 60 Tagen — die häufigste Ursache für „Ressource fehlt auf dem Board“.', 'Arbeitszeit anlegen oder Vorlage anwenden.'],
             ['**Regel endet bald / ist ausgelaufen**', 'Eine Wiederholung endet in 90 Tagen (Warnung; Hinweis, wenn eine Nachfolgerin anschließt) oder endete ohne Nachfolgerin (Fehler).', 'Enddatum ändern („Bearbeiten“) oder neue Regel.'],
-            ['**Zeitzone Regel ≠ Ressource**', 'Regeln stehen in einer anderen Zeitzone als die Ressource; auf dem Board verschiebt sich die Arbeitszeit.', 'Regel mit der richtigen Zeitzone neu anlegen (v2: Zeitzonenwechsel mit Migration).'],
+            ['**Zeitzone Regel ≠ Ressource**', 'Regeln stehen in einer anderen Zeitzone als die Ressource. Das Board zeigt die Zeiten der Regel (geprüft) — aber neue Regeln aus Editor oder Vorlage entstehen in der Zeitzone der Ressource und liegen dann um die Differenz verschoben.', 'Zeitzone der Ressource korrigieren oder Regel mit der richtigen Zeitzone neu anlegen.'],
             ['**Inaktiv, aber mit Buchungen**', 'Deaktivierte Ressource hat Buchungen nach heute.', 'Buchungen umplanen oder Ressource reaktivieren.'],
             ['**Ohne Kalender / ohne Regeln**', 'Kein Kalender (Fehler) oder Kalender ohne Regel (Warnung); verwaiste innere Kalender als Hinweis.', 'Arbeitszeit anlegen.'],
           ],

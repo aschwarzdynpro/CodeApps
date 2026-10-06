@@ -111,7 +111,9 @@ export default function App() {
   const trees: Record<string, CalendarTree> = { ...(data.trees.data ?? {}), ...full.trees }
   const fullTreeOf = (calendarId: string | null | undefined): CalendarTree | null => (calendarId ? (full.trees[calendarId.toLowerCase()] ?? null) : null)
 
-  const findings = data.ready && data.trees.data ? diagnose({ resources, trees, today, slots: slotsData, bookingsAfterToday: data.bookings.data ?? {} }) : null
+  // 5.1 looks from today over the diagnostics window — never at the slots of the week on screen (browsing back flagged everyone).
+  const diagSlots = data.diagSlots.error ? null : (data.diagSlots.data ?? null)
+  const findings = data.ready && data.trees.data ? diagnose({ resources, trees, today, slots: diagSlots, bookingsAfterToday: data.bookings.data ?? {} }) : null
   const findingsMap = findingsByResource(findings ?? [])
   const inspectorTree = fullTreeOf(focusCalendarId)
   const inspectorError = focusCalendarId ? (full.errors[focusCalendarId.toLowerCase()] ?? null) : null
@@ -263,7 +265,7 @@ export default function App() {
                 onPrivilegeError={() => setReadOnly(true)}
               />
             ) : view === 'diagnostics' ? (
-              <DiagnosticsView findings={findings} fromSlots={slotsData !== null} onShowResource={showResourceRule} />
+              <DiagnosticsView findings={findings} fromSlots={diagSlots !== null} onShowResource={showResourceRule} />
             ) : view === 'runs' ? (
               <RunsView runs={runs} readOnly={readOnly} onUndo={(record) => openWizard({ kind: 'undo', record })} />
             ) : (

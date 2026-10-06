@@ -294,7 +294,7 @@ export const S = {
     noWorkingTime: (from: string, to: string) => `Keine Arbeitszeit zwischen ${from} und ${to}.`,
     ruleEndsIn: (days: number, date: string) => `Wiederholung endet in ${plural(days, 'Tag', 'Tagen')} (${date}); danach keine Arbeitszeit aus dieser Regel.`,
     ruleEnded: (date: string) => `Wiederholung endete am ${date}.`,
-    tzMismatch: (rule: string, resource: string) => `Regel in ${rule}, Ressource in ${resource} — die Arbeitszeit verschiebt sich auf dem Board.`,
+    tzMismatch: (rule: string, resource: string) => `Regel in ${rule}, Ressource in ${resource} — das Board zeigt die Zeiten der Regel; neue Regeln (Editor, Vorlage) entstehen in der Zeitzone der Ressource und liegen dann verschoben.`,
     inactiveWithBookings: (n: number, date: string) => `${plural(n, 'Buchung', 'Buchungen')} nach dem ${date}.`,
     noCalendar: 'Die Ressource hat keinen Kalender.',
     noRules: 'Der Kalender enthält keine Regeln.',

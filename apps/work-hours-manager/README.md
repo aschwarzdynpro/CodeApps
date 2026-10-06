@@ -53,7 +53,7 @@ verifiziert** — siehe „Verifiziert (live)“ und „Offen“.
 | **Massenlauf** | OverlayDrawer-Assistent: Ressourcen (max. 50) → Aktion (Vorlage ab Stichtag, optional bestehende Wiederholungen am Vortag beenden und spätere löschen; oder Abwesenheit/Nicht-Arbeit mit Datum, Tagen, Grund) → Vorschau-Tabelle je Ressource (h/Woche vorher/nachher, Regeln, Status, Hinweis) → Ausführen sequentiell mit Fortschritt, abbrechbar, Stopp beim ersten Fehler. Jeder Lauf beginnt mit einem Snapshot der betroffenen Bäume. |
 | **Läufe** | Verlauf lokal (letzte 20) mit Ergebnis je Ressource, JSON-Download, **Rückgängig** als normaler Lauf mit Vorschau: löscht angelegte Regeln, stellt Enden wieder her, legt gelöschte Regeln neu an (Baumvergleich bis auf IDs im Test). |
 | **Feiertage** | Schließungen des Jahres (lokale Tage in der Anzeige-Zeitzone), anlegen (`msdyn_BusinessClosureSave`), löschen (Versuch, siehe Offen); Regelwerk DE bundesweit + 16 Länder, AT, CH mit Osterformel; Abgleich vorhanden/fehlt/anderer Name/nur teilweise, Schließungen außerhalb des Regelwerks, Dubletten; fehlende markieren und in einem Schritt anlegen. |
-| **Diagnose** | Kacheln mit Zahl und Schwere, gefilterte Liste, „Im Kalender zeigen“: 5.1 ohne Arbeitszeit (60 Tage, aus Slots wenn vorhanden), 5.2 Wiederholung endet in 90 Tagen / endete ohne Nachfolgerin, 5.3 Zeitzone Regel ≠ Ressource, 5.4 inaktiv mit Buchungen nach heute, 5.5 ohne Kalender / ohne Regeln / verwaiste innere Kalender. |
+| **Diagnose** | Kacheln mit Zahl und Schwere, gefilterte Liste, „Im Kalender zeigen“: 5.1 ohne Arbeitszeit (28 Tage ab heute, eigene `msdyn_LoadCalendars`-Abfrage unabhängig von der angezeigten Woche), 5.2 Wiederholung endet in 90 Tagen / endete ohne Nachfolgerin, 5.3 Zeitzone Regel ≠ Ressource, 5.4 inaktiv mit Buchungen nach heute, 5.5 ohne Kalender / ohne Regeln / verwaiste innere Kalender. |
 | **Einrichtung, Hilfe** | Einrichtungsseite (Konnektor, Org-URL, Ressourcen lesbar, Schließungskalender, `msdyn_LoadCalendars`); Hilfe-Panel mit Inhaltsverzeichnis und Suche (`src/help/helpContent.ts` — bei sichtbaren Änderungen nachziehen). |
 
 Toolbar: Woche/Monat, Zeitraum, Anzeige-Zeitzone (umschaltbar, Sommerzeit
@@ -82,7 +82,7 @@ das Eigenkalender-Recht über `ResourceId`. Nie `calendarrule`-Zeilen.
 ```
 src/
 ├── PowerProvider.tsx            # Host-Erkennung (Kopie aus series-planner)
-├── config.ts                    # VITE_ORG_URL, Limits (50 je Lauf, 20 Läufe, 90/60 Tage), Defaults (TZ 110, UseV2)
+├── config.ts                    # VITE_ORG_URL, Limits (50 je Lauf, 20 Läufe, 90/28 Tage), Defaults (TZ 110, UseV2)
 ├── strings.ts                   # alle UI-Texte (Deutsch)
 ├── types/calendar.ts            # Resource, Template, RawCalendar/Rule, CalendarTree/RuleBlock/LeafRule, Slot, Closure,
 │                                # DayResolution, Finding, Work-Hours-API-Typen, RunRecord
@@ -234,7 +234,7 @@ Testdaten belassen (KW 45–52/2026).
 | Schließung löschen | `msdyn_DeleteCalendar` lehnt ab („not enabled for given entity logical name“); **`msdyn_BusinessClosureDelete`** mit `Ids` = `calendarruleid` (String, kein JSON-Array) löscht (Fix) | ✅ nach Fix |
 | Nachtschicht | nicht getestet (zwei Einzeltage wie oben) | offen |
 | Rechtefehler | braucht ein Konto ohne Kalenderrecht | offen |
-| Befund 5.1 | nicht gegen das Board geprüft | offen |
+| Abgleich mit dem Schedule Board | UAT (nur lesend) und NAAF: Board-Arbeitszeit = `msdyn_LoadCalendars` = App bei allen Stichproben (07–15, 07–15:45 mit Regel in Berlin bei UTC-Ressource, 24/7, Wochenende 09–13 bis zum Regelende). Befund 5.3: dieselben 31 Ressourcen wie unabhängig nachgerechnet; das Board zeigt aber die Zeiten der **Regel**, die Ressourcen-Zeitzone verschiebt dort nichts — Text korrigiert (Risiko: neue Regeln entstehen in der Ressourcen-Zeitzone). Befund 5.1 rechnete mit den Slots der angezeigten Woche (Zurückblättern ⇒ alle „ohne Arbeitszeit“) — jetzt eigene Abfrage ab heute, Fenster 28 Tage | ✅ nach Fix |
 
 Weitere Funde beim Test: Einrichtungsprüfung `msdyn_LoadCalendars` schickte
 eine leere ID-Liste (Server lehnt ab, Fix); Suche verlor Tastendrücke
@@ -276,8 +276,8 @@ App zeigt den Hinweis „Keine Ressourcen sichtbar …“, Diagnose ohne Befunde
 
 | Umgebung | Env-ID | App-ID | Stand |
 | --- | --- | --- | --- |
-| Schulz UAT (`operations-d365-schulz-uat-1-1.crm4`) | `2eaa34de-dcf1-e949-86d9-82d9fd748045` | `31f2b956-b6d4-439f-ae01-d3186ae9208e` | gepusht 2026-10-06 14:25 (Stand nach den Schreibtests in NAAF-Backup, Build auf „Einrichtung“ geprüft, alle Prüfungen grün), Connector an Benutzer-Connection `4a9f0463…` (EX-Andy.Schwarz). In UAT selbst nur gelesen |
-| Schulz NAAF-Backup (`naafbackup.crm4`) — **Schreibtests** | `d9dd9afb-2514-e7ee-b5a6-9da89a5d9352` | `d4c81e52-50b9-4d41-bb98-1e4c8179b134` | gepusht 2026-10-06 13:47 (pac-Profil `NaafBackup`), Connector an Benutzer-Connection `311edd70…` (EX-Andy.Schwarz). 840 aktive Ressourcen; Schreibtests siehe „Verifiziert (live)“, Testregeln an „Max Mustermann“ in KW 45–52/2026 |
+| Schulz UAT (`operations-d365-schulz-uat-1-1.crm4`) | `2eaa34de-dcf1-e949-86d9-82d9fd748045` | `31f2b956-b6d4-439f-ae01-d3186ae9208e` | gepusht 2026-10-06 15:23 (Stand nach Schreibtests und Board-Abgleich; der Build von 14:25 war auf „Einrichtung“ geprüft, alle Prüfungen grün), Connector an Benutzer-Connection `4a9f0463…` (EX-Andy.Schwarz). In UAT selbst nur gelesen |
+| Schulz NAAF-Backup (`naafbackup.crm4`) — **Schreibtests** | `d9dd9afb-2514-e7ee-b5a6-9da89a5d9352` | `d4c81e52-50b9-4d41-bb98-1e4c8179b134` | gepusht 2026-10-06 15:23 (pac-Profil `NaafBackup`), Connector an Benutzer-Connection `311edd70…` (EX-Andy.Schwarz). 840 aktive Ressourcen; Schreibtests siehe „Verifiziert (live)“, Testregeln an „Max Mustermann“ in KW 45–52/2026 |
 
 Zwei Umgebungen, eine `power.config.json`: die jeweils aktive liegt im
 App-Ordner, beide Stände gesichert unter `.power/envs/<schulz-uat|naaf-backup>/`

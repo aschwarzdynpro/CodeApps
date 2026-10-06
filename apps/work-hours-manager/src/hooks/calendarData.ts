@@ -1,3 +1,4 @@
+import { LIMITS } from '../config'
 import { addDays, zonedToUtc } from '../utils/dates'
 import type { CalendarTree, Closure, Resource, Slot, TimeOffRequest, WorkHourTemplate } from '../types/calendar'
 import { useLoad, type LoadResult } from './useLoad'
@@ -16,6 +17,8 @@ export interface CalendarData {
   trees: LoadResult<Record<string, CalendarTree>>
   /** Null data with an error = `msdyn_LoadCalendars` unavailable → views derive from rules. */
   slots: LoadResult<Record<string, Slot[]>>
+  /** Slots from today over the diagnostics window (finding 5.1) — independent of the visible range. */
+  diagSlots: LoadResult<Record<string, Slot[]>>
   closures: LoadResult<Closure[]>
   timeOff: LoadResult<TimeOffRequest[]>
   bookings: LoadResult<Record<string, number>>
@@ -43,6 +46,9 @@ export function useCalendarData(active: boolean, from: string, to: string, viewe
   const toIso = zonedToUtc(addDays(to, 1), '00:00', viewerTz)
   const rangeKey = resources.data ? `${fromIso}|${toIso}|${sig(resourceCalendarIds)}|${treeVersion}` : null
   const slots = useLoad(rangeKey && `slots:${rangeKey}`, (svc) => svc.loadSlots(resourceCalendarIds, fromIso, toIso))
+  const diagFrom = zonedToUtc(today, '00:00', viewerTz)
+  const diagTo = zonedToUtc(addDays(today, LIMITS.diagnosticsWindowDays + 1), '00:00', viewerTz)
+  const diagSlots = useLoad(resources.data ? `diagslots:${diagFrom}|${diagTo}|${sig(resourceCalendarIds)}|${treeVersion}` : null, (svc) => svc.loadSlots(resourceCalendarIds, diagFrom, diagTo))
   const closures = useLoad(active ? `closures:${fromIso}|${toIso}|${treeVersion}` : null, (svc) => svc.loadClosures(fromIso, toIso))
   const resourceIds = (resources.data ?? []).map((r) => r.id)
   const timeOff = useLoad(rangeKey && `timeoff:${rangeKey}`, (svc) => svc.loadTimeOff(resourceIds, fromIso, toIso))
@@ -54,6 +60,7 @@ export function useCalendarData(active: boolean, from: string, to: string, viewe
     templates,
     trees,
     slots,
+    diagSlots,
     closures,
     timeOff,
     bookings,
@@ -69,6 +76,7 @@ export function useCalendarData(active: boolean, from: string, to: string, viewe
       templates.reload()
       trees.reload()
       slots.reload()
+      diagSlots.reload()
       closures.reload()
       timeOff.reload()
       bookings.reload()
