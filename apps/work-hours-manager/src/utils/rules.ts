@@ -142,6 +142,34 @@ export function normalizeCalendar(row: Record<string, unknown>): RawCalendar {
   }
 }
 
+/**
+ * The server stores a working day with a break as ONE working leaf over the
+ * whole span plus a break leaf on top (live, NAAF-Backup: work 08:00–17:00 +
+ * break 12:00–12:30), not as three parts. The model works with parts that
+ * don't overlap, so working leaves are cut around the breaks here (piece ids
+ * `<id>#<n>`).
+ */
+export function splitWorkAroundBreaks(leaves: LeafRule[]): LeafRule[] {
+  const breaks = leaves.filter((l) => l.kind === 'break')
+  if (!breaks.length) return leaves
+  return leaves
+    .flatMap((l) => {
+      if (l.kind !== 'work') return [l]
+      let pieces = [{ s: l.startMin, e: l.startMin + l.duration }]
+      for (const b of breaks) {
+        const bs = b.startMin
+        const be = b.startMin + b.duration
+        pieces = pieces.flatMap((p) => (be <= p.s || bs >= p.e ? [p] : [...(bs > p.s ? [{ s: p.s, e: bs }] : []), ...(be < p.e ? [{ s: be, e: p.e }] : [])]))
+      }
+      return pieces.map((p, i) => ({ ...l, id: pieces.length > 1 ? `${l.id}#${i + 1}` : l.id, startMin: p.s, duration: p.e - p.s }))
+    })
+    .sort((a, b) => a.startMin - b.startMin)
+}
+
+/** Labels the server writes itself (`description` of root rules, live) — not a user's text. */
+const SERVER_LABELS = /^(Weekly Single Rule|Time Off Rule|Not Working|Holiday Rule|Calendar for Business Closure)$/i
+const userText = (v: string | null | undefined): string | null => (v && !SERVER_LABELS.test(v.trim()) ? v : null)
+
 function toLeaf(r: RawCalendarRule): LeafRule {
   const startMin = r.offset ?? timeOfDayMinutes(r.starttime) ?? 0
   return { id: r.calendarruleid, kind: classifyRule(r.timecode, r.subcode), startMin, duration: r.duration ?? 0, effort: r.effort, timeCode: r.timecode, subCode: r.subcode, raw: r }
@@ -206,7 +234,7 @@ function toBlock(root: RawCalendarRule, inner: RawCalendar | null, innerLoaded: 
       start,
       end: lastDayOf(root.effectiveintervalend),
       timeZoneCode,
-      description: root.description ?? inner?.description ?? root.name ?? null,
+      description: userText(root.description) ?? userText(inner?.name) ?? userText(root.name),
       leaves: [],
       kind: 'closure',
       startMin: 0,
@@ -217,7 +245,7 @@ function toBlock(root: RawCalendarRule, inner: RawCalendar | null, innerLoaded: 
     }
   }
 
-  const leaves = inner ? inner.calendar_calendar_rules.map(toLeaf).sort((a, b) => a.startMin - b.startMin) : root._innercalendarid_value ? [] : [toLeaf(root)]
+  const leaves = splitWorkAroundBreaks(inner ? inner.calendar_calendar_rules.map(toLeaf).sort((a, b) => a.startMin - b.startMin) : root._innercalendarid_value ? [] : [toLeaf(root)])
   const rootStartMin = timeOfDayMinutes(root.starttime) ?? 0
   const rootDuration = root.duration ?? 0
   const startMin = leaves.length ? Math.min(...leaves.map((l) => l.startMin)) : rootStartMin
@@ -240,7 +268,8 @@ function toBlock(root: RawCalendarRule, inner: RawCalendar | null, innerLoaded: 
     start,
     end,
     timeZoneCode,
-    description: root.description ?? inner?.description ?? root.name ?? null,
+    // The reason of a time off (`InnerCalendarDescription`) is stored as the inner calendar's `name` (live).
+    description: userText(inner?.name) ?? userText(inner?.description) ?? userText(root.description) ?? userText(root.name),
     leaves,
     kind,
     startMin,

@@ -209,28 +209,39 @@ Kalender, Web API und `msdyn_LoadCalendars` direkt; anonymisiert als Fixture
 | Feiertagslisten | inneres Blatt je Feiertag: `FREQ=DAILY;INTERVAL=1;COUNT=1`, TimeCode 2/SubCode 5, `starttime` als echter UTC-Zeitpunkt der lokalen Mitternacht — aber aus verschiedenen Offsets geschrieben (21:00Z–23:00Z) ⇒ die App rundet auf die nächste lokale Mitternacht |
 | `msdyn_LoadCalendars` | `CalendarEvents` ist ein JSON-String; `Start`/`End` im WCF-Format `/Date(1791176400000)/`; Slots enthalten auch Nicht-Arbeit (`TimeCode` 2, `SubCode` 5 Feiertag) |
 
-**Schreiben** — Live-Test nach der Akzeptanzliste des Konzepts, noch offen;
-bis dahin gilt alles Schreibende als unverifiziert.
+**Schreiben (2026-10-06, NAAF-Backup)** — über die App (Editor, Konnektor,
+Benutzer-Connection, `UseV2` an) an „Max Mustermann“ (Berlin) und zwei
+Test-Benutzern (UTC), jeder Fall danach per Web API (Rohbaum) und
+`msdyn_LoadCalendars` geprüft. Ausgangsstand wiederhergestellt bzw. als
+Testdaten belassen (KW 45–52/2026).
 
-| Fall | Erwartung | Ergebnis |
+| Fall | Ergebnis (gespeicherte Form) | Status |
 | --- | --- | --- |
-| Arbeitszeit einmal (Einzeltag) | Save ohne Pattern, Rang-1-Block im Baum, Slot in `msdyn_LoadCalendars` | offen |
-| Wöchentlich mit Pause | Save mit `FREQ=WEEKLY`, drei Rules (0/1/0), Formular zeigt dieselben Zeiten | offen |
-| Je Wochentag verschieden | `IsVaried` + `Action 1`, ein `groupdesignator`, Delete mit `IsVaried` entfernt alle Teile | offen |
-| Abwesenheit mit Grund, ganztägig | `WorkHourType 3`, `InnerCalendarDescription`, Rang 1, kein Slot an den Tagen | offen |
-| Nicht-Arbeit mit Uhrzeit | `WorkHourType 2`, Slot entsprechend verkürzt | offen |
-| Bearbeiten ganze Wiederholung | `IsEdit` + `InnerCalendarId`, ID bleibt | offen |
-| „Dieser und folgende“ | `RecurrenceSplit`, alte Regel endet am Vortag, neue ID | offen |
-| Einzeltag aus Wiederholung | ohne `IsEdit`, mit `InnerCalendarId` — wo liegt der Tag im Baum? | offen |
-| Wiederholung beenden | `RecurrenceEndDate` `T23:59:59Z` ⇒ gewählter Tag ist der letzte | offen |
-| Nachtschicht | zwei Saves, Board zeigt 22–06 | offen |
-| Löschen | `msdyn_DeleteCalendar` im String `CalendarEventInfo` | offen |
-| Vorlage auf 3 Testressourcen | Lauf, dann Rückgängig: Baum gleich bis auf IDs | offen |
-| Feiertage 2027 (Bayern) anlegen | `msdyn_BusinessClosureSave` je Tag, Serienplanung erkennt sie | offen |
-| Schließung löschen | Versuch `msdyn_DeleteCalendar` auf dem Org-Kalender | offen |
-| `UseV2` | Parameter akzeptiert, zwei parallele Wiederholungen bleiben | offen |
-| Rechtefehler | Save ohne Recht ⇒ Klartext, App „Nur lesen“ | offen |
-| Befund 5.1 | stimmt mit manueller Prüfung auf dem Board überein | offen |
+| Arbeitszeit einmal | `DAILY;COUNT=1`, Rang 0, extentcode 1, Ende = nächste Mitternacht, Blatt `offset`/`duration`; Slot 08–12 | ✅ |
+| Wöchentlich mit Pause | **ein** Arbeitsblatt über die ganze Spanne (08–17) + Pausenblatt darüber; `msdyn_LoadCalendars` liefert Arbeit **ungeschnitten** und die Pause als eigenes Ereignis (TimeCode 2/SubCode 4) ⇒ App schneidet (Fix) | ✅ nach Fix |
+| `ObserveClosure` | erzeugt eine Wurzel `YEARLY` Rang 1 extentcode 2, deren innerer Kalender **der Org-Schließungskalender selbst** ist (kein Schnappschuss — neue Schließungen wirken sofort); je Speichern mit Beachten eine weitere Wurzel | ✅ |
+| Abwesenheit mit Grund | `DAILY;COUNT=1`, Rang 0, extentcode 2, Wurzel-Beschreibung „Time Off Rule“; der Grund (`InnerCalendarDescription`) landet im **`name` des inneren Kalenders** (Fix: App las `description`) | ✅ nach Fix |
+| Nicht-Arbeit mit Uhrzeit | `DAILY;COUNT=1`, Rang 0, extentcode 2, „Not Working“; schneidet nur 13–15 heraus, 07–13 bleibt (Fix: App nahm den ganzen Tag) | ✅ nach Fix |
+| Bearbeiten ganze Wiederholung | `IsEdit` + `InnerCalendarId`: ID bleibt, Zeiten geändert, Pause bleibt | ✅ |
+| „Dieser und folgende“ | `RecurrenceSplit`: alte Regel endet exklusiv am Split-Tag, neue Regel mit neuer ID | ✅ |
+| Einzeltag aus Wiederholung | **mit** `InnerCalendarId` (ohne `IsEdit`) ersetzt der Server die **ganze Wiederholung** durch diesen Tag — Wochenregel weg (aufgetreten, repariert). Richtig: neuer Einzeltag **ohne** `InnerCalendarId`, Rang 0 schlägt die Woche (Fix) | ✅ nach Fix |
+| Wiederholung beenden | `RecurrenceEndDate` `T23:59:59Z` wird so gespeichert (inklusiv), letzter Tag stimmt | ✅ |
+| Löschen | `msdyn_DeleteCalendar` (String `CalendarEventInfo`, `UseV2`) entfernt Wurzel + inneren Kalender | ✅ |
+| Je Wochentag verschieden | Teile mit `isvaried` true, aber derselben festen Wochen-ID — **keine Gruppe**; `IsVaried`-Delete löscht nur den einen Teil | ✅ (Modell angepasst) |
+| `UseV2` / Überschneidung | Parameter akzeptiert. Neue Wiederholung über bestehender: alte endet am Vortag, ihre **übrigen Wochentage** laufen als neue Regel weiter; an gemeinsamen Wochentagen gelten nur die neuen Zeiten (keine Mischung) — Vorschau angepasst | ✅ nach Fix |
+| Vorlage auf 3 Ressourcen | Lauf: 3 Wiederholungen bzw. je 1 enden am Vortag, Vorlage ab Stichtag in der Zeitzone der Ressource; Rückgängig: Vorlagenregel gelöscht, Enden wiederhergestellt (offen über `9999-12-30T23:59:59Z` angenommen) | ✅ |
+| Schließung anlegen | `msdyn_BusinessClosureSave`: Wurzelregel im Org-Kalender, Zeitzone -1, `starttime` = UTC der lokalen Mitternacht | ✅ |
+| Schließung löschen | `msdyn_DeleteCalendar` lehnt ab („not enabled for given entity logical name“); **`msdyn_BusinessClosureDelete`** mit `Ids` = `calendarruleid` (String, kein JSON-Array) löscht (Fix) | ✅ nach Fix |
+| Nachtschicht | nicht getestet (zwei Einzeltage wie oben) | offen |
+| Rechtefehler | braucht ein Konto ohne Kalenderrecht | offen |
+| Befund 5.1 | nicht gegen das Board geprüft | offen |
+
+Weitere Funde beim Test: Einrichtungsprüfung `msdyn_LoadCalendars` schickte
+eine leere ID-Liste (Server lehnt ab, Fix); Suche verlor Tastendrücke
+(Transition auf kontrolliertem Feld, Fix); nach jedem Speichern wurden alle
+Wurzelregeln neu geladen (jetzt nur die geänderten Kalender). Der
+Power-Apps-Player liefert nach einem Push oft noch die alte Version —
+„Einrichtung“ zeigt deshalb die Build-Zeit.
 
 ## Einrichtung (Schulz UAT)
 
@@ -265,7 +276,14 @@ App zeigt den Hinweis „Keine Ressourcen sichtbar …“, Diagnose ohne Befunde
 
 | Umgebung | Env-ID | App-ID | Stand |
 | --- | --- | --- | --- |
-| Schulz UAT (`operations-d365-schulz-uat-1-1.crm4`) | `2eaa34de-dcf1-e949-86d9-82d9fd748045` | `31f2b956-b6d4-439f-ae01-d3186ae9208e` | gepusht 2026-10-06 (`pac code push`, zweimal: Erstfassung, dann Lesepfad nach Live-Befunden), Connector an Benutzer-Connection `4a9f0463…` (EX-Andy.Schwarz). Lesen live geprüft: Liste ~20 s, Stunden aus `msdyn_LoadCalendars`, Wurzelregeln von 854 Kalendern ~60 s, Inspektor mit vollem Baum; 31 Befunde (alle Zeitzone). Schreiben noch nicht getestet |
+| Schulz UAT (`operations-d365-schulz-uat-1-1.crm4`) | `2eaa34de-dcf1-e949-86d9-82d9fd748045` | `31f2b956-b6d4-439f-ae01-d3186ae9208e` | gepusht 2026-10-06 14:25 (Stand nach den Schreibtests in NAAF-Backup, Build auf „Einrichtung“ geprüft, alle Prüfungen grün), Connector an Benutzer-Connection `4a9f0463…` (EX-Andy.Schwarz). In UAT selbst nur gelesen |
+| Schulz NAAF-Backup (`naafbackup.crm4`) — **Schreibtests** | `d9dd9afb-2514-e7ee-b5a6-9da89a5d9352` | `d4c81e52-50b9-4d41-bb98-1e4c8179b134` | gepusht 2026-10-06 13:47 (pac-Profil `NaafBackup`), Connector an Benutzer-Connection `311edd70…` (EX-Andy.Schwarz). 840 aktive Ressourcen; Schreibtests siehe „Verifiziert (live)“, Testregeln an „Max Mustermann“ in KW 45–52/2026 |
+
+Zwei Umgebungen, eine `power.config.json`: die jeweils aktive liegt im
+App-Ordner, beide Stände gesichert unter `.power/envs/<schulz-uat|naaf-backup>/`
+(`power.config.json` + `.env`, gitignored). Umschalten = beide Dateien
+zurückkopieren, dann `npm run build` (die Org-URL wird eingebaut) und Push mit
+Profil + Guard in **einem** Aufruf. Aktiv ist derzeit **Schulz UAT**.
 
 Danach ASC-Playground als Gegenprobe. Push nur nach Rücksprache. Weiterer
 Ausbau: [`Roadmap.md`](Roadmap.md).
@@ -274,18 +292,10 @@ Ausbau: [`Roadmap.md`](Roadmap.md).
 
 **Entscheidungen nach Phase 0**
 
-- **UseV2 ja/nein.** Default **an** (Konzept: einheitlich, mit Erklärung der
-  Überlappungslogik in der Hilfe; umschaltbar in der Toolbar). Aus 01/02:
-  akzeptiert die URS-Version in UAT den Parameter? Aus den Bäumen: liegen
-  schon mehrere Rang-0-Regeln parallel (V2-Verhalten)? Gemischte Bäume meldet
-  die Diagnose (v2-Befund 5.6).
-- **Schließungen löschen.** Nicht dokumentiert. Reihenfolge: (1) zeigt 02 eine
-  Custom API `msdyn_BusinessClosure*Delete`?; (2) Live-Versuch
-  `msdyn_DeleteCalendar` mit `EntityLogicalName = calendar`, `CalendarId` =
-  Org-Schließungskalender, `InnerCalendarId` = `calendarruleid` der
-  Schließung (so ist es implementiert, `deleteClosure`); (3) sonst bleibt nur
-  der Hinweis „im Admin-Center löschen“, die App zeigt ihn dann statt des
-  Löschen-Buttons.
+- **UseV2 ja/nein.** Default **an**; der Server nimmt den Parameter an
+  (NAAF-Backup). Wie sich Überschneidungen **ohne** V2 verhalten, ist nicht
+  getestet.
+- **Schließungen löschen.** Gelöst: `msdyn_BusinessClosureDelete` (`Ids`).
 
 **Annahmen, die remote nicht verifizierbar sind** (Fixtures und Mock folgen
 ihnen; der Phase-0-Export bestätigt oder korrigiert sie in `rules.ts`):
@@ -302,11 +312,8 @@ ihnen; der Phase-0-Export bestätigt oder korrigiert sie in `rules.ts`):
   `groupdesignator` **mit `isvaried` true** (in der Stichprobe nicht
   vorhanden); `IsVaried`-Delete entfernt alle Teile. Die feste Wochen-ID ist
   keine Gruppe (live belegt).
-- Ein **bearbeiteter Einzeltag innerhalb einer Wiederholung** (Doku: Aufruf
-  ohne `IsEdit`, mit `InnerCalendarId` der Wiederholung; die Antwort nennt
-  dieselbe ID) — wo liegt er im Baum? Mock und Vorschau modellieren ihn als
-  eigenen Rang-1-Block. Genau diesen Fall vorher im Formular anlegen und
-  exportieren.
+- ~~Bearbeiteter Einzeltag innerhalb einer Wiederholung~~ — geklärt: als
+  eigener Einzeltag **ohne** `InnerCalendarId` (siehe „Verifiziert (live)“).
 - Serialisierung: `UseV2: true` (Doku-Typ „Flag“), `IsEdit: true` als Boolean
   (die Beispiele zeigen `"true"` als String), Delete im String
   `CalendarEventInfo` wie im Beispiel. Lehnt der Server eine Form ab, wird
@@ -327,9 +334,8 @@ ihnen; der Phase-0-Export bestätigt oder korrigiert sie in `rules.ts`):
   und Labels stammen aus der Doku.
 - Regionale Feiertage: Regelwerke aus eigenem Wissen (Stand 2026), ohne
   kantonale Sonderfälle der Schweiz und ohne Augsburger Friedensfest.
-- Rückgängig stellt ein offenes Ende über `RecurrenceEndDate = 9999-12-30T23:59:59Z`
-  wieder her (Doku: Default-Ende der Wiederholungen) — ob die API den Wert
-  annimmt, ist offen; sonst Alternative „neu anlegen“.
+- ~~Offenes Ende per `RecurrenceEndDate = 9999-12-30T23:59:59Z`~~ — geklärt:
+  angenommen (Rückgängig in NAAF-Backup).
 - Beim Bearbeiten einer Wiederholung senden wir `StartTime` mit dem
   ursprünglichen Startdatum (wie das Doku-Beispiel), beim Split mit dem
   Teilungsdatum. Für Teile einer Gruppe (`IsVaried`) wählen wir `Action 3`,

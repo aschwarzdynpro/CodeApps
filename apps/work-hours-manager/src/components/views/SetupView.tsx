@@ -1,3 +1,4 @@
+import { BUILD_TIME } from '../../config'
 import { Badge } from '@fluentui/react-components'
 import { S } from '../../strings'
 import { useLoad } from '../../hooks/useLoad'
@@ -10,6 +11,7 @@ export function SetupView() {
     <div className="page">
       <h2>{S.setup.title}</h2>
       <p className="muted">{S.setup.intro}</p>
+      <p className="muted small">{S.setup.build(BUILD_TIME)}</p>
       <Btn small onClick={res.reload} disabled={res.loading}>
         {S.setup.rerun}
       </Btn>

@@ -72,7 +72,11 @@ export type EditIntent =
   | { op: 'create'; target: EditTarget; spec: EventSpec }
   /** Whole recurrence or, with `split`, "this and following" from `spec.date`. `group` = all parts of a varied recurrence. */
   | { op: 'edit'; target: EditTarget; block: RuleBlock; spec: EventSpec; split: boolean; group?: RuleBlock[] }
-  /** One day of a recurrence gets its own hours (API: call without IsEdit, with the recurrence's InnerCalendarId). */
+  /**
+   * One day of a recurrence gets its own hours: a NEW single day (rank 0, wins over the weekly rule).
+   * Never send the recurrence's InnerCalendarId here — live (NAAF-Backup) the server then turns the
+   * whole recurrence into that one day and the weekly working time is gone.
+   */
   | { op: 'editDay'; target: EditTarget; block: RuleBlock; spec: WorkHoursSpec }
   /** Recurrence ends on `lastDay`. */
   | { op: 'end'; target: EditTarget; block: RuleBlock; lastDay: string }
@@ -360,8 +364,8 @@ export function toRequests(intent: EditIntent): ApiRequest[] {
       const errors = validateSpec(intent.spec)
       if (errors.length) throw new Error(errors.join(' '))
       const { today, tomorrow } = splitAtMidnight(intent.spec.segments)
-      const out: ApiRequest[] = [save({ ...base(intent.target), RulesAndRecurrences: [{ Rules: rulesFor(intent.spec.date, today, intent.spec.effort), InnerCalendarId: intent.block.innerCalendarId }] })]
-      if (tomorrow.length) out.push(save({ ...base(intent.target), RulesAndRecurrences: [{ Rules: rulesFor(addDays(intent.spec.date, 1), tomorrow, intent.spec.effort), InnerCalendarId: intent.block.innerCalendarId }] }))
+      const out: ApiRequest[] = [save({ ...base(intent.target), RulesAndRecurrences: [{ Rules: rulesFor(intent.spec.date, today, intent.spec.effort) }] })]
+      if (tomorrow.length) out.push(save({ ...base(intent.target), RulesAndRecurrences: [{ Rules: rulesFor(addDays(intent.spec.date, 1), tomorrow, intent.spec.effort) }] }))
       return out
     }
     case 'end': {

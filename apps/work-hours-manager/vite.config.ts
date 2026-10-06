@@ -11,4 +11,6 @@ export default defineConfig({
   // Fluent UI v9 (+ datepicker/timepicker compat) puts the single bundle
   // near 1 MB — fine for a Code App, so don't warn at Vite's 500 kB default.
   build: { chunkSizeWarningLimit: 1200 },
+  // Shown on "Einrichtung": the Power Apps player sometimes keeps serving an older push.
+  define: { "import.meta.env.VITE_BUILD_TIME": JSON.stringify(new Date().toISOString()) },
 });

@@ -87,7 +87,7 @@ describe('applySave / applyDelete', () => {
     expect(ids[0]).toBe(blocks[1].innerCalendarId)
   })
 
-  it('stores varied recurrences as one group and deletes them together', () => {
+  it('stores varied parts as single rules (live: fixed designator, isvaried) and deletes one part at a time', () => {
     const { store, tree } = freshStore()
     const ids = applySave(store, {
       EntityLogicalName: 'bookableresource',
@@ -100,10 +100,32 @@ describe('applySave / applyDelete', () => {
     })
     expect(ids).toHaveLength(2)
     const t = tree()
-    expect(new Set(t.blocks.map((b) => b.groupId)).size).toBe(1)
+    expect(t.blocks.every((b) => b.groupId === null && b.raw.root.isvaried === true)).toBe(true)
     const removed = applyDelete(store, { EntityLogicalName: 'bookableresource', CalendarId: 'cal-1', InnerCalendarId: ids[1], IsVaried: true })
-    expect(removed.sort()).toEqual([...ids].sort())
-    expect(tree().blocks).toHaveLength(0)
+    expect(removed).toEqual([ids[1]])
+    expect(tree().blocks.map((b) => b.innerCalendarId)).toEqual([ids[0]])
+  })
+
+  it('takes the weekdays of a new recurrence out of the older one (live T11, NAAF-Backup)', () => {
+    const { store, tree } = freshStore()
+    applySave(store, { EntityLogicalName: 'bookableresource', CalendarId: 'cal-1', RulesAndRecurrences: [{ Rules: [{ StartTime: '2000-01-01T07:00:00Z', EndTime: '2000-01-01T15:00:00Z', WorkHourType: 0 }], RecurrencePattern: 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR' }] })
+    applySave(store, {
+      EntityLogicalName: 'bookableresource',
+      CalendarId: 'cal-1',
+      IsVaried: true,
+      UseV2: true,
+      RulesAndRecurrences: [
+        { Rules: [{ StartTime: '2026-11-30T08:00:00Z', EndTime: '2026-11-30T17:00:00Z', WorkHourType: 0 }], Action: 1, RecurrencePattern: 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO' },
+        { Rules: [{ StartTime: '2026-11-30T11:00:00Z', EndTime: '2026-11-30T15:00:00Z', WorkHourType: 0 }], Action: 1, RecurrencePattern: 'FREQ=WEEKLY;INTERVAL=1;BYDAY=WE' },
+      ],
+    })
+    const t = tree()
+    expect(t.blocks.map((b) => [b.weekdays?.join(''), b.start, b.end, b.startMin, b.endMin]).sort((a, b) => String(a[1]).localeCompare(String(b[1])) || String(a[0]).localeCompare(String(b[0])))).toEqual([
+      ['12345', '2000-01-01', '2026-11-29', 420, 900],
+      ['1', '2026-11-30', null, 480, 1020],
+      ['245', '2026-11-30', null, 420, 900],
+      ['3', '2026-11-30', null, 660, 900],
+    ])
   })
 
   it('creates multi-day time off with reason and a single-day exception that owns the day', () => {
@@ -122,13 +144,27 @@ describe('applySave / applyDelete', () => {
     applySave(store, {
       EntityLogicalName: 'bookableresource',
       CalendarId: 'cal-1',
-      RulesAndRecurrences: [{ Rules: [{ StartTime: '2026-10-20T13:00:00Z', EndTime: '2026-10-20T19:00:00Z', WorkHourType: 0 }], InnerCalendarId: weekly }],
+      RulesAndRecurrences: [{ Rules: [{ StartTime: '2026-10-20T13:00:00Z', EndTime: '2026-10-20T19:00:00Z', WorkHourType: 0 }] }],
     })
     const t = tree()
     const off = t.blocks.find((b) => b.kind === 'timeoff')!
     expect([off.start, off.end, off.description]).toEqual(['2026-10-12', '2026-10-14', 'Urlaub'])
     const exception = t.blocks.find((b) => b.weekdays === null && b.kind === 'work')!
     expect([exception.start, exception.startMin, exception.endMin]).toEqual(['2026-10-20', 13 * 60, 19 * 60])
+    expect(t.blocks.some((b) => b.innerCalendarId === weekly && b.weekdays !== null)).toBe(true)
+  })
+
+  it('replaces the recurrence when a single day carries its InnerCalendarId (live behaviour the app avoids)', () => {
+    const { store, tree } = freshStore()
+    const [weekly] = applySave(store, {
+      EntityLogicalName: 'bookableresource',
+      CalendarId: 'cal-1',
+      RulesAndRecurrences: [{ Rules: [{ StartTime: '2026-01-05T08:00:00Z', EndTime: '2026-01-05T17:00:00Z', WorkHourType: 0 }], RecurrencePattern: 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR' }],
+    })
+    applySave(store, { EntityLogicalName: 'bookableresource', CalendarId: 'cal-1', RulesAndRecurrences: [{ Rules: [{ StartTime: '2026-11-16T10:00:00Z', EndTime: '2026-11-16T14:00:00Z', WorkHourType: 0 }], InnerCalendarId: weekly }] })
+    const t = tree()
+    expect(t.blocks.filter((b) => b.weekdays !== null)).toHaveLength(0)
+    expect(t.blocks.map((b) => [b.innerCalendarId, b.start])).toEqual([[weekly, '2026-11-16']])
   })
 
   it('refuses what the API refuses', () => {

@@ -1,6 +1,6 @@
 import type { CalendarEventInfo, DeleteCalendarInfo, RawCalendar, RawCalendarRule, Weekday, WorkHourKind } from '../types/calendar'
 import { addDays, dateOnly, diffDays, timeOfDayMinutes } from './dates'
-import { CODES_OF_KIND, OPEN_END_YEAR, WEEKLY_GROUP_DESIGNATOR, lastDayOf, parsePattern } from './rules'
+import { CODES_OF_KIND, OPEN_END_YEAR, WEEKLY_GROUP_DESIGNATOR, classifyRule, formatPattern, lastDayOf, parsePattern } from './rules'
 
 /**
  * Plays the server side of `msdyn_SaveCalendar` / `msdyn_DeleteCalendar`
@@ -105,6 +105,30 @@ interface BlockWrite {
   existing?: { root: RawCalendarRule; inner: RawCalendar }
 }
 
+/**
+ * Storage form of a day with breaks (live, NAAF-Backup): working parts that
+ * only a break separates become ONE working leaf over the whole span, the
+ * break stays as a leaf on top. The parser cuts them apart again.
+ */
+function mergeWorkAcrossBreaks(leaves: LeafInput[]): LeafInput[] {
+  const sorted = [...leaves].sort((a, b) => a.startMin - b.startMin)
+  const breaks = sorted.filter((l) => l.kind === 'break')
+  const out: LeafInput[] = []
+  for (const l of sorted) {
+    const prev = [...out].reverse().find((o) => o.kind === 'work')
+    if (l.kind === 'work' && prev && prev.effort === l.effort) {
+      let t = prev.startMin + prev.duration
+      for (const b of breaks) if (b.startMin === t) t = b.startMin + b.duration
+      if (t === l.startMin) {
+        prev.duration = l.startMin + l.duration - prev.startMin
+        continue
+      }
+    }
+    out.push({ ...l })
+  }
+  return out
+}
+
 function writeBlock(store: MockCalendarStore, w: BlockWrite): string {
   const now = store.now()
   const recurring = w.weekdays !== null
@@ -118,7 +142,8 @@ function writeBlock(store: MockCalendarStore, w: BlockWrite): string {
     _calendarid_value: w.calendar.calendarid,
     _innercalendarid_value: innerId,
     name: null,
-    description: w.description,
+    // Live: the server labels the root rule itself; the user's text goes to the inner calendar's name.
+    description: recurring ? 'Weekly Single Rule' : dominant === 'timeoff' ? 'Time Off Rule' : dominant === 'nonwork' ? 'Not Working' : null,
     pattern: w.pattern,
     starttime: recurring ? `${w.date}T00:00:00Z` : timeIso(w.date, first),
     endtime: null,
@@ -136,16 +161,17 @@ function writeBlock(store: MockCalendarStore, w: BlockWrite): string {
     ismodified: w.existing ? true : null,
     isvaried: w.groupId !== null,
     offset: null,
-    groupdesignator: w.groupId ?? (recurring ? WEEKLY_GROUP_DESIGNATOR : null),
+    // Live (NAAF-Backup): varied parts too carry the fixed weekly designator — only `isvaried` marks them.
+    groupdesignator: recurring ? WEEKLY_GROUP_DESIGNATOR : null,
     createdon: w.existing?.root.createdon ?? now,
     modifiedon: now,
   }
   const inner: RawCalendar = {
     calendarid: innerId,
-    name: null,
-    description: w.description,
+    name: w.description,
+    description: null,
     type: -1,
-    calendar_calendar_rules: w.leaves.map((l) => {
+    calendar_calendar_rules: mergeWorkAcrossBreaks(w.leaves).map((l) => {
       const c = CODES_OF_KIND[l.kind]
       return {
         calendarruleid: store.newId(),
@@ -239,26 +265,66 @@ export function applySave(store: MockCalendarStore, info: CalendarEventInfo): st
           leaves,
           groupId: variedGroup(existing.root) ?? groupId,
           pattern: rr.RecurrencePattern ?? existing.root.pattern,
-          description: info.InnerCalendarDescription ?? existing.inner.description,
+          description: info.InnerCalendarDescription ?? existing.inner.name,
         }),
       )
       continue
     }
 
     if (!info.IsEdit && rr.InnerCalendarId && !recurring) {
-      // Single occurrence edited inside a recurrence: stored as a rank-1 block that owns the day.
-      findExisting(store, calendar, rr.InnerCalendarId)
-      out.push(writeBlock(store, { ...common, date, weekdays: null, end: null, leaves, groupId: null, pattern: null }))
+      // Live (NAAF-Backup): a single day sent with an existing InnerCalendarId REPLACES that event —
+      // a weekly recurrence becomes this one day (same inner calendar). The app never sends this.
+      const existing = findExisting(store, calendar, rr.InnerCalendarId)
+      out.push(writeBlock(store, { ...common, existing, date, weekdays: null, end: null, leaves, groupId: null, pattern: 'FREQ=DAILY;COUNT=1' }))
       continue
     }
 
     if (!recurring && leaves.some((l) => l.kind === 'break') && leaves.length === 1) throw new MockApiError("Breaks can't exist without working hours.")
+    if (weekdays) trimOverlaps(store, calendar, weekdays, date)
     out.push(writeBlock(store, { ...common, date, weekdays, end: recurring ? end : null, leaves }))
   }
   return out
 }
 
 const openOrDate = (iso: string | null): string | null => lastDayOf(iso)
+
+/** Leaves of a stored inner calendar, back in input form (work and breaks). */
+function leavesOf(inner: RawCalendar | undefined): LeafInput[] {
+  return (inner?.calendar_calendar_rules ?? []).flatMap((r) => {
+    const kind = classifyRule(r.timecode, r.subcode)
+    if (kind !== 'work' && kind !== 'break') return []
+    return [{ kind, startMin: r.offset ?? timeOfDayMinutes(r.starttime) ?? 0, duration: r.duration ?? 0, effort: kind === 'work' ? (r.effort ?? 1) : null }]
+  })
+}
+
+/**
+ * Live (NAAF-Backup, UseV2): a new weekly rule takes its weekdays out of
+ * every older weekly rule it overlaps — the older rule ends the day before
+ * the new start, its other weekdays continue as a new rule from that day
+ * (Mo–Fr + new Mo/We ⇒ old rule until the day before, then Tu/Th/Fr). Times
+ * of the old rule on the taken weekdays are gone, not merged. An older rule
+ * that starts on or after the new start loses the weekdays in place
+ * (not verified live).
+ */
+function trimOverlaps(store: MockCalendarStore, calendar: RawCalendar, weekdays: Weekday[], date: string): void {
+  for (const root of [...calendar.calendar_calendar_rules]) {
+    const p = parsePattern(root.pattern)
+    if (!p || p.freq !== 'WEEKLY' || !p.weekdays?.length || !p.weekdays.some((d) => weekdays.includes(d))) continue
+    const start = dateOnly(root.effectiveintervalstart) ?? dateOnly(root.starttime)
+    const last = lastDayOf(root.effectiveintervalend)
+    if (!start || (last !== null && last < date)) continue
+    const rest = p.weekdays.filter((d) => !weekdays.includes(d))
+    if (start >= date) {
+      if (rest.length) root.pattern = formatPattern(rest)
+      else removeBlock(store, calendar, root)
+      continue
+    }
+    root.effectiveintervalend = `${date}T00:00:00Z`
+    const inner = root._innercalendarid_value ? store.calendars.get(root._innercalendarid_value.toLowerCase()) : undefined
+    const leaves = leavesOf(inner)
+    if (rest.length && leaves.length) writeBlock(store, { calendar, date, weekdays: rest, end: last, leaves, tz: root.timezonecode ?? 110, description: null, groupId: null, pattern: formatPattern(rest) })
+  }
+}
 
 /** Group of a varied recurrence; the fixed weekly designator is none. */
 const variedGroup = (root: RawCalendarRule): string | null => (root.isvaried && root.groupdesignator && root.groupdesignator.toUpperCase() !== WEEKLY_GROUP_DESIGNATOR ? root.groupdesignator : null)

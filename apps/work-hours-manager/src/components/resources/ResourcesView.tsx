@@ -1,5 +1,5 @@
 import { Tab, TabList, type TableRowId } from '@fluentui/react-components'
-import { useState, useTransition } from 'react'
+import { useState, useDeferredValue } from 'react'
 import { S } from '../../strings'
 import type { CalendarTree, Closure, Finding, Resource, Slot, TimeOffRequest } from '../../types/calendar'
 import { sumRange } from '../../utils/resolve'
@@ -38,11 +38,11 @@ interface Props {
 
 /** Resource list + calendar (week: all filtered resources; month: the focused one). */
 export function ResourcesView(p: Props) {
-  const [filter, setFilterState] = useState<ResourceFilter>(EMPTY_FILTER)
-  const [, startTransition] = useTransition()
-  const setFilter = (f: ResourceFilter) => startTransition(() => setFilterState(f))
+  // The input stays urgent (a Transition on a controlled text input drops keystrokes); the expensive filtering follows deferred.
+  const [filter, setFilter] = useState<ResourceFilter>(EMPTY_FILTER)
+  const deferredFilter = useDeferredValue(filter)
 
-  const filtered = filterResources(p.resources, filter, p.findings)
+  const filtered = filterResources(p.resources, deferredFilter, p.findings)
   const resolved = new Map(filtered.map((r) => [r.id, resolveResource(r, p, p.range.focusFrom, p.range.focusTo)]))
 
   const rows: ResourceRow[] = filtered.map((r) => {

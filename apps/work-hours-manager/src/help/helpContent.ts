@@ -163,7 +163,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         p: 'Jeder Lauf beginnt mit einem **Snapshot** der betroffenen Kalender. „Rückgängig“ unter **Läufe** ist ein normaler Lauf mit Vorschau: er löscht, was der Lauf angelegt hat, stellt beendete Wiederholungen auf ihr altes Ende und legt gelöschte Regeln neu an (mit neuen IDs). Der Verlauf liegt im Browser (die letzten 20) — „JSON herunterladen“ sichert ihn.',
       },
-      { tip: '„Bestehende Wiederholungen beenden“ aus: die Vorlage läuft neben den alten Regeln; mit UseV2 gewinnt im Schnitt die zuletzt geänderte Regel, außerhalb bleiben beide.' },
+      { tip: '„Bestehende Wiederholungen beenden“ aus: der Server nimmt den alten Regeln ab dem Stichtag die Wochentage der Vorlage weg; Wochentage, die die Vorlage nicht hat, laufen mit den alten Zeiten weiter.' },
     ],
   },
   {
@@ -222,7 +222,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       { h: 'UseV2' },
       {
-        p: 'Mit **UseV2** erlaubt die API mehrere Wiederholungen nebeneinander: schneiden sich zwei Wiederholungen, gewinnt im Schnitt die zuletzt geänderte, außerhalb bleiben beide; ohne V2 verdrängt die neuere die ältere ganz. Einzeltage und Feiertage schlagen in beiden Varianten die Wiederholung für den ganzen Tag. Der Schalter steht in der Toolbar und gilt für jedes Speichern.',
+        p: '**UseV2** wird bei jedem Speichern mitgeschickt (Schalter in der Toolbar). Gemessen in NAAF-Backup mit UseV2: legt man eine Wiederholung an, die sich mit einer bestehenden überschneidet, endet die alte am Vortag und läuft nur mit ihren übrigen Wochentagen weiter — an den gemeinsamen Wochentagen gelten ab dann allein die neuen Zeiten (keine Mischung). Einzeltage mit Arbeitszeit und Feiertage schlagen die Wiederholung für den ganzen Tag; Nicht-Arbeit und Abwesenheit schneiden nur ihre Zeitspanne heraus.',
       },
     ],
   },

@@ -35,7 +35,8 @@ const KIND_COLOR: Record<RuleBlock['kind'], 'brand' | 'warning' | 'danger' | 'su
   unknown: 'informative',
 }
 
-const blockKey = (b: RuleBlock) => b.innerCalendarId ?? b.rootRuleId
+// Holiday lists of one resource share their inner calendar (live: one per ObserveClosure save) — key them by root rule.
+const blockKey = (b: RuleBlock) => (b.holidays ? b.rootRuleId : (b.innerCalendarId ?? b.rootRuleId))
 
 const leafLabel = (l: LeafRule) => `${S.kinds[l.kind]} ${formatTime(l.startMin)}–${l.startMin + l.duration >= 1440 && (l.startMin + l.duration) % 1440 === 0 ? '24:00' : formatTime((l.startMin + l.duration) % 1440)}${l.duration > 1440 ? ` (+${Math.floor(l.duration / 1440)} Tage)` : ''}`
 

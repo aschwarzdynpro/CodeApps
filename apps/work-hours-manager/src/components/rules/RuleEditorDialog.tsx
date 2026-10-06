@@ -7,7 +7,7 @@ import { WEEKDAY_SHORT, formatDate, formatDateWithDay, formatDuration } from '..
 import { spanLabel } from '../../utils/format'
 import { daySpecFromBlock, emptyAbsenceSpec, emptyWorkSpec, specFromBlock, splitAtMidnight, validateSpec, type AbsenceSpec, type EditIntent, type EditTarget, type EventSpec, type WorkHoursSpec } from '../../utils/intents'
 import { previewIntent } from '../../utils/preview'
-import { describeBlock, groupBlocks } from '../../utils/rules'
+import { describeBlock, groupBlocks, isRecurrence } from '../../utils/rules'
 import { timeZoneLabel } from '../../utils/timezones'
 import { Btn } from '../ui'
 import { DateField, DaysField, EffortField, SegmentsEditor, TimeField, TimeZoneField, WeekdayPicker } from './editorParts'
@@ -57,8 +57,9 @@ export function RuleEditorDialog({ request, targetName, target, tree, closures, 
   const [spec, setSpec] = useState<EventSpec>(() => initialSpec(request, tree))
   const [recurrenceMode, setRecurrenceMode] = useState<RecurrenceMode>(() => (spec.kind === 'work' ? (spec.varied ? 'varied' : spec.recurrence ? 'weekly' : 'once') : 'once'))
   const [split, setSplit] = useState(false)
-  const [splitDate, setSplitDate] = useState(today)
-  const [lastDay, setLastDay] = useState(() => (request.op === 'end' ? (request.block.end ?? today) : today))
+  // "This and following" can't start before the recurrence does.
+  const [splitDate, setSplitDate] = useState(() => (request.op !== 'create' && request.block.start > today ? request.block.start : today))
+  const [lastDay, setLastDay] = useState(() => (request.op === 'end' ? (request.block.end ?? (request.block.start > today ? request.block.start : today)) : today))
   const [timeZoneCode, setTimeZoneCode] = useState(target.timeZoneCode)
   const [tab, setTab] = useState<'form' | 'preview'>(request.op === 'delete' || request.op === 'end' ? 'preview' : 'form')
   const [showUnchanged, setShowUnchanged] = useState(false)
@@ -100,7 +101,7 @@ export function RuleEditorDialog({ request, targetName, target, tree, closures, 
   )
 
   const title =
-    request.op === 'create' ? (request.kind === 'work' ? S.editor.titleCreate : S.editor.titleCreateAbsence) : request.op === 'edit' ? S.editor.titleEdit : request.op === 'editDay' ? S.editor.titleEditDay(formatDate(request.date)) : request.op === 'end' ? S.editor.titleEnd : S.editor.titleDelete
+    request.op === 'create' ? (request.kind === 'work' ? S.editor.titleCreate : S.editor.titleCreateAbsence) : request.op === 'edit' ? S.editor.titleEdit : request.op === 'editDay' ? S.editor.titleEditDay(formatDate(spec.kind === 'work' ? spec.date : request.date)) : request.op === 'end' ? S.editor.titleEnd : S.editor.titleDelete
 
   const work = spec.kind === 'work' ? spec : null
   const absence = spec.kind !== 'work' ? spec : null
@@ -154,7 +155,7 @@ export function RuleEditorDialog({ request, targetName, target, tree, closures, 
             {request.op === 'delete' ? (
               <>
                 <MessageBar intent="warning" layout="multiline">
-                  <MessageBarBody>{S.editor.confirmDelete(block ? describeBlock(block) : '')}</MessageBarBody>
+                  <MessageBarBody>{S.editor.confirmDelete(block ? describeBlock(block) : '', !!block && isRecurrence(block))}</MessageBarBody>
                 </MessageBar>
                 {block?.groupId ? (
                   <MessageBar intent="info" layout="multiline">
@@ -207,7 +208,7 @@ export function RuleEditorDialog({ request, targetName, target, tree, closures, 
                       ) : null}
                     </div>
                     {work.recurrence ? (
-                      <Field label={S.editor.weekdays} required>
+                      <Field label={{ children: S.editor.weekdays, required: true }}>
                         <WeekdayPicker value={work.recurrence.weekdays} onChange={(days) => (work.varied ? changeVariedDays(days) : setWork({ recurrence: { ...work.recurrence!, weekdays: days } }))} />
                       </Field>
                     ) : null}
@@ -222,7 +223,7 @@ export function RuleEditorDialog({ request, targetName, target, tree, closures, 
                       </div>
                     ) : null}
                     {!work.allDay ? (
-                      <Field label={S.editor.times} required>
+                      <Field label={{ children: S.editor.times, required: true }}>
                         {work.varied ? (
                           <>
                             <TabList size="small" selectedValue={variedDay} onTabSelect={(_, d) => setVariedDay(d.value as Weekday)}>

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { FIXTURE_CALENDARS, OPEN_END, treeOf } from '../fixtures/calendars'
+import { FIXTURE_CALENDARS, OPEN_END, rawRule, treeOf } from '../fixtures/calendars'
+import type { RawCalendar, RawCalendarRule } from '../types/calendar'
 import { expandTree, resolveDay } from './resolve'
-import { buildTree, describeBlock, groupBlocks, hasWorkRules, isRecurrence, lastDayOf } from './rules'
+import { WEEKLY_GROUP_DESIGNATOR, buildTree, describeBlock, groupBlocks, hasWorkRules, isRecurrence, lastDayOf } from './rules'
 
 /**
  * The storage shape read live from Schulz UAT (README "Verifiziert"),
@@ -83,5 +84,44 @@ describe('root rules only (list view)', () => {
     expect(outer.blocks.filter(isRecurrence).every((b) => b.kind === 'work' && b.leaves.length === 0)).toBe(true)
     expect(hasWorkRules(outer)).toBe(true)
     expect(outer.blocks.find((b) => b.holidays)!.holidays).toEqual([])
+  })
+})
+
+describe('write shapes (live, NAAF-Backup)', () => {
+  const cal = 'cal-w'
+  const root = (over: Partial<RawCalendarRule>) => rawRule({ calendarruleid: 'r1', _calendarid_value: cal, _innercalendarid_value: 'in1', pattern: 'FREQ=WEEKLY;INTERVAL=1;BYDAY=SU,SA', starttime: '2026-11-14T00:00:00Z', duration: 1440, rank: 2, timezonecode: 110, effectiveintervalend: '9999-12-30T23:59:59Z', description: 'Weekly Single Rule', groupdesignator: WEEKLY_GROUP_DESIGNATOR, ...over })
+  const innerOf = (rules: Partial<RawCalendarRule>[], name: string | null = null): RawCalendar => ({ calendarid: 'in1', name, description: null, type: -1, calendar_calendar_rules: rules.map((r, i) => rawRule({ calendarruleid: `l${i}`, _calendarid_value: 'in1', ...r })) })
+
+  it('cuts the working leaf around a break stored on top of it', () => {
+    const tree = buildTree({ calendarid: cal, name: null, description: null, type: 0, calendar_calendar_rules: [root({})] }, [innerOf([{ offset: 480, duration: 540, timecode: 0, subcode: 1, effort: 1 }, { offset: 720, duration: 30, timecode: 2, subcode: 4 }])])
+    const b = tree.blocks[0]
+    expect(b.leaves.map((l) => [l.kind, l.startMin, l.duration])).toEqual([
+      ['work', 480, 240],
+      ['break', 720, 30],
+      ['work', 750, 270],
+    ])
+    expect(describeBlock(b)).toBe('Wöchentlich Sa–So · 08:00–12:00, 12:30–17:00 · Pause 12:00–12:30 · ab 14.11.2026 · ohne Ende')
+    expect(b.description).toBeNull()
+  })
+
+  it('reads the time off reason from the inner calendar name, not the server label', () => {
+    const off = root({ pattern: 'FREQ=DAILY;INTERVAL=1;COUNT=1', starttime: '2026-11-10T00:00:00Z', duration: 2880, rank: 0, extentcode: 2, effectiveintervalend: '2026-11-12T00:00:00Z', description: 'Time Off Rule', groupdesignator: null })
+    const tree = buildTree({ calendarid: cal, name: null, description: null, type: 0, calendar_calendar_rules: [off] }, [innerOf([{ offset: 0, duration: 2880, timecode: 2, subcode: 6 }], 'Testurlaub')])
+    expect([tree.blocks[0].kind, tree.blocks[0].description, tree.blocks[0].start, tree.blocks[0].end]).toEqual(['timeoff', 'Testurlaub', '2026-11-10', '2026-11-11'])
+    const unnamed = buildTree({ calendarid: cal, name: null, description: null, type: 0, calendar_calendar_rules: [off] }, [innerOf([{ offset: 0, duration: 2880, timecode: 2, subcode: 6 }])])
+    expect(unnamed.blocks[0].description).toBeNull()
+  })
+
+  it('lets non-working time carve only its own span (live: 13–15 leaves 07–13 of the day)', () => {
+    const weekly = root({ calendarruleid: 'w', _innercalendarid_value: 'inw', pattern: 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR', starttime: '2000-01-01T00:00:00Z' })
+    const nonwork = root({ calendarruleid: 'n', _innercalendarid_value: 'inn', pattern: 'FREQ=DAILY;INTERVAL=1;COUNT=1', starttime: '2026-11-12T00:00:00Z', duration: 1440, rank: 0, extentcode: 2, effectiveintervalend: '2026-11-13T00:00:00Z', description: 'Not Working', groupdesignator: null })
+    const cals: RawCalendar[] = [
+      { calendarid: 'inw', name: null, description: null, type: -1, calendar_calendar_rules: [rawRule({ calendarruleid: 'lw', _calendarid_value: 'inw', offset: 420, duration: 480, timecode: 0, subcode: 1, effort: 1 })] },
+      { calendarid: 'inn', name: null, description: null, type: -1, calendar_calendar_rules: [rawRule({ calendarruleid: 'ln', _calendarid_value: 'inn', offset: 780, duration: 120, timecode: 2, subcode: 0 })] },
+    ]
+    const tree = buildTree({ calendarid: cal, name: null, description: null, type: 0, calendar_calendar_rules: [weekly, nonwork] }, cals)
+    const day = resolveDay({ date: '2026-11-12', viewerTz: BERLIN, tree, slots: null, closures: [] })
+    expect(day.workMinutes).toBe(360)
+    expect(tree.blocks.find((b) => b.kind === 'nonwork')!.description).toBeNull()
   })
 })

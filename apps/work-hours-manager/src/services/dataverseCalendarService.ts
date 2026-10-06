@@ -3,6 +3,7 @@ import type { CalendarEventInfo, CalendarTree, Closure, DeleteCalendarInfo, RawC
 import { RESOURCE_TYPE_BY_CODE } from '../types/calendar'
 import { parseServerDate } from '../utils/dates'
 import { buildTree, normalizeCalendar } from '../utils/rules'
+import { workingSlots, type ServerSlot } from '../utils/slots'
 import type { CalendarService, SetupCheck } from './calendarService'
 import { FV, chunks, errorText, fetchXml, getRow, hasConnector, mapPool, num, odata, orFilter, pick, str, unboundAction, type Row } from './dataverseApi'
 
@@ -183,12 +184,13 @@ export const dataverseCalendarService: CalendarService = {
       const raw = pick(data, 'CalendarEvents')
       const events = (typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw) as Record<string, { CalendarId?: string; InnerCalendarId?: string; Start?: string; End?: string; Effort?: number; TimeCode?: number }[]> | null
       for (const [calendarId, slots] of Object.entries(events ?? {})) {
-        // Start/End arrive as WCF dates (`/Date(1791176400000)/`), not ISO; holidays come along as TimeCode 2 — only TimeCode 0 is working time.
-        out[calendarId.toLowerCase()] = (slots ?? []).filter((s) => s.TimeCode === undefined || s.TimeCode === 0).flatMap((s) => {
+        // Start/End arrive as WCF dates (`/Date(1791176400000)/`), not ISO; breaks and holidays come as TimeCode-2 events on top of the working span.
+        const parsed: ServerSlot[] = (slots ?? []).flatMap((s) => {
           const start = parseServerDate(s.Start)
           const end = parseServerDate(s.End)
-          return start && end ? [{ calendarId, innerCalendarId: s.InnerCalendarId ?? null, start, end, effort: typeof s.Effort === 'number' ? s.Effort : 1 }] : []
+          return start && end ? [{ calendarId, innerCalendarId: s.InnerCalendarId ?? null, start, end, effort: typeof s.Effort === 'number' ? s.Effort : 1, timeCode: typeof s.TimeCode === 'number' ? s.TimeCode : null }] : []
         })
+        out[calendarId.toLowerCase()] = workingSlots(parsed)
       }
       for (const id of part) out[id.toLowerCase()] ??= []
     }
@@ -257,12 +259,12 @@ export const dataverseCalendarService: CalendarService = {
   },
 
   async deleteClosure(closure) {
-    // Unverified (README "Offen"): the Work Hours API documents no delete for closures. We try the
-    // documented delete action against the closure calendar; when the server refuses, the UI points
-    // to the admin center.
-    const calendarId = await businessClosureCalendarId()
-    if (!calendarId) throw new Error('Kalender der Geschäftsschließungen nicht gefunden.')
-    await unboundAction('msdyn_DeleteCalendar', { CalendarEventInfo: JSON.stringify({ EntityLogicalName: 'calendar', CalendarId: calendarId, InnerCalendarId: closure.id }) })
+    // Live (NAAF-Backup): `msdyn_DeleteCalendar` refuses closures ("not enabled for given entity
+    // logical name"); `msdyn_BusinessClosureDelete` takes the closure's calendarruleid as plain
+    // string `Ids` (a JSON array is refused) and answers with `RemainingIds`.
+    const data = await unboundAction('msdyn_BusinessClosureDelete', { Ids: closure.id })
+    const remaining = str(pick(data, 'RemainingIds'))
+    if (remaining) throw new Error(`Schließung nicht gelöscht (RemainingIds ${remaining}).`)
   },
 
   async checkSetup(): Promise<SetupCheck[]> {
@@ -283,7 +285,10 @@ export const dataverseCalendarService: CalendarService = {
       checks.push({ label: 'Geschäftsschließungen', ok: false, detail: errorText(err) })
     }
     try {
-      await unboundAction('msdyn_LoadCalendars', { LoadCalendarsInput: JSON.stringify({ StartDate: new Date().toISOString(), EndDate: new Date(Date.now() + 86_400_000).toISOString(), CalendarIds: [] }) })
+      // The action refuses an empty id list ("StartDate, EndDate and CalendarIds are required", live) — probe with a real calendar.
+      const probe = (await businessClosureCalendarId().catch(() => null)) ?? str((await odata('bookableresources', { select: '_calendarid_value', filter: '_calendarid_value ne null', top: 1 }))[0]?._calendarid_value)
+      if (!probe) throw new Error('Kein Kalender zum Prüfen gefunden.')
+      await unboundAction('msdyn_LoadCalendars', { LoadCalendarsInput: JSON.stringify({ StartDate: new Date().toISOString(), EndDate: new Date(Date.now() + 86_400_000).toISOString(), CalendarIds: [probe] }) })
       checks.push({ label: 'msdyn_LoadCalendars', ok: true, detail: 'Action über den Konnektor erreichbar' })
     } catch (err) {
       checks.push({ label: 'msdyn_LoadCalendars', ok: false, detail: errorText(err) })

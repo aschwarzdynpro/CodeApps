@@ -68,6 +68,9 @@ export default function App() {
   const [focus, setFocus] = useState<{ kind: 'resource' | 'template'; id: string; blockId: string | null } | null>(null)
   const [holidayYear, setHolidayYear] = useState(Number(today.slice(0, 4)))
   const [treeVersion, setTreeVersion] = useState(0)
+  /** Calendars written in this session — they stay loaded as full trees, so the list shows their new state without reloading all roots. */
+  const [touched, setTouched] = useState<string[]>([])
+  const touch = (ids: (string | null | undefined)[]) => setTouched((prev) => [...new Set([...prev, ...ids.filter((id): id is string => !!id).map((id) => id.toLowerCase())])])
   const [readOnly, setReadOnly] = useState(false)
   const [editor, setEditor] = useState<{ kind: 'resource' | 'template'; id: string; request: EditorRequest; epoch: number } | null>(null)
   const [runs, setRuns] = useState<RunRecord[]>(listRuns)
@@ -103,7 +106,7 @@ export default function App() {
   const calendarOfEditor = editor ? (editor.kind === 'resource' ? calendarOfResource(editor.id) : (data.templates.data?.find((t) => t.id === editor.id)?.calendarId ?? null)) : null
   const wizardCalendars = !wizard ? [] : wizard.mode.kind === 'undo' ? wizard.mode.record.steps.map((s) => s.calendarId) : [...selected].map((id) => calendarOfResource(String(id)))
   const templateCalendars = (data.templates.data ?? []).map((t) => t.calendarId)
-  const fullIds = [focusCalendarId, calendarOfEditor, ...wizardCalendars, ...templateCalendars].filter((c): c is string => !!c)
+  const fullIds = [focusCalendarId, calendarOfEditor, ...wizardCalendars, ...templateCalendars, ...touched].filter((c): c is string => !!c)
   const full = useFullTrees(fullIds, treeVersion)
   const trees: Record<string, CalendarTree> = { ...(data.trees.data ?? {}), ...full.trees }
   const fullTreeOf = (calendarId: string | null | undefined): CalendarTree | null => (calendarId ? (full.trees[calendarId.toLowerCase()] ?? null) : null)
@@ -148,6 +151,7 @@ export default function App() {
       throw err
     }
     notify(intent.op === 'delete' ? S.editor.deleted : S.editor.saved(requests.length))
+    touch([intent.target.calendarId])
     setTreeVersion((v) => v + 1)
   }
 
@@ -162,6 +166,7 @@ export default function App() {
   }
   const onRunFinished = (record: RunRecord) => {
     setRuns(listRuns())
+    touch(record.steps.map((s) => s.calendarId))
     setTreeVersion((v) => v + 1)
     const done = record.steps.filter((s) => s.status === 'done').length
     const failed = record.steps.find((s) => s.status === 'failed')

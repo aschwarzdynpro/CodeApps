@@ -10,6 +10,9 @@ export const ORG_URL = (import.meta.env.VITE_ORG_URL ?? '').trim().replace(/\/+$
 
 export const canDeepLink = ORG_URL !== ''
 
+/** Build time (set by vite.config.ts) — tells which push the player is running. */
+export const BUILD_TIME: string = import.meta.env.VITE_BUILD_TIME ?? 'dev'
+
 export function recordUrl(table: string, recordId: string | null | undefined): string | null {
   if (!ORG_URL || !recordId) return null
   return `${ORG_URL}/main.aspx?pagetype=entityrecord&etn=${encodeURIComponent(table)}&id=${encodeURIComponent(recordId)}`

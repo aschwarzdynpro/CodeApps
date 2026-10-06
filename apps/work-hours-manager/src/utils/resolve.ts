@@ -11,11 +11,13 @@ import { ianaOf } from './timezones'
  * only explain them. Without slots (mock, preview of an edit before saving,
  * `msdyn_LoadCalendars` not reachable) `expandTree` plays the server:
  * leaf intervals of every block, then the precedence verified live with
- * `msdyn_LoadCalendars` (Schulz UAT): a single day (server rank 0) beats a
- * holiday of the resource's holiday list (rank 1), which beats the weekly
- * recurrence (rank 2) for the whole day; intersecting recurrences: the most
- * recently modified wins (V2); time off carves working time, business
- * closures carve it when observed.
+ * `msdyn_LoadCalendars` (Schulz UAT, NAAF-Backup): a single WORKING day
+ * (server rank 0, extentcode 1) beats a holiday of the resource's holiday
+ * list (rank 1), which beats the weekly recurrence (rank 2) — for the whole
+ * day; intersecting recurrences: the most recently modified wins (V2); time
+ * off and non-working time (rank 0, extentcode 2) only carve their own span
+ * (13:00–15:00 non-working leaves 07:00–13:00 of the day); business closures
+ * carve it when observed.
  */
 
 export interface Interval {
@@ -130,8 +132,8 @@ export function expandTree(tree: CalendarTree, from: string, to: string, opts: E
   const breaks = byKind('break')
   let work = byKind('work')
 
-  // Single days (working or non-working) own their whole local day — over the recurrence and over a holiday.
-  const singleDays = all.filter((i) => !isRecurrence(i.block) && (i.leaf.kind === 'work' || i.leaf.kind === 'nonwork'))
+  // Single WORKING days own their whole local day — over the recurrence and over a holiday. Non-working time only carves (below).
+  const singleDays = all.filter((i) => !isRecurrence(i.block) && i.leaf.kind === 'work')
   const ownedDates = new Set(singleDays.map((i) => i.localDate))
   const holidays = holidayDays(tree, from, to).filter((h) => !ownedDates.has(h.localDate))
   const owned = [
@@ -157,7 +159,7 @@ export function expandTree(tree: CalendarTree, from: string, to: string, opts: E
   kept = resolved
 
   work = [...kept, ...occurrences]
-  work = subtractAll(work, timeOff)
+  work = subtractAll(work, [...timeOff, ...nonwork])
   if (opts.observeClosures !== false && opts.closures?.length) {
     work = subtractAll(
       work,

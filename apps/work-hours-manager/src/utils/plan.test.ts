@@ -80,11 +80,12 @@ describe('buildPlan — apply template', () => {
     expect(Object.keys(plan.snapshot)).toEqual([weekly.calendarId.toLowerCase(), ending.calendarId.toLowerCase()])
   })
 
-  it('without ending, the template runs alongside and V2 resolves the overlap', () => {
+  it('without ending, the server takes the template weekdays out of the old rule (live) — same hours as with ending', () => {
     const plan = buildPlan({ kind: 'applyTemplate', template, templateTree, cutoff: '2026-11-02', endExisting: false, useV2: true }, [{ resource: resource(1, weekly.calendarId), tree: weekly }])
     expect(plan.steps[0].requests).toHaveLength(1)
     expect(plan.steps[0].endedInnerCalendarIds).toEqual([])
-    expect(plan.steps[0].after).toBeGreaterThan(40)
+    const ended = buildPlan({ kind: 'applyTemplate', template, templateTree, cutoff: '2026-11-02', endExisting: true, useV2: true }, [{ resource: resource(1, weekly.calendarId), tree: weekly }])
+    expect(plan.steps[0].after).toBe(ended.steps[0].after)
   })
 
   it('caps the run at the limit', () => {

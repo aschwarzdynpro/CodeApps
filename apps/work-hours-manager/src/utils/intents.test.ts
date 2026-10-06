@@ -116,12 +116,12 @@ describe('toRequests — edit, end, delete', () => {
     expect(toRequests({ op: 'delete', target, block: varied })[0].info).toMatchObject({ IsVaried: true })
   })
 
-  it('edits one day of a recurrence without IsEdit but with the recurrence id', () => {
+  it('edits one day of a recurrence as a new single day — never with the recurrence id (live: that replaces the recurrence)', () => {
     const spec = daySpecFromBlock(block, '2026-10-07')
     expect(spec.recurrence).toBeNull()
     const i = info(toRequests({ op: 'editDay', target, block, spec: { ...spec, segments: [{ kind: 'work', start: '13:00', end: '19:00' }] } })[0])
     expect(i.IsEdit).toBeUndefined()
-    expect(i.RulesAndRecurrences[0].InnerCalendarId).toBe(block.innerCalendarId)
+    expect(i.RulesAndRecurrences[0].InnerCalendarId).toBeUndefined()
     expect(i.RulesAndRecurrences[0].Rules[0].StartTime).toBe('2026-10-07T13:00:00.000Z')
   })
 

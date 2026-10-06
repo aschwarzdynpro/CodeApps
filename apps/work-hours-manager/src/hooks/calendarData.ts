@@ -35,7 +35,8 @@ export function useCalendarData(active: boolean, from: string, to: string, viewe
   const resourceCalendarIds = (resources.data ?? []).map((r) => r.calendarId).filter((c): c is string => !!c)
   const templateCalendarIds = (templates.data ?? []).map((t) => t.calendarId).filter((c): c is string => !!c)
   const allCalendarIds = [...resourceCalendarIds, ...templateCalendarIds]
-  const treesKey = resources.data && templates.data ? `trees:${sig(allCalendarIds)}:${treeVersion}` : null
+  // Root rules don't follow `treeVersion`: after a save only the touched calendars reload (as full trees, see App).
+  const treesKey = resources.data && templates.data ? `trees:${sig(allCalendarIds)}` : null
   const trees = useLoad(treesKey, (svc) => svc.getTrees(allCalendarIds, 'roots'))
 
   const fromIso = zonedToUtc(from, '00:00', viewerTz)
