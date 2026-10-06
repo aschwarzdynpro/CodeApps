@@ -1,5 +1,5 @@
 import { Badge, DrawerBody, DrawerFooter, DrawerHeader, DrawerHeaderTitle, Field, MessageBar, MessageBarBody, OverlayDrawer, ProgressBar, Radio, RadioGroup, Switch, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Textarea } from '@fluentui/react-components'
-import { DismissRegular } from '@fluentui/react-icons'
+import { ArrowDownloadRegular, DismissRegular } from '@fluentui/react-icons'
 import { useRef, useState } from 'react'
 import { LIMITS } from '../../config'
 import { getCalendarService, PrivilegeError } from '../../services/calendarService'
@@ -9,7 +9,7 @@ import type { CalendarTree, Resource, RunRecord, RunStepResult, WorkHourTemplate
 import { addDays, startOfIsoWeek } from '../../utils/dates'
 import { emptyAbsenceSpec, type AbsenceSpec } from '../../utils/intents'
 import { buildPlan, type RunParams, type RunPlan, type RunTargetInput } from '../../utils/plan'
-import { markUndone, saveRun } from '../../utils/runHistory'
+import { downloadJson, markUndone, runFileName, saveRun } from '../../utils/runHistory'
 import { buildUndoPlan } from '../../utils/undo'
 import { DateField, DaysField, TimeField } from '../rules/editorParts'
 import { Btn, Select } from '../ui'
@@ -52,16 +52,19 @@ export function RunWizardDrawer({ mode, targets, resources, templates, trees, tr
   const [cutoff, setCutoff] = useState(addDays(startOfIsoWeek(today), 7))
   const [endExisting, setEndExisting] = useState(true)
   const [absence, setAbsence] = useState<AbsenceSpec>(() => ({ ...emptyAbsenceSpec(addDays(today, 1)), reason: '' }))
-  const [progress, setProgress] = useState<{ results: RunStepResult[]; running: boolean; record: RunRecord | null; error: string | null }>({ results: [], running: false, record: null, error: null })
+  const [progress, setProgress] = useState<{ results: RunStepResult[]; running: boolean; record: RunRecord | null; error: string | null; saved: boolean }>({ results: [], running: false, record: null, error: null, saved: true })
+  /** The plan as executed — frozen, so the trees reloading after the run don't rebuild it (and nothing recomputes it per progress tick). */
+  const [executed, setExecuted] = useState<RunPlan | null>(null)
   const abort = useRef<AbortController | null>(null)
 
   const template = templates.find((t) => t.id === templateId) ?? null
   const templateTree = template?.calendarId ? trees[template.calendarId.toLowerCase()] : undefined
 
   const plan: RunPlan | null = (() => {
-    if (step !== 'preview' && step !== 'run') return null
-    // The preview needs the full trees of the targets; a running/finished run keeps its plan.
-    if (step === 'preview' && treesLoading) return null
+    if (step === 'run') return executed
+    if (step !== 'preview') return null
+    // The preview needs the full trees of the targets.
+    if (treesLoading) return null
     if (mode.kind === 'undo') return buildUndoPlan(mode.record, trees, resources, useV2, today)
     if (actionKind === 'applyTemplate') return template && templateTree ? buildPlan({ kind: 'applyTemplate', template, templateTree, cutoff, endExisting, useV2 }, targets) : null
     return buildPlan({ kind: 'timeOff', absence, useV2 }, targets)
@@ -74,17 +77,18 @@ export function RunWizardDrawer({ mode, targets, resources, templates, trees, tr
   const execute = async () => {
     if (!plan) return
     abort.current = new AbortController()
+    setExecuted(plan)
     setStep('run')
-    setProgress({ results: plan.steps.map((s) => ({ resourceId: s.resourceId, resourceName: s.resourceName, calendarId: s.calendarId, status: s.status === 'skipped' ? 'skipped' : 'pending', message: s.note, createdInnerCalendarIds: [], deletedInnerCalendarIds: [], endedInnerCalendarIds: [] })), running: true, record: null, error: null })
+    setProgress({ results: plan.steps.map((s) => ({ resourceId: s.resourceId, resourceName: s.resourceName, calendarId: s.calendarId, status: s.status === 'skipped' ? 'skipped' : 'pending', message: s.note, createdInnerCalendarIds: [], deletedInnerCalendarIds: [], endedInnerCalendarIds: [] })), running: true, record: null, error: null, saved: true })
     try {
       const svc = await getCalendarService()
       const record = await runPlan(plan, svc, {
         signal: abort.current.signal,
         onProgress: (p: RunProgress) => setProgress((prev) => ({ ...prev, results: prev.results.map((r, i) => (i === p.index ? { ...p.step } : r)) })),
       })
-      saveRun(record)
+      const saved = saveRun(record)
       if (mode.kind === 'undo') markUndone(mode.record.id, record.id)
-      setProgress((prev) => ({ ...prev, running: false, record }))
+      setProgress((prev) => ({ ...prev, running: false, record, saved }))
       if (record.steps.some((s) => s.status === 'failed' && /privilege|berechtigung/i.test(s.message))) onPrivilegeError()
       onFinished(record)
     } catch (err) {
@@ -217,6 +221,16 @@ export function RunWizardDrawer({ mode, targets, resources, templates, trees, tr
             {progress.error ? (
               <MessageBar intent="error" layout="multiline">
                 <MessageBarBody>{progress.error}</MessageBarBody>
+              </MessageBar>
+            ) : null}
+            {progress.record && !progress.saved ? (
+              <MessageBar intent="warning" layout="multiline">
+                <MessageBarBody>
+                  {S.runs.notSaved}{' '}
+                  <Btn small icon={<ArrowDownloadRegular />} onClick={() => progress.record && downloadJson(runFileName(progress.record), progress.record)}>
+                    {S.runs.download}
+                  </Btn>
+                </MessageBarBody>
               </MessageBar>
             ) : null}
             <ul className="run-results">

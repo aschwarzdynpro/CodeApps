@@ -21,6 +21,7 @@ export const S = {
     modeDataverse: 'Dataverse',
     modeMockTitle: 'Kein Power-Apps-Host — fiktive Beispieldaten im Speicher',
     loading: 'Lade …',
+    treesPartial: (n: number, first: string) => `${n === 1 ? 'Ein Kalender ließ' : `${n} Kalender ließen`} sich nicht lesen (auch nach Wiederholung) — Regeln und Befunde fehlen dort. Neu laden versucht es erneut. Erster Fehler: ${first}`,
     treesLoading: (n: number) => `Lade die Regeln von ${n} Kalendern (je Kalender eine Abfrage) — Liste und Stunden stehen schon, Regeln und Befunde folgen.`,
     readOnly: 'Nur lesen',
     readOnlyTitle: 'Speichern wurde wegen fehlender Berechtigung abgelehnt — die App zeigt nur noch an.',
@@ -228,6 +229,7 @@ export const S = {
     days: 'Tage',
     effort: 'Kapazität',
     observeClosure: 'Geschäftsschließungen beachten',
+    closuresObserved: 'Die Ressource beachtet Geschäftsschließungen bereits (Feiertagsliste vorhanden) — der Schalter wird nicht erneut gesendet, sonst legt der Server eine weitere Liste an.',
     timeZone: 'Zeitzone der Regel',
     reason: 'Grund',
     reasonPlaceholder: 'z. B. Urlaub, Fortbildung',
@@ -288,6 +290,7 @@ export const S = {
     inactiveWithBookings: 'Inaktiv, aber mit Buchungen',
     noCalendar: 'Ohne Kalender / ohne Regeln',
     orphanInnerCalendar: 'Verwaister innerer Kalender',
+    duplicateHolidayList: 'Feiertagsliste mehrfach',
   } satisfies Record<FindingKind, string>,
 
   findingDetails: {
@@ -299,6 +302,7 @@ export const S = {
     noCalendar: 'Die Ressource hat keinen Kalender.',
     noRules: 'Der Kalender enthält keine Regeln.',
     orphan: (n: number) => `${plural(n, 'innerer Kalender', 'innere Kalender')} ohne Wurzelregel.`,
+    duplicateHolidayList: (n: number) => `${n} offene Feiertagslisten auf denselben Schließungskalender — jedes Speichern mit „Geschäftsschließungen beachten“ legt eine weitere an. Eine genügt.`,
   },
 
   diagnostics: {
@@ -421,6 +425,7 @@ export const S = {
     undo: 'Rückgängig',
     undone: 'rückgängig gemacht',
     download: 'JSON herunterladen',
+    notSaved: 'Der Browser hat den Lauf nicht gespeichert (Speicher voll oder gesperrt) — er erscheint nicht unter „Läufe“ und lässt sich dort nicht rückgängig machen. Die JSON-Datei enthält Snapshot und Ergebnis; jetzt herunterladen.',
     stepsOf: (done: number, total: number) => `${done} von ${total} Ressourcen geschrieben`,
     at: (when: string) => `am ${when}`,
   },

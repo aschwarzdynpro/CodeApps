@@ -18,15 +18,19 @@ export function listRuns(): RunRecord[] {
   }
 }
 
-export function saveRun(record: RunRecord): RunRecord[] {
+/** Stores the run; false when the browser refuses (private mode, quota — a large snapshot) — the caller must offer the download, it is the only undo package then. */
+export function saveRun(record: RunRecord): boolean {
   const next = [record, ...listRuns().filter((r) => r.id !== record.id)].slice(0, LIMITS.historyMax)
   try {
     localStorage.setItem(KEY, JSON.stringify(next))
+    return true
   } catch {
     // storage unavailable or full — the run itself must not fail over this
+    return false
   }
-  return next
 }
+
+export const runFileName = (r: RunRecord): string => `lauf-${r.startedAt.slice(0, 10)}-${r.id.slice(0, 8)}.json`
 
 export function markUndone(runId: string, undoneBy: string): RunRecord[] {
   const next = listRuns().map((r) => (r.id === runId ? { ...r, undoneBy } : r))

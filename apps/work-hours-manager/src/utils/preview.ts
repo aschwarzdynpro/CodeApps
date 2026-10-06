@@ -39,7 +39,9 @@ export function storeFromTree(tree: CalendarTree): { store: MockCalendarStore; o
   }
   const inner = [...tree.blocks.map((b) => b.raw.inner).filter((c): c is RawCalendar => !!c), ...tree.orphanInnerCalendars]
   let n = 0
-  const store = createStore(structuredClone([outer, ...inner]), () => `preview-${++n}`, () => new Date().toISOString())
+  // ObserveClosure links the closure calendar the tree already points at (or a stand-in) — the preview shows the extra holiday list.
+  const closureCalendarId = tree.blocks.find((b) => b.holidays && b.innerCalendarId)?.innerCalendarId ?? 'preview-closure-calendar'
+  const store = createStore(structuredClone([outer, ...inner]), () => `preview-${++n}`, () => new Date().toISOString(), closureCalendarId)
   return { store, outer: store.calendars.get(tree.calendarId.toLowerCase())! }
 }
 

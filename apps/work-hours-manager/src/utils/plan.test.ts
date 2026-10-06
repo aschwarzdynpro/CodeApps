@@ -75,9 +75,22 @@ describe('buildPlan — apply template', () => {
     expect(first.endedInnerCalendarIds).toEqual([weekly.blocks[0].innerCalendarId])
     expect(first.before).toBe(42.5)
     expect(first.after).toBe(40)
-    expect(first.rulesAfter).toBe(2)
+    // ended rule + template rule + the holiday list ObserveClosure adds (the fixture has none yet)
+    expect(first.rulesAfter).toBe(3)
     expect(plan.steps[1].note).toBe('kein Kalender')
     expect(Object.keys(plan.snapshot)).toEqual([weekly.calendarId.toLowerCase(), ending.calendarId.toLowerCase()])
+  })
+
+  it('ends existing rules in their own time zone and adds no holiday list where one is open', () => {
+    const paris = { ...weekly, blocks: weekly.blocks.map((b) => ({ ...b, timeZoneCode: 105 })) }
+    const step = buildPlan({ kind: 'applyTemplate', template, templateTree, cutoff: '2026-11-02', endExisting: true, useV2: true }, [{ resource: resource(1, weekly.calendarId), tree: paris }]).steps[0]
+    const [end, create] = step.requests.map((r) => r.info as CalendarEventInfo)
+    expect(end.TimeZoneCode).toBe(105)
+    expect(create.TimeZoneCode).toBe(110)
+    expect(create.ObserveClosure).toBe(true)
+    const observing = { ...weekly, blocks: [...weekly.blocks, { ...weekly.blocks[0], rootRuleId: 'list', innerCalendarId: 'org-closures', weekdays: null, holidays: [], kind: 'closure' as const, end: null }] }
+    const again = buildPlan({ kind: 'applyTemplate', template, templateTree, cutoff: '2026-11-02', endExisting: true, useV2: true }, [{ resource: resource(1, weekly.calendarId), tree: observing }]).steps[0]
+    expect(again.requests.map((r) => (r.info as CalendarEventInfo).ObserveClosure)).toEqual([undefined, undefined])
   })
 
   it('without ending, the server takes the template weekdays out of the old rule (live) — same hours as with ending', () => {

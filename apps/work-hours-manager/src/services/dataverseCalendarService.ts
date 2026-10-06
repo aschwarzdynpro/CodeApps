@@ -4,7 +4,7 @@ import { RESOURCE_TYPE_BY_CODE } from '../types/calendar'
 import { parseServerDate } from '../utils/dates'
 import { buildTree, normalizeCalendar } from '../utils/rules'
 import { workingSlots, type ServerSlot } from '../utils/slots'
-import type { CalendarService, SetupCheck } from './calendarService'
+import type { CalendarService, SetupCheck, TreesResult } from './calendarService'
 import { FV, chunks, errorText, fetchXml, getRow, hasConnector, mapPool, num, odata, orFilter, pick, str, unboundAction, type Row } from './dataverseApi'
 
 /**
@@ -34,12 +34,27 @@ const refOf = (row: Row, key: string): Ref | null => {
   return id ? { id, name: str(row[`${key}${FV}`]) ?? id } : null
 }
 
-/** Calendars with their rules, one request each (missing calendars are skipped). */
-async function readCalendars(ids: string[]): Promise<RawCalendar[]> {
+/**
+ * Calendars with their rules, one request each (retried when throttled).
+ * Missing calendars are skipped; one that still fails goes to `errors` so
+ * the others arrive. Throws only when every read failed (connector down).
+ */
+async function readCalendars(ids: string[]): Promise<{ calendars: RawCalendar[]; errors: Record<string, string> }> {
   const unique = [...new Set(ids.map((id) => id.toLowerCase()))]
-  const rows = await mapPool(unique, LIMITS.calendarReadConcurrency, (id) => getRow('calendars', id, { select: 'calendarid,name,description,type', expand: RULES_EXPAND }))
-  return rows.filter((r): r is Row => r !== null).map(normalizeCalendar)
+  const errors: Record<string, string> = {}
+  const rows = await mapPool(unique, LIMITS.calendarReadConcurrency, (id) =>
+    getRow('calendars', id, { select: 'calendarid,name,description,type', expand: RULES_EXPAND }).catch((err: unknown) => {
+      errors[id] = errorText(err)
+      return null
+    }),
+  )
+  const failed = Object.keys(errors)
+  if (failed.length && failed.length === unique.length) throw new Error(errors[failed[0]])
+  return { calendars: rows.filter((r): r is Row => r !== null).map(normalizeCalendar), errors }
 }
+
+/** Chunked reads (slots, time off, categories) in flight at once. */
+const PARALLEL_CHUNKS = 4
 
 let closureCalendarId: Promise<string | null> | null = null
 
@@ -59,7 +74,7 @@ function toClosures(cal: RawCalendar, from: string, to: string): Closure[] {
       const start = r.starttime ?? r.effectiveintervalstart
       const minutes = r.duration ?? 0
       const end = start && minutes > 0 ? new Date(Date.parse(start) + minutes * 60_000).toISOString() : r.effectiveintervalend
-      return start && end ? { id: r.calendarruleid, name: r.name ?? 'Geschäftsschließung', start: new Date(start).toISOString(), end: new Date(end).toISOString() } : null
+      return start && end ? { id: r.calendarruleid, calendarId: cal.calendarid, name: r.name ?? 'Geschäftsschließung', start: new Date(start).toISOString(), end: new Date(end).toISOString() } : null
     })
     .filter((c): c is Closure => c !== null && Date.parse(c.start) < hi && Date.parse(c.end) > lo)
 }
@@ -116,11 +131,13 @@ export const dataverseCalendarService: CalendarService = {
     const ids = rows.map((r) => String(r.bookableresourceid))
     const categories = new Map<string, Ref[]>()
     const territories = new Map<string, Ref[]>()
-    for (const part of chunks(ids, 25)) {
-      const [cats, terrs] = await Promise.all([
+    const parts = await mapPool(chunks(ids, 25), PARALLEL_CHUNKS, (part) =>
+      Promise.all([
         odata('bookableresourcecategoryassns', { select: '_resource_value,_resourcecategory_value', filter: orFilter('_resource_value', part), annotations: true }).catch(() => [] as Row[]),
         odata('msdyn_resourceterritories', { select: '_msdyn_resource_value,_msdyn_territory_value', filter: orFilter('_msdyn_resource_value', part), annotations: true }).catch(() => [] as Row[]),
-      ])
+      ]),
+    )
+    for (const [cats, terrs] of parts) {
       for (const c of cats) {
         const rid = String(c._resource_value).toLowerCase()
         const ref = refOf(c, '_resourcecategory_value')
@@ -162,25 +179,31 @@ export const dataverseCalendarService: CalendarService = {
     )
   },
 
-  async getTrees(calendarIds, depth = 'full') {
-    const outer = await readCalendars(calendarIds)
-    if (depth === 'roots') return Object.fromEntries(outer.map((cal) => [cal.calendarid.toLowerCase(), buildTree(cal, [], false)]))
+  async getTrees(calendarIds, depth = 'full'): Promise<TreesResult> {
+    const { calendars: outer, errors } = await readCalendars(calendarIds)
+    if (depth === 'roots') return { trees: Object.fromEntries(outer.map((cal) => [cal.calendarid.toLowerCase(), buildTree(cal, [], false)])), errors }
     const innerIds = [...new Set(outer.flatMap((c) => c.calendar_calendar_rules.map((r) => r._innercalendarid_value).filter((x): x is string => !!x)))]
-    const inner = innerIds.length ? await readCalendars(innerIds) : []
-    const innerById = new Map(inner.map((c) => [c.calendarid.toLowerCase(), c]))
-    const out: Record<string, CalendarTree> = {}
+    const inner = innerIds.length ? await readCalendars(innerIds) : { calendars: [], errors: {} as Record<string, string> }
+    const innerById = new Map(inner.calendars.map((c) => [c.calendarid.toLowerCase(), c]))
+    const trees: Record<string, CalendarTree> = {}
     for (const cal of outer) {
-      const mine = cal.calendar_calendar_rules.map((r) => (r._innercalendarid_value ? innerById.get(r._innercalendarid_value.toLowerCase()) : undefined)).filter((c): c is RawCalendar => !!c)
-      out[cal.calendarid.toLowerCase()] = buildTree(cal, mine)
+      const refs = cal.calendar_calendar_rules.map((r) => r._innercalendarid_value?.toLowerCase()).filter((x): x is string => !!x)
+      // A tree with an unreadable inner calendar would look like rules without times — report it instead.
+      const broken = refs.find((id) => inner.errors[id])
+      if (broken) {
+        errors[cal.calendarid.toLowerCase()] = inner.errors[broken]
+        continue
+      }
+      trees[cal.calendarid.toLowerCase()] = buildTree(cal, refs.map((id) => innerById.get(id)).filter((c): c is RawCalendar => !!c))
     }
-    return out
+    return { trees, errors }
   },
 
   async loadSlots(calendarIds, from, to) {
     const out: Record<string, Slot[]> = {}
     if (calendarIds.length === 0) return out
-    for (const part of chunks(calendarIds, 50)) {
-      const data = await unboundAction('msdyn_LoadCalendars', { LoadCalendarsInput: JSON.stringify({ StartDate: from, EndDate: to, CalendarIds: part }) })
+    const answers = await mapPool(chunks(calendarIds, 50), PARALLEL_CHUNKS, async (part) => ({ part, data: await unboundAction('msdyn_LoadCalendars', { LoadCalendarsInput: JSON.stringify({ StartDate: from, EndDate: to, CalendarIds: part }) }, { readOnly: true }) }))
+    for (const { part, data } of answers) {
       const raw = pick(data, 'CalendarEvents')
       const events = (typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw) as Record<string, { CalendarId?: string; InnerCalendarId?: string; Start?: string; End?: string; Effort?: number; TimeCode?: number }[]> | null
       for (const [calendarId, slots] of Object.entries(events ?? {})) {
@@ -200,18 +223,22 @@ export const dataverseCalendarService: CalendarService = {
   async loadClosures(from, to) {
     const calendarId = await businessClosureCalendarId()
     if (!calendarId) return []
-    const [cal] = await readCalendars([calendarId])
+    const {
+      calendars: [cal],
+    } = await readCalendars([calendarId])
     return cal ? toClosures(cal, from, to) : []
   },
 
   async loadTimeOff(resourceIds, from, to) {
     const out: TimeOffRequest[] = []
-    for (const part of chunks(resourceIds, 25)) {
-      const rows = await odata('msdyn_timeoffrequests', {
+    const pages = await mapPool(chunks(resourceIds, 25), PARALLEL_CHUNKS, (part) =>
+      odata('msdyn_timeoffrequests', {
         select: 'msdyn_timeoffrequestid,msdyn_name,msdyn_starttime,msdyn_endtime,_msdyn_resource_value,_msdyn_approvedby_value,statecode',
         filter: `${orFilter('_msdyn_resource_value', part)} and msdyn_starttime lt ${to} and msdyn_endtime gt ${from}`,
         annotations: true,
-      })
+      }),
+    )
+    for (const rows of pages) {
       out.push(
         ...rows.map(
           (r): TimeOffRequest => ({
@@ -288,7 +315,7 @@ export const dataverseCalendarService: CalendarService = {
       // The action refuses an empty id list ("StartDate, EndDate and CalendarIds are required", live) — probe with a real calendar.
       const probe = (await businessClosureCalendarId().catch(() => null)) ?? str((await odata('bookableresources', { select: '_calendarid_value', filter: '_calendarid_value ne null', top: 1 }))[0]?._calendarid_value)
       if (!probe) throw new Error('Kein Kalender zum Prüfen gefunden.')
-      await unboundAction('msdyn_LoadCalendars', { LoadCalendarsInput: JSON.stringify({ StartDate: new Date().toISOString(), EndDate: new Date(Date.now() + 86_400_000).toISOString(), CalendarIds: [probe] }) })
+      await unboundAction('msdyn_LoadCalendars', { LoadCalendarsInput: JSON.stringify({ StartDate: new Date().toISOString(), EndDate: new Date(Date.now() + 86_400_000).toISOString(), CalendarIds: [probe] }) }, { readOnly: true })
       checks.push({ label: 'msdyn_LoadCalendars', ok: true, detail: 'Action über den Konnektor erreichbar' })
     } catch (err) {
       checks.push({ label: 'msdyn_LoadCalendars', ok: false, detail: errorText(err) })

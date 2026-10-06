@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { FIXTURE_CALENDARS, treeOf } from '../fixtures/calendars'
+import { FIXTURE_CALENDARS, OPEN_END, rawRule, treeOf } from '../fixtures/calendars'
 import type { Resource } from '../types/calendar'
 import { diagnose, findingsByResource, worstSeverity } from './diagnostics'
+import { buildTree } from './rules'
 
 const resource = (n: number, name: string, calendarKey: keyof typeof FIXTURE_CALENDARS | null, extra: Partial<Resource> = {}): Resource => ({
   id: `r${n}`,
@@ -73,5 +74,17 @@ describe('diagnose', () => {
   it('sorts errors first, then by name', () => {
     const findings = diagnose({ resources: [resource(8, 'Zebra', null), resource(9, 'Anton', 'otherZone'), resource(10, 'Berta', null)], trees, today, slots: null, bookingsAfterToday: {} })
     expect(findings.map((f) => f.resourceName)).toEqual(['Berta', 'Zebra', 'Anton'])
+  })
+
+  it('reports several open holiday lists on the same closure calendar', () => {
+    const { calendar, inner } = FIXTURE_CALENDARS.weekly
+    const list = (id: string) => rawRule({ calendarruleid: id, _calendarid_value: calendar.calendarid, _innercalendarid_value: 'org-closures', pattern: 'FREQ=YEARLY;INTERVAL=1', starttime: '2025-01-01T00:00:00Z', rank: 1, timezonecode: 110, effectiveintervalend: OPEN_END, extentcode: 2 })
+    const withLists = (n: number) => buildTree({ ...calendar, calendar_calendar_rules: [...calendar.calendar_calendar_rules, ...Array.from({ length: n }, (_, i) => list(`list-${i}`))] }, inner, false)
+    const run = (n: number) => diagnose({ resources: [resource(9, 'Listen', 'weekly')], trees: { [calendar.calendarid.toLowerCase()]: withLists(n) }, today, slots: null, bookingsAfterToday: {} })
+    expect(run(1)).toEqual([])
+    const findings = run(3)
+    expect(findings.map((f) => [f.kind, f.severity])).toEqual([['duplicateHolidayList', 'info']])
+    expect(findings[0].detail).toContain('3 offene Feiertagslisten')
+    expect(findings[0].innerCalendarId).toBe('list-0')
   })
 })

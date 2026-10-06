@@ -203,6 +203,8 @@ export interface Slot {
 export interface Closure {
   /** `calendarruleid` of the closure rule in the organization's closure calendar. */
   id: string
+  /** The organization's closure calendar — a resource observes the closure when one of its holiday lists points at it. */
+  calendarId: string
   name: string
   /** UTC ISO instants. */
   start: string
@@ -259,7 +261,7 @@ export interface DayResolution {
 // Diagnostics
 // ---------------------------------------------------------------------------
 
-export type FindingKind = 'noWorkingTime' | 'ruleEnding' | 'timeZoneMismatch' | 'inactiveWithBookings' | 'noCalendar' | 'orphanInnerCalendar'
+export type FindingKind = 'noWorkingTime' | 'ruleEnding' | 'timeZoneMismatch' | 'inactiveWithBookings' | 'noCalendar' | 'orphanInnerCalendar' | 'duplicateHolidayList'
 
 export interface Finding {
   kind: FindingKind

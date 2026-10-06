@@ -30,17 +30,17 @@ führt beides in pure functions zusammen (`resolveDay`).
 
 | Phase | Inhalt | Stand |
 | --- | --- | --- |
-| 0 Discovery | Metadaten der Actions, echte Regelbäume, Zählungen, Rechte (Schulz UAT) | **wartet auf den Nutzer** — Befehle unten; bis dahin synthetische Fixtures (`src/fixtures/calendars.ts`) |
+| 0 Discovery | Metadaten der Actions, echte Regelbäume, Zählungen (Schulz UAT) | fertig (2026-10-06) |
 | 1 Fundament | Scaffold, Domänentypen, `rules`/`resolve`/`timezones`/`holidays` mit Tests, Mock inkl. Server-Emulation der Actions | fertig |
-| 2 Lesen | Shell, Ressourcenliste, Wochen-/Monatskalender mit Herkunft, Regel-Inspektor, Diagnose 5.1–5.5, Dataverse-Reads | fertig (Mock); live offen |
-| 3 Einzel-Edit | `intents.ts`, Editor mit Vorschau, Save/Delete | fertig (Mock); live offen |
-| 4 Massenlauf | `plan`/`undo`, Assistent, Verlauf, Rückgängig | fertig (Mock); live offen |
-| 5 Feiertage & Abschluss | Schließungen, Jahr aus Regelwerk, Hilfe, Doku | fertig; Deployment nach Rücksprache |
+| 2 Lesen | Shell, Ressourcenliste, Wochen-/Monatskalender mit Herkunft, Regel-Inspektor, Diagnose, Dataverse-Reads | fertig, live geprüft (UAT) |
+| 3 Einzel-Edit | `intents.ts`, Editor mit Vorschau, Save/Delete | fertig, live geprüft (NAAF-Backup) |
+| 4 Massenlauf | `plan`/`undo`, Assistent, Verlauf, Rückgängig | fertig, live geprüft (Vorlage auf 3 Ressourcen + Rückgängig) |
+| 5 Feiertage & Abschluss | Schließungen, Jahr aus Regelwerk, Hilfe, Doku | fertig, in UAT und NAAF-Backup deployt |
 
-`npm run build`, `lint` und `test` (89 Tests) sind grün; alle Bereiche sind
-mit Playwright gegen den Mock durchgespielt (Lesen, Editor, Massenlauf mit
-Rückgängig, Feiertage, Hilfe). **Nichts ist gegen echtes Dataverse
-verifiziert** — siehe „Verifiziert (live)“ und „Offen“.
+`npm run build`, `lint` und `test` (120 Tests) sind grün; alle Bereiche sind
+mit Playwright gegen den Mock durchgespielt. Lesen ist in Schulz UAT, Schreiben
+in Schulz NAAF-Backup verifiziert — siehe „Verifiziert (live)“; was noch fehlt,
+steht unter „Offen“.
 
 ## Funktionen
 
@@ -48,12 +48,12 @@ verifiziert** — siehe „Verifiziert (live)“ und „Offen“.
 | --- | --- |
 | **Ressourcen** | DataGrid mit Suche, Facetten (Org-Einheit, Kategorie, Gebiet), Inaktive, „nur mit Befunden“; Spalten Typ, Zeitzone, Stunden im Zeitraum, Regeln, Status, Befunde; Mehrfachauswahl als Eingang in die Massenaktion. Kalender als **Woche** (Ressource × Tag, 24-h-Balken: Arbeitszeit, Pause, Abwesenheit, Nicht-Arbeit, Schließung, Kapazität ≠ 1 schraffiert) oder **Monat** (fokussierte Ressource). Tages-Popover mit jedem Segment, Herkunft (Wiederholung/Einzeltag/Pause/Abwesenheit/Schließung) und Sprung in den Inspektor; Grund für Tage ohne Arbeitszeit (kein Arbeitstag, Regel ausgelaufen, beginnt später, keine Regel). |
 | **Regel-Inspektor** | InlineDrawer mit Tree: Block (Wurzelregel) → innerer Kalender → Blattregeln; Gruppen „je Wochentag verschieden“; Rang, Art, Zeitzone (Abweichung markiert); Felder und Roh-JSON des gewählten Blocks; verwaiste innere Kalender und nicht interpretierbare Regeln. Aktionen: Arbeitszeit/Abwesenheit/Nicht-Arbeit anlegen, Bearbeiten, Einzeltag, Beenden, Löschen. |
-| **Editor** | Dialog mit Eingabe- und Vorschau-Tab: Einmal / wöchentlich (Wochentage, Ende) / je Wochentag verschieden (Zeiten je Tag); Zeiten als Arbeit/Pause (Pausen dürfen in der Arbeitszeit liegen, werden ausgeschnitten), ganztägig über n Tage, Kapazität, Schließungen beachten, Zeitzone der Regel (Default Ressource); Abwesenheit/Nicht-Arbeit mit Grund; Bearbeiten ganz oder „dieser und folgende ab Datum“; Einzeltag einer Wiederholung; Beenden; Löschen mit Vorschau. Vorschau: betroffene Tage (4 Wochen) vorher/nachher aus der Server-Emulation plus die Aufrufe an die API. Validierung spiegelt die API-Grenzen. |
+| **Editor** | Dialog mit Eingabe- und Vorschau-Tab: Einmal / wöchentlich (Wochentage, Ende) / je Wochentag verschieden (Zeiten je Tag); Zeiten als Arbeit/Pause (Pausen dürfen in der Arbeitszeit liegen, werden ausgeschnitten), ganztägig über n Tage, Kapazität, Schließungen beachten (nur gesendet, solange die Ressource keine Feiertagsliste hat), Zeitzone der Regel (neue Regel: die der Ressource; bestehende: ihre eigene); Abwesenheit/Nicht-Arbeit mit Grund; Bearbeiten ganz oder „dieser und folgende ab Datum“; Einzeltag einer Wiederholung; Beenden; Löschen mit Vorschau. Vorschau: betroffene Tage (4 Wochen) vorher/nachher aus der Server-Emulation plus die Aufrufe an die API. Validierung spiegelt die API-Grenzen. |
 | **Vorlagen** | Liste der `msdyn_workhourtemplate` mit ihren Regeln; Inspektor und Editor wie bei Ressourcen (EntityLogicalName `msdyn_workhourtemplate`); „Auf Ressourcen anwenden“ startet den Massenlauf. |
 | **Massenlauf** | OverlayDrawer-Assistent: Ressourcen (max. 50) → Aktion (Vorlage ab Stichtag, optional bestehende Wiederholungen am Vortag beenden und spätere löschen; oder Abwesenheit/Nicht-Arbeit mit Datum, Tagen, Grund) → Vorschau-Tabelle je Ressource (h/Woche vorher/nachher, Regeln, Status, Hinweis) → Ausführen sequentiell mit Fortschritt, abbrechbar, Stopp beim ersten Fehler. Jeder Lauf beginnt mit einem Snapshot der betroffenen Bäume. |
 | **Läufe** | Verlauf lokal (letzte 20) mit Ergebnis je Ressource, JSON-Download, **Rückgängig** als normaler Lauf mit Vorschau: löscht angelegte Regeln, stellt Enden wieder her, legt gelöschte Regeln neu an (Baumvergleich bis auf IDs im Test). |
-| **Feiertage** | Schließungen des Jahres (lokale Tage in der Anzeige-Zeitzone), anlegen (`msdyn_BusinessClosureSave`), löschen (Versuch, siehe Offen); Regelwerk DE bundesweit + 16 Länder, AT, CH mit Osterformel; Abgleich vorhanden/fehlt/anderer Name/nur teilweise, Schließungen außerhalb des Regelwerks, Dubletten; fehlende markieren und in einem Schritt anlegen. |
-| **Diagnose** | Kacheln mit Zahl und Schwere, gefilterte Liste, „Im Kalender zeigen“: 5.1 ohne Arbeitszeit (28 Tage ab heute, eigene `msdyn_LoadCalendars`-Abfrage unabhängig von der angezeigten Woche), 5.2 Wiederholung endet in 90 Tagen / endete ohne Nachfolgerin, 5.3 Zeitzone Regel ≠ Ressource, 5.4 inaktiv mit Buchungen nach heute, 5.5 ohne Kalender / ohne Regeln / verwaiste innere Kalender. |
+| **Feiertage** | Schließungen des Jahres (lokale Tage in der Anzeige-Zeitzone), anlegen (`msdyn_BusinessClosureSave`), löschen (`msdyn_BusinessClosureDelete`); Regelwerk DE bundesweit + 16 Länder, AT, CH mit Osterformel; Abgleich vorhanden/fehlt/anderer Name/nur teilweise, Schließungen außerhalb des Regelwerks, Dubletten; fehlende markieren und in einem Schritt anlegen. |
+| **Diagnose** | Kacheln mit Zahl und Schwere, gefilterte Liste, „Im Kalender zeigen“: 5.1 ohne Arbeitszeit (28 Tage ab heute, eigene `msdyn_LoadCalendars`-Abfrage unabhängig von der angezeigten Woche), 5.2 Wiederholung endet in 90 Tagen / endete ohne Nachfolgerin, 5.3 Zeitzone Regel ≠ Ressource, 5.4 inaktiv mit Buchungen nach heute, 5.5 ohne Kalender / ohne Regeln / verwaiste innere Kalender, dazu mehrere offene Feiertagslisten auf denselben Schließungskalender. |
 | **Einrichtung, Hilfe** | Einrichtungsseite (Konnektor, Org-URL, Ressourcen lesbar, Schließungskalender, `msdyn_LoadCalendars`); Hilfe-Panel mit Inhaltsverzeichnis und Suche (`src/help/helpContent.ts` — bei sichtbaren Änderungen nachziehen). |
 
 Toolbar: Woche/Monat, Zeitraum, Anzeige-Zeitzone (umschaltbar, Sommerzeit
@@ -64,14 +64,18 @@ Toolbar: Woche/Monat, Zeitraum, Anzeige-Zeitzone (umschaltbar, Sommerzeit
 
 | Feature | Lesen | Schreiben |
 | --- | --- | --- |
-| Liste | `bookableresources` (Name, Typ, `timezone`, `_calendarid_value`, Org-Einheit, Status, `_userid_value`), `bookableresourcecategoryassns`, `msdyn_resourceterritories` — Konnektor `ListRecordsWithOrganization` mit Annotationen; danach im Hintergrund die **Wurzelregeln** je Kalender (`GetItemWithOrganization` `calendars(<id>)?$expand=calendar_calendar_rules`, 8 parallel) für Regelzahl und Befunde; Stunden aus den Slots | — |
-| Kalender | `msdyn_LoadCalendars` (`LoadCalendarsInput`) je 50 Kalender für den sichtbaren Zeitraum (nur `TimeCode 0` zählt als Arbeitszeit); Org-Kalender per `organizations.businessclosurecalendarid` + Einzelabruf; `msdyn_timeoffrequests` im Zeitraum | — |
+| Liste | `bookableresources` (Name, Typ, `timezone`, `_calendarid_value`, Org-Einheit, Status, `_userid_value`), `bookableresourcecategoryassns`, `msdyn_resourceterritories` — Konnektor `ListRecordsWithOrganization` mit Annotationen; danach im Hintergrund die **Wurzelregeln** je Kalender (`GetItemWithOrganization` `calendars(<id>)?$expand=calendar_calendar_rules`, 8 parallel; gedrosselte Abrufe wiederholt, ein nicht lesbarer Kalender wird gemeldet statt die Liste zu kippen) für Regelzahl und Befunde; Stunden aus den Slots | — |
+| Kalender | `msdyn_LoadCalendars` (`LoadCalendarsInput`) je 50 Kalender, 4 parallel (TimeCode-0-Ereignisse minus TimeCode-2-Ereignisse = Arbeitszeit); die Woche bis 28 Tage ab heute kommt aus der Diagnose-Abfrage, andere Zeiträume einzeln. Org-Kalender per `organizations.businessclosurecalendarid` + Einzelabruf — angezeigt nur bei Ressourcen, deren Feiertagsliste auf ihn zeigt; `msdyn_timeoffrequests` im Zeitraum | — |
 | Inspektor | voller Baum erst beim Öffnen: Kalender und seine inneren Kalender, je ein Einzelabruf (Sammelabfragen liefern die Regeln leer). Ebenso für Editor, Lauf-Ziele und Vorlagen | — |
 | Editor | Baum aus dem Inspektor | `msdyn_SaveCalendar` (`CalendarEventInfo` als JSON-String: IsEdit/InnerCalendarId, IsVaried/Action, RecurrenceSplit, RecurrenceEndDate, ObserveClosure, TimeZoneCode, ResourceId, UseV2), `msdyn_DeleteCalendar` — `PerformUnboundActionWithOrganization` |
 | Vorlage anwenden | Baum der Vorlage (`msdyn_workhourtemplates.msdyn_calendarid`) | je Ressource: optional `RecurrenceEndDate` auf bestehende Wiederholungen (IsEdit) bzw. Delete späterer, dann Save der Vorlagenregeln ab Stichtag |
 | Rückgängig | Snapshot (lokal, JSON) + aktueller Baum | Delete der neu entstandenen `InnerCalendarIds`, Save mit altem `RecurrenceEndDate` (offen = `9999-12-30`), Save gelöschter Regeln neu |
-| Schließungen | Org-Kalender per `$expand` | `msdyn_BusinessClosureSave` (`Name`, `Start`, `End`); Löschen: Versuch `msdyn_DeleteCalendar` mit `EntityLogicalName = calendar` |
+| Schließungen | Org-Kalender per `$expand` | `msdyn_BusinessClosureSave` (`Name`, `Start`, `End`); Löschen: `msdyn_BusinessClosureDelete` (`Ids` = `calendarruleid` als String) |
 | Diagnose | Liste + Bäume + Slots; `bookableresourcebookings` als FetchXML-Aggregat (Buchungen ab heute je inaktiver Ressource) | — |
+
+Lesende Abrufe (auch `msdyn_LoadCalendars`) wiederholt die App bei 429/5xx
+und Netzfehlern nach 1, 2 und 4 s; schreibende Actions laufen genau einmal
+(ein Timeout kann geschrieben haben).
 
 Identität: Benutzer-Connection am Dataverse-Konnektor; alles läuft mit den
 Rechten des angemeldeten Nutzers, die Actions prüfen bei Benutzer-Ressourcen
@@ -96,82 +100,28 @@ src/
 │   ├── preview.ts               # Vorschau: Aufrufe auf Kopie des Baums, Tage vorher/nachher
 │   ├── plan.ts, undo.ts         # Massenlauf-Plan, Rückgängig-Plan; runHistory.ts lokaler Verlauf
 │   ├── holidays.ts              # Regelwerke DE/AT/CH, Osterformel, Abgleich
-│   ├── diagnostics.ts           # Befunde 5.1–5.5
+│   ├── diagnostics.ts           # Befunde 5.1–5.5 + Feiertagsliste mehrfach
+│   ├── slots.ts                 # msdyn_LoadCalendars-Ereignisse → Arbeitszeit (Pausen/Feiertage abziehen)
 │   └── range.ts, format.ts, resourceFilter.ts, resourceResolution.ts, closures.ts, calendarStrings.ts
 ├── services/
 │   ├── calendarService.ts       # Interface + Auswahl Dataverse/Mock, PrivilegeError
-│   ├── dataverseApi.ts          # Konnektor über import.meta.glob (odata, fetchXml, unboundAction)
+│   ├── dataverseApi.ts          # Konnektor über import.meta.glob (odata, getRow, fetchXml, unboundAction), Wiederholung lesender Abrufe
 │   ├── dataverseCalendarService.ts
 │   ├── runCalendarPlan.ts       # Lauf ausführen, sequentiell, Ergebnis je Schritt
 │   ├── mockCalendarService.ts, mockData.ts
-├── hooks/useLoad.ts, calendarData.ts
+├── hooks/useLoad.ts, calendarData.ts, useFullTrees.ts   # Laden je Schlüssel; Wurzelregeln für die Liste, volle Bäume für Geöffnetes
 ├── components/ shell/ resources/ calendar/ rules/ runs/ diagnostics/ views/ ui.tsx
 └── help/helpContent.ts, HelpPanel.tsx
 ```
 
-## Phase 0 — Discovery in Schulz UAT (für den Nutzer)
+## Discovery (Phase 0) — erledigt
 
-Remote nicht ausführbar (`pac auth` nur per Device Code und nur vom Nutzer
-angestoßen). Alle FetchXML-Dateien liegen in `scripts/discovery/`, die
-Ausgaben gehören nach `scripts/discovery/out/` (gitignored — Exporte können
-Kundendaten enthalten; vor einer Übernahme als Fixture Namen anonymisieren,
-nur die Struktur zählt).
-
-```bash
-# Anmeldung (einmalig) und Guard — Profil ist flüchtig, deshalb alles in einer Sitzung
-pac auth create --deviceCode --environment https://operations-d365-schulz-uat-1-1.crm4.dynamics.com --name SchulzNEW
-pac auth select --name SchulzNEW
-pac org who                               # muss operations-d365-schulz-uat-1-1.crm4 zeigen
-
-cd apps/work-hours-manager && mkdir -p scripts/discovery/out
-D=scripts/discovery; O=$D/out
-
-# 1) Metadaten der vier Actions (plus: gibt es „Vorlage anwenden“ oder ein Löschen für Schließungen?)
-pac env fetch --xmlFile $D/01-actions-sdkmessages.xml > $O/01-actions-sdkmessages.txt
-pac env fetch --xmlFile $D/02-actions-customapis.xml  > $O/02-actions-customapis.txt
-
-# 2) Drei Ressourcen auswählen: eine wöchentlich mit Pause, eine „je Wochentag verschieden“,
-#    eine mit Abwesenheit oder bearbeitetem Einzeltag (vorher ggf. im Formular anlegen)
-pac env fetch --xmlFile $D/03-resources.xml > $O/03-resources.txt
-for R in a b c; do   # je Ressource: Kalender-ID aus 03 eintragen
-  sed "s/CALENDAR_ID/<calendarid-$R>/" $D/04-calendar-tree.xml > $O/04-tree-$R.xml
-  pac env fetch --xmlFile $O/04-tree-$R.xml > $O/04-tree-$R.txt
-done
-# innere Kalender: die innercalendarid-Werte aus 04 in 05 eintragen (mehrere <value>)
-sed -e "s/INNER_CALENDAR_ID_1/<id1>/" -e "s/INNER_CALENDAR_ID_2/<id2>/" $D/05-inner-calendars.xml > $O/05-inner.xml
-pac env fetch --xmlFile $O/05-inner.xml > $O/05-inner.txt
-
-# 3) Eine Vorlage — Kalender-ID (msdyn_calendarid) wie eine Ressource mit 04/05 exportieren
-pac env fetch --xmlFile $D/06-templates.xml > $O/06-templates.txt
-
-# 4) Geschäftsschließungen
-pac env fetch --xmlFile $D/07-organization.xml > $O/07-organization.txt
-sed "s/BUSINESS_CLOSURE_CALENDAR_ID/<businessclosurecalendarid>/" $D/08-closures.xml > $O/08-closures.xml
-pac env fetch --xmlFile $O/08-closures.xml > $O/08-closures.txt
-
-# 5) Zählungen: Ressourcen je Typ/Status, ohne Kalender, Vorlagen, Abwesenheitsanträge, Buchungen inaktiver Ressourcen
-pac env fetch --xmlFile $D/09-counts-resources.xml > $O/09-counts-resources.txt
-pac env fetch --xmlFile $D/10-counts-nocalendar.xml > $O/10-counts-nocalendar.txt
-pac env fetch --xmlFile $D/11-counts-templates-timeoff.xml > $O/11-counts-templates.txt
-sed -e "s/msdyn_workhourtemplate/msdyn_timeoffrequest/" -e "s/msdyn_workhourtemplateid/msdyn_timeoffrequestid/" $D/11-counts-templates-timeoff.xml > $O/11-timeoff.xml
-pac env fetch --xmlFile $O/11-timeoff.xml > $O/11-counts-timeoff.txt
-sed "s/DATUM/$(date +%F)/" $D/12-counts-bookings-inactive.xml > $O/12-bookings.xml
-pac env fetch --xmlFile $O/12-bookings.xml > $O/12-counts-bookings-inactive.txt
-
-# 6) Rechte des Testkontos
-pac env fetch --xmlFile $D/13-my-roles.xml > $O/13-my-roles.txt
-```
-
-Falls `pac env fetch` den Join auf `calendarrule` ablehnt (die Tabelle
-erlaubt kein eigenes `RetrieveMultiple`), denselben Baum im Browser holen —
-so dokumentiert es die API-FAQ:
-
-```text
-https://operations-d365-schulz-uat-1-1.crm4.dynamics.com/api/data/v9.2/calendars(<calendarid>)?$expand=calendar_calendar_rules
-https://operations-d365-schulz-uat-1-1.crm4.dynamics.com/api/data/v9.2/calendars?$filter=calendarid eq <inner1> or calendarid eq <inner2>&$expand=calendar_calendar_rules
-```
-
-Was aus den Ergebnissen entschieden wird, steht unter „Offen“.
+Die Ist-Aufnahme in Schulz UAT ist abgeschlossen; die Ergebnisse stehen unter
+„Verifiziert (live)“. Die FetchXML-Dateien in `scripts/discovery/` bleiben für
+weitere Umgebungen (Ausgaben nach `scripts/discovery/out/`, gitignored —
+Exporte können Kundendaten enthalten). `calendarrule` lässt sich weder per
+FetchXML noch als Sammelabfrage mit `$expand` lesen, nur je Kalender:
+`calendars(<id>)?$expand=calendar_calendar_rules`.
 
 ## Verifiziert (Doku, 2026-10-05)
 
@@ -219,7 +169,7 @@ Testdaten belassen (KW 45–52/2026).
 | --- | --- | --- |
 | Arbeitszeit einmal | `DAILY;COUNT=1`, Rang 0, extentcode 1, Ende = nächste Mitternacht, Blatt `offset`/`duration`; Slot 08–12 | ✅ |
 | Wöchentlich mit Pause | **ein** Arbeitsblatt über die ganze Spanne (08–17) + Pausenblatt darüber; `msdyn_LoadCalendars` liefert Arbeit **ungeschnitten** und die Pause als eigenes Ereignis (TimeCode 2/SubCode 4) ⇒ App schneidet (Fix) | ✅ nach Fix |
-| `ObserveClosure` | erzeugt eine Wurzel `YEARLY` Rang 1 extentcode 2, deren innerer Kalender **der Org-Schließungskalender selbst** ist (kein Schnappschuss — neue Schließungen wirken sofort); je Speichern mit Beachten eine weitere Wurzel | ✅ |
+| `ObserveClosure` | erzeugt eine Wurzel `YEARLY` Rang 1 extentcode 2, deren innerer Kalender **der Org-Schließungskalender selbst** ist (kein Schnappschuss — neue Schließungen wirken sofort); je Speichern mit Beachten eine weitere Wurzel ⇒ die App sendet es nur noch, solange keine offene Liste da ist, nie beim Bearbeiten, nie im Nachtschicht-Folgeaufruf; Befund „Feiertagsliste mehrfach“. Ob eine Ressource Schließungen beachtet, liest die App daran ab | ✅ |
 | Abwesenheit mit Grund | `DAILY;COUNT=1`, Rang 0, extentcode 2, Wurzel-Beschreibung „Time Off Rule“; der Grund (`InnerCalendarDescription`) landet im **`name` des inneren Kalenders** (Fix: App las `description`) | ✅ nach Fix |
 | Nicht-Arbeit mit Uhrzeit | `DAILY;COUNT=1`, Rang 0, extentcode 2, „Not Working“; schneidet nur 13–15 heraus, 07–13 bleibt (Fix: App nahm den ganzen Tag) | ✅ nach Fix |
 | Bearbeiten ganze Wiederholung | `IsEdit` + `InnerCalendarId`: ID bleibt, Zeiten geändert, Pause bleibt | ✅ |
@@ -290,24 +240,28 @@ Ausbau: [`Roadmap.md`](Roadmap.md).
 
 ## Offen
 
-**Entscheidungen nach Phase 0**
+**Entscheidungen und offene Tests**
 
 - **UseV2 ja/nein.** Default **an**; der Server nimmt den Parameter an
   (NAAF-Backup). Wie sich Überschneidungen **ohne** V2 verhalten, ist nicht
   getestet.
-- **Schließungen löschen.** Gelöst: `msdyn_BusinessClosureDelete` (`Ids`).
+- **Noch nicht live getestet:** Nachtschicht (zwei Einzeltage), Rechtefehler
+  (Konto ohne Kalenderrecht), `IsEdit` mit einer anderen `TimeZoneCode` als
+  der der Regel (die App schickt beim Bearbeiten und Beenden deshalb die
+  Zeitzone der Regel), `IsEdit` + `ObserveClosure` (die App schickt es dabei
+  nicht mehr).
 
-**Annahmen, die remote nicht verifizierbar sind** (Fixtures und Mock folgen
-ihnen; der Phase-0-Export bestätigt oder korrigiert sie in `rules.ts`):
+**Annahmen und ihr Stand** (Fixtures und Mock folgen ihnen; live Belegtes
+ist markiert):
 
 - Zeitfelder der Wurzelregeln sind Datumswerte (`T00:00:00Z`, live belegt);
-  `effectiveintervalend` ist exklusiv (live belegt, `lastDayOf`). Offen: Ob
-  Pausen, Abwesenheiten und Nicht-Arbeit (in der Stichprobe nicht vorhanden)
-  dieselbe Form haben.
-- Blattregeln tragen ihren Typ in `timecode`/`subcode` nach den SDK-Enums:
-  Arbeit 0/1 und Feiertag 2/5 live belegt; Pause 2/4, Abwesenheit 2/6,
-  Nicht-Arbeit 2/0 nach Doku (`classifyRule`). `offset` = Minuten ab
-  Mitternacht (live belegt für Arbeit).
+  `effectiveintervalend` ist exklusiv (live belegt, `lastDayOf`); Pausen,
+  Abwesenheiten und Nicht-Arbeit haben dieselbe Form (NAAF-Backup).
+- Blattregeln tragen ihren Typ in `timecode`/`subcode` nach den SDK-Enums
+  (`classifyRule`): Arbeit 0/1, Feiertag 2/5 und Pause 2/4 live belegt.
+  `offset` = Minuten ab Mitternacht (live belegt). Blätter mit TimeCode 3
+  (Kapazitätsfilter, vereinzelt in UAT) kennt der Editor nicht — beim
+  Bearbeiten einer solchen Regel gehen sie verloren (Roadmap).
 - Die Teile einer „je Wochentag verschieden“-Wiederholung teilen einen
   `groupdesignator` **mit `isvaried` true** (in der Stichprobe nicht
   vorhanden); `IsVaried`-Delete entfernt alle Teile. Die feste Wochen-ID ist
@@ -323,13 +277,12 @@ ihnen; der Phase-0-Export bestätigt oder korrigiert sie in `rules.ts`):
 - `ResourceId` bei Benutzer-Ressourcen: Doku sagt „SystemUserId or
   ResourceId“ — wir senden die `systemuserid`; bei Ablehnung die
   `bookableresourceid`.
-- Der Dataverse-Konnektor reicht `CalendarEventInfo` als String durch
-  (Risiko (a) des Konzepts; Ausweg native Dataverse-API wie Translation
-  Studio). `msdyn_LoadCalendars` über den Konnektor ist auch in der
-  Serienplanung noch unverifiziert.
+- Der Dataverse-Konnektor reicht `CalendarEventInfo` als String durch und
+  erreicht `msdyn_LoadCalendars` (beides live belegt).
 - Geschäftsschließungen: Zeitraum = `starttime` + `duration` (so liest es die
-  Serienplanung); `ObserveClosure` je Regel ist im Baum nicht erkennbar — die
-  Slots sind die Wahrheit, die Vorschau nimmt „beachtet“ an.
+  Serienplanung). „Beachtet“ heißt: die Ressource hat eine offene
+  Feiertagsliste; dass die Liste auf den Org-Schließungskalender zeigt, prüft
+  die Anzeige, der Schalter im Editor nicht.
 - Die IANA-Zuordnung je Zeitzonencode (`timezones.ts`) ist unsere, die Codes
   und Labels stammen aus der Doku.
 - Regionale Feiertage: Regelwerke aus eigenem Wissen (Stand 2026), ohne

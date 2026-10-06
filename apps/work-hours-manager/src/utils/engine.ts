@@ -18,6 +18,8 @@ export interface MockCalendarStore {
   calendars: Map<string, RawCalendar>
   newId: () => string
   now: () => string
+  /** The organization's closure calendar — inner calendar of the holiday lists `ObserveClosure` creates. */
+  closureCalendarId: string | null
 }
 
 export class MockApiError extends Error {}
@@ -33,8 +35,45 @@ function calendarOf(store: MockCalendarStore, id: string): RawCalendar {
   return cal
 }
 
-export function createStore(calendars: RawCalendar[], newId: () => string = () => crypto.randomUUID(), now: () => string = () => new Date().toISOString()): MockCalendarStore {
-  return { calendars: new Map(calendars.map((c) => [c.calendarid.toLowerCase(), c])), newId, now }
+export function createStore(calendars: RawCalendar[], newId: () => string = () => crypto.randomUUID(), now: () => string = () => new Date().toISOString(), closureCalendarId: string | null = null): MockCalendarStore {
+  return { calendars: new Map(calendars.map((c) => [c.calendarid.toLowerCase(), c])), newId, now, closureCalendarId }
+}
+
+/**
+ * `ObserveClosure` (live, NAAF-Backup): a yearly root, rank 1, extentcode 2,
+ * whose inner calendar IS the organization's closure calendar — a live link,
+ * not a copy. The server adds one on every save that sends the flag.
+ */
+function addHolidayList(store: MockCalendarStore, calendar: RawCalendar, date: string, tz: number): void {
+  if (!store.closureCalendarId) return
+  const now = store.now()
+  calendar.calendar_calendar_rules.push({
+    calendarruleid: store.newId(),
+    _calendarid_value: calendar.calendarid,
+    _innercalendarid_value: store.closureCalendarId,
+    name: null,
+    description: 'Holiday Rule',
+    pattern: 'FREQ=YEARLY;INTERVAL=1',
+    starttime: `${date}T00:00:00Z`,
+    endtime: null,
+    duration: 525600,
+    effort: null,
+    timecode: 2,
+    subcode: 5,
+    rank: 1,
+    timezonecode: tz,
+    effectiveintervalstart: null,
+    effectiveintervalend: '9999-12-30T00:00:00Z',
+    extentcode: 2,
+    isselected: null,
+    issimple: null,
+    ismodified: null,
+    isvaried: null,
+    offset: null,
+    groupdesignator: null,
+    createdon: now,
+    modifiedon: now,
+  })
 }
 
 interface LeafInput {
@@ -218,7 +257,9 @@ function findExisting(store: MockCalendarStore, calendar: RawCalendar, innerCale
 
 function removeBlock(store: MockCalendarStore, calendar: RawCalendar, root: RawCalendarRule): void {
   calendar.calendar_calendar_rules = calendar.calendar_calendar_rules.filter((r) => r.calendarruleid !== root.calendarruleid)
-  if (root._innercalendarid_value) store.calendars.delete(root._innercalendarid_value.toLowerCase())
+  // A holiday list points at the organization's closure calendar — that one stays.
+  const inner = root._innercalendarid_value?.toLowerCase()
+  if (inner && inner !== store.closureCalendarId?.toLowerCase()) store.calendars.delete(inner)
 }
 
 /** `msdyn_SaveCalendar` → inner calendar ids. */
@@ -282,6 +323,10 @@ export function applySave(store: MockCalendarStore, info: CalendarEventInfo): st
     if (!recurring && leaves.some((l) => l.kind === 'break') && leaves.length === 1) throw new MockApiError("Breaks can't exist without working hours.")
     if (weekdays) trimOverlaps(store, calendar, weekdays, date)
     out.push(writeBlock(store, { ...common, date, weekdays, end: recurring ? end : null, leaves }))
+  }
+  if (info.ObserveClosure === true) {
+    const first = dateOnly(info.RulesAndRecurrences[0]?.Rules?.[0]?.StartTime)
+    if (first) addHolidayList(store, calendar, first, tz)
   }
   return out
 }

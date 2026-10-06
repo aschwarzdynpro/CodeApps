@@ -60,7 +60,8 @@ export function RuleEditorDialog({ request, targetName, target, tree, closures, 
   // "This and following" can't start before the recurrence does.
   const [splitDate, setSplitDate] = useState(() => (request.op !== 'create' && request.block.start > today ? request.block.start : today))
   const [lastDay, setLastDay] = useState(() => (request.op === 'end' ? (request.block.end ?? (request.block.start > today ? request.block.start : today)) : today))
-  const [timeZoneCode, setTimeZoneCode] = useState(target.timeZoneCode)
+  // An existing rule keeps its own zone (rules in another zone than the resource are common live) — a new one starts in the resource's.
+  const [timeZoneCode, setTimeZoneCode] = useState(request.op === 'create' ? target.timeZoneCode : request.block.timeZoneCode)
   const [tab, setTab] = useState<'form' | 'preview'>(request.op === 'delete' || request.op === 'end' ? 'preview' : 'form')
   const [showUnchanged, setShowUnchanged] = useState(false)
   const [variedDay, setVariedDay] = useState<Weekday>(1)
@@ -244,7 +245,13 @@ export function RuleEditorDialog({ request, targetName, target, tree, closures, 
                       <Field label={S.editor.effort}>
                         <EffortField value={work.effort} onChange={(effort) => setWork({ effort })} />
                       </Field>
-                      {work.recurrence ? <Switch label={S.editor.observeClosure} checked={work.observeClosure} onChange={(_, d) => setWork({ observeClosure: d.checked })} /> : null}
+                      {work.recurrence ? (
+                        target.closuresObserved ? (
+                          <Switch label={S.editor.observeClosure} checked disabled title={S.editor.closuresObserved} />
+                        ) : (
+                          <Switch label={S.editor.observeClosure} checked={work.observeClosure} onChange={(_, d) => setWork({ observeClosure: d.checked })} />
+                        )
+                      ) : null}
                     </div>
                   </>
                 ) : null}
@@ -291,6 +298,8 @@ export function RuleEditorDialog({ request, targetName, target, tree, closures, 
                 <Field label={S.editor.timeZone} hint={timeZoneCode !== target.timeZoneCode ? S.rules.zoneMismatch(timeZoneLabel(timeZoneCode), timeZoneLabel(target.timeZoneCode)) : undefined}>
                   <TimeZoneField value={timeZoneCode} onChange={setTimeZoneCode} />
                 </Field>
+
+                {work?.recurrence && target.closuresObserved ? <p className="muted small">{S.editor.closuresObserved}</p> : null}
 
                 {nightShift ? (
                   <MessageBar intent="info" layout="multiline">

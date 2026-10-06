@@ -2,7 +2,7 @@ import { Badge } from '@fluentui/react-components'
 import { ArrowDownloadRegular, ArrowUndoRegular } from '@fluentui/react-icons'
 import { S } from '../../strings'
 import type { RunRecord } from '../../types/calendar'
-import { downloadJson } from '../../utils/runHistory'
+import { downloadJson, runFileName } from '../../utils/runHistory'
 import { Btn } from '../ui'
 
 interface Props {
@@ -38,7 +38,7 @@ export function RunsView({ runs, onUndo, readOnly }: Props) {
                   <div className="run-card__actions">
                     {failed ? <Badge appearance="tint" color="danger">{S.runs.status.failed}</Badge> : null}
                     {r.undoneBy ? <Badge appearance="tint">{S.runs.undone}</Badge> : null}
-                    <Btn small icon={<ArrowDownloadRegular />} onClick={() => downloadJson(`lauf-${r.startedAt.slice(0, 10)}-${r.id.slice(0, 8)}.json`, r)}>
+                    <Btn small icon={<ArrowDownloadRegular />} onClick={() => downloadJson(runFileName(r), r)}>
                       {S.runs.download}
                     </Btn>
                     {!readOnly && !r.undoneBy && done > 0 ? (

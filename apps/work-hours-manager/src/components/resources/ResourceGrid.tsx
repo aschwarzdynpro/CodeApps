@@ -24,7 +24,7 @@ interface Props {
   rangeLabel: string
 }
 
-const SEVERITY_COLOR: Record<Finding['severity'], 'danger' | 'warning' | 'informative'> = { error: 'danger', warning: 'warning', informative: 'informative' } as never
+const SEVERITY_COLOR: Record<Finding['severity'], 'danger' | 'warning' | 'informative'> = { error: 'danger', warning: 'warning', info: 'informative' }
 
 /** Sortable, multi-selectable resource list — the entry point of the mass actions. */
 export function ResourceGrid({ rows, selected, onSelect, focusedId, onFocus, rangeLabel }: Props) {

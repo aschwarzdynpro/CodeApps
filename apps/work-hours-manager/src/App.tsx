@@ -1,5 +1,5 @@
 import { Toast, ToastTitle, Toaster, useId, useToastController, type TableRowId } from '@fluentui/react-components'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import './App.css'
 import { usePower } from './PowerProvider'
 import { DEFAULT_USE_V2 } from './config'
@@ -13,7 +13,7 @@ import { RuleEditorDialog, type EditorRequest } from './components/rules/RuleEdi
 import type { DayActions } from './components/calendar/DayPopover'
 import { getCalendarService, PrivilegeError } from './services/calendarService'
 import { toRequests, type EditIntent, type EditTarget } from './utils/intents'
-import { findBlock, isRecurrence } from './utils/rules'
+import { findBlock, isRecurrence, observesClosures } from './utils/rules'
 import { DiagnosticsView } from './components/diagnostics/DiagnosticsView'
 import { TemplatesView } from './components/views/TemplatesView'
 import { HolidaysView } from './components/views/HolidaysView'
@@ -22,7 +22,7 @@ import { RunWizardDrawer, type WizardMode } from './components/runs/RunWizardDra
 import { listRuns } from './utils/runHistory'
 import { HelpPanel } from './help/HelpPanel'
 import { HELP_FOR } from './help/helpContent'
-import type { CalendarTree, RunRecord } from './types/calendar'
+import type { CalendarTree, Closure, Resource, RunRecord, TimeOffRequest } from './types/calendar'
 import type { RunTargetInput } from './utils/plan'
 import { SetupView } from './components/views/SetupView'
 import { useLoad } from './hooks/useLoad'
@@ -34,6 +34,12 @@ import { visibleRange, type RangeState } from './utils/range'
 import { timeZoneLabel, viewerTimeZoneCode } from './utils/timezones'
 
 const SETTINGS_KEY = 'whm.settings'
+
+// Stable fallbacks: a fresh `[]` per render would defeat the memoized list and diagnostics.
+const NO_RESOURCES: Resource[] = []
+const NO_CLOSURES: Closure[] = []
+const NO_TIME_OFF: TimeOffRequest[] = []
+const NO_COUNTS: Record<string, number> = {}
 
 function readSettings(): { useV2: boolean; viewerTz: string } {
   try {
@@ -94,7 +100,9 @@ export default function App() {
   const yearEnd = zonedToUtc(`${holidayYear + 1}-01-01`, '00:00', settings.viewerTz)
   const yearClosures = useLoad(ready && view === 'holidays' ? `closures-year:${yearStart}|${yearEnd}|${treeVersion}` : null, (svc) => svc.loadClosures(yearStart, yearEnd))
 
-  const resources = data.resources.data ?? []
+  const resources = data.resources.data ?? NO_RESOURCES
+  const closures = data.closures.data ?? NO_CLOSURES
+  const timeOff = data.timeOff.data ?? NO_TIME_OFF
   const slotsData = data.slots.error ? null : (data.slots.data ?? null)
 
   const focusedResource = focus?.kind === 'resource' ? (resources.find((r) => r.id === focus.id) ?? null) : null
@@ -108,13 +116,17 @@ export default function App() {
   const templateCalendars = (data.templates.data ?? []).map((t) => t.calendarId)
   const fullIds = [focusCalendarId, calendarOfEditor, ...wizardCalendars, ...templateCalendars, ...touched].filter((c): c is string => !!c)
   const full = useFullTrees(fullIds, treeVersion)
-  const trees: Record<string, CalendarTree> = { ...(data.trees.data ?? {}), ...full.trees }
+  const rootTrees = data.trees.data?.trees
+  const trees = useMemo<Record<string, CalendarTree>>(() => ({ ...rootTrees, ...full.trees }), [rootTrees, full.trees])
+  const unreadable = Object.values(data.trees.data?.errors ?? {})
   const fullTreeOf = (calendarId: string | null | undefined): CalendarTree | null => (calendarId ? (full.trees[calendarId.toLowerCase()] ?? null) : null)
 
   // 5.1 looks from today over the diagnostics window — never at the slots of the week on screen (browsing back flagged everyone).
   const diagSlots = data.diagSlots.error ? null : (data.diagSlots.data ?? null)
-  const findings = data.ready && data.trees.data ? diagnose({ resources, trees, today, slots: diagSlots, bookingsAfterToday: data.bookings.data ?? {} }) : null
-  const findingsMap = findingsByResource(findings ?? [])
+  const bookings = data.bookings.data ?? NO_COUNTS
+  // Memoized: every toast, focus change or dialog keystroke re-renders App — the diagnostics over all resources must not run each time.
+  const findings = useMemo(() => (data.ready && rootTrees ? diagnose({ resources, trees, today, slots: diagSlots, bookingsAfterToday: bookings }) : null), [data.ready, rootTrees, resources, trees, today, diagSlots, bookings])
+  const findingsMap = useMemo(() => findingsByResource(findings ?? []), [findings])
   const inspectorTree = fullTreeOf(focusCalendarId)
   const inspectorError = focusCalendarId ? (full.errors[focusCalendarId.toLowerCase()] ?? null) : null
 
@@ -128,11 +140,13 @@ export default function App() {
     if (kind === 'resource') {
       const r = resources.find((x) => x.id === id)
       if (!r?.calendarId) return null
-      return { name: r.name, target: { entity: 'bookableresource', calendarId: r.calendarId, resourceId: r.type === 'user' ? r.userId : null, timeZoneCode: r.timeZoneCode, useV2: settings.useV2 }, tree: fullTreeOf(r.calendarId) }
+      const tree = fullTreeOf(r.calendarId)
+      return { name: r.name, target: { entity: 'bookableresource', calendarId: r.calendarId, resourceId: r.type === 'user' ? r.userId : null, timeZoneCode: r.timeZoneCode, useV2: settings.useV2, closuresObserved: observesClosures(tree, today) }, tree }
     }
     const t = data.templates.data?.find((x) => x.id === id)
     if (!t?.calendarId) return null
-    return { name: t.name, target: { entity: 'msdyn_workhourtemplate', calendarId: t.calendarId, resourceId: null, timeZoneCode: viewerTimeZoneCode(settings.viewerTz), useV2: settings.useV2 }, tree: fullTreeOf(t.calendarId) }
+    const tree = fullTreeOf(t.calendarId)
+    return { name: t.name, target: { entity: 'msdyn_workhourtemplate', calendarId: t.calendarId, resourceId: null, timeZoneCode: viewerTimeZoneCode(settings.viewerTz), useV2: settings.useV2, closuresObserved: observesClosures(tree, today) }, tree }
   }
   const openEditor = (kind: 'resource' | 'template', id: string, request: EditorRequest) => setEditor({ kind, id, request, epoch: Date.now() })
   const editorContext = editor ? targetFor(editor.kind, editor.id) : null
@@ -221,6 +235,7 @@ export default function App() {
           </div>
         ))}
         {data.slots.error ? <div className="notice notice--warn">{S.app.slotsUnavailable(data.slots.error)}</div> : null}
+        {unreadable.length ? <div className="notice notice--warn">{S.app.treesPartial(unreadable.length, unreadable[0])}</div> : null}
         {data.ready && data.trees.loading && !data.trees.data ? <div className="notice">{S.app.treesLoading(resources.filter((r) => r.calendarId).length)}</div> : null}
         <div className="app__content">
           <main className="app__view">
@@ -231,8 +246,8 @@ export default function App() {
                 resources={resources}
                 trees={trees}
                 slots={slotsData}
-                closures={data.closures.data ?? []}
-                timeOff={data.timeOff.data ?? []}
+                closures={closures}
+                timeOff={timeOff}
                 findings={findingsMap}
                 range={visible}
                 mode={range.mode}
@@ -308,7 +323,7 @@ export default function App() {
               targetName={editorContext.name}
               target={editorContext.target}
               tree={editorContext.tree}
-              closures={data.closures.data ?? []}
+              closures={closures}
               viewerTz={settings.viewerTz}
               today={today}
               onSave={saveIntent}

@@ -1,5 +1,5 @@
 import type { RawCalendar, Resource, TimeOffRequest, WorkHourTemplate, Weekday } from '../types/calendar'
-import { fixtureId, makeBlock, makeCalendar, type LeafSpec } from '../fixtures/calendars'
+import { fixtureId, makeBlock, makeCalendar, rawRule, type LeafSpec } from '../fixtures/calendars'
 import { addDays, startOfIsoWeek, todayIn, zonedToUtc } from '../utils/dates'
 import { closureSpan, generateHolidays } from '../utils/holidays'
 import { applyClosureSave, createStore, type MockCalendarStore } from '../utils/engine'
@@ -41,7 +41,7 @@ const SPAET: LeafSpec[] = [
 const MO_FR: Weekday[] = [1, 2, 3, 4, 5]
 
 export interface MockResourceExtras {
-  /** Whether the resource's rules observe business closures (mirrors `ObserveClosure`). */
+  /** Whether the resource observes business closures — it then has a holiday list on the closure calendar, as `ObserveClosure` creates it. */
   observesClosures: boolean
   bookingsAfterToday: number
 }
@@ -87,7 +87,17 @@ export function createMockState(now: number = Date.now()): MockState {
     }
     resources.push(r)
     extras[resourceId] = { observesClosures: opts.observesClosures ?? true, bookingsAfterToday: opts.bookings ?? 0 }
-    if (calendarId) addCalendar(calendarId, `Kalender ${name}`, blocks(calendarId))
+    if (!calendarId) return
+    const own = blocks(calendarId)
+    addCalendar(calendarId, `Kalender ${name}`, own)
+    if (extras[resourceId].observesClosures && own.length) {
+      // Live shape: yearly root, rank 1, extentcode 2, inner calendar = the organization's closure calendar.
+      calendars
+        .find((c) => c.calendarid === calendarId)!
+        .calendar_calendar_rules.push(
+          rawRule({ calendarruleid: id(96, n), _calendarid_value: calendarId, _innercalendarid_value: CLOSURE_CALENDAR_ID, description: 'Holiday Rule', pattern: 'FREQ=YEARLY;INTERVAL=1', starttime: `${longAgo}T00:00:00Z`, duration: 525600, timecode: 2, subcode: 5, rank: 1, timezonecode: opts.timeZoneCode ?? 110, effectiveintervalend: '9999-12-30T00:00:00Z', extentcode: 2, createdon: `${longAgo}T08:00:00Z`, modifiedon: `${longAgo}T08:00:00Z` }),
+        )
+    }
   }
 
   const weekly = (calendarId: string, leaves: LeafSpec[], extra: Partial<Parameters<typeof makeBlock>[0]> = {}) => makeBlock({ seq: seq++, calendarId, start: longAgo, weekdays: MO_FR, leaves, ...extra })
@@ -156,7 +166,7 @@ export function createMockState(now: number = Date.now()): MockState {
 
   // Organization closure calendar: this year's nationwide holidays plus company holidays; next year is missing on purpose.
   calendars.push({ calendarid: CLOSURE_CALENDAR_ID, name: 'Business Closure Calendar', description: null, type: 2, calendar_calendar_rules: [] })
-  const store = createStore(calendars)
+  const store = createStore(calendars, undefined, undefined, CLOSURE_CALENDAR_ID)
   const year = Number(today.slice(0, 4))
   for (const h of generateHolidays('DE', year)) {
     const span = closureSpan(h.date, TZ)

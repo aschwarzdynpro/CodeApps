@@ -9,13 +9,11 @@ import { ianaOf, timeZoneLabel } from './timezones'
  * rank, effective interval, time zone, pointer to the inner calendar) →
  * inner `calendar` → leaf rules (offset, duration, type codes, effort).
  *
- * Conventions we rely on (see README "Offen" — to be confirmed against the
- * Phase-0 export of real trees):
- * - date/time fields of calendar rules are "UTC-naive": the ISO time portion
- *   is the local time of `timezonecode`, exactly like the Work Hours API's
- *   StartTime/EndTime;
- * - the type of a leaf is `timecode`/`subcode` (SDK enums TimeCode/SubCode);
- * - the parts of a varied recurrence share one `groupdesignator`.
+ * Verified live (README "Verifiziert (live)"): root dates are `T00:00:00Z`
+ * day values, `effectiveintervalend` is the exclusive next midnight, leaves
+ * carry `offset` + `duration` and their type in `timecode`/`subcode` (SDK
+ * enums TimeCode/SubCode), weekly rules share a fixed `groupdesignator`
+ * (not a group), holiday lists are yearly roots with dated leaves.
  */
 
 export const OPEN_END_YEAR = 9999
@@ -323,6 +321,25 @@ export function blockAppliesOn(block: RuleBlock, date: string): boolean {
 export const isRecurrence = (block: RuleBlock): boolean => block.weekdays !== null
 
 export const isHolidayList = (block: RuleBlock): boolean => block.holidays !== undefined
+
+/**
+ * The calendar already observes business closures from `date` on: it has a
+ * holiday list that is open or ends later (live: `ObserveClosure` creates one
+ * whose inner calendar is the organization's closure calendar — and one more
+ * on every save that sends it, so the app only sends it when this is false).
+ */
+export const observesClosures = (tree: CalendarTree | null | undefined, date: string): boolean => !!tree?.blocks.some((b) => isHolidayList(b) && (b.end === null || b.end >= date))
+
+/** Open holiday lists per inner calendar — more than one on the same calendar is a duplicate (finding). */
+export function openHolidayLists(tree: CalendarTree): Map<string, RuleBlock[]> {
+  const out = new Map<string, RuleBlock[]>()
+  for (const b of tree.blocks) {
+    if (!isHolidayList(b) || b.end !== null || !b.innerCalendarId) continue
+    const key = b.innerCalendarId.toLowerCase()
+    out.set(key, [...(out.get(key) ?? []), b])
+  }
+  return out
+}
 
 /** Blocks of a varied recurrence, keyed by group id; blocks without a group stand alone. */
 export function groupBlocks(blocks: RuleBlock[]): RuleBlock[][] {

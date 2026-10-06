@@ -164,7 +164,9 @@ describe('round trip through the server emulation', () => {
     const tree = treeOf('weekly')
     const spec = { ...emptyWorkSpec('2026-11-02'), recurrence: { weekdays: [6, 7] as [6, 7], endDate: '2027-03-31' }, segments: [{ kind: 'work' as const, start: '09:00', end: '13:00' }], effort: 2 }
     const after = applyRequests(tree, toRequests({ op: 'create', target: { ...target, calendarId: tree.calendarId }, spec }))
-    const created = after.blocks.find((b) => b.start === '2026-11-02')!
+    const created = after.blocks.find((b) => b.start === '2026-11-02' && !b.holidays)!
+    // ObserveClosure: the server adds a holiday list on the closure calendar (live).
+    expect(after.blocks.filter((b) => b.holidays)).toHaveLength(1)
     expect(describeBlock(created)).toBe('Wöchentlich Sa–So · 09:00–13:00 · Kapazität 2 · ab 02.11.2026 · bis 31.03.2027')
     expect(specFromBlock(created)).toMatchObject({ kind: 'work', date: '2026-11-02', recurrence: { weekdays: [6, 7], endDate: '2027-03-31' }, effort: 2 })
     expect(blockSegments(created)).toEqual(spec.segments)
@@ -198,5 +200,34 @@ describe('round trip through the server emulation', () => {
       ['2026-11-02', null, 420],
     ])
     expect(FIXTURE_CALENDARS.weekly.calendar.calendar_calendar_rules).toHaveLength(1) // fixture untouched (deep copy)
+  })
+})
+
+describe('closure observation and time zones of existing rules', () => {
+  const weekly = treeOf('weekly')
+  const t = { ...target, calendarId: weekly.calendarId }
+
+  it('sends ObserveClosure only while the calendar has no open holiday list', () => {
+    expect(info(toRequests({ op: 'create', target: t, spec: emptyWorkSpec('2026-10-05') })[0]).ObserveClosure).toBe(true)
+    expect(info(toRequests({ op: 'create', target: { ...t, closuresObserved: true }, spec: emptyWorkSpec('2026-10-05') })[0]).ObserveClosure).toBeUndefined()
+    expect(info(toRequests({ op: 'create', target: t, spec: { ...emptyWorkSpec('2026-10-05'), observeClosure: false } })[0]).ObserveClosure).toBeUndefined()
+  })
+
+  it('never sends it with the night-shift spill-over (one more holiday list per save)', () => {
+    const reqs = toRequests({ op: 'create', target: t, spec: { ...emptyWorkSpec('2026-10-05'), segments: [{ kind: 'work', start: '22:00', end: '06:00' }] } })
+    expect(reqs).toHaveLength(2)
+    expect(reqs.map((r) => info(r).ObserveClosure)).toEqual([true, undefined])
+  })
+
+  it('edits leave closure observation untouched', () => {
+    const block = weekly.blocks[0]
+    expect(specFromBlock(block, weekly.blocks)).toMatchObject({ observeClosure: false })
+    expect(info(toRequests({ op: 'edit', target: t, block, spec: specFromBlock(block, weekly.blocks), split: false })[0]).ObserveClosure).toBeUndefined()
+  })
+
+  it('ends a recurrence in the time zone of the rule, not of the resource', () => {
+    const block = { ...weekly.blocks[0], timeZoneCode: 105 }
+    const i = info(toRequests({ op: 'end', target: { ...t, timeZoneCode: 92 }, block, lastDay: '2026-12-31' })[0])
+    expect(i.TimeZoneCode).toBe(105)
   })
 })

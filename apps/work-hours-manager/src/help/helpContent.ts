@@ -123,9 +123,9 @@ export const HELP_SECTIONS: HelpSection[] = [
         table: {
           head: ['Aktion', 'Was passiert'],
           rows: [
-            ['**Arbeitszeit anlegen**', 'Einmal, wöchentlich (Wochentage, optional Ende) oder je Wochentag verschieden; Zeiten als Arbeit/Pause, Kapazität, Zeitzone der Regel, Geschäftsschließungen beachten.'],
+            ['**Arbeitszeit anlegen**', 'Einmal, wöchentlich (Wochentage, optional Ende) oder je Wochentag verschieden; Zeiten als Arbeit/Pause, Kapazität, Zeitzone der Regel (vorbelegt: die der Ressource), Geschäftsschließungen beachten.'],
             ['**Abwesenheit / Nicht-Arbeit anlegen**', 'Ganztägig über n Tage oder mit Uhrzeit; Abwesenheit mit Grund. Keine Wiederholung (API-Grenze).'],
-            ['**Bearbeiten**', 'Die ganze Wiederholung oder „dieser und folgende ab Datum“ — dann endet die alte am Vortag und eine neue beginnt.'],
+            ['**Bearbeiten**', 'Die ganze Wiederholung oder „dieser und folgende ab Datum“ — dann endet die alte am Vortag und eine neue beginnt. Die Zeitzone bleibt die der Regel, auch wenn die Ressource in einer anderen steht.'],
             ['**Einzeltag …**', 'Ein Tag einer Wiederholung bekommt eigene Zeiten (Einzeltag, schlägt die Wiederholung), die Wiederholung bleibt.'],
             ['**Beenden**', 'Setzt das Enddatum der Wiederholung.'],
             ['**Löschen**', 'Entfernt die ganze Wiederholung mit allen Blattregeln; „je Wochentag verschieden“ komplett.'],
@@ -140,6 +140,7 @@ export const HELP_SECTIONS: HelpSection[] = [
           '**Abwesenheit und Nicht-Arbeit wiederholen sich nicht** — mehrere Tage als Ganztag oder je Tag anlegen; für Betriebsferien die Massenaktion.',
           'Ein **einzelner Tag lässt sich nicht aus einer Wiederholung löschen** — stattdessen einen Nicht-Arbeit-Tag anlegen.',
           'Das Enddatum wird so gesendet, dass der gewählte Tag der letzte ist (die API nimmt Zeiten bis 08:00 als Vortag).',
+          '**Geschäftsschließungen beachten** legt beim Server eine Feiertagsliste an — bei jedem Speichern eine weitere. Hat die Ressource schon eine, ist der Schalter gesperrt und wird nicht gesendet; beim Bearbeiten bleibt er aus.',
         ],
       },
       { warn: 'Fehlt das Recht zum Ändern, meldet die Action einen Rechtefehler; die App schaltet dann auf „Nur lesen“ (Abzeichen oben rechts) bis zum Neuladen.' },
@@ -173,14 +174,14 @@ export const HELP_SECTIONS: HelpSection[] = [
     summary: 'Schließungen des Jahres, Regelwerk, fehlende anlegen.',
     blocks: [
       {
-        p: 'Geschäftsschließungen gelten für die **ganze Organisation** (Kalender hinter `organization.businessclosurecalendarid`). Ressourcen, deren Regeln Schließungen beachten, haben an diesen Tagen keine Arbeitszeit — so sieht es auch die Serienplanung.',
+        p: 'Geschäftsschließungen gelten für die **ganze Organisation** (Kalender hinter `organization.businessclosurecalendarid`). Eine Ressource beachtet sie, wenn sie eine **Feiertagsliste** hat, die auf diesen Kalender zeigt (so speichert der Server „Geschäftsschließungen beachten“) — dann hat sie an diesen Tagen keine Arbeitszeit, und neue Schließungen wirken sofort. Ressourcen ohne Liste arbeiten an Schließungstagen; der Kalender zeigt die Schließung bei ihnen nicht.',
       },
       {
         list: [
           '**Neue Schließung**: Name, erster Tag, Anzahl Tage — ganztägig in der Anzeige-Zeitzone, geschrieben über `msdyn_BusinessClosureSave`.',
           '**Abgleich**: das gewählte Regelwerk (Deutschland bundesweit oder ein Bundesland, Österreich, Schweiz) gegen die Schließungen des Jahres — vorhanden, fehlt, anderer Name, nur teilweise. Fehlende markieren und in einem Schritt anlegen.',
           'Schließungen außerhalb des Regelwerks (Betriebsferien, Brückentage) und doppelt belegte Tage sind markiert.',
-          '**Löschen** ist in der API nicht dokumentiert; die App versucht es über `msdyn_DeleteCalendar`. Lehnt der Server ab, bleibt das Admin-Center.',
+          '**Löschen** über `msdyn_BusinessClosureDelete` (in der API-Doku nicht beschrieben, live geprüft).',
         ],
       },
       { tip: 'Den Jahreswechsel nicht vergessen: das nächste Jahr wählen, Regelwerk prüfen, fehlende anlegen — sonst plant die Serienplanung auf den 3. Oktober.' },
@@ -196,11 +197,12 @@ export const HELP_SECTIONS: HelpSection[] = [
         table: {
           head: ['Befund', 'Bedeutung', 'Was tun'],
           rows: [
-            ['**Ohne Arbeitszeit im Zeitraum**', 'Keine Arbeitszeit in den nächsten 60 Tagen — die häufigste Ursache für „Ressource fehlt auf dem Board“.', 'Arbeitszeit anlegen oder Vorlage anwenden.'],
+            ['**Ohne Arbeitszeit im Zeitraum**', 'Keine Arbeitszeit in den nächsten 28 Tagen ab heute — die häufigste Ursache für „Ressource fehlt auf dem Board“.', 'Arbeitszeit anlegen oder Vorlage anwenden.'],
             ['**Regel endet bald / ist ausgelaufen**', 'Eine Wiederholung endet in 90 Tagen (Warnung; Hinweis, wenn eine Nachfolgerin anschließt) oder endete ohne Nachfolgerin (Fehler).', 'Enddatum ändern („Bearbeiten“) oder neue Regel.'],
             ['**Zeitzone Regel ≠ Ressource**', 'Regeln stehen in einer anderen Zeitzone als die Ressource. Das Board zeigt die Zeiten der Regel (geprüft) — aber neue Regeln aus Editor oder Vorlage entstehen in der Zeitzone der Ressource und liegen dann um die Differenz verschoben.', 'Zeitzone der Ressource korrigieren oder Regel mit der richtigen Zeitzone neu anlegen.'],
             ['**Inaktiv, aber mit Buchungen**', 'Deaktivierte Ressource hat Buchungen nach heute.', 'Buchungen umplanen oder Ressource reaktivieren.'],
             ['**Ohne Kalender / ohne Regeln**', 'Kein Kalender (Fehler) oder Kalender ohne Regel (Warnung); verwaiste innere Kalender als Hinweis.', 'Arbeitszeit anlegen.'],
+            ['**Feiertagsliste mehrfach**', 'Mehrere offene Feiertagslisten zeigen auf den Schließungskalender der Organisation (Hinweis). Der Server legt bei jedem Speichern mit „Geschäftsschließungen beachten“ eine weitere an; die App schickt den Schalter deshalb nur, wenn noch keine Liste da ist.', 'Für die Arbeitszeit unschädlich; nur aufräumen, wenn der Baum unübersichtlich wird.'],
           ],
         },
       },

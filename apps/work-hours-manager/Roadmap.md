@@ -1,6 +1,6 @@
 # Roadmap — Arbeitszeiten & Kalender
 
-Vorschläge für den Ausbau nach v1 (Stand 2026-10-05). Nichts davon ist
+Vorschläge für den Ausbau nach v1 (Stand 2026-10-06). Nichts davon ist
 beauftragt — die Liste ist ein Katalog. Erledigtes wandert nach unten in
 „Umgesetzt“, Verworfenes wird gestrichen (Historie im Git-Log). Die
 Feature-Nummern folgen der Feature Map im Konzept
@@ -12,30 +12,33 @@ Befund aus der Zielumgebung.
 
 ## Empfohlene Reihenfolge
 
-1. **Phase 0 nachholen und Annahmen schließen** — die Exporte aus der README
-   („Phase 0 — Discovery“) gegen `rules.ts` prüfen; erst dann hat die
-   Herkunft im Kalender Beweiskraft.
-2. **Live-Verifikation in Schulz UAT** nach der Akzeptanzliste des Konzepts
-   (Einzel-Edit alle Fälle, Vorlage auf drei Testressourcen, Rückgängig,
-   Feiertage 2027 Bayern) — Tabelle „Verifiziert (live)“ in der README füllen.
-3. **Deployment** nach Rücksprache (`pac code push`, Benutzer-Connection).
-4. Danach die v2-Punkte unten, beginnend mit dem Zeitzonenwechsel (2.5) und
+1. **Restliche Live-Tests** in NAAF-Backup: Nachtschicht, Rechtefehler,
+   `IsEdit` mit fremder Zeitzone, `UseV2` aus (README „Offen“).
+2. **Ladezeit der Liste** messen und ggf. Wurzelregeln cachen (unten).
+3. Danach die v2-Punkte unten, beginnend mit dem Zeitzonenwechsel (2.5) und
    dem Vergleich zweier Ressourcen (1.4).
 
 ---
 
 ## Absicherung & Betrieb
 
-- [ ] ⭐ ⚠ **Annahmen aus „Offen“ schließen** (S) — Lesen ist live belegt
-      (2026-10-06: Ränge, exklusive Enden, feste Wochen-ID, Feiertagslisten,
-      WCF-Datumswerte, Einzelabruf je Kalender; Fixture `live`). Offen:
-      Speicherort eines bearbeiteten Einzeltags, Pausen/Abwesenheit/
-      Nicht-Arbeit im Baum, `UseV2`/`IsEdit`-Serialisierung,
-      Delete-Parameterform, Schließungen löschen.
-- [ ] **Ladezeit der Liste** (S) — 850 Kalender × 1 Abruf über den Konnektor;
-      messen, ggf. nur sichtbare Zeilen laden oder Wurzelregeln cachen.
-- [ ] ⭐ **Live-Verifikation** (M) — Akzeptanzliste des Konzepts in UAT
-      durchspielen; Formular der Ressource und Board müssen dasselbe zeigen.
+- [ ] ⭐ ⚠ **Restliche Live-Tests** (S) — Nachtschicht, Rechtefehler (Konto
+      ohne Kalenderrecht), `IsEdit` mit anderer `TimeZoneCode`, `UseV2` aus.
+- [ ] ⭐ ⚠ **Ladezeit der Liste** (M) — 850 Kalender × 1 Abruf; Cache der
+      Wurzelregeln im Browser, Änderungsprobe per
+      `calendars?$select=calendarid,modifiedon` (prüfen, ob `modifiedon` des
+      Kalenders bei Regeländerungen steigt).
+- [ ] **Virtualisierung der Wochenansicht und der Liste** (M) — ab
+      `LIMITS.virtualizeFrom` nur sichtbare Zeilen, Popover erst beim Klick.
+- [ ] **Paging** (S) — `odata()` folgt `@odata.nextLink` nicht (> 5.000
+      Zeilen werden abgeschnitten); `$skiptoken` gibt der Konnektor her.
+- [ ] **Rückgängig robuster** (M) — nach jedem Schritt Baum lesen und den
+      Unterschied zum Snapshot speichern; heute fehlt die Fortsetzungsregel,
+      die der Server ohne „bestehende beenden“ anlegt.
+- [ ] **Teilweise geschriebene Speicherungen** (S) — scheitert der zweite
+      Aufruf (Nachtschicht), sagen, was schon geschrieben ist.
+- [ ] **Kapazitätsfilter-Blätter** (S) — TimeCode-3-Blätter beim Bearbeiten
+      erhalten oder warnen.
 - [ ] **Rechte-Check auf der Einrichtungsseite** (S) — Lesen/Schreiben auf
       `calendar`, `bookableresource`, `msdyn_workhourtemplate`, Eigenkalender-
       Recht, Erreichbarkeit aller vier Actions je Konto.
@@ -57,8 +60,6 @@ Befund aus der Zielumgebung.
 - [ ] **5.7 Abwesenheitsanträge genehmigt, aber ohne Regel** (S) —
       `msdyn_timeoffrequest` mit `msdyn_approvedby` gegen Rang-1-Blöcke
       abgleichen.
-- [ ] **Virtualisierung der Wochenansicht** (S) — ab ~100 Ressourcen nur die
-      sichtbaren Zeilen rendern (Fensterung wie Translation Studio).
 - [ ] **Kapazitäts-Heatmap** (M) — Effort je Tag/Team als Farbskala; Übergang
       zu Idee 6 (Capacity & Skills Planner).
 
@@ -81,8 +82,6 @@ Befund aus der Zielumgebung.
       Ressourcen des Gebiets schreiben (Massenlauf).
 - [ ] **Kantonale Regelwerke Schweiz, Augsburger Friedensfest** (S) — in
       `holidays.ts` ergänzen.
-- [ ] ⚠ **Schließungen löschen** (S) — je nach Befund aus Phase 0: Custom API,
-      `msdyn_DeleteCalendar` auf dem Org-Kalender oder nur Hinweis.
 
 ## Transport & Verlauf
 
@@ -96,6 +95,18 @@ Befund aus der Zielumgebung.
 ---
 
 ## Umgesetzt
+
+- 2026-10-06 — Review-Runde: beim Bearbeiten/Beenden bleibt die Zeitzone der
+  Regel; `ObserveClosure` nur, solange keine Feiertagsliste da ist (Befund
+  „Feiertagsliste mehrfach“); Schließungen nur bei Ressourcen mit
+  Feiertagsliste; Wiederholung gedrosselter Lesezugriffe, nicht lesbare
+  Kalender einzeln gemeldet; Slots/Abwesenheiten/Kategorien parallel, Woche
+  aus der Diagnose-Abfrage; Liste und Diagnose memoisiert; Lauf-Plan beim
+  Ausführen eingefroren; Warnung, wenn der Verlauf nicht gespeichert wird.
+- 2026-10-06 — Live-Verifikation: Lesen in Schulz UAT, Schreiben in
+  NAAF-Backup (alle Editor-Fälle, Vorlage auf 3 Ressourcen + Rückgängig,
+  Schließungen anlegen/löschen über `msdyn_BusinessClosureDelete`),
+  Abgleich der Diagnose mit dem Schedule Board; Deployment UAT + NAAF.
 
 - 2026-10-05 — v1 nach Konzept: Lesen (Liste, Woche/Monat mit Herkunft,
   Inspektor, Diagnose 5.1–5.5), Einzel-Edit mit Vorschau, Massenlauf mit

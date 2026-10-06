@@ -5,6 +5,13 @@ import { mockCalendarService } from './mockCalendarService'
 
 export type TreeDepth = 'roots' | 'full'
 
+export interface TreesResult {
+  /** Trees keyed by lower-cased calendar id; calendars that don't exist are left out. */
+  trees: Record<string, CalendarTree>
+  /** Lower-cased calendar id → error text for calendars that couldn't be read (after retries) — the others still arrive. */
+  errors: Record<string, string>
+}
+
 export interface SetupCheck {
   label: string
   ok: boolean
@@ -30,9 +37,11 @@ export interface CalendarService {
    * Rule trees of several calendars (resource calendars, template calendars),
    * keyed by lower-cased calendar id. `roots` reads only the root rules (one
    * request per calendar, for the list); `full` adds the inner calendars
-   * (inspector, editor, runs). Calendars that don't exist are left out.
+   * (inspector, editor, runs). Calendars that don't exist are left out;
+   * one that fails to load lands in `errors` instead of failing the rest.
+   * Throws only when nothing could be read.
    */
-  getTrees(calendarIds: string[], depth?: TreeDepth): Promise<Record<string, CalendarTree>>
+  getTrees(calendarIds: string[], depth?: TreeDepth): Promise<TreesResult>
   /**
    * Effective working time per calendar (`msdyn_LoadCalendars`), keyed by
    * lower-cased calendar id. Throws when the action isn't reachable — the UI
@@ -51,7 +60,7 @@ export interface CalendarService {
   deleteCalendar(info: DeleteCalendarInfo): Promise<string[]>
   /** `msdyn_BusinessClosureSave`. */
   saveClosure(name: string, start: string, end: string): Promise<void>
-  /** Deleting a closure — unverified live (README "Offen"); the mock supports it. */
+  /** `msdyn_BusinessClosureDelete` with the closure's `calendarruleid` (verified live, NAAF-Backup). */
   deleteClosure(closure: Closure): Promise<void>
 
   checkSetup(): Promise<SetupCheck[]>

@@ -5,7 +5,7 @@ import { addDays, formatDate, startOfIsoWeek } from './dates'
 import { blockSegments, toRequests, type AbsenceSpec, type ApiRequest, type EditTarget, type WorkHoursSpec } from './intents'
 import { applyRequests } from './preview'
 import { expandTree } from './resolve'
-import { activeWorkRecurrences, groupBlocks, isRecurrence } from './rules'
+import { activeWorkRecurrences, groupBlocks, isRecurrence, observesClosures } from './rules'
 
 /**
  * Mass actions as plans: one step per resource with its requests, a
@@ -65,7 +65,8 @@ export interface RunTargetInput {
   tree: CalendarTree | null
 }
 
-export const targetOf = (r: Resource, useV2: boolean): EditTarget => ({ entity: 'bookableresource', calendarId: r.calendarId ?? '', resourceId: r.type === 'user' ? r.userId : null, timeZoneCode: r.timeZoneCode, useV2 })
+/** Write target of a resource; `tree` tells whether its rules already observe closures (no further holiday list). */
+export const targetOf = (r: Resource, useV2: boolean, tree?: CalendarTree | null, today?: string): EditTarget => ({ entity: 'bookableresource', calendarId: r.calendarId ?? '', resourceId: r.type === 'user' ? r.userId : null, timeZoneCode: r.timeZoneCode, useV2, closuresObserved: !!tree && observesClosures(tree, today ?? '0000-01-01') })
 
 export const snapshotOf = (tree: CalendarTree): TreeSnapshot => ({
   outer: { calendarid: tree.calendarId, name: tree.name, description: null, type: 0, calendar_calendar_rules: [...tree.blocks.map((b) => b.raw.root), ...tree.unparsed] },
@@ -80,7 +81,10 @@ export function weekHours(tree: CalendarTree | null, date: string): number {
   return Math.round((minutes / 60) * 100) / 100
 }
 
-/** The template's work recurrences as specs starting at the cutoff; occurrences and absences in a template are ignored. */
+/**
+ * The template's work recurrences as specs starting at the cutoff; occurrences and absences in a template are ignored.
+ * Only the first spec asks to observe closures — every save with `ObserveClosure` adds a holiday list (live).
+ */
 export function templateSpecs(templateTree: CalendarTree, cutoff: string): { specs: WorkHoursSpec[]; ignored: RuleBlock[] } {
   const specs: WorkHoursSpec[] = []
   const ignored: RuleBlock[] = []
@@ -92,10 +96,10 @@ export function templateSpecs(templateTree: CalendarTree, cutoff: string): { spe
     if (group.length > 1 || work[0].groupId) {
       const varied: NonNullable<WorkHoursSpec['varied']> = {}
       for (const b of work) for (const d of b.weekdays ?? []) varied[d] = blockSegments(b)
-      specs.push({ kind: 'work', date: cutoff, recurrence: { weekdays: Object.keys(varied).map(Number) as Weekday[], endDate: work[0].end }, segments: [], varied, allDay: false, days: 1, effort, observeClosure: true })
+      specs.push({ kind: 'work', date: cutoff, recurrence: { weekdays: Object.keys(varied).map(Number) as Weekday[], endDate: work[0].end }, segments: [], varied, allDay: false, days: 1, effort, observeClosure: specs.length === 0 })
     } else {
       const b = work[0]
-      specs.push({ kind: 'work', date: cutoff, recurrence: { weekdays: b.weekdays!, endDate: b.end }, segments: blockSegments(b), varied: null, allDay: false, days: 1, effort, observeClosure: true })
+      specs.push({ kind: 'work', date: cutoff, recurrence: { weekdays: b.weekdays!, endDate: b.end }, segments: blockSegments(b), varied: null, allDay: false, days: 1, effort, observeClosure: specs.length === 0 })
     }
   }
   return { specs, ignored }
@@ -132,7 +136,7 @@ export function buildPlan(params: RunParams, targets: RunTargetInput[]): RunPlan
   const steps = limited.map((t) => {
     if (!t.tree || !t.resource.calendarId) return stepFor(t, [], '', params.cutoff, [], [])
     if (specs.length === 0) return stepFor(t, [], S.runs.skipTemplateEmpty, params.cutoff, [], [])
-    const target = targetOf(t.resource, params.useV2)
+    const target = targetOf(t.resource, params.useV2, t.tree, params.cutoff)
     const requests: ApiRequest[] = []
     const ended: string[] = []
     const deleted: string[] = []

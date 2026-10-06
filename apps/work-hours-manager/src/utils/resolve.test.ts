@@ -1,12 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import { FIXTURE_CALENDARS, makeBlock, makeCalendar, treeOf } from '../fixtures/calendars'
+import { FIXTURE_CALENDARS, OPEN_END, makeBlock, makeCalendar, rawRule, treeOf } from '../fixtures/calendars'
+import type { Closure } from '../types/calendar'
 import { buildTree } from './rules'
 import { expandTree, resolveDay, resolveRange, sumRange, toSlots } from './resolve'
 
 const BERLIN = 'Europe/Berlin'
 
-const closures2026 = buildTree(FIXTURE_CALENDARS.closures.calendar, []).blocks.map((b) => ({
+/** The weekly fixture plus the holiday list `ObserveClosure` stores: a yearly root whose inner calendar is the organization's closure calendar. */
+function observing(depth: 'full' | 'roots' = 'full') {
+  const { calendar, inner } = FIXTURE_CALENDARS.weekly
+  const list = rawRule({ calendarruleid: 'holiday-list', _calendarid_value: calendar.calendarid, _innercalendarid_value: ORG_CLOSURES.calendarid, pattern: 'FREQ=YEARLY;INTERVAL=1', starttime: '2025-01-01T00:00:00Z', duration: 525600, rank: 1, timezonecode: 110, effectiveintervalend: OPEN_END, extentcode: 2 })
+  const cal = { ...calendar, calendar_calendar_rules: [...calendar.calendar_calendar_rules, list] }
+  return depth === 'full' ? buildTree(cal, [...inner, ORG_CLOSURES]) : buildTree(cal, [], false)
+}
+
+const ORG_CLOSURES = FIXTURE_CALENDARS.closures.calendar
+const closures2026: Closure[] = buildTree(ORG_CLOSURES, []).blocks.map((b) => ({
   id: b.rootRuleId,
+  calendarId: ORG_CLOSURES.calendarid,
   name: b.description ?? '',
   start: new Date(Date.parse(`${b.start}T00:00:00+02:00`)).toISOString(),
   end: new Date(Date.parse(`${b.end ?? b.start}T00:00:00+02:00`) + 86_400_000).toISOString(),
@@ -47,10 +58,10 @@ describe('expandTree', () => {
     expect(byDay('2026-10-07')).toEqual([['2026-10-06T22:00:00.000Z', '2026-10-07T04:00:00.000Z']])
   })
 
-  it('removes business closures when observed', () => {
-    const ex = expandTree(treeOf('weekly'), '2026-05-14', '2026-05-15', { closures: closures2026 })
+  it('removes business closures through the holiday list that links the closure calendar', () => {
+    const ex = expandTree(observing(), '2026-05-14', '2026-05-15')
     expect([...new Set(ex.work.map((w) => w.localDate))]).toEqual(['2026-05-15'])
-    expect(expandTree(treeOf('weekly'), '2026-05-14', '2026-05-14', { closures: closures2026, observeClosures: false }).work).toHaveLength(2)
+    expect(expandTree(treeOf('weekly'), '2026-05-14', '2026-05-14').work).toHaveLength(2)
   })
 
   it('lets the most recently modified recurrence win where rules intersect (V2)', () => {
@@ -99,7 +110,7 @@ describe('resolveDay', () => {
     const tree = treeOf('timeoff')
     expect(resolveDay({ date: '2026-10-13', viewerTz: BERLIN, tree, slots: null, closures: [] }).reason).toBe('timeoff')
     expect(resolveDay({ date: '2026-10-10', viewerTz: BERLIN, tree, slots: null, closures: [] }).reason).toBe('weekdayOff')
-    expect(resolveDay({ date: '2026-05-14', viewerTz: BERLIN, tree, slots: null, closures: closures2026 }).reason).toBe('closure')
+    expect(resolveDay({ date: '2026-05-14', viewerTz: BERLIN, tree: observing(), slots: null, closures: closures2026 }).reason).toBe('closure')
     expect(resolveDay({ date: '2026-12-01', viewerTz: BERLIN, tree: treeOf('ending'), slots: null, closures: [] }).reason).toBe('ruleEnded')
     expect(resolveDay({ date: '2025-12-01', viewerTz: BERLIN, tree: treeOf('ending'), slots: null, closures: [] }).reason).toBe('ruleNotStarted')
     expect(resolveDay({ date: '2026-10-05', viewerTz: BERLIN, tree: null, slots: null, closures: [] }).reason).toBe('noRule')
@@ -115,5 +126,28 @@ describe('resolveDay', () => {
     const days = resolveRange({ viewerTz: BERLIN, tree: treeOf('weekly'), slots: null, closures: [] }, '2026-10-05', '2026-10-11')
     expect(days).toHaveLength(7)
     expect(sumRange(days)).toEqual({ workHours: 42.5, capacityHours: 42.5 })
+  })
+})
+
+describe('business closures per resource', () => {
+  const day = (tree: ReturnType<typeof observing> | null) => resolveDay({ date: '2026-05-14', viewerTz: BERLIN, tree, slots: null, closures: closures2026 })
+  const closureSegments = (d: ReturnType<typeof day>) => d.segments.filter((s) => s.kind === 'closure')
+
+  it('shows the closure once, named after it, when the loaded holiday list already holds the day', () => {
+    const d = day(observing())
+    expect(closureSegments(d)).toHaveLength(1)
+    expect(closureSegments(d)[0].origin.label).toBe('Christi Himmelfahrt')
+    expect(d.workMinutes).toBe(0)
+  })
+
+  it('shows the closure from the organization list when only root rules are loaded', () => {
+    const d = day(observing('roots'))
+    expect(closureSegments(d).map((s) => s.origin.label)).toEqual(['Christi Himmelfahrt'])
+  })
+
+  it('leaves resources without a holiday list alone — they work on closure days', () => {
+    const d = day(treeOf('weekly'))
+    expect(closureSegments(d)).toHaveLength(0)
+    expect(d.workMinutes).toBeGreaterThan(0)
   })
 })

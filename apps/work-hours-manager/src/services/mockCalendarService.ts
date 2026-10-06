@@ -28,7 +28,7 @@ function closuresBetween(from: string, to: string): Closure[] {
     .map((b) => {
       const start = Date.parse(b.raw.root.starttime ?? '')
       const end = start + (b.raw.root.duration ?? 0) * 60_000
-      return { id: b.rootRuleId, name: b.description ?? 'Geschäftsschließung', start: new Date(start).toISOString(), end: new Date(end).toISOString() }
+      return { id: b.rootRuleId, calendarId: CLOSURE_CALENDAR_ID, name: b.description ?? 'Geschäftsschließung', start: new Date(start).toISOString(), end: new Date(end).toISOString() }
     })
     .filter((c) => Date.parse(c.start) < hi && Date.parse(c.end) > lo)
 }
@@ -49,19 +49,16 @@ export const mockCalendarService: CalendarService = {
       const t = treeOf(id, depth)
       if (t) out[id.toLowerCase()] = t
     }
-    return delay(out)
+    return delay({ trees: out, errors: {} })
   },
 
   async loadSlots(calendarIds, from, to) {
-    const closures = closuresBetween(from, to)
     const out: Record<string, Slot[]> = {}
     for (const id of calendarIds) {
       const tree = treeOf(id)
       if (!tree) continue
-      const resource = state.resources.find((r) => r.calendarId?.toLowerCase() === id.toLowerCase())
-      const observe = resource ? state.extras[resource.id]?.observesClosures !== false : true
-      // Local dates a day wider than the instants, then clipped to the range.
-      const ex = expandTree(tree, addDays(from.slice(0, 10), -1), addDays(to.slice(0, 10), 1), { closures, observeClosures: observe })
+      // Local dates a day wider than the instants, then clipped to the range. Closures come in through the resource's holiday list.
+      const ex = expandTree(tree, addDays(from.slice(0, 10), -1), addDays(to.slice(0, 10), 1))
       const lo = Date.parse(from)
       const hi = Date.parse(to)
       out[id.toLowerCase()] = toSlots(id, ex.work.filter((w) => w.start < hi && w.end > lo))

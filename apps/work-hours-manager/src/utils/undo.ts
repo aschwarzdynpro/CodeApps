@@ -34,7 +34,8 @@ export function buildUndoPlan(record: RunRecord, currentTrees: Record<string, Ca
     }
     snapshot[calendarId] = snapshotOf(current)
     const before = record.snapshot[calendarId] ? treeFromSnapshot(record.snapshot[calendarId]) : null
-    const target = targetOf(resource, useV2)
+    // Restored and re-created rules keep their own time zone; nothing here observes closures anew.
+    const target = { ...targetOf(resource, useV2), closuresObserved: true }
     const requests: ApiRequest[] = []
     const notes: string[] = []
 
@@ -62,7 +63,7 @@ export function buildUndoPlan(record: RunRecord, currentTrees: Record<string, Ca
       if (!was || !now || !now.innerCalendarId || was.end === now.end) continue
       const spec = specFromBlock(was, before?.blocks)
       if (spec.kind !== 'work' || !spec.recurrence) continue
-      const info = toRequests({ op: 'edit', target, block: now, spec: { ...spec, recurrence: { ...spec.recurrence, endDate: was.end } }, split: false })[0]
+      const info = toRequests({ op: 'edit', target: { ...target, timeZoneCode: now.timeZoneCode }, block: now, spec: { ...spec, recurrence: { ...spec.recurrence, endDate: was.end } }, split: false })[0]
       if (info.action === 'msdyn_SaveCalendar') {
         if (was.end === null) info.info.RecurrenceEndDate = OPEN_END
         else info.info.RecurrenceEndDate = recurrenceEndIso(was.end)
@@ -79,7 +80,7 @@ export function buildUndoPlan(record: RunRecord, currentTrees: Record<string, Ca
       const was = before ? findBlock(before, id) : null
       if (!was || findBlock(current, id)) continue
       const spec = specFromBlock(was, before?.blocks)
-      requests.push(...toRequests({ op: 'create', target, spec }))
+      requests.push(...toRequests({ op: 'create', target: { ...target, timeZoneCode: was.timeZoneCode }, spec }))
       recreated++
     }
     if (recreated) notes.push(S.runs.undoNoteRecreate(recreated))

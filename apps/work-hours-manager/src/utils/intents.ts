@@ -66,6 +66,12 @@ export interface EditTarget {
   resourceId: string | null
   timeZoneCode: number
   useV2: boolean
+  /**
+   * The calendar already has an open holiday list (`observesClosures`). The
+   * server adds another one on every save with `ObserveClosure`, so it is only
+   * sent while this is false.
+   */
+  closuresObserved?: boolean
 }
 
 export type EditIntent =
@@ -78,7 +84,7 @@ export type EditIntent =
    * whole recurrence into that one day and the weekly working time is gone.
    */
   | { op: 'editDay'; target: EditTarget; block: RuleBlock; spec: WorkHoursSpec }
-  /** Recurrence ends on `lastDay`. */
+  /** Recurrence ends on `lastDay` — always in the block's own time zone, never the target's. */
   | { op: 'end'; target: EditTarget; block: RuleBlock; lastDay: string }
   | { op: 'delete'; target: EditTarget; block: RuleBlock }
 
@@ -296,7 +302,8 @@ function workRequests(target: EditTarget, spec: WorkHoursSpec, edit: { block: Ru
   }
 
   const endDate = recurrence.endDate ? { RecurrenceEndDate: recurrenceEndIso(recurrence.endDate) } : {}
-  const observe = { ObserveClosure: spec.observeClosure }
+  // Live: every save with ObserveClosure adds one more holiday list — send it once, and never on the night-shift spill-over.
+  const observe = spec.observeClosure && !target.closuresObserved ? { ObserveClosure: true } : {}
 
   if (spec.varied) {
     const parts = variedParts(spec.varied)
@@ -315,7 +322,7 @@ function workRequests(target: EditTarget, spec: WorkHoursSpec, edit: { block: Ru
     for (const b of existing) if (!used.has(b.rootRuleId)) entries.push({ Rules: rulesFor(spec.date, blockSegments(b), spec.effort), RecurrencePattern: b.pattern ?? formatPattern(b.weekdays ?? []), Action: 2, InnerCalendarId: b.innerCalendarId })
     const info: CalendarEventInfo = { ...common, IsVaried: true, ...(edit ? { IsEdit: true, ...(edit.split ? { RecurrenceSplit: true } : {}) } : {}), ...endDate, ...observe, RulesAndRecurrences: entries }
     const out: ApiRequest[] = [save(info)]
-    if (spill.length) out.push(save({ ...common, ...endDate, ...observe, RulesAndRecurrences: spill }))
+    if (spill.length) out.push(save({ ...common, ...endDate, RulesAndRecurrences: spill }))
     return out
   }
 
@@ -329,7 +336,7 @@ function workRequests(target: EditTarget, spec: WorkHoursSpec, edit: { block: Ru
     RulesAndRecurrences: [{ Rules: rulesFor(spec.date, today, spec.effort), RecurrencePattern: formatPattern(recurrence.weekdays), ...(edit ? { InnerCalendarId: edit.block.innerCalendarId } : {}) }],
   }
   out.push(save(first))
-  if (tomorrow.length) out.push(save({ ...common, ...endDate, ...observe, RulesAndRecurrences: [{ Rules: rulesFor(addDays(spec.date, 1), tomorrow, spec.effort), RecurrencePattern: formatPattern(shiftWeekdays(recurrence.weekdays)) }] }))
+  if (tomorrow.length) out.push(save({ ...common, ...endDate, RulesAndRecurrences: [{ Rules: rulesFor(addDays(spec.date, 1), tomorrow, spec.effort), RecurrencePattern: formatPattern(shiftWeekdays(recurrence.weekdays)) }] }))
   return out
 }
 
@@ -374,7 +381,7 @@ export function toRequests(intent: EditIntent): ApiRequest[] {
       const effort = b.leaves.find((l) => l.kind === 'work')?.effort ?? 1
       return [
         save({
-          ...base(intent.target),
+          ...base({ ...intent.target, timeZoneCode: b.timeZoneCode }),
           IsEdit: true,
           RecurrenceEndDate: recurrenceEndIso(intent.lastDay),
           ...(b.groupId ? { IsVaried: true } : {}),
@@ -447,7 +454,8 @@ export function specFromBlock(block: RuleBlock, all?: RuleBlock[]): EventSpec {
     allDay,
     days: allDay ? Math.max(1, Math.round(block.endMin / 1440)) : 1,
     effort: effort ?? 1,
-    observeClosure: true,
+    // Editing a rule doesn't touch closure observation (a holiday list of its own) — on only when the user asks.
+    observeClosure: false,
   }
 }
 
@@ -468,6 +476,6 @@ export function describeRequest(r: ApiRequest): string {
     const action = rr.Action ? ` · Action ${rr.Action}` : ''
     return `${rr.Rules[0]?.StartTime.slice(0, 10) ?? ''} ${rules}${pattern}${action}`
   })
-  const flags = [info.IsEdit ? 'IsEdit' : '', info.RecurrenceSplit ? 'RecurrenceSplit' : '', info.IsVaried ? 'IsVaried' : '', info.RecurrenceEndDate ? `${S.rules.until} ${info.RecurrenceEndDate.slice(0, 10)}` : ''].filter(Boolean).join(', ')
+  const flags = [info.IsEdit ? 'IsEdit' : '', info.RecurrenceSplit ? 'RecurrenceSplit' : '', info.IsVaried ? 'IsVaried' : '', info.ObserveClosure ? 'ObserveClosure' : '', info.RecurrenceEndDate ? `${S.rules.until} ${info.RecurrenceEndDate.slice(0, 10)}` : ''].filter(Boolean).join(', ')
   return `${S.editor.requestSave}: ${parts.join(' | ')}${flags ? ` (${flags})` : ''}`
 }

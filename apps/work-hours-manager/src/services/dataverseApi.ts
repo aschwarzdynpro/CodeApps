@@ -63,7 +63,31 @@ function connector(): Record<string, Operation> {
   return svc
 }
 
-async function run(op: Operation | undefined, what: string, args: unknown[]): Promise<unknown> {
+/** Throttling and passing server/network trouble — worth another try. */
+const TRANSIENT = /\b(429|500|502|503|504)\b|too many requests|throttl|rate limit|temporarily unavailable|service unavailable|timed? ?out|econnreset|network ?error|failed to fetch/i
+
+export const isTransient = (err: unknown): boolean => !(err instanceof PrivilegeError) && TRANSIENT.test(errorText(err))
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+/**
+ * `fn` again after 1 s, 2 s, 4 s while it fails transiently. Reads only — a
+ * write that timed out may have happened, so writes are never repeated.
+ */
+export async function withRetry<T>(fn: () => Promise<T>, opts: { attempts?: number; baseMs?: number; wait?: (ms: number) => Promise<void> } = {}): Promise<T> {
+  const attempts = opts.attempts ?? 4
+  const wait = opts.wait ?? sleep
+  for (let i = 1; ; i++) {
+    try {
+      return await fn()
+    } catch (err) {
+      if (i >= attempts || !isTransient(err)) throw err
+      await wait((opts.baseMs ?? 1000) * 2 ** (i - 1))
+    }
+  }
+}
+
+async function call(op: Operation | undefined, what: string, args: unknown[]): Promise<unknown> {
   if (typeof op !== 'function') throw new DataverseError(`${what}: Operation im Konnektor nicht vorhanden.`)
   let res: OperationResult
   try {
@@ -74,6 +98,9 @@ async function run(op: Operation | undefined, what: string, args: unknown[]): Pr
   if (res && res.success === false) throw toError(what, res.error)
   return res?.data ?? null
 }
+
+/** One connector call; `retry` only for reads (see `withRetry`). */
+const run = (op: Operation | undefined, what: string, args: unknown[], retry = false): Promise<unknown> => (retry ? withRetry(() => call(op, what, args)) : call(op, what, args))
 
 function toError(what: string, err: unknown): Error {
   const text = `${what}: ${errorText(err)}`
@@ -107,7 +134,7 @@ export interface ODataQuery {
  */
 export async function odata(entitySet: string, q: ODataQuery): Promise<Row[]> {
   const svc = connector()
-  const data = await run(svc.ListRecordsWithOrganization, `${entitySet} lesen`, [ORG_URL, entitySet, q.annotations ? ANNOTATIONS : undefined, undefined, undefined, undefined, q.select, q.filter, q.orderBy, q.expand, undefined, q.top])
+  const data = await run(svc.ListRecordsWithOrganization, `${entitySet} lesen`, [ORG_URL, entitySet, q.annotations ? ANNOTATIONS : undefined, undefined, undefined, undefined, q.select, q.filter, q.orderBy, q.expand, undefined, q.top], true)
   return rowsOf(data)
 }
 
@@ -118,7 +145,7 @@ export async function odata(entitySet: string, q: ODataQuery): Promise<Row[]> {
 export async function getRow(entitySet: string, id: string, q: Omit<ODataQuery, 'filter' | 'orderBy' | 'top'>): Promise<Row | null> {
   const svc = connector()
   try {
-    return (await run(svc.GetItemWithOrganization, `${entitySet}(${id}) lesen`, [q.annotations ? ANNOTATIONS : 'return=representation', 'application/json', ORG_URL, entitySet, id, undefined, undefined, q.select, q.expand])) as Row | null
+    return (await run(svc.GetItemWithOrganization, `${entitySet}(${id}) lesen`, [q.annotations ? ANNOTATIONS : 'return=representation', 'application/json', ORG_URL, entitySet, id, undefined, undefined, q.select, q.expand], true)) as Row | null
   } catch (err) {
     if (/does not exist|not found|404|0x80040217/i.test(errorText(err))) return null
     throw err
@@ -142,14 +169,17 @@ export async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => 
 /** FetchXML read (11th parameter), e.g. for aggregates. */
 export async function fetchXml(entitySet: string, xml: string, annotations = false): Promise<Row[]> {
   const svc = connector()
-  const data = await run(svc.ListRecordsWithOrganization, `${entitySet} (FetchXML) lesen`, [ORG_URL, entitySet, annotations ? ANNOTATIONS : undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, xml])
+  const data = await run(svc.ListRecordsWithOrganization, `${entitySet} (FetchXML) lesen`, [ORG_URL, entitySet, annotations ? ANNOTATIONS : undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, xml], true)
   return rowsOf(data)
 }
 
-/** Unbound action (POST). Parameters as the Power Automate action "Perform an unbound action" takes them. */
-export async function unboundAction(name: string, params: Record<string, unknown>): Promise<Row | null> {
+/**
+ * Unbound action (POST). Parameters as the Power Automate action "Perform an unbound action" takes them.
+ * `readOnly` (e.g. `msdyn_LoadCalendars`) allows retries; writing actions run exactly once.
+ */
+export async function unboundAction(name: string, params: Record<string, unknown>, opts: { readOnly?: boolean } = {}): Promise<Row | null> {
   const svc = connector()
-  const data = await run(svc.PerformUnboundActionWithOrganization, name, [ORG_URL, name, params])
+  const data = await run(svc.PerformUnboundActionWithOrganization, name, [ORG_URL, name, params], opts.readOnly === true)
   return (data as Row | null) ?? null
 }
 

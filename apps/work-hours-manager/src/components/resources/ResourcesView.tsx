@@ -1,5 +1,5 @@
 import { Tab, TabList, type TableRowId } from '@fluentui/react-components'
-import { useState, useDeferredValue } from 'react'
+import { useDeferredValue, useMemo, useState } from 'react'
 import { S } from '../../strings'
 import type { CalendarTree, Closure, Finding, Resource, Slot, TimeOffRequest } from '../../types/calendar'
 import { sumRange } from '../../utils/resolve'
@@ -42,14 +42,23 @@ export function ResourcesView(p: Props) {
   const [filter, setFilter] = useState<ResourceFilter>(EMPTY_FILTER)
   const deferredFilter = useDeferredValue(filter)
 
-  const filtered = filterResources(p.resources, deferredFilter, p.findings)
-  const resolved = new Map(filtered.map((r) => [r.id, resolveResource(r, p, p.range.focusFrom, p.range.focusTo)]))
+  // Resolving every filtered resource day by day is the expensive part (850 × 7 days live) — only when its inputs change.
+  const { resources, findings, trees, slots, closures, timeOff, viewerTz, useV2 } = p
+  const { focusFrom, focusTo } = p.range
+  const filtered = useMemo(() => filterResources(resources, deferredFilter, findings), [resources, deferredFilter, findings])
+  const resolved = useMemo(() => {
+    const src = { trees, slots, closures, timeOff, viewerTz, useV2 }
+    return new Map(filtered.map((r) => [r.id, resolveResource(r, src, focusFrom, focusTo)]))
+  }, [filtered, trees, slots, closures, timeOff, viewerTz, useV2, focusFrom, focusTo])
 
-  const rows: ResourceRow[] = filtered.map((r) => {
-    const res = resolved.get(r.id)!
-    const sums = sumRange(res.days)
-    return { resource: r, tree: r.calendarId ? (p.trees[r.calendarId.toLowerCase()] ?? null) : null, findings: p.findings[r.id] ?? [], hours: sums.workHours, capacityHours: sums.capacityHours }
-  })
+  const rows = useMemo(
+    () =>
+      filtered.map((r): ResourceRow => {
+        const sums = sumRange(resolved.get(r.id)!.days)
+        return { resource: r, tree: r.calendarId ? (trees[r.calendarId.toLowerCase()] ?? null) : null, findings: findings[r.id] ?? [], hours: sums.workHours, capacityHours: sums.capacityHours }
+      }),
+    [filtered, resolved, trees, findings],
+  )
 
   const focused = p.resources.find((r) => r.id === p.focusedId) ?? null
 

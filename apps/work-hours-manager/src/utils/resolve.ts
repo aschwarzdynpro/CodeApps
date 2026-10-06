@@ -16,8 +16,10 @@ import { ianaOf } from './timezones'
  * list (rank 1), which beats the weekly recurrence (rank 2) — for the whole
  * day; intersecting recurrences: the most recently modified wins (V2); time
  * off and non-working time (rank 0, extentcode 2) only carve their own span
- * (13:00–15:00 non-working leaves 07:00–13:00 of the day); business closures
- * carve it when observed.
+ * (13:00–15:00 non-working leaves 07:00–13:00 of the day). Business closures
+ * reach a resource only through its holiday list, whose inner calendar is the
+ * organization's closure calendar (live: that is what `ObserveClosure`
+ * stores) — a resource without one works on closure days.
  */
 
 export interface Interval {
@@ -116,9 +118,6 @@ function holidayDays(tree: CalendarTree, from: string, to: string): HolidayInter
 }
 
 export interface ExpandOptions {
-  /** Business closures to carve out (only when the entity observes them). */
-  closures?: Closure[]
-  observeClosures?: boolean
   /** V1: latest modified rank-0 rule wins the whole day; V2 (default): only the intersecting portions. */
   useV2?: boolean
 }
@@ -160,12 +159,6 @@ export function expandTree(tree: CalendarTree, from: string, to: string, opts: E
 
   work = [...kept, ...occurrences]
   work = subtractAll(work, [...timeOff, ...nonwork])
-  if (opts.observeClosures !== false && opts.closures?.length) {
-    work = subtractAll(
-      work,
-      opts.closures.map((c) => ({ start: Date.parse(c.start), end: Date.parse(c.end) })),
-    )
-  }
   work.sort((a, b) => a.start - b.start)
   return { work, breaks, timeOff, nonwork, holidays }
 }
@@ -193,10 +186,16 @@ export interface ResolveInput {
   tree: CalendarTree | null
   /** Slots of the calendar from `msdyn_LoadCalendars`; null = derive from the rules. */
   slots: Slot[] | null
+  /** The organization's closures — shown for resources whose holiday list points at their calendar. */
   closures: Closure[]
   timeOff?: TimeOffRequest[]
-  observeClosures?: boolean
   useV2?: boolean
+}
+
+/** The holiday list of `tree` that links `closure` on `date` (its inner calendar is the closure calendar), if any. */
+function linkingList(tree: CalendarTree | null, closure: Closure, date: string): RuleBlock | null {
+  const cal = closure.calendarId.toLowerCase()
+  return tree?.blocks.find((b) => b.holidays && b.innerCalendarId?.toLowerCase() === cal && b.start <= date && (b.end === null || date <= b.end)) ?? null
 }
 
 function originOf(block: RuleBlock | null, fallback: Origin['kind']): Origin {
@@ -219,7 +218,7 @@ export function resolveDay(input: ResolveInput): DayResolution {
   const segments: DaySegment[] = []
   const blockIds = new Set<string>()
 
-  const expansion = tree ? expandTree(tree, addDays(date, -1), addDays(date, 1), { closures, observeClosures: input.observeClosures, useV2: input.useV2 }) : null
+  const expansion = tree ? expandTree(tree, addDays(date, -1), addDays(date, 1), { useV2: input.useV2 }) : null
 
   // Working time: slots are the truth, the expansion the fallback.
   if (input.slots) {
@@ -260,7 +259,18 @@ export function resolveDay(input: ResolveInput): DayResolution {
   for (const c of closures) {
     const iv = { start: Date.parse(c.start), end: Date.parse(c.end) }
     if (!overlaps(iv, window)) continue
-    segments.push({ startMin: toMin(Math.max(iv.start, window.start)), endMin: toMin(Math.min(iv.end, window.end)), kind: 'closure', effort: null, origin: { kind: 'closure', innerCalendarId: c.id, label: c.name } })
+    const list = linkingList(tree, c, date)
+    if (!list) continue
+    const listId = list.innerCalendarId ?? list.rootRuleId
+    const startMin = toMin(Math.max(iv.start, window.start))
+    const endMin = toMin(Math.min(iv.end, window.end))
+    // A loaded list already put the day in as a holiday — name it after the closure instead of adding it twice.
+    const same = segments.find((s) => s.kind === 'closure' && s.origin.innerCalendarId === listId && s.startMin < endMin && startMin < s.endMin)
+    if (same) same.origin = { ...same.origin, label: c.name }
+    else {
+      blockIds.add(listId)
+      segments.push({ startMin, endMin, kind: 'closure', effort: null, origin: { kind: 'closure', innerCalendarId: listId, label: c.name } })
+    }
   }
   for (const t of input.timeOff ?? []) {
     const iv = { start: Date.parse(t.start), end: Date.parse(t.end) }

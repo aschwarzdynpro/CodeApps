@@ -1,13 +1,20 @@
 import { SearchBox, Switch } from '@fluentui/react-components'
+import { useMemo } from 'react'
 import type { Resource } from '../../types/calendar'
 import { S } from '../../strings'
 import { MultiSelect } from '../ui'
 import { facetOptions, type ResourceFilter } from '../../utils/resourceFilter'
 
 export function ResourceFilters({ resources, filter, onChange }: { resources: Resource[]; filter: ResourceFilter; onChange: (f: ResourceFilter) => void }) {
-  const units = facetOptions(resources.flatMap((r) => (r.orgUnit ? [r.orgUnit] : [])))
-  const categories = facetOptions(resources.flatMap((r) => r.categories))
-  const territories = facetOptions(resources.flatMap((r) => r.territories))
+  // Facets only change with the resources, not with every keystroke in the search box.
+  const { units, categories, territories } = useMemo(
+    () => ({
+      units: facetOptions(resources.flatMap((r) => (r.orgUnit ? [r.orgUnit] : []))),
+      categories: facetOptions(resources.flatMap((r) => r.categories)),
+      territories: facetOptions(resources.flatMap((r) => r.territories)),
+    }),
+    [resources],
+  )
   return (
     <div className="filters">
       <SearchBox size="small" className="filters__search" placeholder={S.resources.search} aria-label={S.resources.search} value={filter.text} onChange={(_, d) => onChange({ ...filter, text: d.value })} />

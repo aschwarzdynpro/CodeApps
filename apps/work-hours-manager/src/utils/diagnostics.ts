@@ -3,7 +3,7 @@ import { S } from '../strings'
 import type { CalendarTree, Finding, Resource, Slot } from '../types/calendar'
 import { addDays, diffDays, formatDate, zonedToUtc } from './dates'
 import { expandTree } from './resolve'
-import { activeWorkRecurrences, blocksEndingSoon, blocksInOtherZone, hasWorkRules } from './rules'
+import { activeWorkRecurrences, blocksEndingSoon, blocksInOtherZone, hasWorkRules, openHolidayLists } from './rules'
 import { ianaOf, timeZoneLabel } from './timezones'
 
 /**
@@ -15,6 +15,8 @@ import { ianaOf, timeZoneLabel } from './timezones'
  * 5.3 rule time zone ≠ resource time zone
  * 5.4 inactive resources with bookings after today
  * 5.5 resources without calendar / without rules / orphan inner calendars
+ * plus: several open holiday lists on the same closure calendar (every save
+ * with `ObserveClosure` adds one, live)
  */
 
 export interface DiagnoseInput {
@@ -57,6 +59,10 @@ export function diagnose(input: DiagnoseInput): Finding[] {
     if (!tree) continue // not loaded (yet) — nothing to say
     if (!hasWorkRules(tree)) out.push({ ...base, kind: 'noCalendar', severity: 'warning', detail: S.findingDetails.noRules })
     if (tree.orphanInnerCalendars.length) out.push({ ...base, kind: 'orphanInnerCalendar', severity: 'info', detail: S.findingDetails.orphan(tree.orphanInnerCalendars.length) })
+    for (const lists of openHolidayLists(tree).values()) {
+      // The inspector keys holiday lists by root rule.
+      if (lists.length > 1) out.push({ ...base, kind: 'duplicateHolidayList', severity: 'info', detail: S.findingDetails.duplicateHolidayList(lists.length), innerCalendarId: lists[0].rootRuleId })
+    }
 
     // 5.1 — no working time in the window (from slots; from the rules only when their leaves are loaded).
     const slots = input.slots?.[r.calendarId.toLowerCase()] ?? null
@@ -114,4 +120,4 @@ export function worstSeverity(findings: Finding[] | undefined): Finding['severit
   return findings.reduce<Finding['severity']>((w, f) => (SEVERITY_ORDER[f.severity] < SEVERITY_ORDER[w] ? f.severity : w), 'info')
 }
 
-export const FINDING_KINDS: Finding['kind'][] = ['noWorkingTime', 'ruleEnding', 'timeZoneMismatch', 'inactiveWithBookings', 'noCalendar', 'orphanInnerCalendar']
+export const FINDING_KINDS: Finding['kind'][] = ['noWorkingTime', 'ruleEnding', 'timeZoneMismatch', 'inactiveWithBookings', 'noCalendar', 'orphanInnerCalendar', 'duplicateHolidayList']

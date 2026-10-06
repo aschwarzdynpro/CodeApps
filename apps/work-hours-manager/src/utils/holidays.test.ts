@@ -54,14 +54,14 @@ describe('generateHolidays', () => {
 
 describe('reconcile', () => {
   const tz = 'Europe/Berlin'
-  const closure = (id: string, name: string, date: string, days = 1): Closure => ({ id, name, ...closureSpan(date, tz, days) })
+  const closure = (id: string, name: string, date: string, days = 1): Closure => ({ id, calendarId: 'org', name, ...closureSpan(date, tz, days) })
 
   it('classifies present, missing, renamed and partial closures and finds extras and duplicates', () => {
     const holidays = generateHolidays('DE', 2026)
     const closures: Closure[] = [
       closure('a', 'Neujahr', '2026-01-01'),
       closure('b', 'Good Friday', '2026-04-03'),
-      { id: 'c', name: 'Ostermontag', start: '2026-04-06T06:00:00.000Z', end: '2026-04-06T12:00:00.000Z' },
+      { id: 'c', calendarId: 'org', name: 'Ostermontag', start: '2026-04-06T06:00:00.000Z', end: '2026-04-06T12:00:00.000Z' },
       closure('d', 'Betriebsferien', '2026-12-28', 4),
       closure('e', 'Tag der Arbeit', '2026-05-01'),
       closure('f', 'Maifeiertag', '2026-05-01'),
