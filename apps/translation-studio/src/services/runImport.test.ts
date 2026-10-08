@@ -48,7 +48,8 @@ describe('runImport', () => {
     const [b64, id] = (svc.importTranslations as ReturnType<typeof vi.fn>).mock.calls[0]
     expect(id).toBe('job-1')
     const xml = await readTranslationZip(base64ToBytes(b64))
-    expect(parseTranslationFile(xml).rows.some((r) => r.original[1031] === 'Neu')).toBe(true)
+    // Only the edited row goes back: unchanged labels would pull their components into the solution.
+    expect(parseTranslationFile(xml).rows.map((r) => r.original[1031])).toEqual(['Neu'])
     expect(seen.map((p) => p.jobProgress)).toEqual(expect.arrayContaining([30, 80, 100]))
     expect(seen[seen.length - 1].steps).toEqual({ check: 'done', build: 'done', upload: 'done', job: 'done', publish: 'done' })
   })

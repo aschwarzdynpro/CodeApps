@@ -74,7 +74,7 @@ Der Dataverse-Konnektor kann nur POST-Aktionen und Tabellen-Reads
 | Ansichten (Designer) | FetchXML auf `savedqueries` (`layoutxml`, `fetchxml`, `querytype`); Spalten verknüpfter Tabellen über die Aliase der `link-entity` | Konnektor |
 | Apps (Designer) | `AppModule`-/`SiteMap`-Zeilen der Datei → FetchXML auf `appmodules` (`uniquename`) und `sitemaps` (`sitemapxml`). App ↔ Sitemap über `appmodulecomponent` (`componenttype` 62, `objectid` = `sitemapid`, `appmoduleidunique`) — die Namen weichen oft ab (Sales Hub: App `msdynce_saleshub`, Sitemap `SalesHubSitemap`); sonst über `sitemapnameunique` = `uniquename` ohne Groß-/Kleinschreibung. Sitemaps ohne App als eigene Einträge, Abfragen in Blöcken von 50 IDs | Konnektor |
 | Auswahlwerte je Spalte (Designer) | `EntityDefinitions(LogicalName=…)/Attributes/Microsoft.Dynamics.CRM.{Picklist,MultiSelectPicklist,State,Status,Boolean}AttributeMetadata` mit `OptionSet` — als native GET-„APIs“ von der App selbst in `dataSourcesInfo` registriert (wie der Export); Zuordnung über die `MetadataId` der Option, sonst eindeutigen Basistext. Scheitert es, stehen die Werte ungruppiert | native Abfrage, best effort |
-| Import | `ImportTranslationAsync { TranslationFile, ImportJobId }` → `AsyncOperationId` (von der App selbst in `dataSourcesInfo` registriert wie der Export); nur wenn die Aktion nachweislich nicht erreichbar ist, das synchrone `ImportTranslation`. Zip = Export-Zip mit ersetzter `CrmTranslations.xml` | native Aktion, sonst Konnektor |
+| Import | `ImportTranslationAsync { TranslationFile, ImportJobId }` → `AsyncOperationId` (von der App selbst in `dataSourcesInfo` registriert wie der Export); nur wenn die Aktion nachweislich nicht erreichbar ist, das synchrone `ImportTranslation`. Zip = Export-Zip mit ersetzter `CrmTranslations.xml`, die **nur die geänderten Zeilen** enthält (Kopf und Information bleiben; siehe „Nur geänderte Zeilen importieren“) | native Aktion, sonst Konnektor |
 | Fortschritt | FetchXML auf `importjobs` (`progress`, `startedon`, `completedon`, am Ende `data`) alle 2 s; solange noch kein Job da ist, der Systemauftrag (`asyncoperations`, `statuscode`) — er kann erst in der Warteschlange stehen. Urteil aus `data` (`<importtranslations><status>`), Fehler mit Code, Arbeitsblatt und Zeile | Konnektor |
 | Publish | `PublishAllXmlAsync` → Systemauftrag alle 3 s bis fertig/fehlgeschlagen (Waldmann: 6 min); sonst `PublishAllXml`. Bleibt die Antwort aus (Timeout, Verbindung weg), heißt es „unbekannt“, nicht „fehlgeschlagen“ | native Aktion, sonst Konnektor |
 
@@ -411,8 +411,17 @@ Offen, bis live geprüft — jeweils mit der Stelle im Code:
   Power Automate sind es 100 MB je Nachricht. Base64 macht die Datei um
   ein Drittel größer. Große Default-Exporte müssten ggf. verweigert werden.
 - **Leere Zellen beim Import:** „unverändert“ oder „löschen“? Die App leert
-  nie etwas, also ist das für v1 unkritisch. Entscheidet erst, ob man
-  künftig nur geänderte Zeilen zurückschicken könnte.
+  nie etwas, also ist das für v1 unkritisch.
+- **Nur geänderte Zeilen importieren — geklärt am 2026-10-08.** Ein Import
+  der ganzen Datei (Export + Änderungen) fügt jede Komponente, deren
+  Beschriftung in der Datei steht, der Solution aus dem Information-Blatt
+  hinzu: Zwei Importe in Waldmann DEV brachten 32 Tabellen und 6.026
+  Display Strings in WaldmannCore (DEV COPY nach einem Import am 05.10.:
+  2.625 → 6.954 Komponenten). Seitdem enthält die Importdatei nur die
+  geänderten Zeilen (`onlyRows`). Test in DEV COPY: eine Zeile, 1 KB,
+  Importjob `Succeeded`, Beschriftung geändert, Komponenten der Solution
+  6.954 → 6.954. Die Importdauer hängt kaum an der Zeilenzahl (auch eine
+  Zeile: 289 s).
 - **`importjob`:**
   - Legt `ImportTranslation` die Zeile mit der übergebenen
     `ImportJobId` an?

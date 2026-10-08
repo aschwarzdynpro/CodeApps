@@ -2,6 +2,7 @@ import type { AsyncOperationState, ImportJobState, TranslationFile } from '../ty
 import { importStatus, parseImportLog, type LogEntry } from '../utils/importLog'
 import { changesOf, serializeTranslationFile } from '../utils/translationFile'
 import { buildImportZip } from '../utils/translationZip'
+import { onlyRows } from '../utils/mergeTranslations'
 import { DataverseError } from './dataverseApi'
 import type { TranslationService } from './translationService'
 
@@ -182,13 +183,15 @@ export async function runImport(o: RunOptions): Promise<RunOutcome> {
   }
   step('check', 'done')
 
-  // 2. Build: never import an unchanged file, never anything but export + edits.
+  // 2. Build: never import an unchanged file; the file holds only the edited rows of the export.
   step('build', 'running')
   let zipBase64: string
   try {
     if (changesOf(o.file).length === 0) throw new Error('Die Datei ist unverändert — es gibt nichts zu importieren.')
-    const xml = serializeTranslationFile(o.file)
-    if (xml === o.file.xml) throw new Error('Die Datei ist unverändert — es gibt nichts zu importieren.')
+    const full = serializeTranslationFile(o.file)
+    if (full === o.file.xml) throw new Error('Die Datei ist unverändert — es gibt nichts zu importieren.')
+    // Only the changed rows: Dataverse adds every component of an imported label to the solution.
+    const xml = onlyRows(full, new Set(changesOf(o.file).map((c) => c.rowKey)))
     zipBase64 = await buildImportZip(o.exportZip, xml)
   } catch (err) {
     return fail('build', err)

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { cellTexts, mergeTranslationXml } from './mergeTranslations'
-import { parseTranslationFile } from './translationFile'
+import { cellTexts, mergeTranslationXml, onlyRows } from './mergeTranslations'
+import { applyEdits, changesOf, parseTranslationFile, serializeTranslationFile } from './translationFile'
+import fixture from '../fixtures/CrmTranslations.sample.xml?raw'
 
 const cell = (t: string, style = 's24') => `<Cell ss:StyleID="${style}"><Data ss:Type="String">${t}</Data></Cell>`
 const row = (...cells: string[]) => `<Row ss:AutoFitHeight="0">${cells.map((c, i) => cell(c, i < 3 ? 's22' : 's24')).join('')}</Row>`
@@ -64,5 +65,31 @@ describe('mergeTranslationXml', () => {
   it('refuses parts with different language columns', () => {
     const other = a.replace(/<Data ss:Type="String">1031<\/Data>/g, '<Data ss:Type="String">1036</Data>')
     expect(() => mergeTranslationXml([a, other])).toThrow(/unterschiedliche Spalten/)
+  })
+})
+
+describe('onlyRows', () => {
+  it('keeps only the edited rows, with the frame and the headers', () => {
+    const base = parseTranslationFile(fixture)
+    const target = base.rows.find((r) => r.sheet === 'Localized Labels' && r.original[1031] === '')!
+    const ds = base.rows.find((r) => r.sheet === 'Display Strings')!
+    const edited = applyEdits(base, [
+      { rowKey: target.key, lcid: 1031, value: 'Neu' },
+      { rowKey: ds.key, lcid: 1036, value: 'Nouveau' },
+    ]).file
+    const xml = onlyRows(serializeTranslationFile(edited), new Set(changesOf(edited).map((c) => c.rowKey)))
+    const reduced = parseTranslationFile(xml)
+    expect(reduced.rows.map((r) => r.key).sort()).toEqual([target.key, ds.key].sort())
+    expect(reduced.rows.find((r) => r.key === target.key)!.original[1031]).toBe('Neu')
+    expect(reduced.languages).toEqual(base.languages)
+    expect(reduced.info).toEqual(base.info)
+  })
+
+  it('tells repeated keys apart (#2)', () => {
+    const twice = workbook('s', [
+      ['pro_vehicle', 'v1', 'DisplayName', 'A', 'A1'],
+      ['pro_vehicle', 'v1', 'DisplayName', 'B', 'B1'],
+    ])
+    expect(labelsOf(onlyRows(twice, new Set(['Localized Labels|pro_vehicle|v1|DisplayName#2'])))).toEqual([['pro_vehicle', 'v1', 'DisplayName', 'B', 'B1']])
   })
 })

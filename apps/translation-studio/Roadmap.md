@@ -276,6 +276,14 @@ XML, Node):
     obwohl der Job durchlief. Jetzt entscheidet der Job: Aufruffehler bei
     erfolgreichem Job sind ein Hinweis, ein Timeout beim Veröffentlichen
     heißt „läuft vermutlich weiter“ (Vitest).
+  - **Nur geänderte Zeilen importieren (2026-10-08):** Der Import der
+    ganzen Datei hatte in Waldmann DEV 32 Tabellen und 6.026 Display
+    Strings in WaldmannCore gebracht (Dataverse nimmt jede Komponente einer
+    importierten Beschriftung in die Solution des Information-Blatts auf).
+    Die Importdatei enthält jetzt nur die geänderten Zeilen; in DEV COPY
+    geprüft: Solution unverändert (Vitest). Offen: die bereits
+    hinzugekommenen Komponenten aus WaldmannCore in DEV wieder entfernen
+    (Abstimmung mit dem Kunden).
   - **Hilfs-Solutions sicher aufräumen (2026-10-08):** In Waldmann DEV
     blieben 12 `tsexport_…` eines abgebrochenen Laufs liegen (gelöscht).
     Jetzt: Zeitlimit je Aufruf, Aufräumen mit Fortschritt und

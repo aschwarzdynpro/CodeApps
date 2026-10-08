@@ -108,3 +108,39 @@ export function mergeTranslationXml(parts: string[], o: MergeOptions = {}): stri
   }
   return out
 }
+
+/**
+ * The import file of an edit: every language sheet reduced to its header and
+ * the rows whose key (built like `parseTranslationFile`: `sheet|keys`, `#n`
+ * for a repeated key) is in `keys`.
+ *
+ * Importing unchanged rows isn't harmless: Dataverse adds every component
+ * whose label is in the file to the solution named on its Information sheet
+ * (Waldmann DEV, 2026-10-08: two imports of the full file added 32 tables and
+ * 6,026 display strings to WaldmannCore). A file with only the changed rows
+ * leaves the solution as it is (verified in DEV COPY).
+ */
+export function onlyRows(xml: string, keys: ReadonlySet<string>): string {
+  let out = xml
+  const names = [...xml.matchAll(/<Worksheet\b[^>]*ss:Name="([^"]+)"/g)].map((m) => m[1]).filter((n) => n !== 'Information')
+  for (const sheet of names) {
+    const [header, ...body] = sheetRows(out, sheet)
+    if (!header) continue
+    // Key columns: the cells before the first language column (an LCID).
+    const keyCells = cellTexts(header).findIndex((t) => /^\d{4,5}$/.test(t.trim()))
+    if (keyCells <= 0) continue
+    const seen = new Map<string, number>()
+    const kept = body.filter((row) => {
+      const cells = cellTexts(row).slice(0, keyCells)
+      while (cells.length < keyCells) cells.push('')
+      if (cells.every((c) => c.trim() === '')) return false
+      const base = `${sheet}|${cells.join('|')}`
+      const n = (seen.get(base) ?? 0) + 1
+      seen.set(base, n)
+      return keys.has(n > 1 ? `${base}#${n}` : base)
+    })
+    const span = sheetSpan(out, sheet)!
+    out = out.slice(0, span.rowsStart) + [header, ...kept].join('') + out.slice(span.tableEnd)
+  }
+  return out
+}
