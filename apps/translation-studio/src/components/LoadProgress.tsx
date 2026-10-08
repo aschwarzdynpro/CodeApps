@@ -22,7 +22,7 @@ export interface LoadProgressState {
 const STEPS: LoadPhase[] = ['export', 'read']
 
 /** Share of the bar per step of a chunked export: [start, length] (measured: adding ~25 %, exporting ~65 %). */
-const CHUNK_SHARE: Record<ChunkProgress['step'], [number, number]> = { prepare: [0, 0.03], add: [0.03, 0.25], export: [0.28, 0.65], merge: [0.93, 0.05] }
+const CHUNK_SHARE: Record<ChunkProgress['step'], [number, number]> = { prepare: [0, 0.03], add: [0.03, 0.25], export: [0.28, 0.65], merge: [0.93, 0.05], cleanup: [0.98, 0.02] }
 
 function formatDuration(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000))

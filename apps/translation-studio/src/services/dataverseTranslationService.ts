@@ -1,7 +1,7 @@
 import { ORG_URL } from '../config'
 import type { AppRecord, AsyncOperationState, ChoiceGroup, ComponentInfo, ImportJobState, SetupCheck, SolutionRef, StartedAction, TranslationFile, ViewRecord } from '../types/translation'
 import { base64ToBytes, createTranslationZip, readTranslationZip } from '../utils/translationZip'
-import { exportInParts, type ChunkDeps } from './chunkedExport'
+import { deleteOneByOne, exportInParts, STALE_MINUTES, TEMP_PREFIX, type ChunkDeps } from './chunkedExport'
 import { looksLikeTimeout } from './runImport'
 import {
   callAction,
@@ -148,7 +148,6 @@ async function tableCount(solutionUniqueName: string): Promise<number> {
   }
 }
 
-const TEMP_PREFIX = 'tsexport_'
 
 async function solutionByName(uniqueName: string): Promise<Row | undefined> {
   const rows = await fetchXml(
@@ -219,7 +218,7 @@ const chunkDeps: ChunkDeps = {
     const rows = await fetchXml(
       'solutions',
       `<fetch><entity name="solution"><attribute name="solutionid" />` +
-        `<filter><condition attribute="uniquename" operator="like" value="${TEMP_PREFIX}%" /><condition attribute="createdon" operator="olderthan-x-hours" value="3" /></filter>` +
+        `<filter><condition attribute="uniquename" operator="like" value="${TEMP_PREFIX}%" /><condition attribute="createdon" operator="olderthan-x-minutes" value="${STALE_MINUTES}" /></filter>` +
         `</entity></fetch>`,
     )
     return rows.map((r) => str(r.solutionid))
@@ -509,6 +508,25 @@ export const dataverseTranslationService: TranslationService = {
 
   publishAll() {
     return startAsyncOrSync({ name: 'PublishAllXmlAsync', params: [], sideEffects: true }, { name: 'PublishAllXml', params: [], sideEffects: true })
+  },
+
+  async listTempSolutions() {
+    const rows = await fetchXml(
+      'solutions',
+      `<fetch><entity name="solution"><attribute name="solutionid" /><attribute name="uniquename" /><attribute name="createdon" /><attribute name="createdby" />` +
+        `<filter><condition attribute="uniquename" operator="like" value="${TEMP_PREFIX}%" /></filter><order attribute="createdon" /></entity></fetch>`,
+      true,
+    )
+    return rows.map((r) => ({
+      id: str(r.solutionid),
+      uniqueName: str(r.uniquename),
+      createdOn: str(r.createdon) || null,
+      createdBy: str(r['_createdby_value@OData.Community.Display.V1.FormattedValue']),
+    }))
+  },
+
+  deleteTempSolutions(ids, onProgress) {
+    return deleteOneByOne(ids, (id) => deleteRecord('solutions', id), { onProgress })
   },
 
   async getAsyncOperation(id) {

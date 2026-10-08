@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Input, Menu, MenuButton, MenuItem, MenuItemCheckbox, MenuList, MenuPopover, MenuTrigger, Spinner, ToggleButton, Tooltip } from '@fluentui/react-components'
 import {
   ArrowDownloadRegular,
@@ -39,6 +39,7 @@ import { ConsistencyDialog } from './ConsistencyDialog'
 import { ConfirmDialog } from './Modal'
 import { LoadProgress, type LoadProgressState } from './LoadProgress'
 import type { ChunkProgress } from '../services/chunkedExport'
+import { TempSolutionsPanel } from './TempSolutionsPanel'
 import { Designer } from './designer/Designer'
 import { Btn, Select, type SelectOption } from './ui'
 import { S } from '../strings'
@@ -66,6 +67,21 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState<LoadProgressState | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  /** Deleting the temporary solutions of a chunked export, after the load (runs on in the background). */
+  const [cleanup, setCleanup] = useState<{ done: number; total: number } | null>(null)
+  /** Bumped when a cleanup ends: the left-over check looks again. */
+  const [tempEpoch, setTempEpoch] = useState(0)
+  // Closing the tab while temporary solutions exist would leave them behind: the browser asks first.
+  const guardUnload = cleanup !== null || progress?.parts !== undefined
+  useEffect(() => {
+    if (!guardUnload) return
+    const ask = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', ask)
+    return () => window.removeEventListener('beforeunload', ask)
+  }, [guardUnload])
   const [components, setComponents] = useState<ReadonlyMap<string, ComponentInfo>>(new Map())
   const [resolving, setResolving] = useState(false)
   const [edits, setEdits] = useState<ReadonlyMap<string, CellEdit>>(new Map())
@@ -163,6 +179,13 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
       const startedAt = Date.now()
       setProgress({ phase: 'export', name: solution.friendlyName, phaseAt: startedAt, lastMs: loadExportDuration(svc.orgUrl, name) })
       const onParts = (parts: ChunkProgress) => {
+        if (parts.step === 'cleanup') {
+          // After the load, also after "stop waiting": the temporary solutions go in any case.
+          const running = parts.done < parts.total
+          setCleanup(running ? { done: parts.done, total: parts.total } : null)
+          if (!running) setTempEpoch((e) => e + 1)
+          return
+        }
         if (latest()) setProgress((p) => (p ? { ...p, parts } : p))
       }
       const [exported, base] = await Promise.all([svc.exportTranslations(name, onParts), svc.baseLanguage()])
@@ -433,6 +456,8 @@ export function StudioView({ notify, onRun }: { notify: Notify; onRun: () => voi
       {solutionName === DEFAULT_SOLUTION ? <div className="notice notice--warn">{S.scope.defaultWarn}</div> : null}
       {chosen?.isManaged ? <div className="notice notice--warn">{S.scope.managedWarn}</div> : null}
       {loadError ? <div className="notice notice--error">{loadError}</div> : null}
+      {cleanup ? <div className="notice temp">{S.temp.running(cleanup.done, cleanup.total)}</div> : null}
+      {cleanup ? null : <TempSolutionsPanel mode="studio" refresh={tempEpoch} />}
       {noPrivilege ? <div className="notice notice--warn">{S.apply.privilege}</div> : null}
       {progress ? <LoadProgress state={progress} onCancel={cancelLoad} /> : null}
 

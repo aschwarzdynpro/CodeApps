@@ -345,8 +345,17 @@ brauchte 168–304 s. Deshalb exportiert die App große Solutions in Teilen
 - **Aufräumen.** Löschen einer Solution ist eine Deinstallation; parallel
   lehnt Dataverse ab („Cannot start another [Uninstall]“, 429). Die App
   löscht nacheinander mit Wiederholung, nach dem Laden im Hintergrund
-  (~5 s je Hilfs-Solution). Bleiben Hilfs-Solutions übrig (Tab
-  geschlossen), löscht der nächste Export Reste, die älter als 3 h sind.
+  (~5 s je Hilfs-Solution), sichtbar als „Hilfs-Solutions werden gelöscht:
+  n von m“; solange fragt der Browser vor dem Schließen des Tabs.
+- **Abgebrochene Läufe.** In Waldmann DEV blieben am 2026-10-08 zwölf
+  Hilfs-Solutions liegen: ein Lauf hatte nach 17 Tabellen aufgehört
+  (Tab geschlossen oder ein Aufruf ohne Antwort) und kam nie zum
+  Aufräumen. Seitdem hat jeder Aufruf ein Zeitlimit (90 s, Export eines
+  Teils 240 s), damit ein hängender Aufruf im Aufräumen endet. Reste, die
+  älter als 15 Minuten sind, zeigt die App beim Öffnen mit „Jetzt
+  aufräumen“ an, die Seite „Einrichtung“ immer (Abschnitt
+  „Hilfs-Solutions“), und der nächste Export in Teilen löscht sie mit.
+  Gelöscht werden nur die Hüllen, die Komponenten bleiben unverändert.
 - **Rechte.** Anlegen und Löschen von Solutions braucht Customizer-Rechte.
   Fehlen sie, versucht die App den Export in einem Aufruf.
 - **Live in der Code App noch zu bestätigen:** `POST solutions`,

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { exportInParts, planChunks, type ChunkComponent, type ChunkDeps } from './chunkedExport'
+import { deleteOneByOne, exportInParts, planChunks, withTimeout, type ChunkComponent, type ChunkDeps } from './chunkedExport'
 import { cellTexts } from '../utils/mergeTranslations'
 
 const cell = (t: string) => `<Cell><Data ss:Type="String">${t}</Data></Cell>`
@@ -93,5 +93,31 @@ describe('exportInParts', () => {
     deps.exportXml = vi.fn(async () => Promise.reject(new Error('Invocation of API timed out')))
     await expect(exportInParts('Big', deps, { sleep: async () => {}, newRunId: () => 'r' })).rejects.toThrow(/timed out/)
     await vi.waitFor(() => expect((deps.deleteSolution as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2))
+  })
+})
+
+describe('cleanup helpers', () => {
+  it('deletes one after another, retries while another uninstall runs, counts failures', async () => {
+    const order: string[] = []
+    let busy = 1
+    const remove = vi.fn(async (id: string) => {
+      if (id === 'b' && busy-- > 0) throw new Error('429 Cannot start another [Uninstall]')
+      if (id === 'c') throw new Error('0x80040220 no privilege')
+      order.push(id)
+    })
+    const steps: string[] = []
+    const res = await deleteOneByOne(['a', 'b', 'c'], remove, { sleep: async () => {}, onProgress: (d, t) => steps.push(`${d}/${t}`) })
+    expect(res).toEqual({ deleted: 2, failed: 1 })
+    expect(order).toEqual(['a', 'b'])
+    expect(steps).toEqual(['0/3', '1/3', '2/3', '3/3'])
+  })
+
+  it('ends a call that never answers, so the run reaches its cleanup', async () => {
+    vi.useFakeTimers()
+    const never = new Promise<string>(() => {})
+    const check = expect(withTimeout(never, 90_000, 'Komponente hinzufügen')).rejects.toThrow(/keine Antwort nach 90 s/)
+    await vi.advanceTimersByTimeAsync(90_000)
+    await check
+    vi.useRealTimers()
   })
 })

@@ -7,6 +7,7 @@ import { readTranslationZip } from '../utils/translationZip'
 import { languageLabel } from '../utils/languages'
 import { Btn, Select } from './ui'
 import { S } from '../strings'
+import { TempSolutionsPanel } from './TempSolutionsPanel'
 
 const loadChecks = (svc: TranslationService) => svc.checkSetup()
 const listSolutions = (svc: TranslationService) => svc.listSolutions()
@@ -80,6 +81,8 @@ export function SetupView() {
           </li>
         ))}
       </ul>
+
+      <TempSolutionsPanel mode="setup" />
 
       <h2>{S.setup.probeTitle}</h2>
       <p className="muted small">{S.setup.probeIntro}</p>

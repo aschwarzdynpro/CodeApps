@@ -19,6 +19,11 @@ import { mergeTranslationXml, type ExtraLabel } from '../utils/mergeTranslations
  *   tables in; app actions (`appaction`) drag ~200 tables, so their labels are
  *   read with `RetrieveLocLabels` instead.
  * - Deleting a solution is an uninstall: one at a time (else 429).
+ * - A run that is cut off (tab closed, a call that never returns) leaves its
+ *   temporary solutions behind (Waldmann DEV, 2026-10-08: 12 after the
+ *   adding stalled). Every call has a time limit, so a hanging one ends in
+ *   the cleanup; left-overs older than {@link STALE_MINUTES} minutes are
+ *   offered for deletion (studio, setup page) and removed by the next run.
  */
 
 export interface ChunkComponent {
@@ -36,6 +41,12 @@ export interface ChunkPlan {
 }
 
 export const TABLES_PER_PART = 20
+/** Prefix of the temporary solutions. */
+export const TEMP_PREFIX = 'tsexport_'
+/** Temporary solutions older than this belong to a run that was cut off (a run takes minutes). */
+export const STALE_MINUTES = 15
+/** Time limits per call (ms): the host ends calls after 180 s, but a call it never answers would stall the run. */
+const LIMIT = { short: 90_000, export: 240_000 }
 const TABLE = 1
 const APP_ACTION = 10205
 /** Non-table components with labels, grouped so that the ones dragging tables (processes, apps) don't slow the rest. */
@@ -65,14 +76,15 @@ export interface ChunkDeps {
   /** `CrmTranslations.xml` of a solution. */
   exportXml(uniqueName: string): Promise<string>
   deleteSolution(id: string): Promise<void>
-  /** Temporary solutions of earlier runs that were left behind (closed tab), older than a few hours. */
+  /** Temporary solutions of earlier runs that were left behind (closed tab), older than {@link STALE_MINUTES}. */
   staleSolutions(): Promise<string[]>
   /** Labels of a localizable column per LCID (`RetrieveLocLabels`). */
   labels(entitySet: string, id: string, column: string): Promise<Record<number, string>>
 }
 
 export interface ChunkProgress {
-  step: 'prepare' | 'add' | 'export' | 'merge'
+  /** `cleanup` comes after the result: deleting the temporary solutions. */
+  step: 'prepare' | 'add' | 'export' | 'merge' | 'cleanup'
   done: number
   total: number
 }
@@ -97,6 +109,49 @@ const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(r
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
 /** Deadlocks while adding in parallel, throttling, an uninstall still running. */
 const TRANSIENT = /\b1205\b|deadlock|0x80044150|\b429\b|\b503\b|0x80071151|too many requests|another \[uninstall\]/i
+
+/** Rejects when `promise` takes longer than `ms` (the call itself may still run on the server). */
+export function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${what}: keine Antwort nach ${Math.round(ms / 1000)} s.`)), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (err: unknown) => {
+        clearTimeout(timer)
+        reject(err instanceof Error ? err : new Error(String(err)))
+      },
+    )
+  })
+}
+
+/**
+ * Deletes temporary solutions one after another — a delete is an uninstall,
+ * Dataverse refuses a second one in parallel (429) — retrying while one runs.
+ */
+export async function deleteOneByOne(
+  ids: string[],
+  remove: (id: string) => Promise<void>,
+  o: { sleep?: (ms: number) => Promise<void>; onProgress?: (done: number, total: number) => void } = {},
+): Promise<{ deleted: number; failed: number }> {
+  const sleep = o.sleep ?? defaultSleep
+  let deleted = 0
+  let failed = 0
+  o.onProgress?.(0, ids.length)
+  for (const id of ids) {
+    try {
+      await persist(() => withTimeout(remove(id), LIMIT.short, 'Hilfs-Solution löschen'), sleep, 40, 1500)
+      deleted++
+    } catch (err) {
+      failed++
+      console.warn('[translation] temporary solution not deleted', id, err)
+    }
+    o.onProgress?.(deleted + failed, ids.length)
+  }
+  return { deleted, failed }
+}
 
 async function pool<T>(items: T[], limit: number, fn: (item: T, index: number) => Promise<void>): Promise<void> {
   let next = 0
@@ -139,22 +194,15 @@ export async function exportInParts(solutionName: string, deps: ChunkDeps, o: Ch
 
   const run = (o.newRunId ?? (() => Math.random().toString(36).slice(2, 8)))()
   const created: string[] = []
-  const cleanup = (): Promise<void> =>
-    (async () => {
-      // Uninstalls run one at a time; left-overs of earlier runs go with them.
-      for (const id of [...created, ...stale]) {
-        try {
-          await persist(() => deps.deleteSolution(id), sleep, 40, 1500)
-        } catch (err) {
-          console.warn('[translation] temporary solution not deleted', id, err)
-        }
-      }
-    })()
+  // Uninstalls run one at a time; left-overs of earlier runs go with them.
+  const cleanup = async (): Promise<void> => {
+    await deleteOneByOne([...created, ...stale], deps.deleteSolution, { sleep, onProgress: (done, total) => progress('cleanup', done, total) })
+  }
 
   try {
     const names = plan.parts.map((_, i) => `tsexport_${run}_${i}`)
     await pool(names, parallel, async (name) => {
-      created.push(await deps.createSolution(name, solution.publisherId))
+      created.push(await withTimeout(deps.createSolution(name, solution.publisherId), LIMIT.short, 'Hilfs-Solution anlegen'))
     })
 
     // Bare tables; the rest with its subcomponents, or bare when that fails (a custom API whose plug-in can't be added).
@@ -163,7 +211,7 @@ export async function exportInParts(solutionName: string, deps: ChunkDeps, o: Ch
     const failed = new Map<number, number>()
     progress('add', 0, items.length)
     await pool(items, parallel, async ({ c, name }) => {
-      const add = (bare: boolean) => persist(() => deps.addComponent(name, c, bare), sleep, 6, 700)
+      const add = (bare: boolean) => persist(() => withTimeout(deps.addComponent(name, c, bare), LIMIT.short, 'Komponente hinzufügen'), sleep, 6, 700)
       try {
         await add(c.type === TABLE)
       } catch (err) {
@@ -183,7 +231,7 @@ export async function exportInParts(solutionName: string, deps: ChunkDeps, o: Ch
     let exported = 0
     progress('export', 0, names.length)
     await pool(names, parallel, async (name, i) => {
-      xmls[i] = await deps.exportXml(name)
+      xmls[i] = await withTimeout(deps.exportXml(name), LIMIT.export, `Teil ${i + 1} exportieren`)
       progress('export', ++exported, names.length)
     })
 
@@ -194,7 +242,7 @@ export async function exportInParts(solutionName: string, deps: ChunkDeps, o: Ch
     await pool(plan.actions, parallel, async (a) => {
       for (const column of APP_ACTION_COLUMNS) {
         try {
-          const texts = await deps.labels('appactions', a.id, column)
+          const texts = await withTimeout(deps.labels('appactions', a.id, column), LIMIT.short, 'Beschriftungen lesen')
           if (Object.values(texts).some((t) => t)) extra.push({ group: 'appaction', objectId: a.id, column, texts })
         } catch (err) {
           missingActions++
@@ -204,7 +252,7 @@ export async function exportInParts(solutionName: string, deps: ChunkDeps, o: Ch
     })
     if (missingActions > 0) warnings.push(`Beschriftungen von Befehlsleisten-Aktionen (appaction) nicht vollständig lesbar — ${missingActions} Abfrage(n) fehlgeschlagen.`)
     try {
-      const texts = await deps.labels('solutions', solution.id, 'friendlyname')
+      const texts = await withTimeout(deps.labels('solutions', solution.id, 'friendlyname'), LIMIT.short, 'Beschriftungen lesen')
       if (Object.values(texts).some((t) => t)) extra.push({ group: 'Solution', objectId: solution.id, column: 'friendlyname', texts })
     } catch {
       // The solution's display name only — not worth a warning.

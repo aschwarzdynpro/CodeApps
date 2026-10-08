@@ -234,6 +234,7 @@ export const S = {
       add: (done: number, total: number) => `Teile vorbereiten: ${done.toLocaleString('de-DE')} von ${total.toLocaleString('de-DE')} Komponenten`,
       export: (done: number, total: number) => `In Teilen exportieren: ${done} von ${total} fertig`,
       merge: () => 'Teile zusammenführen …',
+      cleanup: (done: number, total: number) => `Hilfs-Solutions löschen: ${done} von ${total}`,
     },
     partsHint:
       'Ein Export in einem Aufruf würde das Zeitlimit von 180 s überschreiten. Die App legt dafür kurz Hilfs-Solutions (tsexport_…) an und löscht sie danach; die Komponenten selbst bleiben unverändert.',
@@ -384,6 +385,22 @@ export const S = {
     unify: 'vereinheitlichen',
     show: 'In der Matrix zeigen',
     unified: (n: number) => `${plural(n, 'Zelle', 'Zellen')} vereinheitlicht.`,
+  },
+
+  temp: {
+    title: 'Hilfs-Solutions',
+    intro: `Große Solutions exportiert die App in Teilen über kurzlebige Hilfs-Solutions (tsexport_…), die sie danach löscht. Bricht ein Export ab — Tab geschlossen, ein Aufruf ohne Antwort —, bleiben sie liegen. Gelöscht werden nur die Hüllen, die Komponenten bleiben unverändert.`,
+    none: 'Keine übrig gebliebenen Hilfs-Solutions.',
+    leftover: (n: number, by: string, at: string) =>
+      `${n === 1 ? 'Eine Hilfs-Solution' : `${n} Hilfs-Solutions`} eines abgebrochenen Exports ${n === 1 ? 'liegt' : 'liegen'} noch in der Umgebung (tsexport_…, ${by ? `${by}, ` : ''}${at}).`,
+    why: 'Löschen entfernt nur die Hüllen, die Komponenten bleiben unverändert.',
+    young: (n: number) => `${n} jüngere gehören vermutlich zu einem Export, der gerade läuft — die bleiben.`,
+    clean: 'Jetzt aufräumen',
+    cleaning: (done: number, total: number) => `Lösche ${done} von ${total} …`,
+    running: (done: number, total: number) =>
+      `Hilfs-Solutions des Exports werden gelöscht: ${done} von ${total} — bitte den Tab offen lassen, bis das fertig ist (je etwa 5 s).`,
+    done: (n: number) => `${n === 1 ? 'Eine Hilfs-Solution' : `${n} Hilfs-Solutions`} gelöscht.`,
+    partly: (deleted: number, failed: number) => `${deleted} gelöscht, ${failed} nicht — später noch einmal versuchen (läuft gerade eine andere Deinstallation?).`,
   },
 
   history: {

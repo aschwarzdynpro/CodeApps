@@ -121,6 +121,10 @@ export const mockTranslationService: TranslationService = {
     return delay({ asyncOperationId: id }, 300)
   },
 
+  // The mock exports in one piece: never any temporary solutions.
+  listTempSolutions: () => delay([]),
+  deleteTempSolutions: async (ids) => delay({ deleted: ids.length, failed: 0 }),
+
   async getAsyncOperation(id) {
     const started = publishes.get(id)
     if (started === undefined) return delay(null, 80)

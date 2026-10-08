@@ -276,6 +276,11 @@ XML, Node):
     obwohl der Job durchlief. Jetzt entscheidet der Job: Aufruffehler bei
     erfolgreichem Job sind ein Hinweis, ein Timeout beim Veröffentlichen
     heißt „läuft vermutlich weiter“ (Vitest).
+  - **Hilfs-Solutions sicher aufräumen (2026-10-08):** In Waldmann DEV
+    blieben 12 `tsexport_…` eines abgebrochenen Laufs liegen (gelöscht).
+    Jetzt: Zeitlimit je Aufruf, Aufräumen mit Fortschritt und
+    Schließen-Warnung, Reste ab 15 Minuten mit „Jetzt aufräumen“ im Studio
+    und unter „Einrichtung“, der nächste Export räumt sie mit (Vitest).
   - **Import sichtbar am Leben (2026-10-05):** Beim asynchronen
     Übersetzungsimport bleibt der Importjob bis zum Ende bei 0 % (live:
     WaldmannCore, Systemauftrag „In Bearbeitung“, Job 0 %) — der Dialog sah

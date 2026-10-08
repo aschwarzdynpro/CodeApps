@@ -10,6 +10,7 @@ import type {
   SetupCheck,
   SolutionRef,
   StartedAction,
+  TempSolution,
   TranslationFile,
   ViewRecord,
 } from '../types/translation'
@@ -61,6 +62,10 @@ export interface TranslationService {
   publishAll(): Promise<StartedAction>
   /** A system job; null while it isn't readable (yet). */
   getAsyncOperation(id: string): Promise<AsyncOperationState | null>
+  /** Temporary solutions of chunked exports (`tsexport_…`) in the environment, oldest first. */
+  listTempSolutions(): Promise<TempSolution[]>
+  /** Deletes temporary solutions one after another; the components stay untouched. */
+  deleteTempSolutions(ids: string[], onProgress?: (done: number, total: number) => void): Promise<{ deleted: number; failed: number }>
   /** Environment checks for the setup page (without the export probe). */
   checkSetup(): Promise<SetupCheck[]>
 }

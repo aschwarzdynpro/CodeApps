@@ -132,6 +132,16 @@ export interface SolutionRef {
   publisher: string
 }
 
+/** A temporary solution of the chunked export (`tsexport_…`). */
+export interface TempSolution {
+  id: string
+  uniqueName: string
+  /** ISO time; null when not readable. */
+  createdOn: string | null
+  /** Display name of the user whose run created it. */
+  createdBy: string
+}
+
 /** A system job (`asyncoperation`), e.g. of `PublishAllXmlAsync`. */
 export interface AsyncOperationState {
   id: string
